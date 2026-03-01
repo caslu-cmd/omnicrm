@@ -6,6 +6,7 @@ import {
   FileText, Download, Bell, Palette, Monitor
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const tabs = [
   { key: "org", label: "Organização", icon: Settings },
