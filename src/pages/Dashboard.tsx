@@ -1,8 +1,10 @@
 import { motion } from "framer-motion";
+import { useNavigate } from "react-router-dom";
 import {
   MessageSquare, Users, GitBranch, TrendingUp, Mail, Calendar,
   ArrowUpRight, ArrowDownRight, Clock, Zap
 } from "lucide-react";
+import { toast } from "sonner";
 
 const stats = [
   { label: "Conversas Ativas", value: "247", change: "+12%", up: true, icon: MessageSquare, color: "primary" },
@@ -47,6 +49,22 @@ const colorMap: Record<string, string> = {
 };
 
 const Dashboard = () => {
+  const navigate = useNavigate();
+
+  const ctaActions: Record<string, () => void> = {
+    "Novo Lead": () => navigate("/contacts"),
+    "Nova Automação": () => navigate("/automations"),
+    "Novo Broadcast": () => navigate("/campaigns"),
+  };
+
+  const activityRoutes: Record<string, string> = {
+    message: "/inbox",
+    deal: "/pipelines",
+    email: "/campaigns",
+    contact: "/contacts",
+    automation: "/automations",
+  };
+
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="p-6 space-y-6">
       {/* Header */}
@@ -58,7 +76,12 @@ const Dashboard = () => {
       {/* Stats */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((s) => (
-          <motion.div key={s.label} variants={item} className="rounded-xl bg-card border border-border p-5 shadow-card hover:shadow-elevated transition-shadow">
+          <motion.div key={s.label} variants={item} onClick={() => {
+            if (s.label === "Conversas Ativas") navigate("/inbox");
+            else if (s.label === "Novos Contatos") navigate("/contacts");
+            else if (s.label === "Deals no Pipeline") navigate("/pipelines");
+            else navigate("/reports");
+          }} className="rounded-xl bg-card border border-border p-5 shadow-card hover:shadow-elevated transition-shadow cursor-pointer">
             <div className="flex items-center justify-between mb-3">
               <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${colorMap[s.color]}`}>
                 <s.icon className="h-5 w-5" />
@@ -80,7 +103,7 @@ const Dashboard = () => {
           <h2 className="text-base font-semibold font-display text-foreground mb-4">Atividade Recente</h2>
           <div className="space-y-3">
             {recentActivity.map((a) => (
-              <div key={a.id} className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors">
+              <div key={a.id} onClick={() => navigate(activityRoutes[a.type] || "/")} className="flex items-start gap-3 p-3 rounded-lg hover:bg-muted/50 transition-colors cursor-pointer">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-muted-foreground">
                   {a.avatar}
                 </div>
@@ -101,7 +124,7 @@ const Dashboard = () => {
             <h2 className="text-base font-semibold font-display text-foreground mb-4">Top Deals</h2>
             <div className="space-y-3">
               {topDeals.map((d) => (
-                <div key={d.name} className="flex items-center justify-between p-3 rounded-lg bg-muted/40">
+                <div key={d.name} onClick={() => navigate("/pipelines")} className="flex items-center justify-between p-3 rounded-lg bg-muted/40 cursor-pointer hover:bg-muted/60 transition-colors">
                   <div>
                     <p className="text-sm font-medium text-foreground">{d.name}</p>
                     <p className="text-xs text-muted-foreground">{d.company} · {d.stage}</p>
@@ -126,7 +149,7 @@ const Dashboard = () => {
             </h2>
             <div className="space-y-2.5">
               {upcomingMeetings.map((m) => (
-                <div key={m.title} className="flex items-center justify-between p-2.5 rounded-lg border border-border">
+                <div key={m.title} onClick={() => navigate("/scheduling")} className="flex items-center justify-between p-2.5 rounded-lg border border-border cursor-pointer hover:bg-muted/30 transition-colors">
                   <div>
                     <p className="text-sm font-medium text-foreground">{m.title}</p>
                     <p className="text-xs text-muted-foreground">{m.time}</p>
@@ -148,6 +171,7 @@ const Dashboard = () => {
         ].map((cta) => (
           <button
             key={cta.label}
+            onClick={() => ctaActions[cta.label]()}
             className="flex items-center gap-4 rounded-xl bg-card border border-border p-5 shadow-card hover:shadow-elevated hover:border-primary/30 transition-all text-left group"
           >
             <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${colorMap[cta.color]} group-hover:scale-105 transition-transform`}>

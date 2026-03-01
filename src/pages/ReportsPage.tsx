@@ -6,6 +6,7 @@ import {
   ArrowDownRight, Target, Layers, Zap, Plus, CheckCircle2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import {
   AreaChart, Area, BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend

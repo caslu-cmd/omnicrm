@@ -5,6 +5,7 @@ import {
   RefreshCw, Zap
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface Connector {
   id: number;
@@ -16,7 +17,7 @@ interface Connector {
   status?: "active" | "error";
 }
 
-const connectors: Connector[] = [
+const initialConnectors: Connector[] = [
   { id: 1, name: "WhatsApp Business", category: "Mensageria", description: "Meta Business API para envio e recebimento de mensagens", icon: "💬", connected: true, status: "active" },
   { id: 2, name: "Google Calendar", category: "Produtividade", description: "Sincronize agendamentos e reuniões automaticamente", icon: "📅", connected: true, status: "active" },
   { id: 3, name: "Stripe", category: "Pagamentos", description: "Cobranças, assinaturas e gestão de pagamentos", icon: "💳", connected: true, status: "active" },
@@ -51,6 +52,7 @@ const item = { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } };
 const IntegrationsPage = () => {
   const [selectedCategory, setSelectedCategory] = useState("Todos");
   const [search, setSearch] = useState("");
+  const [connectors, setConnectors] = useState(initialConnectors);
 
   const filtered = connectors.filter(c => {
     const matchesCategory = selectedCategory === "Todos" || c.category === selectedCategory;
@@ -59,6 +61,28 @@ const IntegrationsPage = () => {
   });
 
   const connectedCount = connectors.filter(c => c.connected).length;
+
+  const handleConnect = (id: number) => {
+    setConnectors(prev => prev.map(c => c.id === id ? { ...c, connected: true, status: "active" as const } : c));
+    const name = connectors.find(c => c.id === id)?.name;
+    toast.success(`${name} conectado com sucesso!`);
+  };
+
+  const handleDisconnect = (id: number) => {
+    setConnectors(prev => prev.map(c => c.id === id ? { ...c, connected: false, status: undefined } : c));
+    const name = connectors.find(c => c.id === id)?.name;
+    toast.info(`${name} desconectado`);
+  };
+
+  const handleSync = (id: number) => {
+    const name = connectors.find(c => c.id === id)?.name;
+    toast.success(`Sincronizando ${name}...`);
+  };
+
+  const handleConfig = (id: number) => {
+    const name = connectors.find(c => c.id === id)?.name;
+    toast.info(`Abrindo configurações de ${name}`);
+  };
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="p-6 space-y-6">
@@ -104,15 +128,15 @@ const IntegrationsPage = () => {
             <p className="text-xs text-muted-foreground mb-4">{c.description}</p>
             {c.connected ? (
               <div className="flex gap-2">
-                <button className="flex-1 py-2 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground flex items-center justify-center gap-1">
+                <button onClick={() => handleConfig(c.id)} className="flex-1 py-2 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground flex items-center justify-center gap-1">
                   <Settings2 className="h-3 w-3" /> Config
                 </button>
-                <button className="flex-1 py-2 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground flex items-center justify-center gap-1">
+                <button onClick={() => handleSync(c.id)} className="flex-1 py-2 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground flex items-center justify-center gap-1">
                   <RefreshCw className="h-3 w-3" /> Sync
                 </button>
               </div>
             ) : (
-              <button className="w-full py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 flex items-center justify-center gap-1">
+              <button onClick={() => handleConnect(c.id)} className="w-full py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 flex items-center justify-center gap-1">
                 <Plus className="h-3 w-3" /> Conectar
               </button>
             )}

@@ -6,6 +6,7 @@ import {
   Smartphone, Monitor, Tablet, ExternalLink, BarChart3
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface Template {
   id: number;
@@ -34,7 +35,7 @@ const templates: Template[] = [
   { id: 6, name: "App Mobile", category: "Tech", preview: "📱", uses: 654 },
 ];
 
-const mySites: Site[] = [
+const initialSites: Site[] = [
   { id: 1, name: "Campanha Black Friday", url: "black-friday.omnicrm.app", status: "published", visits: 4320, conversions: 234, lastEdited: "Hoje" },
   { id: 2, name: "Landing Webinar Março", url: "webinar-marco.omnicrm.app", status: "published", visits: 1890, conversions: 156, lastEdited: "Ontem" },
   { id: 3, name: "Novo Produto 2026", url: "—", status: "draft", visits: 0, conversions: 0, lastEdited: "28 Fev" },
@@ -57,13 +58,26 @@ const item = { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } };
 const SitesPage = () => {
   const [tab, setTab] = useState<"sites" | "templates" | "editor">("sites");
   const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
+  const [sites, setSites] = useState(initialSites);
+
+  const handleDuplicate = (id: number) => {
+    const s = sites.find(x => x.id === id);
+    if (!s) return;
+    setSites(prev => [...prev, { ...s, id: Date.now(), name: `${s.name} (cópia)`, status: "draft", visits: 0, conversions: 0 }]);
+    toast.success("Página duplicada");
+  };
+
+  const handleDelete = (id: number) => {
+    setSites(prev => prev.filter(s => s.id !== id));
+    toast.success("Página removida");
+  };
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="p-6 space-y-6 h-full flex flex-col">
       <motion.div variants={item} className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold font-display text-foreground">Sites & Landing Pages</h1>
-          <p className="text-sm text-muted-foreground mt-1">{mySites.length} páginas · {mySites.reduce((a, b) => a + b.visits, 0).toLocaleString()} visitas total</p>
+          <p className="text-sm text-muted-foreground mt-1">{sites.length} páginas · {sites.reduce((a, b) => a + b.visits, 0).toLocaleString()} visitas total</p>
         </div>
         <button onClick={() => setTab("templates")} className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">
           <Plus className="h-4 w-4" /> Nova Página
@@ -80,7 +94,7 @@ const SitesPage = () => {
 
       {tab === "sites" && (
         <motion.div variants={item} className="space-y-3">
-          {mySites.map(s => (
+          {sites.map(s => (
             <div key={s.id} className="flex items-center gap-4 rounded-xl border border-border bg-card p-5 shadow-card hover:shadow-elevated transition-shadow">
               <div className="flex h-14 w-20 items-center justify-center rounded-lg bg-muted border border-border text-2xl">🌐</div>
               <div className="flex-1 min-w-0">
@@ -91,7 +105,9 @@ const SitesPage = () => {
                   </span>
                 </div>
                 {s.status === "published" && (
-                  <p className="text-xs text-primary flex items-center gap-1 mt-0.5">{s.url} <ExternalLink className="h-3 w-3" /></p>
+                  <p className="text-xs text-primary flex items-center gap-1 mt-0.5 cursor-pointer hover:underline" onClick={() => toast.info(`Abrindo ${s.url}`)}>
+                    {s.url} <ExternalLink className="h-3 w-3" />
+                  </p>
                 )}
                 <p className="text-xs text-muted-foreground mt-0.5">Editado: {s.lastEdited}</p>
               </div>
@@ -104,8 +120,8 @@ const SitesPage = () => {
               )}
               <div className="flex items-center gap-1">
                 <button onClick={() => setTab("editor")} className="p-2 rounded-lg hover:bg-muted text-muted-foreground"><Pencil className="h-4 w-4" /></button>
-                <button className="p-2 rounded-lg hover:bg-muted text-muted-foreground"><Copy className="h-4 w-4" /></button>
-                <button className="p-2 rounded-lg hover:bg-muted text-muted-foreground"><MoreVertical className="h-4 w-4" /></button>
+                <button onClick={() => handleDuplicate(s.id)} className="p-2 rounded-lg hover:bg-muted text-muted-foreground"><Copy className="h-4 w-4" /></button>
+                <button onClick={() => handleDelete(s.id)} className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
               </div>
             </div>
           ))}
@@ -123,7 +139,7 @@ const SitesPage = () => {
                   <span className="text-[11px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">{t.category}</span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">{t.uses.toLocaleString()} usos</p>
-                <button onClick={() => setTab("editor")} className="mt-3 w-full py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity">
+                <button onClick={() => { setTab("editor"); toast.success(`Template "${t.name}" carregado`); }} className="mt-3 w-full py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity">
                   Usar Template
                 </button>
               </div>
@@ -139,7 +155,7 @@ const SitesPage = () => {
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Blocos</h3>
             <div className="grid grid-cols-2 gap-2">
               {editorBlocks.map(b => (
-                <button key={b.label} className="flex flex-col items-center gap-1.5 p-3 rounded-lg border border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors">
+                <button key={b.label} onClick={() => toast.success(`Bloco "${b.label}" adicionado`)} className="flex flex-col items-center gap-1.5 p-3 rounded-lg border border-dashed border-border text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors">
                   <b.icon className="h-5 w-5" />
                   <span className="text-[10px] font-medium">{b.label}</span>
                 </button>
@@ -159,7 +175,7 @@ const SitesPage = () => {
                     </button>
                   ))}
                 </div>
-                <button className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground">Publicar</button>
+                <button onClick={() => toast.success("Página publicada com sucesso!")} className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground">Publicar</button>
               </div>
             </div>
             <div className="flex-1 flex items-start justify-center p-8 overflow-auto bg-muted/20">
@@ -168,7 +184,7 @@ const SitesPage = () => {
                 <div className="bg-primary p-12 text-center">
                   <h2 className="text-2xl font-bold font-display text-primary-foreground mb-2">Black Friday 2026 🔥</h2>
                   <p className="text-primary-foreground/80 text-sm mb-6">Até 60% de desconto em todos os planos</p>
-                  <button className="px-6 py-3 rounded-lg bg-accent text-accent-foreground font-semibold text-sm">Aproveitar Agora</button>
+                  <button onClick={() => toast.success("CTA clicado!")} className="px-6 py-3 rounded-lg bg-accent text-accent-foreground font-semibold text-sm">Aproveitar Agora</button>
                 </div>
                 <div className="p-8 space-y-6">
                   <div className="grid grid-cols-3 gap-4">
@@ -180,7 +196,7 @@ const SitesPage = () => {
                     <p className="text-sm font-medium text-foreground mb-3">Cadastre-se para receber a oferta</p>
                     <div className="flex gap-2 max-w-md mx-auto">
                       <input placeholder="Seu e-mail" className="flex-1 rounded-lg border border-input py-2 px-3 text-sm" />
-                      <button className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium">Enviar</button>
+                      <button onClick={() => toast.success("E-mail capturado!")} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium">Enviar</button>
                     </div>
                   </div>
                 </div>

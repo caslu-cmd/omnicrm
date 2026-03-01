@@ -6,6 +6,7 @@ import {
   Server, Crown, Layers
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const tabs = [
   { key: "users", label: "Usuários & Roles", icon: Users },
