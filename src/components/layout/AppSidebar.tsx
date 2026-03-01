@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Inbox, Users, GitBranch, Zap, Send, Calendar,
   Globe, GraduationCap, CreditCard, BarChart3, Puzzle, Settings,
-  HelpCircle, Shield, ChevronLeft, ChevronRight, Sparkles
+  HelpCircle, Shield, ChevronLeft, ChevronRight, Sparkles, Phone
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -20,6 +20,7 @@ const navItems = [
   { to: "/automations", icon: Zap, label: "Automações" },
   { to: "/campaigns", icon: Send, label: "Campanhas" },
   { to: "/scheduling", icon: Calendar, label: "Agendamentos" },
+  { to: "/voice", icon: Phone, label: "Voz & Chamadas" },
   { to: "/sites", icon: Globe, label: "Sites & LPs" },
   { to: "/members", icon: GraduationCap, label: "Membros" },
   { to: "/payments", icon: CreditCard, label: "Pagamentos" },
