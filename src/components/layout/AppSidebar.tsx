@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Inbox, Users, GitBranch, Zap, Send, Calendar,
   Globe, GraduationCap, CreditCard, BarChart3, Puzzle, Settings,
   HelpCircle, Shield, ChevronLeft, ChevronRight, Sparkles, Phone,
-  Palette, Bell, Crown
+  Palette, Bell, Crown, ArrowLeftRight
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useIsAdmin } from "@/hooks/useAdmin";
@@ -28,6 +28,7 @@ const navItems = [
   { to: "/payments", icon: CreditCard, label: "Pagamentos" },
   { to: "/reports", icon: BarChart3, label: "Relatórios" },
   { to: "/integrations", icon: Puzzle, label: "Integrações" },
+  { to: "/import-export", icon: ArrowLeftRight, label: "Importar/Exportar" },
 ];
 
 const adminItems = [
