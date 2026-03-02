@@ -6,6 +6,7 @@ import {
   HelpCircle, Shield, ChevronLeft, ChevronRight, Sparkles, Phone
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { useIsAdmin } from "@/hooks/useAdmin";
 
 interface AppSidebarProps {
   collapsed: boolean;
@@ -36,6 +37,11 @@ const bottomItems = [
 
 export const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
   const location = useLocation();
+  const { isAdmin } = useIsAdmin();
+
+  const filteredBottomItems = bottomItems.filter(
+    item => item.to !== "/admin" || isAdmin
+  );
 
   return (
     <motion.aside
@@ -102,7 +108,7 @@ export const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
 
       {/* Bottom */}
       <div className="border-t border-sidebar-border py-3 px-2 space-y-0.5">
-        {bottomItems.map((item) => {
+        {filteredBottomItems.map((item) => {
           const isActive = location.pathname === item.to;
           return (
             <NavLink
