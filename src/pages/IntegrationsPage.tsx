@@ -67,14 +67,36 @@ const IntegrationsPage = () => {
   const [configModal, setConfigModal] = useState<string | null>(null);
   const [configValues, setConfigValues] = useState<Record<string, string>>({});
 
+  const invoke = async (action: string, method: "GET" | "POST" = "GET", body?: unknown) => {
+    const projectId = import.meta.env.VITE_SUPABASE_URL?.replace("https://", "").replace(".supabase.co", "") || "";
+    const baseUrl = `https://${projectId}.supabase.co/functions/v1/manage-integrations`;
+    const session = (await supabase.auth.getSession()).data.session;
+    const url = `${baseUrl}?action=${action}`;
+    const res = await fetch(url, {
+      method,
+      headers: {
+        "Authorization": `Bearer ${session?.access_token}`,
+        "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        "Content-Type": "application/json",
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || "Request failed");
+    }
+    return res.json();
+  };
+
   useEffect(() => {
     if (user) fetchIntegrations();
   }, [user]);
 
   const fetchIntegrations = async () => {
-    const { data, error } = await supabase.from("integrations").select("*");
-    if (error) { toast.error("Erro ao carregar integrações"); return; }
-    setIntegrations((data || []) as unknown as IntegrationRow[]);
+    try {
+      const data = await invoke("list");
+      setIntegrations((data || []) as IntegrationRow[]);
+    } catch { toast.error("Erro ao carregar integrações"); }
     setLoading(false);
   };
 
@@ -90,55 +112,53 @@ const IntegrationsPage = () => {
 
   const handleConnect = async (name: string) => {
     if (!user) return;
-    const existing = getIntegration(name);
-    if (existing) {
-      const { error } = await supabase.from("integrations").update({ connected: true, status: "active" }).eq("id", existing.id);
-      if (error) { toast.error("Erro ao conectar"); return; }
-    } else {
-      const { error } = await supabase.from("integrations").insert({ user_id: user.id, connector_name: name, connected: true, status: "active" });
-      if (error) { toast.error("Erro ao conectar"); return; }
-    }
-    toast.success(`${name} conectado com sucesso!`);
-    fetchIntegrations();
+    try {
+      await invoke("toggle", "POST", { connector_name: name, connected: true });
+      toast.success(`${name} conectado com sucesso!`);
+      fetchIntegrations();
+    } catch { toast.error("Erro ao conectar"); }
   };
 
   const handleDisconnect = async (name: string) => {
-    const existing = getIntegration(name);
-    if (!existing) return;
-    const { error } = await supabase.from("integrations").update({ connected: false, status: "inactive" }).eq("id", existing.id);
-    if (error) { toast.error("Erro ao desconectar"); return; }
-    toast.info(`${name} desconectado`);
-    fetchIntegrations();
+    try {
+      await invoke("toggle", "POST", { connector_name: name, connected: false });
+      toast.info(`${name} desconectado`);
+      fetchIntegrations();
+    } catch { toast.error("Erro ao desconectar"); }
   };
 
   const handleSync = async (name: string) => {
-    const existing = getIntegration(name);
-    if (!existing) return;
-    const { error } = await supabase.from("integrations").update({ last_sync: new Date().toISOString() }).eq("id", existing.id);
-    if (error) { toast.error("Erro ao sincronizar"); return; }
-    toast.success(`Sincronizando ${name}...`);
-    fetchIntegrations();
+    try {
+      await invoke("sync", "POST", { connector_name: name });
+      toast.success(`Sincronizando ${name}...`);
+      fetchIntegrations();
+    } catch { toast.error("Erro ao sincronizar"); }
   };
 
-  const openConfig = (name: string) => {
-    const existing = getIntegration(name);
-    setConfigValues(existing?.config || {});
+  const openConfig = async (name: string) => {
+    try {
+      const data = await invoke("get-config&connector=" + encodeURIComponent(name));
+      setConfigValues(data?.config || {});
+    } catch {
+      setConfigValues({});
+    }
     setConfigModal(name);
   };
 
   const saveConfig = async () => {
     if (!configModal || !user) return;
-    const existing = getIntegration(configModal);
-    if (existing) {
-      const { error } = await supabase.from("integrations").update({ config: configValues as any }).eq("id", existing.id);
-      if (error) { toast.error("Erro ao salvar configurações"); return; }
-    } else {
-      const { error } = await supabase.from("integrations").insert({ user_id: user.id, connector_name: configModal, connected: false, status: "inactive", config: configValues as any });
-      if (error) { toast.error("Erro ao salvar configurações"); return; }
-    }
-    toast.success("Configurações salvas!");
-    setConfigModal(null);
-    fetchIntegrations();
+    try {
+      const integration = getIntegration(configModal);
+      await invoke("save-config", "POST", {
+        connector_name: configModal,
+        config: configValues,
+        connected: integration?.connected ?? false,
+        status: integration?.status ?? "inactive",
+      });
+      toast.success("Configurações salvas com segurança!");
+      setConfigModal(null);
+      fetchIntegrations();
+    } catch { toast.error("Erro ao salvar configurações"); }
   };
 
   if (loading) {

@@ -1,1 +1,4 @@
 project_id = "nvucyhngkgxcjmaoqhxq"
+
+[functions.manage-integrations]
+verify_jwt = false
