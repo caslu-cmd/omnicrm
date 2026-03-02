@@ -268,6 +268,46 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_all_profiles: {
+        Args: never
+        Returns: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "profiles"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      get_all_white_label_settings: {
+        Args: never
+        Returns: {
+          accent_color: string | null
+          created_at: string
+          custom_domain: string | null
+          custom_email_templates: Json | null
+          id: string
+          logo_url: string | null
+          platform_name: string | null
+          primary_color: string | null
+          remove_branding: boolean | null
+          secondary_color: string | null
+          updated_at: string
+          user_id: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "white_label_settings"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

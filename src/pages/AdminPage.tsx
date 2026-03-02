@@ -15,7 +15,8 @@ import { Navigate } from "react-router-dom";
 const tabs = [
   { key: "overview", label: "Visão Geral", icon: BarChart3 },
   { key: "users", label: "Usuários & Roles", icon: Users },
-  { key: "whitelabel", label: "White-Label", icon: Palette },
+  { key: "whitelabel", label: "Meu White-Label", icon: Palette },
+  { key: "whitelabel-all", label: "White-Label (Todos)", icon: Eye },
   { key: "billing", label: "Billing", icon: CreditCard },
   { key: "reseller", label: "Programa Reseller", icon: Building },
 ];
@@ -38,6 +39,8 @@ const AdminPage = () => {
   });
   const [saving, setSaving] = useState(false);
   const [users, setUsers] = useState<any[]>([]);
+  const [allWhiteLabel, setAllWhiteLabel] = useState<any[]>([]);
+  const [allProfiles, setAllProfiles] = useState<any[]>([]);
 
   useEffect(() => {
     if (!isAdmin || !user) return;
@@ -76,13 +79,18 @@ const AdminPage = () => {
         }
       });
 
-    // Load profiles as user list
-    supabase
-      .from("profiles")
-      .select("*")
-      .then(({ data }) => {
-        if (data) setUsers(data);
-      });
+    // Load all profiles via RPC (super admin)
+    supabase.rpc("get_all_profiles").then(({ data }) => {
+      if (data) {
+        setUsers(data);
+        setAllProfiles(data);
+      }
+    });
+
+    // Load ALL white label settings via RPC (super admin)
+    supabase.rpc("get_all_white_label_settings").then(({ data }) => {
+      if (data) setAllWhiteLabel(data);
+    });
   }, [isAdmin, user]);
 
   const saveWhiteLabel = async () => {
@@ -294,6 +302,70 @@ const AdminPage = () => {
                     <div className="h-8 rounded-lg px-4 flex items-center text-white text-xs font-medium" style={{ backgroundColor: wlSettings.accent_color }}>Acento</div>
                   </div>
                 </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* White Label - Todos os usuários */}
+          {tab === "whitelabel-all" && (
+            <motion.div variants={item} className="space-y-6">
+              <div className="rounded-xl border border-border bg-card p-6 shadow-card space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-semibold font-display text-foreground flex items-center gap-2">
+                    <Eye className="h-5 w-5 text-primary" /> Configurações White-Label de Todos os Usuários
+                  </h3>
+                  <span className="text-xs text-muted-foreground">{allWhiteLabel.length} configuração(ões)</span>
+                </div>
+                {allWhiteLabel.length === 0 ? (
+                  <p className="text-sm text-muted-foreground py-4 text-center">Nenhuma configuração white-label encontrada.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {allWhiteLabel.map((wl) => {
+                      const ownerProfile = allProfiles.find(p => p.user_id === wl.user_id);
+                      return (
+                        <div key={wl.id} className="rounded-xl border border-border p-5 space-y-3 hover:border-primary/30 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <div className="h-10 w-10 rounded-lg flex items-center justify-center text-white font-bold text-sm" style={{ backgroundColor: wl.primary_color || "#0B6E99" }}>
+                                {(wl.platform_name || "O")[0]}
+                              </div>
+                              <div>
+                                <p className="text-sm font-semibold text-foreground">{wl.platform_name || "OmniCRM"}</p>
+                                <p className="text-xs text-muted-foreground">{ownerProfile?.display_name || "Usuário desconhecido"} · {wl.user_id?.slice(0, 8)}...</p>
+                              </div>
+                            </div>
+                            <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-medium", wl.remove_branding ? "bg-secondary/10 text-secondary" : "bg-muted text-muted-foreground")}>
+                              {wl.remove_branding ? "Branding removido" : "Com branding"}
+                            </span>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3 text-xs">
+                            <div>
+                              <span className="text-muted-foreground">Domínio:</span>{" "}
+                              <span className="font-medium text-foreground">{wl.custom_domain || "—"}</span>
+                            </div>
+                            <div>
+                              <span className="text-muted-foreground">Atualizado:</span>{" "}
+                              <span className="font-medium text-foreground">{new Date(wl.updated_at).toLocaleDateString("pt-BR")}</span>
+                            </div>
+                          </div>
+                          <div className="flex gap-3">
+                            {[
+                              { label: "Primária", color: wl.primary_color },
+                              { label: "Secundária", color: wl.secondary_color },
+                              { label: "Acento", color: wl.accent_color },
+                            ].map(c => (
+                              <div key={c.label} className="flex items-center gap-1.5">
+                                <div className="h-5 w-5 rounded border border-border" style={{ backgroundColor: c.color || "#ccc" }} />
+                                <span className="text-[10px] text-muted-foreground">{c.label}</span>
+                                <span className="text-[10px] font-mono text-foreground">{c.color || "—"}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
