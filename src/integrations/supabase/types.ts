@@ -137,6 +137,42 @@ export type Database = {
         }
         Relationships: []
       }
+      integrations: {
+        Row: {
+          config: Json | null
+          connected: boolean | null
+          connector_name: string
+          created_at: string
+          id: string
+          last_sync: string | null
+          status: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          config?: Json | null
+          connected?: boolean | null
+          connector_name: string
+          created_at?: string
+          id?: string
+          last_sync?: string | null
+          status?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          config?: Json | null
+          connected?: boolean | null
+          connector_name?: string
+          created_at?: string
+          id?: string
+          last_sync?: string | null
+          status?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
