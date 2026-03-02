@@ -3,6 +3,7 @@ import { Search, Bell, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { ProfileMenu } from "./ProfileMenu";
 
 interface TopBarProps {
   onToggleSidebar: () => void;
@@ -104,9 +105,7 @@ export const TopBar = ({ onToggleSidebar }: TopBarProps) => {
               </div>
             )}
           </div>
-          <button onClick={() => toast.info("Menu do perfil em breve")} className="flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-semibold">
-            JP
-          </button>
+          <ProfileMenu />
         </div>
       </header>
 
