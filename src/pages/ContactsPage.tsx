@@ -1,18 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Search, Filter, Download, Upload, Plus, MoreHorizontal, Mail, Phone, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import type { Tables } from "@/integrations/supabase/types";
 
-const initialContacts = [
-  { id: 1, name: "Maria Silva", email: "maria@techsolutions.com", company: "Tech Solutions", phone: "+55 11 99999-0000", channel: "WhatsApp", lastInteraction: "2 min", score: 92, status: "Ativo" },
-  { id: 2, name: "João Pereira", email: "joao@innovationltd.com", company: "Innovation Ltd", phone: "+55 21 98888-1111", channel: "E-mail", lastInteraction: "15 min", score: 78, status: "Ativo" },
-  { id: 3, name: "Ana Costa", email: "ana@designstudio.com", company: "Design Studio", phone: "+55 31 97777-2222", channel: "Instagram", lastInteraction: "1h", score: 65, status: "Novo" },
-  { id: 4, name: "Carlos Mendes", email: "carlos@megacorp.com", company: "Mega Corp", phone: "+55 41 96666-3333", channel: "WhatsApp", lastInteraction: "2h", score: 85, status: "Ativo" },
-  { id: 5, name: "Beatriz Lima", email: "bia@startupx.com", company: "Startup X", phone: "+55 51 95555-4444", channel: "Messenger", lastInteraction: "1 dia", score: 45, status: "Inativo" },
-  { id: 6, name: "Roberto Santos", email: "roberto@globalsa.com", company: "Global SA", phone: "+55 61 94444-5555", channel: "E-mail", lastInteraction: "3 dias", score: 30, status: "Inativo" },
-  { id: 7, name: "Fernanda Oliveira", email: "fer@agenciadigital.com", company: "Agência Digital", phone: "+55 71 93333-6666", channel: "WhatsApp", lastInteraction: "5h", score: 88, status: "Ativo" },
-];
+type Contact = Tables<"contacts">;
 
 const scoreColor = (score: number) => {
   if (score >= 80) return "text-secondary bg-secondary/10";
@@ -30,8 +25,10 @@ const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { st
 const item = { hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } };
 
 const ContactsPage = () => {
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
-  const [contacts, setContacts] = useState(initialContacts);
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [loading, setLoading] = useState(true);
   const [showFilter, setShowFilter] = useState(false);
   const [filterStatus, setFilterStatus] = useState("Todos");
   const [showNewContact, setShowNewContact] = useState(false);
@@ -39,22 +36,39 @@ const ContactsPage = () => {
   const [newEmail, setNewEmail] = useState("");
   const [newCompany, setNewCompany] = useState("");
 
+  useEffect(() => {
+    if (user) fetchContacts();
+  }, [user]);
+
+  const fetchContacts = async () => {
+    const { data, error } = await supabase.from("contacts").select("*").order("created_at", { ascending: false });
+    if (error) { toast.error("Erro ao carregar contatos"); return; }
+    setContacts(data || []);
+    setLoading(false);
+  };
+
   const filtered = contacts.filter(c => {
-    const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) || c.email.toLowerCase().includes(search.toLowerCase()) || c.company.toLowerCase().includes(search.toLowerCase());
+    const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) || (c.email || "").toLowerCase().includes(search.toLowerCase()) || (c.company || "").toLowerCase().includes(search.toLowerCase());
     const matchStatus = filterStatus === "Todos" || c.status === filterStatus;
     return matchSearch && matchStatus;
   });
 
   const activeCount = contacts.filter(c => c.status === "Ativo").length;
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
     if (!newName.trim()) { toast.error("Nome é obrigatório"); return; }
-    const newContact = { id: Date.now(), name: newName, email: newEmail, company: newCompany, phone: "", channel: "WhatsApp", lastInteraction: "Agora", score: 50, status: "Novo" };
-    setContacts(prev => [newContact, ...prev]);
+    if (!user) return;
+    const { error } = await supabase.from("contacts").insert({ user_id: user.id, name: newName, email: newEmail || null, company: newCompany || null });
+    if (error) { toast.error("Erro ao criar contato"); return; }
     setShowNewContact(false);
     setNewName(""); setNewEmail(""); setNewCompany("");
     toast.success(`Contato "${newName}" criado!`);
+    fetchContacts();
   };
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-64"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>;
+  }
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="p-6 space-y-6">
@@ -115,14 +129,14 @@ const ContactsPage = () => {
                       </div>
                     </div>
                   </td>
-                  <td className="px-5 py-3.5 text-sm text-foreground">{c.company}</td>
+                  <td className="px-5 py-3.5 text-sm text-foreground">{c.company || "—"}</td>
                   <td className="px-5 py-3.5 text-sm text-muted-foreground">{c.channel}</td>
-                  <td className="px-5 py-3.5 text-sm text-muted-foreground">{c.lastInteraction}</td>
+                  <td className="px-5 py-3.5 text-sm text-muted-foreground">{c.last_interaction}</td>
                   <td className="px-5 py-3.5">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold ${scoreColor(c.score)}`}>{c.score}</span>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold ${scoreColor(c.score ?? 0)}`}>{c.score}</span>
                   </td>
                   <td className="px-5 py-3.5">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${statusColor(c.status)}`}>{c.status}</span>
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${statusColor(c.status ?? "")}`}>{c.status}</span>
                   </td>
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-1">
