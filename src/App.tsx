@@ -18,6 +18,7 @@ import VoicePage from "@/pages/VoicePage";
 import SitesPage from "@/pages/SitesPage";
 import MembersPage from "@/pages/MembersPage";
 import PaymentsPage from "@/pages/PaymentsPage";
+import ImportExportPage from "@/pages/ImportExportPage";
 import ReportsPage from "@/pages/ReportsPage";
 import IntegrationsPage from "@/pages/IntegrationsPage";
 import SettingsPage from "@/pages/SettingsPage";
@@ -57,6 +58,7 @@ const ProtectedRoutes = () => {
           <Route path="/payments" element={<PaymentsPage />} />
           <Route path="/reports" element={<ReportsPage />} />
           <Route path="/integrations" element={<IntegrationsPage />} />
+          <Route path="/import-export" element={<ImportExportPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/help" element={<HelpPage />} />
           <Route path="/admin" element={<AdminPage />} />
