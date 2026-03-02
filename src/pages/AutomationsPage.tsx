@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Zap, Play, Pause, Clock, GitBranch, Mail, MessageSquare, Phone,
@@ -8,17 +8,18 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
+import type { Tables } from "@/integrations/supabase/types";
+
+type Automation = Tables<"automations">;
 
 interface AutomationTemplate {
   id: number; name: string; description: string; category: string; nodes: number; uses: number; icon: typeof Zap;
 }
 
-interface Automation {
-  id: number; name: string; status: "active" | "paused" | "draft"; runs: number; successRate: number; lastRun: string; trigger: string;
-}
-
 interface WorkflowNode {
-  id: string; type: "trigger" | "condition" | "action" | "delay" | "webhook"; label: string; icon: typeof Zap; x: number; y: number; config?: string;
+  id: string; type: "trigger" | "condition" | "action" | "delay" | "webhook"; label: string; icon: typeof Zap; x: number; y: number;
 }
 
 const templates: AutomationTemplate[] = [
@@ -28,14 +29,6 @@ const templates: AutomationTemplate[] = [
   { id: 4, name: "Resposta Reviews Google", description: "IA responde automaticamente reviews do Google Meu Negócio com tom ajustável", category: "Reputação", nodes: 4, uses: 334, icon: Zap },
   { id: 5, name: "Agendamento Automático", description: "Envia link de agendamento após qualificação no pipeline", category: "Vendas", nodes: 5, uses: 421, icon: Clock },
   { id: 6, name: "Recuperação de Carrinho", description: "Sequência de recuperação via WhatsApp e e-mail com desconto progressivo", category: "E-commerce", nodes: 7, uses: 789, icon: Phone },
-];
-
-const initialAutomations: Automation[] = [
-  { id: 1, name: "Follow-up Leads Quentes", status: "active", runs: 1847, successRate: 94.2, lastRun: "2 min atrás", trigger: "Novo lead no pipeline" },
-  { id: 2, name: "Boas-vindas WhatsApp", status: "active", runs: 3201, successRate: 98.1, lastRun: "15 min atrás", trigger: "Contato criado" },
-  { id: 3, name: "Qualificação Automática", status: "paused", runs: 562, successRate: 87.5, lastRun: "1h atrás", trigger: "Form preenchido" },
-  { id: 4, name: "Resposta Reviews", status: "active", runs: 89, successRate: 96.0, lastRun: "3h atrás", trigger: "Nova review Google" },
-  { id: 5, name: "Re-engajamento Inativos", status: "draft", runs: 0, successRate: 0, lastRun: "Nunca", trigger: "Inativo há 30 dias" },
 ];
 
 const workflowNodes: WorkflowNode[] = [
@@ -67,11 +60,24 @@ const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { st
 const item = { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } };
 
 const AutomationsPage = () => {
+  const { user } = useAuth();
   const [tab, setTab] = useState<"my" | "templates" | "builder">("my");
   const [selectedCategory, setSelectedCategory] = useState("Todos");
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
-  const [automations, setAutomations] = useState(initialAutomations);
+  const [automations, setAutomations] = useState<Automation[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTemplates, setSearchTemplates] = useState("");
+
+  useEffect(() => {
+    if (user) fetchAutomations();
+  }, [user]);
+
+  const fetchAutomations = async () => {
+    const { data, error } = await supabase.from("automations").select("*").order("created_at", { ascending: false });
+    if (error) { toast.error("Erro ao carregar automações"); return; }
+    setAutomations(data || []);
+    setLoading(false);
+  };
 
   const filteredTemplates = templates.filter(t => {
     const matchCat = selectedCategory === "Todos" || t.category === selectedCategory;
@@ -79,35 +85,48 @@ const AutomationsPage = () => {
     return matchCat && matchSearch;
   });
 
-  const toggleStatus = (id: number) => {
-    setAutomations(prev => prev.map(a => {
-      if (a.id !== id) return a;
-      const newStatus = a.status === "active" ? "paused" : "active";
-      toast.success(newStatus === "active" ? `"${a.name}" ativada!` : `"${a.name}" pausada`);
-      return { ...a, status: newStatus as "active" | "paused" };
-    }));
-  };
-
-  const duplicateAutomation = (id: number) => {
+  const toggleStatus = async (id: string) => {
     const auto = automations.find(a => a.id === id);
     if (!auto) return;
-    const dup = { ...auto, id: Date.now(), name: `${auto.name} (cópia)`, status: "draft" as const, runs: 0 };
-    setAutomations(prev => [...prev, dup]);
-    toast.success(`"${auto.name}" duplicada`);
+    const newStatus = auto.status === "active" ? "paused" : "active";
+    const { error } = await supabase.from("automations").update({ status: newStatus }).eq("id", id);
+    if (error) { toast.error("Erro ao atualizar status"); return; }
+    toast.success(newStatus === "active" ? `"${auto.name}" ativada!` : `"${auto.name}" pausada`);
+    fetchAutomations();
   };
 
-  const deleteAutomation = (id: number) => {
+  const duplicateAutomation = async (id: string) => {
     const auto = automations.find(a => a.id === id);
-    setAutomations(prev => prev.filter(a => a.id !== id));
-    toast.success(`"${auto?.name}" removida`);
+    if (!auto || !user) return;
+    const { error } = await supabase.from("automations").insert({
+      user_id: user.id,
+      name: `${auto.name} (cópia)`,
+      status: "draft",
+      trigger_type: auto.trigger_type,
+    });
+    if (error) { toast.error("Erro ao duplicar"); return; }
+    toast.success(`"${auto.name}" duplicada`);
+    fetchAutomations();
   };
+
+  const deleteAutomation = async (id: string) => {
+    const auto = automations.find(a => a.id === id);
+    const { error } = await supabase.from("automations").delete().eq("id", id);
+    if (error) { toast.error("Erro ao remover"); return; }
+    toast.success(`"${auto?.name}" removida`);
+    fetchAutomations();
+  };
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-64"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>;
+  }
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="p-6 space-y-6 h-full flex flex-col">
       <motion.div variants={item} className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold font-display text-foreground">Automações</h1>
-          <p className="text-sm text-muted-foreground mt-1">{automations.filter(a => a.status === "active").length} ativas · {automations.reduce((a, b) => a + b.runs, 0).toLocaleString()} execuções total</p>
+          <p className="text-sm text-muted-foreground mt-1">{automations.filter(a => a.status === "active").length} ativas · {automations.reduce((a, b) => a + (b.runs ?? 0), 0).toLocaleString()} execuções total</p>
         </div>
         <button onClick={() => setTab("builder")} className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"><Plus className="h-4 w-4" /> Nova Automação</button>
       </motion.div>
@@ -120,8 +139,11 @@ const AutomationsPage = () => {
 
       {tab === "my" && (
         <motion.div variants={item} className="space-y-3">
+          {automations.length === 0 && (
+            <div className="text-center py-12 text-muted-foreground text-sm">Nenhuma automação criada ainda. Use um template ou crie uma nova!</div>
+          )}
           {automations.map((auto) => {
-            const status = statusConfig[auto.status];
+            const status = statusConfig[auto.status as keyof typeof statusConfig] || statusConfig.draft;
             const StatusIcon = status.icon;
             return (
               <div key={auto.id} className="flex items-center gap-4 rounded-xl border border-border bg-card p-5 shadow-card hover:shadow-elevated transition-shadow">
@@ -131,11 +153,11 @@ const AutomationsPage = () => {
                     <h3 className="text-sm font-semibold text-foreground">{auto.name}</h3>
                     <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium", status.color)}><StatusIcon className="h-3 w-3" /> {status.label}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">Trigger: {auto.trigger} · Última execução: {auto.lastRun}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Trigger: {auto.trigger_type || "—"} · Última execução: {auto.last_run}</p>
                 </div>
                 <div className="hidden md:flex items-center gap-8 text-center">
-                  <div><p className="text-lg font-bold font-display text-foreground">{auto.runs.toLocaleString()}</p><p className="text-[11px] text-muted-foreground">Execuções</p></div>
-                  <div><p className="text-lg font-bold font-display text-foreground">{auto.successRate}%</p><p className="text-[11px] text-muted-foreground">Sucesso</p></div>
+                  <div><p className="text-lg font-bold font-display text-foreground">{(auto.runs ?? 0).toLocaleString()}</p><p className="text-[11px] text-muted-foreground">Execuções</p></div>
+                  <div><p className="text-lg font-bold font-display text-foreground">{auto.success_rate ?? 0}%</p><p className="text-[11px] text-muted-foreground">Sucesso</p></div>
                 </div>
                 <div className="flex items-center gap-1">
                   <button onClick={() => toggleStatus(auto.id)} className={cn("p-2 rounded-lg hover:bg-muted", auto.status === "active" ? "text-muted-foreground" : "text-secondary")} title={auto.status === "active" ? "Pausar" : "Ativar"}>
@@ -235,24 +257,26 @@ const AutomationsPage = () => {
                       {node.type === "delay" && (<div className="flex gap-2"><div className="flex-1"><label className="text-xs font-medium text-muted-foreground">Tempo</label><input type="number" defaultValue={1} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm" /></div><div className="flex-1"><label className="text-xs font-medium text-muted-foreground">Unidade</label><select className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm"><option>Horas</option><option>Dias</option><option>Minutos</option></select></div></div>)}
                       {node.type === "condition" && (<div><label className="text-xs font-medium text-muted-foreground">Condição</label><select className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm"><option>Abriu e-mail</option><option>Clicou no link</option><option>Respondeu mensagem</option><option>Score acima de</option></select></div>)}
                       <div className="flex gap-2 pt-2">
-                        <button onClick={() => toast.success("Node removido")} className="flex-1 py-2 rounded-lg text-xs font-medium bg-destructive/10 text-destructive hover:bg-destructive/20 flex items-center justify-center gap-1"><Trash2 className="h-3 w-3" /> Remover</button>
-                        <button onClick={() => toast.success("Node duplicado")} className="flex-1 py-2 rounded-lg text-xs font-medium bg-muted text-muted-foreground hover:text-foreground flex items-center justify-center gap-1"><Copy className="h-3 w-3" /> Duplicar</button>
+                        <button onClick={() => toast.success("Configuração salva")} className="flex-1 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium">Salvar</button>
+                        <button onClick={() => setSelectedNode(null)} className="flex-1 py-2 rounded-lg border border-border text-xs font-medium text-muted-foreground">Fechar</button>
                       </div>
                     </div>
                   );
                 })()}
               </>
             ) : (
-              <div className="text-center py-8"><MousePointer className="h-8 w-8 text-muted-foreground/40 mx-auto mb-2" /><p className="text-xs text-muted-foreground">Selecione um node para editar</p></div>
-            )}
-            <div className="border-t border-border pt-4">
-              <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Adicionar Node</h4>
-              <div className="grid grid-cols-2 gap-2">
-                {[{ type: "trigger", label: "Trigger", icon: MousePointer }, { type: "condition", label: "Condição", icon: GitBranch }, { type: "action", label: "Ação", icon: Zap }, { type: "delay", label: "Delay", icon: Timer }, { type: "webhook", label: "Webhook", icon: Webhook }, { type: "action", label: "Filtro", icon: Filter }].map((n, i) => (
-                  <button key={i} onClick={() => toast.success(`Node "${n.label}" adicionado ao canvas`)} className="flex items-center gap-2 p-2.5 rounded-lg border border-dashed border-border text-xs font-medium text-muted-foreground hover:border-primary/40 hover:text-primary transition-colors"><n.icon className="h-3.5 w-3.5" /> {n.label}</button>
-                ))}
+              <div className="space-y-3">
+                <p className="text-xs text-muted-foreground">Clique em um nó para editar suas propriedades</p>
+                <div className="space-y-2">
+                  <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">Adicionar Nó</p>
+                  {[{ icon: MousePointer, label: "Trigger", type: "trigger" }, { icon: Timer, label: "Delay", type: "delay" }, { icon: Mail, label: "Ação", type: "action" }, { icon: GitBranch, label: "Condição", type: "condition" }, { icon: Webhook, label: "Webhook", type: "webhook" }].map(n => (
+                    <button key={n.type} onClick={() => toast.info(`Arraste "${n.label}" para o canvas`)} className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-border hover:bg-muted text-sm text-foreground transition-colors">
+                      <n.icon className="h-4 w-4 text-muted-foreground" /> {n.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}
