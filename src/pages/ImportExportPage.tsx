@@ -138,12 +138,14 @@ const ImportExportPage = () => {
     if (error) { toast.error("Erro ao exportar dados"); setExporting(false); return; }
     if (!data || data.length === 0) { toast.info("Nenhum dado para exportar"); setExporting(false); return; }
 
-    const cols = targetColumns;
+    // Use all columns from the actual data
+    const cols = Object.keys(data[0]);
     const csvRows = [cols.join(",")];
     data.forEach((row: any) => {
       csvRows.push(cols.map(c => {
         const val = row[c] ?? "";
-        return typeof val === "string" && val.includes(",") ? `"${val}"` : String(val);
+        const str = String(val);
+        return str.includes(",") || str.includes('"') || str.includes("\n") ? `"${str.replace(/"/g, '""')}"` : str;
       }).join(","));
     });
 
