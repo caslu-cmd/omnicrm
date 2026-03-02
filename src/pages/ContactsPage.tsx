@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Search, Filter, Download, Upload, Plus, MoreHorizontal, Mail, Phone, X } from "lucide-react";
+import { Search, Filter, Download, Upload, Plus, MoreHorizontal, Mail, Phone, X, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,6 +35,17 @@ const ContactsPage = () => {
   const [newName, setNewName] = useState("");
   const [newEmail, setNewEmail] = useState("");
   const [newCompany, setNewCompany] = useState("");
+  const [newPhone, setNewPhone] = useState("");
+
+  // Edit contact
+  const [editingContact, setEditingContact] = useState<Contact | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [editCompany, setEditCompany] = useState("");
+  const [editPhone, setEditPhone] = useState("");
+  const [editStatus, setEditStatus] = useState("");
+
+  const [menuContactId, setMenuContactId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user) fetchContacts();
@@ -58,11 +69,42 @@ const ContactsPage = () => {
   const handleCreate = async () => {
     if (!newName.trim()) { toast.error("Nome é obrigatório"); return; }
     if (!user) return;
-    const { error } = await supabase.from("contacts").insert({ user_id: user.id, name: newName, email: newEmail || null, company: newCompany || null });
+    const { error } = await supabase.from("contacts").insert({ user_id: user.id, name: newName, email: newEmail || null, company: newCompany || null, phone: newPhone || null });
     if (error) { toast.error("Erro ao criar contato"); return; }
     setShowNewContact(false);
-    setNewName(""); setNewEmail(""); setNewCompany("");
+    setNewName(""); setNewEmail(""); setNewCompany(""); setNewPhone("");
     toast.success(`Contato "${newName}" criado!`);
+    fetchContacts();
+  };
+
+  const handleEditContact = (c: Contact) => {
+    setEditingContact(c);
+    setEditName(c.name);
+    setEditEmail(c.email || "");
+    setEditCompany(c.company || "");
+    setEditPhone(c.phone || "");
+    setEditStatus(c.status || "Novo");
+    setMenuContactId(null);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingContact) return;
+    const { error } = await supabase.from("contacts").update({
+      name: editName, email: editEmail || null, company: editCompany || null,
+      phone: editPhone || null, status: editStatus,
+    }).eq("id", editingContact.id);
+    if (error) { toast.error("Erro ao editar contato"); return; }
+    setEditingContact(null);
+    toast.success("Contato atualizado!");
+    fetchContacts();
+  };
+
+  const handleDeleteContact = async (id: string) => {
+    if (!confirm("Tem certeza que deseja excluir este contato?")) return;
+    const { error } = await supabase.from("contacts").delete().eq("id", id);
+    if (error) { toast.error("Erro ao excluir contato"); return; }
+    setMenuContactId(null);
+    toast.success("Contato excluído!");
     fetchContacts();
   };
 
@@ -108,8 +150,8 @@ const ContactsPage = () => {
               <tr className="border-b border-border bg-muted/30">
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Nome</th>
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Empresa</th>
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Telefone</th>
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Canal</th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Última Interação</th>
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Score</th>
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Status</th>
                 <th className="px-5 py-3"></th>
@@ -121,7 +163,7 @@ const ContactsPage = () => {
                   <td className="px-5 py-3.5">
                     <div className="flex items-center gap-3">
                       <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                        {c.name.split(" ").map(n => n[0]).join("")}
+                        {c.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                       </div>
                       <div>
                         <p className="text-sm font-medium text-foreground">{c.name}</p>
@@ -130,8 +172,8 @@ const ContactsPage = () => {
                     </div>
                   </td>
                   <td className="px-5 py-3.5 text-sm text-foreground">{c.company || "—"}</td>
+                  <td className="px-5 py-3.5 text-sm text-muted-foreground">{c.phone || "—"}</td>
                   <td className="px-5 py-3.5 text-sm text-muted-foreground">{c.channel}</td>
-                  <td className="px-5 py-3.5 text-sm text-muted-foreground">{c.last_interaction}</td>
                   <td className="px-5 py-3.5">
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold ${scoreColor(c.score ?? 0)}`}>{c.score}</span>
                   </td>
@@ -139,10 +181,18 @@ const ContactsPage = () => {
                     <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${statusColor(c.status ?? "")}`}>{c.status}</span>
                   </td>
                   <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-1 relative">
                       <button onClick={() => toast.info(`Enviando e-mail para ${c.name}...`)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground"><Mail className="h-4 w-4" /></button>
                       <button onClick={() => toast.info(`Ligando para ${c.name}...`)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground"><Phone className="h-4 w-4" /></button>
-                      <button onClick={() => toast.info(`Opções para ${c.name}`)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground"><MoreHorizontal className="h-4 w-4" /></button>
+                      <div className="relative">
+                        <button onClick={() => setMenuContactId(menuContactId === c.id ? null : c.id)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground"><MoreHorizontal className="h-4 w-4" /></button>
+                        {menuContactId === c.id && (
+                          <div className="absolute right-0 top-8 z-50 w-36 rounded-lg border border-border bg-card shadow-elevated p-1">
+                            <button onClick={() => handleEditContact(c)} className="w-full text-left px-3 py-1.5 rounded-md text-xs hover:bg-muted text-foreground flex items-center gap-1.5"><Pencil className="h-3 w-3" /> Editar</button>
+                            <button onClick={() => handleDeleteContact(c.id)} className="w-full text-left px-3 py-1.5 rounded-md text-xs hover:bg-destructive/10 text-destructive flex items-center gap-1.5"><Trash2 className="h-3 w-3" /> Excluir</button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </td>
                 </tr>
@@ -155,6 +205,7 @@ const ContactsPage = () => {
         </div>
       </motion.div>
 
+      {/* New Contact Modal */}
       {showNewContact && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-elevated space-y-4">
@@ -164,10 +215,36 @@ const ContactsPage = () => {
             </div>
             <div><label className="text-xs font-medium text-muted-foreground">Nome *</label><input value={newName} onChange={e => setNewName(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
             <div><label className="text-xs font-medium text-muted-foreground">E-mail</label><input value={newEmail} onChange={e => setNewEmail(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
+            <div><label className="text-xs font-medium text-muted-foreground">Telefone</label><input value={newPhone} onChange={e => setNewPhone(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
             <div><label className="text-xs font-medium text-muted-foreground">Empresa</label><input value={newCompany} onChange={e => setNewCompany(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
             <div className="flex gap-3 pt-2">
               <button onClick={() => setShowNewContact(false)} className="flex-1 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground">Cancelar</button>
               <button onClick={handleCreate} className="flex-1 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium">Criar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Contact Modal */}
+      {editingContact && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-elevated space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold font-display text-foreground">Editar Contato</h2>
+              <button onClick={() => setEditingContact(null)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"><X className="h-4 w-4" /></button>
+            </div>
+            <div><label className="text-xs font-medium text-muted-foreground">Nome *</label><input value={editName} onChange={e => setEditName(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
+            <div><label className="text-xs font-medium text-muted-foreground">E-mail</label><input value={editEmail} onChange={e => setEditEmail(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
+            <div><label className="text-xs font-medium text-muted-foreground">Telefone</label><input value={editPhone} onChange={e => setEditPhone(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
+            <div><label className="text-xs font-medium text-muted-foreground">Empresa</label><input value={editCompany} onChange={e => setEditCompany(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
+            <div><label className="text-xs font-medium text-muted-foreground">Status</label>
+              <select value={editStatus} onChange={e => setEditStatus(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm">
+                {["Novo", "Ativo", "Inativo"].map(s => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div className="flex gap-3 pt-2">
+              <button onClick={() => setEditingContact(null)} className="flex-1 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground">Cancelar</button>
+              <button onClick={handleSaveEdit} className="flex-1 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium">Salvar</button>
             </div>
           </div>
         </div>
