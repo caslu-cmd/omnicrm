@@ -1,8 +1,13 @@
 import { useState } from "react";
-import { Outlet, useLocation } from "react-router-dom";
+import { useLocation, useOutlet } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
 import { TopBar } from "./TopBar";
 import { motion, AnimatePresence } from "framer-motion";
+
+const FrozenOutlet = () => {
+  const outlet = useOutlet();
+  return <>{outlet}</>;
+};
 
 export const AppLayout = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -23,7 +28,7 @@ export const AppLayout = () => {
               transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}
               className="h-full"
             >
-              <Outlet />
+              <FrozenOutlet />
             </motion.div>
           </AnimatePresence>
         </main>
