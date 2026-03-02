@@ -1,20 +1,15 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Search, Bell, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { ProfileMenu } from "./ProfileMenu";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/useAuth";
 
 interface TopBarProps {
   onToggleSidebar: () => void;
 }
-
-const notifications = [
-  { id: 1, text: "Maria Silva enviou mensagem via WhatsApp", time: "2 min", read: false },
-  { id: 2, text: "Deal 'Projeto Alpha' movido para Proposta", time: "15 min", read: false },
-  { id: 3, text: "Campanha 'Black Friday' entregue", time: "1h", read: true },
-  { id: 4, text: "Novo contato via landing page", time: "2h", read: true },
-];
 
 export const TopBar = ({ onToggleSidebar }: TopBarProps) => {
   const [showNotifications, setShowNotifications] = useState(false);
@@ -22,8 +17,40 @@ export const TopBar = ({ onToggleSidebar }: TopBarProps) => {
   const [searchValue, setSearchValue] = useState("");
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
-  const [notifList, setNotifList] = useState(notifications);
+  const [notifList, setNotifList] = useState<any[]>([]);
   const navigate = useNavigate();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (!user) return;
+
+    // Load notifications from DB
+    supabase
+      .from("notifications")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false })
+      .limit(20)
+      .then(({ data }) => {
+        if (data) setNotifList(data);
+      });
+
+    // Realtime subscription
+    const channel = supabase
+      .channel("topbar-notifications")
+      .on("postgres_changes", {
+        event: "INSERT",
+        schema: "public",
+        table: "notifications",
+        filter: `user_id=eq.${user.id}`,
+      }, (payload) => {
+        setNotifList(prev => [payload.new as any, ...prev]);
+        toast.info((payload.new as any).title, { description: (payload.new as any).message });
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [user]);
 
   const unreadCount = notifList.filter(n => !n.read).length;
 
@@ -45,7 +72,13 @@ export const TopBar = ({ onToggleSidebar }: TopBarProps) => {
     setContactEmail("");
   };
 
-  const markAllRead = () => {
+  const markAllRead = async () => {
+    if (!user) return;
+    await supabase
+      .from("notifications")
+      .update({ read: true })
+      .eq("user_id", user.id)
+      .eq("read", false);
     setNotifList(prev => prev.map(n => ({ ...n, read: true })));
     toast.success("Todas notificações marcadas como lidas");
   };
@@ -87,20 +120,27 @@ export const TopBar = ({ onToggleSidebar }: TopBarProps) => {
                   <button onClick={markAllRead} className="text-xs text-primary hover:underline">Marcar todas como lidas</button>
                 </div>
                 <div className="max-h-64 overflow-y-auto">
-                  {notifList.map(n => (
-                    <button
-                      key={n.id}
-                      onClick={() => {
-                        setNotifList(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
-                        setShowNotifications(false);
-                        toast.info(n.text);
-                      }}
-                      className={`w-full text-left px-4 py-3 text-sm border-b border-border last:border-0 hover:bg-muted/50 transition-colors ${!n.read ? "bg-primary/5" : ""}`}
-                    >
-                      <p className="text-foreground">{n.text}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{n.time} atrás</p>
-                    </button>
-                  ))}
+                  {notifList.length === 0 ? (
+                    <div className="px-4 py-6 text-center text-sm text-muted-foreground">Nenhuma notificação</div>
+                  ) : (
+                    notifList.map(n => (
+                      <button
+                        key={n.id}
+                        onClick={async () => {
+                          if (!n.read) {
+                            await supabase.from("notifications").update({ read: true }).eq("id", n.id);
+                            setNotifList(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x));
+                          }
+                          setShowNotifications(false);
+                        }}
+                        className={`w-full text-left px-4 py-3 text-sm border-b border-border last:border-0 hover:bg-muted/50 transition-colors ${!n.read ? "bg-primary/5" : ""}`}
+                      >
+                        <p className="font-medium text-foreground">{n.title}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{n.message}</p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{new Date(n.created_at).toLocaleString("pt-BR")}</p>
+                      </button>
+                    ))
+                  )}
                 </div>
               </div>
             )}
