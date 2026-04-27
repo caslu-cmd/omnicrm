@@ -206,6 +206,64 @@ export default function LandingPage() {
         </div>
       </div>
 
+      {/* MARKETING + IA */}
+      <section style={{ padding: "100px 64px", borderBottom: "1px solid rgba(255,255,255,.06)" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+          <div style={{ textAlign: "center", marginBottom: 64 }}>
+            <span style={{ fontFamily: mono, fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" }}>Como funciona</span>
+            <h2 style={{ fontSize: "clamp(30px, 4.5vw, 56px)", fontWeight: 800, lineHeight: 1.06, letterSpacing: "-0.04em", marginTop: 10 }}>
+              Marketing executado<br /><span style={{ color: LIME }}>por inteligência artificial.</span>
+            </h2>
+            <p style={{ fontSize: 16, color: DIM, lineHeight: 1.65, marginTop: 16, maxWidth: 540, margin: "16px auto 0" }}>
+              Cada post, anúncio, artigo e campanha passa por um time de 10 agentes especializados — trabalhando em paralelo, 24 horas por dia, sem parar.
+            </p>
+          </div>
+
+          {/* Flow */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 2, marginBottom: 64 }}>
+            {[
+              { agent: "Carolina", role: "Estratégia",   color: "#FBBF24", desc: "Define o que dizer, para quem e quando", icon: "01" },
+              { agent: "Beatriz",  role: "Copy & Texto", color: "#A78BFA", desc: "Escreve cada palavra para converter",    icon: "02" },
+              { agent: "Isadora",  role: "Design",       color: "#D946EF", desc: "Cria os visuais alinhados à sua marca", icon: "03" },
+              { agent: "Rafaela",  role: "Tráfego Pago", color: "#F97316", desc: "Distribui com ROAS máximo",             icon: "04" },
+              { agent: "Marina",   role: "Publicação",   color: "#60A5FA", desc: "Publica, monitora e responde",          icon: "05" },
+            ].map((s, i) => (
+              <div key={i} style={{ position: "relative" }}>
+                {i < 4 && (
+                  <div style={{ position: "absolute", top: 28, right: -1, width: 2, height: 28, background: `linear-gradient(to bottom, ${s.color}60, transparent)`, zIndex: 1 }} />
+                )}
+                <div style={{ padding: "24px 20px", background: "rgba(255,255,255,.025)", border: `1px solid ${s.color}25`, borderRadius: 14, height: "100%" }}>
+                  <div style={{ fontFamily: mono, fontSize: 10, color: s.color, marginBottom: 12, letterSpacing: "0.06em" }}>{s.icon} · {s.agent}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: OFF, letterSpacing: "-0.02em", marginBottom: 8 }}>{s.role}</div>
+                  <p style={{ fontSize: 13, color: DIM, lineHeight: 1.55 }}>{s.desc}</p>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5, marginTop: 16 }}>
+                    <div style={{ width: 5, height: 5, borderRadius: "50%", background: s.color }} />
+                    <span style={{ fontFamily: mono, fontSize: 9, color: s.color }}>ativo agora</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Result bar */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+            {[
+              { label: "Estratégia → Publicação",  value: "em até 48h",         color: LIME      },
+              { label: "Ciclo de aprovação",        value: "via portal do cliente", color: "#A78BFA" },
+              { label: "Relatório de performance",  value: "semanal, automático",   color: "#34D399" },
+            ].map(r => (
+              <div key={r.label} style={{ display: "flex", alignItems: "center", gap: 16, padding: "20px 24px", border: `1px solid ${r.color}20`, borderRadius: 12, background: `${r.color}06` }}>
+                <div style={{ width: 8, height: 8, borderRadius: "50%", background: r.color, flexShrink: 0 }} />
+                <div>
+                  <div style={{ fontFamily: mono, fontSize: 10, color: r.color, letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4 }}>{r.label}</div>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: OFF, letterSpacing: "-0.02em" }}>{r.value}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* SERVICES */}
       <section id="servicos" style={{ padding: "100px 64px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
