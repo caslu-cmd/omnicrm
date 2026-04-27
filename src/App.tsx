@@ -27,6 +27,7 @@ import AdminPage from "@/pages/AdminPage";
 import AgencyDashboard from "@/pages/AgencyDashboard";
 import ClientWorkspace from "@/pages/ClientWorkspace";
 import ClientPortal from "@/pages/ClientPortal";
+import LandingPage from "@/pages/LandingPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -80,9 +81,10 @@ const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/auth" element={loading ? null : session ? <Navigate to="/" replace /> : <AuthPage />} />
-      {/* Portal do cliente — público, sem autenticação Supabase */}
+      {/* Páginas públicas */}
       <Route path="/portal/:clientId" element={<ClientPortal />} />
       <Route path="/portal" element={<ClientPortal />} />
+      <Route path="/landing" element={<LandingPage />} />
       <Route path="*" element={<ProtectedRoutes />} />
     </Routes>
   );
