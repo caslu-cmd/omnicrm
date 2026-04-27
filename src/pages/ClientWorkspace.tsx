@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
@@ -286,6 +286,7 @@ export default function ClientWorkspace() {
   const [agentFileUrl, setAgentFileUrl] = useState<string | null>(null);
   const [agentFileText, setAgentFileText] = useState<string | null>(null);
   const agentFileRef = useRef<HTMLInputElement>(null);
+  const viewPanelRef = useRef<HTMLDivElement>(null);
   const [expandedFile, setExpandedFile] = useState<string | null>(null);
   const [editingPage, setEditingPage] = useState<string | null>(null);
   const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
@@ -430,6 +431,12 @@ export default function ClientWorkspace() {
       )}
     </div>
   );
+
+  useEffect(() => {
+    if (viewingAgentId && viewPanelRef.current) {
+      setTimeout(() => viewPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 80);
+    }
+  }, [viewingAgentId]);
 
   const toggleTask = (taskId: string) =>
     setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, done: !t.done } : t));
@@ -927,137 +934,13 @@ export default function ClientWorkspace() {
                     <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.2)" }}>{MARKETING_TEAM.length} agentes</span>
                   </div>
 
-                  <div className="grid grid-cols-4 gap-4">
-                    {MARKETING_TEAM.map((agent, i) => {
-                      const task = client.agentTasks[agent.id];
-                      const isWorking = task?.status === "trabalhando";
-                      const isDone = task?.status === "concluído";
-                      const isSelected = selectedAgentId === agent.id;
-                      const isViewing = viewingAgentId === agent.id;
-                      const isActive = isSelected || isViewing;
-
-                      return (
-                        <motion.div key={agent.id}
-                          initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: i * 0.06 }}
-                          className="rounded-2xl p-4 flex flex-col cursor-default"
-                          style={{
-                            background: isActive ? `${agent.color}0d` : "rgba(255,255,255,0.025)",
-                            border: `1px solid ${isActive ? `${agent.color}40` : isWorking ? `${agent.color}28` : "rgba(255,255,255,0.07)"}`,
-                            boxShadow: isActive ? `0 0 32px -10px ${agent.color}40` : isWorking ? `0 0 28px -10px ${agent.color}30` : "none",
-                          }}>
-
-                          {/* Avatar + name */}
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex items-center gap-2.5">
-                              <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
-                                style={{ background: `${agent.color}18`, border: `1px solid ${agent.color}30`, color: agent.color }}>
-                                {agent.initial}
-                              </div>
-                              <div className="min-w-0">
-                                <div className="text-xs font-bold leading-tight" style={{ color: "rgba(255,255,255,0.9)" }}>{agent.name}</div>
-                                <div className="text-[10px] leading-tight" style={{ color: agent.color }}>{agent.role}</div>
-                              </div>
-                            </div>
-                            {isWorking && (
-                              <span className="relative flex h-1.5 w-1.5 flex-shrink-0 mt-1.5">
-                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: agent.color }} />
-                                <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: agent.color }} />
-                              </span>
-                            )}
-                            {isDone && !isWorking && <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-1" style={{ color: "#34D399" }} />}
-                          </div>
-
-                          {/* Skill */}
-                          <div className="text-[10px] mb-3 leading-relaxed" style={{ color: "rgba(255,255,255,0.22)" }}>
-                            {agent.skill}
-                          </div>
-
-                          {/* Current task */}
-                          {task && (
-                            <>
-                              <div className="mb-2.5">
-                                <div className="text-[9px] uppercase tracking-wider mb-1 font-medium"
-                                  style={{ color: isWorking ? agent.color : isDone ? "#34D399" : "rgba(255,255,255,0.2)" }}>
-                                  {isWorking ? "● Fazendo agora" : isDone ? "✓ Concluído" : "○ Aguardando"}
-                                </div>
-                                <p className="text-[11px] leading-relaxed line-clamp-3" style={{ color: "rgba(255,255,255,0.6)" }}>
-                                  {task.current}
-                                </p>
-                              </div>
-
-                              {isWorking && task.progress > 0 && (
-                                <div className="mb-3">
-                                  <div className="flex justify-between mb-1">
-                                    <span className="text-[9px]" style={{ color: "rgba(255,255,255,0.2)" }}>Progresso</span>
-                                    <span className="text-[9px]" style={{ color: agent.color }}>{task.progress}%</span>
-                                  </div>
-                                  <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
-                                    <motion.div className="h-full rounded-full"
-                                      style={{ background: agent.color }}
-                                      initial={{ width: 0 }}
-                                      animate={{ width: `${task.progress}%` }}
-                                      transition={{ duration: 1, ease: "easeOut", delay: 0.3 + i * 0.1 }}
-                                    />
-                                  </div>
-                                </div>
-                              )}
-
-                              {task.recent.length > 0 && (
-                                <div className="space-y-1.5 mb-3 flex-1">
-                                  {task.recent.slice(0, 2).map((r, j) => (
-                                    <div key={j} className="flex items-start gap-1.5">
-                                      <CheckCircle2 className="w-3 h-3 flex-shrink-0 mt-0.5" style={{ color: `${agent.color}60` }} />
-                                      <span className="text-[10px] leading-relaxed" style={{ color: "rgba(255,255,255,0.28)" }}>{r}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </>
-                          )}
-
-                          <div className="mt-auto flex gap-1.5">
-                            <button
-                              onClick={() => {
-                                setViewingAgentId(isViewing ? null : agent.id);
-                                if (!isViewing) setSelectedAgentId(null);
-                              }}
-                              className="flex-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all"
-                              style={{
-                                background: isViewing ? `${agent.color}22` : `${agent.color}08`,
-                                color: agent.color,
-                                border: `1px solid ${isViewing ? `${agent.color}45` : `${agent.color}20`}`,
-                              }}>
-                              {isViewing ? "▲ Fechar" : "Ver"}
-                            </button>
-                            <button
-                              onClick={() => {
-                                setSelectedAgentId(isSelected ? null : agent.id);
-                                setViewingAgentId(null);
-                                setAgentInstruction("");
-                                clearAgentFile();
-                              }}
-                              className="flex-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all"
-                              style={{
-                                background: isSelected ? `${agent.color}22` : `${agent.color}08`,
-                                color: agent.color,
-                                border: `1px solid ${isSelected ? `${agent.color}45` : `${agent.color}20`}`,
-                              }}>
-                              {isSelected ? "▲ Fechar" : "Dar instrução"}
-                            </button>
-                          </div>
-                        </motion.div>
-                      );
-                    })}
-                  </div>
-
-                  {/* ── Painel de visualização ── */}
+                  {/* ── Painel de visualização (acima dos cards) ── */}
                   <AnimatePresence>
                     {viewedAgent && (
-                        <motion.div key={"view-" + viewedAgent.id}
+                        <motion.div ref={viewPanelRef} key={"view-" + viewedAgent.id}
                           initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}
-                          className="mt-4 rounded-2xl overflow-hidden"
+                          className="mb-4 rounded-2xl overflow-hidden"
                           style={{ border: `1px solid ${viewedAgent.color}35`, background: `${viewedAgent.color}06` }}>
 
                           {/* View header */}
@@ -1234,6 +1117,130 @@ export default function ClientWorkspace() {
                         </motion.div>
                     )}
                   </AnimatePresence>
+
+                  <div className="grid grid-cols-4 gap-4">
+                    {MARKETING_TEAM.map((agent, i) => {
+                      const task = client.agentTasks[agent.id];
+                      const isWorking = task?.status === "trabalhando";
+                      const isDone = task?.status === "concluído";
+                      const isSelected = selectedAgentId === agent.id;
+                      const isViewing = viewingAgentId === agent.id;
+                      const isActive = isSelected || isViewing;
+
+                      return (
+                        <motion.div key={agent.id}
+                          initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.06 }}
+                          className="rounded-2xl p-4 flex flex-col cursor-default"
+                          style={{
+                            background: isActive ? `${agent.color}0d` : "rgba(255,255,255,0.025)",
+                            border: `1px solid ${isActive ? `${agent.color}40` : isWorking ? `${agent.color}28` : "rgba(255,255,255,0.07)"}`,
+                            boxShadow: isActive ? `0 0 32px -10px ${agent.color}40` : isWorking ? `0 0 28px -10px ${agent.color}30` : "none",
+                          }}>
+
+                          {/* Avatar + name */}
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
+                                style={{ background: `${agent.color}18`, border: `1px solid ${agent.color}30`, color: agent.color }}>
+                                {agent.initial}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="text-xs font-bold leading-tight" style={{ color: "rgba(255,255,255,0.9)" }}>{agent.name}</div>
+                                <div className="text-[10px] leading-tight" style={{ color: agent.color }}>{agent.role}</div>
+                              </div>
+                            </div>
+                            {isWorking && (
+                              <span className="relative flex h-1.5 w-1.5 flex-shrink-0 mt-1.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: agent.color }} />
+                                <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: agent.color }} />
+                              </span>
+                            )}
+                            {isDone && !isWorking && <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-1" style={{ color: "#34D399" }} />}
+                          </div>
+
+                          {/* Skill */}
+                          <div className="text-[10px] mb-3 leading-relaxed" style={{ color: "rgba(255,255,255,0.22)" }}>
+                            {agent.skill}
+                          </div>
+
+                          {/* Current task */}
+                          {task && (
+                            <>
+                              <div className="mb-2.5">
+                                <div className="text-[9px] uppercase tracking-wider mb-1 font-medium"
+                                  style={{ color: isWorking ? agent.color : isDone ? "#34D399" : "rgba(255,255,255,0.2)" }}>
+                                  {isWorking ? "● Fazendo agora" : isDone ? "✓ Concluído" : "○ Aguardando"}
+                                </div>
+                                <p className="text-[11px] leading-relaxed line-clamp-3" style={{ color: "rgba(255,255,255,0.6)" }}>
+                                  {task.current}
+                                </p>
+                              </div>
+
+                              {isWorking && task.progress > 0 && (
+                                <div className="mb-3">
+                                  <div className="flex justify-between mb-1">
+                                    <span className="text-[9px]" style={{ color: "rgba(255,255,255,0.2)" }}>Progresso</span>
+                                    <span className="text-[9px]" style={{ color: agent.color }}>{task.progress}%</span>
+                                  </div>
+                                  <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+                                    <motion.div className="h-full rounded-full"
+                                      style={{ background: agent.color }}
+                                      initial={{ width: 0 }}
+                                      animate={{ width: `${task.progress}%` }}
+                                      transition={{ duration: 1, ease: "easeOut", delay: 0.3 + i * 0.1 }}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+
+                              {task.recent.length > 0 && (
+                                <div className="space-y-1.5 mb-3 flex-1">
+                                  {task.recent.slice(0, 2).map((r, j) => (
+                                    <div key={j} className="flex items-start gap-1.5">
+                                      <CheckCircle2 className="w-3 h-3 flex-shrink-0 mt-0.5" style={{ color: `${agent.color}60` }} />
+                                      <span className="text-[10px] leading-relaxed" style={{ color: "rgba(255,255,255,0.28)" }}>{r}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </>
+                          )}
+
+                          <div className="mt-auto flex gap-1.5">
+                            <button
+                              onClick={() => {
+                                setViewingAgentId(isViewing ? null : agent.id);
+                                if (!isViewing) setSelectedAgentId(null);
+                              }}
+                              className="flex-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all"
+                              style={{
+                                background: isViewing ? `${agent.color}22` : `${agent.color}08`,
+                                color: agent.color,
+                                border: `1px solid ${isViewing ? `${agent.color}45` : `${agent.color}20`}`,
+                              }}>
+                              {isViewing ? "▲ Fechar" : "Ver"}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedAgentId(isSelected ? null : agent.id);
+                                setViewingAgentId(null);
+                                setAgentInstruction("");
+                                clearAgentFile();
+                              }}
+                              className="flex-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all"
+                              style={{
+                                background: isSelected ? `${agent.color}22` : `${agent.color}08`,
+                                color: agent.color,
+                                border: `1px solid ${isSelected ? `${agent.color}45` : `${agent.color}20`}`,
+                              }}>
+                              {isSelected ? "▲ Fechar" : "Dar instrução"}
+                            </button>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
 
                   {/* ── Painel de instrução individual ── */}
                   <AnimatePresence>
