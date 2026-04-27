@@ -67,14 +67,14 @@ export default function AgencyDashboard() {
               className="text-5xl tracking-tight leading-none mb-2"
               style={{ fontWeight: 700, letterSpacing: "-0.03em" }}
             >
-              Agência{" "}
+              Calu{" "}
               <span style={{
                 background: `linear-gradient(135deg, ${LIME} 0%, #8FD600 100%)`,
                 WebkitBackgroundClip: "text",
                 WebkitTextFillColor: "transparent",
                 fontWeight: 500,
               }}>
-                Caroline Lucas
+                Agência
               </span>
             </h1>
             <p className="text-sm" style={{ color: "rgba(255,255,255,0.3)" }}>

@@ -191,7 +191,7 @@ export const CLIENTS: Client[] = [
     id: "grupo-licita",
     name: "Grupo Licita",
     industry: "Consultoria & Licitações",
-    color: "#3B82F6",
+    color: "#B9FF4B",
     initials: "GL",
     status: "Ativo",
     agentActive: true,
@@ -238,7 +238,7 @@ export const CLIENTS: Client[] = [
       { step: "Briefing do artigo LinkedIn para Beatriz", done: true },
       { step: "Revisão da segmentação das campanhas com Rafaela", done: true },
       { step: "Publicação do artigo e agendamento da semana", done: false, active: true },
-      { step: "Relatório de performance para Caroline Lucas", done: false },
+      { step: "Relatório de performance para Calu Agência", done: false },
       { step: "Pauta editorial de maio com Carolina", done: false },
     ],
     agentTasks: {

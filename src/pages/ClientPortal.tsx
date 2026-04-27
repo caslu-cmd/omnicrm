@@ -117,7 +117,7 @@ function PinScreen({ client, onUnlock }: { client: typeof CLIENTS[0]; onUnlock: 
             <Zap className="w-5 h-5" style={{ color: "#07080A" }} />
           </div>
           <div>
-            <div className="text-sm font-bold text-white">Agência Caroline Lucas</div>
+            <div className="text-sm font-bold text-white">Calu Agência</div>
             <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>Portal exclusivo do cliente</div>
           </div>
         </div>
@@ -503,7 +503,7 @@ export default function ClientPortal() {
           <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "#B9FF4B" }}>
             <Zap className="w-4 h-4" style={{ color: "#07080A" }} />
           </div>
-          <div className="text-sm font-bold" style={{ color: "#111" }}>Agência Caroline Lucas</div>
+          <div className="text-sm font-bold" style={{ color: "#111" }}>Calu Agência</div>
           <div className="w-px h-4 mx-1" style={{ background: "#ddd" }} />
           <div className="flex items-center gap-2">
             <div className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold"
@@ -932,7 +932,7 @@ export default function ClientPortal() {
                   </div>
                   <div className="p-5" style={{ background: "#F0FDF4", borderRight: "1px solid rgba(0,0,0,0.06)" }}>
                     <div className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: "#10B981" }}>
-                      Com a Agência Caroline Lucas
+                      Com a Calu Agência
                     </div>
                     <div className="text-2xl font-black mb-1" style={{ color: "#059669" }}>
                       {client.revenue}
@@ -1065,7 +1065,7 @@ export default function ClientPortal() {
 
         <div className="text-center py-4">
           <p className="text-[11px]" style={{ color: "#bbb" }}>
-            Portal exclusivo · Agência Caroline Lucas · Todas as informações são confidenciais
+            Portal exclusivo · Calu Agência · Todas as informações são confidenciais
           </p>
         </div>
       </div>
