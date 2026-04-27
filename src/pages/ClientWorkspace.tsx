@@ -2,204 +2,191 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
-  Instagram, Facebook, Zap, FileText, Megaphone, Globe, BarChart2,
+  Instagram, Facebook, Zap, FileText, Megaphone, BarChart2,
   CheckCircle2, Clock, TrendingUp, Eye, Heart, Users, ExternalLink,
   Calendar, Image, Film, BookOpen, Bot, Activity, Link2, ListTodo,
-  Plus, Linkedin, MessageCircle, CheckSquare, Circle, AlertCircle,
-  Wifi, WifiOff
+  Plus, Linkedin, MessageCircle, Circle, Send,
+  Wifi, WifiOff, Search, ChevronRight, Mail, Tag, DollarSign,
 } from "lucide-react";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { CLIENTS } from "@/data/agencyData";
 
+// ── Marketing Team Definition ──────────────────────────────────
+const MARKETING_TEAM = [
+  {
+    id: "copywriter",
+    name: "Beatriz",
+    role: "Copywriter",
+    initial: "B",
+    skill: "Copy · Legendas · Roteiros",
+    color: "#A78BFA",
+    description: "Texto que converte — de legendas a artigos e anúncios",
+  },
+  {
+    id: "traffic",
+    name: "Rafaela",
+    role: "Gest. de Tráfego",
+    initial: "R",
+    skill: "Ads · Google · LinkedIn",
+    color: "#F97316",
+    description: "Campanhas pagas com foco em lead qualificado e CPA baixo",
+  },
+  {
+    id: "analyst",
+    name: "Lucas",
+    role: "Analista de Dados",
+    initial: "L",
+    skill: "Métricas · Relatórios · BI",
+    color: "#34D399",
+    description: "Transforma números em decisões estratégicas para o cliente",
+  },
+  {
+    id: "social",
+    name: "Marina",
+    role: "Social Media",
+    initial: "M",
+    skill: "Calendário · UGC · Comunidade",
+    color: "#60A5FA",
+    description: "Presença diária, agendamento e relacionamento nas redes",
+  },
+  {
+    id: "strategist",
+    name: "Carolina",
+    role: "Estrategista",
+    initial: "C",
+    skill: "Posicionamento · Pauta · Brand",
+    color: "#FBBF24",
+    description: "Define o posicionamento e a pauta editorial do cliente",
+  },
+];
+
+// ── CRM Pipeline Stages ────────────────────────────────────────
+const PIPELINE_STAGES = [
+  { id: "prospeccao",  label: "Prospecção",   color: "#60A5FA" },
+  { id: "qualificacao", label: "Qualificação", color: "#A78BFA" },
+  { id: "proposta",    label: "Proposta",      color: "#FBBF24" },
+  { id: "negociacao",  label: "Negociação",    color: "#F97316" },
+  { id: "ganho",       label: "Ganho",         color: "#34D399" },
+] as const;
+
+const STATUS_CONTACT_STYLE: Record<string, { color: string; bg: string }> = {
+  Lead:        { color: "#60A5FA", bg: "rgba(96,165,250,0.12)" },
+  Qualificado: { color: "#FBBF24", bg: "rgba(251,191,36,0.12)" },
+  Cliente:     { color: "#34D399", bg: "rgba(52,211,153,0.12)" },
+  Inativo:     { color: "#94A3B8", bg: "rgba(148,163,184,0.12)" },
+};
+
 const ACTIVITY_ICONS: Record<string, typeof Zap> = {
-  content: FileText,
-  campaign: Megaphone,
-  report: BarChart2,
-  analysis: TrendingUp,
+  content: FileText, campaign: Megaphone, report: BarChart2, analysis: TrendingUp,
 };
-
 const ACTIVITY_COLORS: Record<string, string> = {
-  content: "#A78BFA",
-  campaign: "#F97316",
-  report: "#34D399",
-  analysis: "#60A5FA",
+  content: "#A78BFA", campaign: "#F97316", report: "#34D399", analysis: "#60A5FA",
+};
+const POST_TYPE_ICONS: Record<string, typeof Image> = {
+  Feed: Image, Story: BookOpen, Reels: Film,
 };
 
-const POST_TYPE_ICONS: Record<string, typeof Image> = {
-  Feed: Image,
-  Story: BookOpen,
-  Reels: Film,
+const PRIORITY_STYLE: Record<string, { color: string; bg: string; label: string }> = {
+  alta:  { color: "#F87171", bg: "rgba(248,113,113,0.1)", label: "Alta" },
+  media: { color: "#FBBF24", bg: "rgba(251,191,36,0.1)",  label: "Média" },
+  baixa: { color: "#34D399", bg: "rgba(52,211,153,0.1)",  label: "Baixa" },
 };
+
+const MOCK_TASKS_BY_CLIENT: Record<string, typeof MOCK_TASKS_TEMPLATE> = {};
+const MOCK_TASKS_TEMPLATE = [
+  { id: "1", text: "Revisar artigo antes de publicar", priority: "alta",  done: false, due: "Hoje" },
+  { id: "2", text: "Aprovar criativos das campanhas",  priority: "alta",  done: false, due: "Amanhã" },
+  { id: "3", text: "Enviar relatório mensal ao cliente", priority: "media", done: true,  due: "Hoje" },
+  { id: "4", text: "Conectar LinkedIn da empresa",     priority: "baixa", done: false, due: "02/05" },
+  { id: "5", text: "Definir pauta editorial de junho", priority: "media", done: false, due: "05/05" },
+];
 
 const reachData = [
-  { name: "Sem 1", instagram: 8200, facebook: 3100 },
-  { name: "Sem 2", instagram: 11400, facebook: 4200 },
-  { name: "Sem 3", instagram: 9800, facebook: 3800 },
-  { name: "Sem 4", instagram: 14600, facebook: 5200 },
+  { name: "Sem 1", valor: 8200 }, { name: "Sem 2", valor: 11400 },
+  { name: "Sem 3", valor: 9800 }, { name: "Sem 4", valor: 14600 },
 ];
 
-const engagementData = [
-  { name: "Feed", valor: 4.2 },
-  { name: "Stories", valor: 6.8 },
-  { name: "Reels", valor: 9.1 },
-  { name: "Facebook", valor: 2.4 },
-];
-
-const INTEGRATIONS = [
+const INTEGRATIONS_BASE = [
   {
-    id: "instagram",
-    name: "Instagram",
-    description: "Posts, Stories, Reels e métricas",
-    Icon: Instagram,
-    color: "#E1306C",
-    bg: "rgba(225,48,108,0.1)",
-    border: "rgba(225,48,108,0.2)",
-    connected: true,
-    account: "@clinicadermabella",
-    followers: "12,4k seguidores",
+    id: "instagram", name: "Instagram", description: "Posts, Stories, Reels e métricas",
+    Icon: Instagram, color: "#E1306C", bg: "rgba(225,48,108,0.1)", border: "rgba(225,48,108,0.2)",
+    connected: true, account: "@grupolicita", followers: "3,1k seguidores",
     features: ["Publicar posts e stories", "Agendar conteúdo", "Métricas de alcance", "Responder comentários"],
   },
   {
-    id: "facebook",
-    name: "Facebook",
-    description: "Página, Grupos e Facebook Ads",
-    Icon: Facebook,
-    color: "#1877F2",
-    bg: "rgba(24,119,242,0.1)",
-    border: "rgba(24,119,242,0.2)",
-    connected: true,
-    account: "Clínica Derma Bella",
-    followers: "8,1k curtidas",
+    id: "facebook", name: "Facebook", description: "Página, Grupos e Facebook Ads",
+    Icon: Facebook, color: "#1877F2", bg: "rgba(24,119,242,0.1)", border: "rgba(24,119,242,0.2)",
+    connected: true, account: "Grupo Licita", followers: "6,4k curtidas",
     features: ["Publicar na Página", "Gerenciar Facebook Ads", "Métricas da Página", "Responder mensagens"],
   },
   {
-    id: "linkedin",
-    name: "LinkedIn",
-    description: "Página empresarial e conteúdo B2B",
-    Icon: Linkedin,
-    color: "#0A66C2",
-    bg: "rgba(10,102,194,0.1)",
-    border: "rgba(10,102,194,0.2)",
-    connected: false,
-    account: null,
-    followers: null,
-    features: ["Publicar na Página da empresa", "Artigos e newsletters", "Métricas de engajamento", "Geração de leads B2B"],
+    id: "linkedin", name: "LinkedIn", description: "Página empresarial e conteúdo B2B",
+    Icon: Linkedin, color: "#0A66C2", bg: "rgba(10,102,194,0.1)", border: "rgba(10,102,194,0.2)",
+    connected: false, account: null, followers: null,
+    features: ["Publicar na Página", "Artigos e newsletters", "Métricas de engajamento", "Geração de leads B2B"],
   },
   {
-    id: "whatsapp",
-    name: "WhatsApp Business",
-    description: "Mensagens, automações e atendimento",
-    Icon: MessageCircle,
-    color: "#25D366",
-    bg: "rgba(37,211,102,0.1)",
-    border: "rgba(37,211,102,0.2)",
-    connected: false,
-    account: null,
-    followers: null,
+    id: "whatsapp", name: "WhatsApp Business", description: "Mensagens, automações e atendimento",
+    Icon: MessageCircle, color: "#25D366", bg: "rgba(37,211,102,0.1)", border: "rgba(37,211,102,0.2)",
+    connected: false, account: null, followers: null,
     features: ["Enviar mensagens em massa", "Chatbot de atendimento", "Templates aprovados", "Relatório de entrega"],
   },
 ];
 
-const MOCK_TASKS = [
-  { id: "1", text: "Criar carrossel para promoção de verão", priority: "alta", done: false, due: "Hoje" },
-  { id: "2", text: "Revisar copy da campanha de retargeting", priority: "alta", done: false, due: "Amanhã" },
-  { id: "3", text: "Agendar stories da semana (Seg–Sex)", priority: "media", done: true, due: "Hoje" },
-  { id: "4", text: "Gerar relatório mensal de performance", priority: "media", done: false, due: "30/04" },
-  { id: "5", text: "Conectar LinkedIn da clínica", priority: "baixa", done: false, due: "02/05" },
-  { id: "6", text: "Ajustar orçamento do conjunto de anúncios 2", priority: "alta", done: false, due: "Hoje" },
-];
-
-const MOCK_AGENTS = [
-  {
-    id: "1",
-    name: "Agente de Conteúdo",
-    description: "Cria legendas, carrosséis e roteiros de vídeo",
-    status: "Ativo",
-    lastRun: "há 15min",
-    tasksToday: 4,
-    color: "#A78BFA",
-  },
-  {
-    id: "2",
-    name: "Agente de Campanhas",
-    description: "Monitora e otimiza campanhas no Facebook Ads e Google Ads",
-    status: "Ativo",
-    lastRun: "há 1h",
-    tasksToday: 2,
-    color: "#F97316",
-  },
-  {
-    id: "3",
-    name: "Agente de Relatórios",
-    description: "Gera relatórios semanais e analisa métricas",
-    status: "Pausado",
-    lastRun: "ontem",
-    tasksToday: 0,
-    color: "#34D399",
-  },
-  {
-    id: "4",
-    name: "Agente de Atendimento",
-    description: "Responde comentários e mensagens no Instagram e WhatsApp",
-    status: "Configurando",
-    lastRun: "—",
-    tasksToday: 0,
-    color: "#60A5FA",
-  },
-];
-
-const PRIORITY_STYLE: Record<string, { color: string; bg: string; label: string }> = {
-  alta:  { color: "#F87171", bg: "rgba(248,113,113,0.1)", label: "Alta" },
-  media: { color: "#FBBF24", bg: "rgba(251,191,36,0.1)", label: "Média" },
-  baixa: { color: "#34D399", bg: "rgba(52,211,153,0.1)", label: "Baixa" },
-};
-
+// ── Component ─────────────────────────────────────────────────
 export default function ClientWorkspace() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") ?? "";
-  const [tasks, setTasks] = useState(MOCK_TASKS);
+  const [tasks, setTasks] = useState(MOCK_TASKS_TEMPLATE);
+  const [crmView, setCrmView] = useState<"contacts" | "pipeline">("contacts");
+  const [contactSearch, setContactSearch] = useState("");
+  const [agentCommand, setAgentCommand] = useState("");
 
   const client = CLIENTS.find((c) => c.id === id);
 
   if (!client) {
     return (
-      <div className="flex items-center justify-center min-h-full bg-[#080810] text-white">
+      <div className="flex items-center justify-center min-h-full text-white" style={{ background: "#080810" }}>
         Cliente não encontrado.{" "}
         <button onClick={() => navigate("/agency")} className="ml-2 underline">Voltar</button>
       </div>
     );
   }
 
-  const toggleTask = (taskId: string) => {
+  const toggleTask = (taskId: string) =>
     setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, done: !t.done } : t));
-  };
+
+  const filteredContacts = client.contacts.filter((c) =>
+    c.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
+    c.company.toLowerCase().includes(contactSearch.toLowerCase())
+  );
+
+  const pipelineValue = client.pipeline.reduce((sum, d) => {
+    const n = parseFloat(d.value.replace(/[^\d,]/g, "").replace(",", ".")) || 0;
+    return sum + n;
+  }, 0);
+
+  const wonDeals = client.pipeline.filter((d) => d.stage === "ganho").length;
+  const winRate = client.pipeline.length > 0
+    ? Math.round((wonDeals / client.pipeline.length) * 100)
+    : 0;
 
   return (
-    <div
-      className="min-h-full flex flex-col text-white"
-      style={{ background: "#080810" }}
-    >
+    <div className="min-h-full flex flex-col text-white" style={{ background: "#080810" }}>
+
       {/* ── Top info bar ── */}
-      <div
-        className="flex items-center gap-4 px-8 py-3 flex-shrink-0"
-        style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(8,8,16,0.95)" }}
-      >
+      <div className="flex items-center gap-4 px-8 py-3 flex-shrink-0"
+        style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(8,8,16,0.95)" }}>
         <div className="flex items-center gap-4 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
-          <div className="flex items-center gap-1.5">
-            <Instagram className="w-3.5 h-3.5" /> {client.followers.instagram}
-          </div>
-          <div className="flex items-center gap-1.5">
-            <Facebook className="w-3.5 h-3.5" /> {client.followers.facebook}
-          </div>
+          <div className="flex items-center gap-1.5"><Instagram className="w-3.5 h-3.5" /> {client.followers.instagram}</div>
+          <div className="flex items-center gap-1.5"><Facebook className="w-3.5 h-3.5" /> {client.followers.facebook}</div>
         </div>
         <div className="ml-auto">
-          <button
-            onClick={() => navigate("/portal")}
+          <button onClick={() => navigate("/portal")}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-            style={{ background: `${client.color}18`, color: client.color, border: `1px solid ${client.color}30` }}
-          >
+            style={{ background: `${client.color}18`, color: client.color, border: `1px solid ${client.color}30` }}>
             <ExternalLink className="w-3 h-3" /> Ver portal do cliente
           </button>
         </div>
@@ -208,15 +195,13 @@ export default function ClientWorkspace() {
       {/* ── Content ── */}
       <div className="flex-1 overflow-auto p-8">
         <AnimatePresence mode="wait">
-          <motion.div
-            key={activeTab}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.22 }}
-          >
+          <motion.div key={activeTab}
+            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }} transition={{ duration: 0.22 }}>
 
-            {/* ── VISÃO GERAL ── */}
+            {/* ══════════════════════════════════════════════════════
+                VISÃO GERAL
+            ══════════════════════════════════════════════════════ */}
             {activeTab === "" && (
               <div className="grid grid-cols-3 gap-6">
                 <div className="col-span-2 space-y-5">
@@ -231,29 +216,27 @@ export default function ClientWorkspace() {
                     ))}
                   </div>
 
-                  {/* Activity feed */}
                   <div className="rounded-2xl p-5" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
                     <div className="flex items-center justify-between mb-5">
-                      <h3 className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.7)" }}>Atividade Recente</h3>
+                      <h3 className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.7)" }}>Atividade do Time</h3>
                       {client.agentActive && (
                         <div className="flex items-center gap-1.5">
                           <span className="relative flex h-1.5 w-1.5">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
                             <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
                           </span>
-                          <span className="text-[11px]" style={{ color: "#34D399" }}>Agente trabalhando</span>
+                          <span className="text-[11px]" style={{ color: "#34D399" }}>Time trabalhando</span>
                         </div>
                       )}
                     </div>
                     <div className="space-y-1">
-                      {client.agentFeed.slice(0, 5).map((item, i) => {
+                      {client.agentFeed.slice(0, 5).map((item) => {
                         const Icon = ACTIVITY_ICONS[item.type] ?? Zap;
                         const color = ACTIVITY_COLORS[item.type];
                         return (
-                          <div key={item.id} className="flex gap-3 p-3 rounded-xl"
+                          <div key={item.id} className="flex gap-3 p-3 rounded-xl transition-colors"
                             onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
-                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                          >
+                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
                             <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
                               style={{ background: `${color}15`, border: `1px solid ${color}25` }}>
                               <Icon className="w-3.5 h-3.5" style={{ color }} />
@@ -268,13 +251,9 @@ export default function ClientWorkspace() {
                           </div>
                         );
                       })}
-                      {client.agentFeed.length === 0 && (
-                        <p className="text-sm text-center py-6" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhuma atividade ainda.</p>
-                      )}
                     </div>
                   </div>
 
-                  {/* Recent posts */}
                   <div className="rounded-2xl p-5" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
                     <h3 className="text-sm font-medium mb-4" style={{ color: "rgba(255,255,255,0.7)" }}>Posts Recentes</h3>
                     <div className="space-y-3">
@@ -307,14 +286,10 @@ export default function ClientWorkspace() {
                           </div>
                         );
                       })}
-                      {client.recentPosts.length === 0 && (
-                        <p className="text-sm text-center py-4" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhum post ainda.</p>
-                      )}
                     </div>
                   </div>
                 </div>
 
-                {/* Right col */}
                 <div className="space-y-5">
                   <div className="rounded-2xl p-5" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
                     <h3 className="text-sm font-medium mb-4" style={{ color: "rgba(255,255,255,0.7)" }}>Esta Semana</h3>
@@ -357,85 +332,428 @@ export default function ClientWorkspace() {
               </div>
             )}
 
-            {/* ── CRM ── */}
+            {/* ══════════════════════════════════════════════════════
+                CRM
+            ══════════════════════════════════════════════════════ */}
             {activeTab === "crm" && (
-              <div className="rounded-2xl p-10 text-center"
-                style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                <Users className="w-8 h-8 mx-auto mb-3" style={{ color: "rgba(255,255,255,0.15)" }} />
-                <p className="text-sm mb-1" style={{ color: "rgba(255,255,255,0.5)" }}>CRM deste cliente</p>
-                <p className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>Contatos, pipeline de vendas e histórico em breve.</p>
-              </div>
-            )}
+              <div className="space-y-5">
 
-            {/* ── AGENTES IA ── */}
-            {activeTab === "agents" && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between mb-2">
-                  <div>
-                    <h2 className="text-base font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>Agentes IA</h2>
-                    <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>
-                      Agentes que trabalham automaticamente para este cliente
-                    </p>
-                  </div>
-                  <button className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium"
-                    style={{ background: `${client.color}18`, color: client.color, border: `1px solid ${client.color}30` }}>
-                    <Plus className="w-3.5 h-3.5" /> Novo agente
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  {MOCK_AGENTS.map((agent) => (
-                    <motion.div key={agent.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                      className="rounded-2xl p-5"
-                      style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-                            style={{ background: `${agent.color}18`, border: `1px solid ${agent.color}30` }}>
-                            <Bot className="w-5 h-5" style={{ color: agent.color }} />
-                          </div>
-                          <div>
-                            <div className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.85)" }}>{agent.name}</div>
-                            <div className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>{agent.description}</div>
-                          </div>
-                        </div>
-                        <span className="text-[10px] px-2 py-0.5 rounded-full flex-shrink-0 ml-2"
-                          style={{
-                            background: agent.status === "Ativo" ? "rgba(16,185,129,0.12)" : agent.status === "Pausado" ? "rgba(100,116,139,0.12)" : "rgba(245,200,66,0.12)",
-                            color: agent.status === "Ativo" ? "#34D399" : agent.status === "Pausado" ? "#94A3B8" : "#FBBF24",
-                          }}>
-                          {agent.status}
-                        </span>
+                {/* Quick stats */}
+                <div className="grid grid-cols-4 gap-4">
+                  {[
+                    { label: "Contatos",       value: client.contacts.length,                                         icon: Users },
+                    { label: "Negócios ativos", value: client.pipeline.filter(d => d.stage !== "ganho").length,        icon: TrendingUp },
+                    { label: "Pipeline total",  value: `R$ ${(pipelineValue).toLocaleString("pt-BR")}`,               icon: DollarSign },
+                    { label: "Taxa de ganhos",  value: `${winRate}%`,                                                  icon: CheckCircle2 },
+                  ].map((s) => (
+                    <div key={s.label} className="rounded-xl p-4 flex items-center gap-3"
+                      style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                      <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                        style={{ background: `${client.color}15`, border: `1px solid ${client.color}25` }}>
+                        <s.icon className="w-4 h-4" style={{ color: client.color }} />
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
-                        <div className="p-2.5 rounded-xl text-center"
-                          style={{ background: "rgba(255,255,255,0.04)" }}>
-                          <div className="text-xs mb-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>Última execução</div>
-                          <div className="text-sm" style={{ color: "rgba(255,255,255,0.7)" }}>{agent.lastRun}</div>
-                        </div>
-                        <div className="p-2.5 rounded-xl text-center"
-                          style={{ background: "rgba(255,255,255,0.04)" }}>
-                          <div className="text-xs mb-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>Tarefas hoje</div>
-                          <div className="text-sm" style={{ color: "rgba(255,255,255,0.7)" }}>{agent.tasksToday}</div>
-                        </div>
+                      <div>
+                        <div className="text-[10px] uppercase tracking-wide mb-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>{s.label}</div>
+                        <div className="text-xl font-bold tracking-tight" style={{ color: "#F0F0F0" }}>{s.value}</div>
                       </div>
-                      <div className="flex gap-2 mt-3">
-                        <button className="flex-1 py-2 rounded-xl text-xs font-medium transition-all"
-                          style={{ background: `${agent.color}12`, color: agent.color, border: `1px solid ${agent.color}25` }}>
-                          {agent.status === "Ativo" ? "Pausar" : "Ativar"}
-                        </button>
-                        <button className="flex-1 py-2 rounded-xl text-xs font-medium transition-all"
-                          style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.1)" }}>
-                          Configurar
-                        </button>
-                      </div>
-                    </motion.div>
+                    </div>
                   ))}
                 </div>
+
+                {/* Sub-tabs */}
+                <div className="flex gap-1 p-1 rounded-xl w-fit"
+                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                  {(["contacts", "pipeline"] as const).map((v) => (
+                    <button key={v} onClick={() => setCrmView(v)}
+                      className="px-4 py-1.5 rounded-lg text-xs font-medium transition-all"
+                      style={crmView === v
+                        ? { background: `${client.color}22`, color: client.color, border: `1px solid ${client.color}30` }
+                        : { color: "rgba(255,255,255,0.4)" }}>
+                      {v === "contacts" ? "Contatos" : "Pipeline"}
+                    </button>
+                  ))}
+                </div>
+
+                {/* ── CONTATOS ── */}
+                {crmView === "contacts" && (
+                  <div className="space-y-3">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.25)" }} />
+                      <input
+                        value={contactSearch}
+                        onChange={(e) => setContactSearch(e.target.value)}
+                        placeholder="Buscar por nome ou empresa..."
+                        className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm"
+                        style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#F0F0F0" }}
+                      />
+                    </div>
+
+                    <div className="rounded-2xl overflow-hidden"
+                      style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                      {/* Header */}
+                      <div className="grid px-5 py-2.5 text-[10px] uppercase tracking-wider font-medium"
+                        style={{ gridTemplateColumns: "2fr 1.5fr 1.5fr 1fr 1fr 80px", color: "rgba(255,255,255,0.25)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                        <span>Contato</span><span>Empresa</span><span>E-mail</span>
+                        <span>Status</span><span>Último contato</span><span></span>
+                      </div>
+
+                      {filteredContacts.map((contact, i) => {
+                        const st = STATUS_CONTACT_STYLE[contact.status];
+                        return (
+                          <motion.div key={contact.id}
+                            initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: i * 0.04 }}
+                            className="grid px-5 py-3.5 items-center transition-colors cursor-pointer"
+                            style={{ gridTemplateColumns: "2fr 1.5fr 1.5fr 1fr 1fr 80px", borderBottom: i < filteredContacts.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+                            <div className="flex items-center gap-3">
+                              <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0"
+                                style={{ background: `${client.color}20`, color: client.color }}>
+                                {contact.name.split(" ").slice(0, 2).map(n => n[0]).join("")}
+                              </div>
+                              <span className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.85)" }}>{contact.name}</span>
+                            </div>
+                            <div>
+                              <div className="text-xs" style={{ color: "rgba(255,255,255,0.55)" }}>{contact.company}</div>
+                              <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>{contact.role}</div>
+                            </div>
+                            <div className="flex items-center gap-1.5 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
+                              <Mail className="w-3 h-3 flex-shrink-0" />
+                              <span className="truncate">{contact.email}</span>
+                            </div>
+                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full w-fit"
+                              style={{ background: st.bg, color: st.color }}>{contact.status}</span>
+                            <span className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>{contact.lastContact}</span>
+                            <div className="flex justify-end">
+                              <button className="p-1.5 rounded-lg transition-colors"
+                                style={{ color: "rgba(255,255,255,0.25)" }}
+                                onMouseEnter={(e) => (e.currentTarget.style.color = client.color)}
+                                onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.25)")}>
+                                <ChevronRight className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── PIPELINE ── */}
+                {crmView === "pipeline" && (
+                  <div className="overflow-x-auto pb-2">
+                    <div className="flex gap-4" style={{ minWidth: "900px" }}>
+                      {PIPELINE_STAGES.map((stage) => {
+                        const deals = client.pipeline.filter((d) => d.stage === stage.id);
+                        const stageTotal = deals.reduce((s, d) => {
+                          const n = parseFloat(d.value.replace(/[^\d]/g, "")) || 0;
+                          return s + n;
+                        }, 0);
+                        return (
+                          <div key={stage.id} className="flex-1 min-w-[160px]">
+                            {/* Stage header */}
+                            <div className="flex items-center justify-between mb-3 px-1">
+                              <div className="flex items-center gap-2">
+                                <div className="w-2 h-2 rounded-full" style={{ background: stage.color }} />
+                                <span className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.7)" }}>{stage.label}</span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full"
+                                  style={{ background: `${stage.color}18`, color: stage.color }}>
+                                  {deals.length}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Deal cards */}
+                            <div className="space-y-2">
+                              {deals.map((deal, i) => (
+                                <motion.div key={deal.id}
+                                  initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                                  transition={{ delay: i * 0.06 }}
+                                  className="rounded-xl p-3.5 cursor-pointer transition-all"
+                                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}
+                                  onMouseEnter={(e) => {
+                                    (e.currentTarget as HTMLDivElement).style.borderColor = `${stage.color}35`;
+                                    (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.05)";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,0.07)";
+                                    (e.currentTarget as HTMLDivElement).style.background = "rgba(255,255,255,0.03)";
+                                  }}>
+                                  <div className="text-xs font-semibold mb-1 leading-snug" style={{ color: "rgba(255,255,255,0.85)" }}>
+                                    {deal.title}
+                                  </div>
+                                  <div className="text-[10px] mb-2.5" style={{ color: "rgba(255,255,255,0.35)" }}>{deal.contact}</div>
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs font-bold" style={{ color: stage.color }}>{deal.value}</span>
+                                    <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>{deal.probability}%</span>
+                                  </div>
+                                  <div className="mt-2 h-0.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+                                    <div className="h-full rounded-full" style={{ width: `${deal.probability}%`, background: stage.color }} />
+                                  </div>
+                                  <div className="mt-2 text-[10px]" style={{ color: "rgba(255,255,255,0.2)" }}>
+                                    <Clock className="w-2.5 h-2.5 inline mr-1" />{deal.dueDate}
+                                  </div>
+                                </motion.div>
+                              ))}
+
+                              {deals.length === 0 && (
+                                <div className="rounded-xl p-4 text-center border border-dashed"
+                                  style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                                  <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhum negócio</p>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
-            {/* ── ATIVIDADES ── */}
+            {/* ══════════════════════════════════════════════════════
+                AGENTES IA — TIME DE MARKETING
+            ══════════════════════════════════════════════════════ */}
+            {activeTab === "agents" && (
+              <div className="space-y-5">
+
+                {/* ── ARIA — Orquestradora ── */}
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+                  className="rounded-2xl p-6"
+                  style={{
+                    background: "rgba(185,255,75,0.04)",
+                    border: "1px solid rgba(185,255,75,0.2)",
+                    boxShadow: "0 0 48px -16px rgba(185,255,75,0.15)",
+                  }}>
+                  <div className="flex items-start gap-5">
+
+                    {/* Identity */}
+                    <div className="flex-shrink-0">
+                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                        style={{ background: "#B9FF4B", boxShadow: "0 0 24px -4px rgba(185,255,75,0.55)" }}>
+                        <Zap className="w-7 h-7" style={{ color: "#07080A" }} />
+                      </div>
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-3 mb-1">
+                        <h3 className="text-base font-bold" style={{ color: "#F0F0F0" }}>ARIA</h3>
+                        <span className="text-[10px] px-2.5 py-0.5 rounded-full font-semibold"
+                          style={{ background: "rgba(185,255,75,0.12)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.25)" }}>
+                          Orquestradora
+                        </span>
+                        <span className="relative flex h-2 w-2">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#B9FF4B" }} />
+                          <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "#B9FF4B" }} />
+                        </span>
+                        <span className="text-xs" style={{ color: "rgba(185,255,75,0.7)" }}>Coordenando o time</span>
+                      </div>
+                      <p className="text-sm mb-4" style={{ color: "rgba(255,255,255,0.45)" }}>
+                        {client.orchestratorStatus}
+                      </p>
+
+                      {/* Plan steps */}
+                      <div className="grid grid-cols-3 gap-2">
+                        {client.orchestratorPlan.map((step, i) => (
+                          <div key={i} className="flex items-start gap-2 px-3 py-2 rounded-xl"
+                            style={{
+                              background: step.done ? "rgba(52,211,153,0.07)" : step.active ? "rgba(185,255,75,0.08)" : "rgba(255,255,255,0.03)",
+                              border: `1px solid ${step.done ? "rgba(52,211,153,0.2)" : step.active ? "rgba(185,255,75,0.2)" : "rgba(255,255,255,0.06)"}`,
+                            }}>
+                            {step.done
+                              ? <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: "#34D399" }} />
+                              : step.active
+                              ? <Zap className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: "#B9FF4B" }} />
+                              : <Circle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: "rgba(255,255,255,0.15)" }} />
+                            }
+                            <span className="text-[11px] leading-relaxed"
+                              style={{ color: step.done ? "rgba(52,211,153,0.8)" : step.active ? "#B9FF4B" : "rgba(255,255,255,0.3)" }}>
+                              {step.step}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Command input */}
+                    <div className="flex-shrink-0 w-60">
+                      <div className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "rgba(255,255,255,0.25)" }}>Dar instrução ao time</div>
+                      <div className="flex flex-col gap-2">
+                        <textarea
+                          value={agentCommand}
+                          onChange={(e) => setAgentCommand(e.target.value)}
+                          placeholder="Ex: Crie 3 posts sobre a nova lei..."
+                          rows={3}
+                          className="w-full rounded-xl px-3 py-2 text-xs resize-none"
+                          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(185,255,75,0.15)", color: "#F0F0F0" }}
+                        />
+                        <button
+                          onClick={() => setAgentCommand("")}
+                          className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold w-full transition-all"
+                          style={{ background: "#B9FF4B", color: "#07080A", boxShadow: agentCommand ? "0 0 16px -4px rgba(185,255,75,0.5)" : "none" }}>
+                          <Send className="w-3 h-3" /> Enviar para ARIA
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+
+                {/* ── Time de Especialistas ── */}
+                <div>
+                  <div className="flex items-center gap-3 mb-4">
+                    <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>
+                      Time de Especialistas
+                    </h3>
+                    <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
+                    <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.2)" }}>5 agentes</span>
+                  </div>
+
+                  <div className="grid grid-cols-5 gap-4">
+                    {MARKETING_TEAM.map((agent, i) => {
+                      const task = client.agentTasks[agent.id];
+                      const isWorking = task?.status === "trabalhando";
+                      const isDone = task?.status === "concluído";
+
+                      return (
+                        <motion.div key={agent.id}
+                          initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.08 }}
+                          className="rounded-2xl p-4 flex flex-col"
+                          style={{
+                            background: "rgba(255,255,255,0.025)",
+                            border: `1px solid ${isWorking ? `${agent.color}28` : "rgba(255,255,255,0.07)"}`,
+                            boxShadow: isWorking ? `0 0 28px -10px ${agent.color}30` : "none",
+                          }}>
+
+                          {/* Avatar + name */}
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
+                                style={{ background: `${agent.color}18`, border: `1px solid ${agent.color}30`, color: agent.color }}>
+                                {agent.initial}
+                              </div>
+                              <div className="min-w-0">
+                                <div className="text-xs font-bold leading-tight" style={{ color: "rgba(255,255,255,0.9)" }}>{agent.name}</div>
+                                <div className="text-[10px] leading-tight" style={{ color: agent.color }}>{agent.role}</div>
+                              </div>
+                            </div>
+                            {isWorking && (
+                              <span className="relative flex h-1.5 w-1.5 flex-shrink-0 mt-1.5">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: agent.color }} />
+                                <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: agent.color }} />
+                              </span>
+                            )}
+                            {isDone && <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-1" style={{ color: "#34D399" }} />}
+                          </div>
+
+                          {/* Skill */}
+                          <div className="text-[10px] mb-3 leading-relaxed" style={{ color: "rgba(255,255,255,0.22)" }}>
+                            {agent.skill}
+                          </div>
+
+                          {/* Current task */}
+                          {task && (
+                            <>
+                              <div className="mb-2.5">
+                                <div className="text-[9px] uppercase tracking-wider mb-1 font-medium"
+                                  style={{ color: isWorking ? agent.color : isDone ? "#34D399" : "rgba(255,255,255,0.2)" }}>
+                                  {isWorking ? "● Fazendo agora" : isDone ? "✓ Concluído" : "○ Aguardando"}
+                                </div>
+                                <p className="text-[11px] leading-relaxed" style={{ color: "rgba(255,255,255,0.6)" }}
+                                  style={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } as any}>
+                                  {task.current}
+                                </p>
+                              </div>
+
+                              {/* Progress bar */}
+                              {isWorking && task.progress > 0 && (
+                                <div className="mb-3">
+                                  <div className="flex justify-between mb-1">
+                                    <span className="text-[9px]" style={{ color: "rgba(255,255,255,0.2)" }}>Progresso</span>
+                                    <span className="text-[9px]" style={{ color: agent.color }}>{task.progress}%</span>
+                                  </div>
+                                  <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+                                    <motion.div className="h-full rounded-full"
+                                      style={{ background: agent.color }}
+                                      initial={{ width: 0 }}
+                                      animate={{ width: `${task.progress}%` }}
+                                      transition={{ duration: 1, ease: "easeOut", delay: 0.3 + i * 0.1 }}
+                                    />
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Recent */}
+                              {task.recent.length > 0 && (
+                                <div className="space-y-1.5 mb-3 flex-1">
+                                  {task.recent.slice(0, 2).map((r, j) => (
+                                    <div key={j} className="flex items-start gap-1.5">
+                                      <CheckCircle2 className="w-3 h-3 flex-shrink-0 mt-0.5" style={{ color: `${agent.color}60` }} />
+                                      <span className="text-[10px] leading-relaxed" style={{ color: "rgba(255,255,255,0.28)" }}>{r}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </>
+                          )}
+
+                          <button className="mt-auto w-full py-1.5 rounded-lg text-[10px] font-semibold transition-all"
+                            style={{ background: `${agent.color}10`, color: agent.color, border: `1px solid ${agent.color}22` }}
+                            onMouseEnter={(e) => (e.currentTarget.style.background = `${agent.color}20`)}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = `${agent.color}10`)}>
+                            Dar instrução
+                          </button>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* ── Activity Feed do Time ── */}
+                <div>
+                  <div className="flex items-center gap-3 mb-4">
+                    <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>
+                      Atividade Recente do Time
+                    </h3>
+                    <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
+                  </div>
+                  <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                    {client.agentFeed.map((item, i) => {
+                      const Icon = ACTIVITY_ICONS[item.type] ?? Zap;
+                      const color = ACTIVITY_COLORS[item.type];
+                      return (
+                        <motion.div key={item.id}
+                          initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: i * 0.05 }}
+                          className="flex gap-4 px-5 py-3.5 transition-colors"
+                          style={{ borderBottom: i < client.agentFeed.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
+                          onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+                          <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                            style={{ background: `${color}15`, border: `1px solid ${color}25` }}>
+                            <Icon className="w-3.5 h-3.5" style={{ color }} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.8)" }}>{item.action}</span>
+                              <span className="text-[11px] flex-shrink-0" style={{ color: "rgba(255,255,255,0.25)" }}>{item.time}</span>
+                            </div>
+                            <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>{item.detail}</p>
+                          </div>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════════
+                ATIVIDADES
+            ══════════════════════════════════════════════════════ */}
             {activeTab === "activities" && (
               <div className="max-w-2xl space-y-4">
                 <div>
@@ -450,11 +768,12 @@ export default function ClientWorkspace() {
                         const Icon = ACTIVITY_ICONS[item.type] ?? Zap;
                         const color = ACTIVITY_COLORS[item.type];
                         return (
-                          <motion.div key={item.id} initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }}
-                            className="flex gap-4 p-4 rounded-xl"
+                          <motion.div key={item.id}
+                            initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: i * 0.05 }}
+                            className="flex gap-4 p-4 rounded-xl transition-colors"
                             onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
-                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                          >
+                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
                             <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
                               style={{ background: `${color}15`, border: `1px solid ${color}25` }}>
                               <Icon className="w-4 h-4" style={{ color }} />
@@ -475,7 +794,9 @@ export default function ClientWorkspace() {
               </div>
             )}
 
-            {/* ── O QUE FAZER ── */}
+            {/* ══════════════════════════════════════════════════════
+                O QUE FAZER
+            ══════════════════════════════════════════════════════ */}
             {activeTab === "tasks" && (
               <div className="max-w-2xl space-y-4">
                 <div className="flex items-center justify-between">
@@ -501,8 +822,7 @@ export default function ClientWorkspace() {
                         style={{ borderBottom: i < tasks.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none" }}
                         onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
                         onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                        onClick={() => toggleTask(task.id)}
-                      >
+                        onClick={() => toggleTask(task.id)}>
                         <div className="flex-shrink-0">
                           {task.done
                             ? <CheckCircle2 className="w-5 h-5" style={{ color: "#34D399" }} />
@@ -510,16 +830,12 @@ export default function ClientWorkspace() {
                           }
                         </div>
                         <div className="flex-1 min-w-0">
-                          <span className="text-sm" style={{
-                            color: task.done ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.8)",
-                            textDecoration: task.done ? "line-through" : "none"
-                          }}>
+                          <span className="text-sm" style={{ color: task.done ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.8)", textDecoration: task.done ? "line-through" : "none" }}>
                             {task.text}
                           </span>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="text-[10px] px-2 py-0.5 rounded-full"
-                            style={{ background: p.bg, color: p.color }}>{p.label}</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: p.bg, color: p.color }}>{p.label}</span>
                           <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>{task.due}</span>
                         </div>
                       </div>
@@ -529,18 +845,17 @@ export default function ClientWorkspace() {
               </div>
             )}
 
-            {/* ── INTEGRAÇÕES ── */}
+            {/* ══════════════════════════════════════════════════════
+                INTEGRAÇÕES
+            ══════════════════════════════════════════════════════ */}
             {activeTab === "integrations" && (
               <div className="space-y-4">
                 <div>
                   <h2 className="text-base font-semibold mb-0.5" style={{ color: "rgba(255,255,255,0.85)" }}>Integrações</h2>
-                  <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
-                    Conecte as redes sociais e plataformas deste cliente
-                  </p>
+                  <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>Conecte as redes sociais e plataformas deste cliente</p>
                 </div>
-
                 <div className="grid grid-cols-2 gap-5">
-                  {INTEGRATIONS.map((integ) => (
+                  {INTEGRATIONS_BASE.map((integ) => (
                     <motion.div key={integ.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                       className="rounded-2xl p-5"
                       style={{ background: "rgba(255,255,255,0.025)", border: `1px solid ${integ.connected ? integ.border : "rgba(255,255,255,0.07)"}` }}>
@@ -556,46 +871,30 @@ export default function ClientWorkspace() {
                           </div>
                         </div>
                         <div className="flex items-center gap-1.5 flex-shrink-0">
-                          {integ.connected
-                            ? <Wifi className="w-3.5 h-3.5" style={{ color: "#34D399" }} />
-                            : <WifiOff className="w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.2)" }} />
-                          }
-                          <span className="text-[10px] font-medium"
-                            style={{ color: integ.connected ? "#34D399" : "rgba(255,255,255,0.3)" }}>
+                          {integ.connected ? <Wifi className="w-3.5 h-3.5" style={{ color: "#34D399" }} /> : <WifiOff className="w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.2)" }} />}
+                          <span className="text-[10px] font-medium" style={{ color: integ.connected ? "#34D399" : "rgba(255,255,255,0.3)" }}>
                             {integ.connected ? "Conectado" : "Desconectado"}
                           </span>
                         </div>
                       </div>
-
                       {integ.connected && integ.account && (
-                        <div className="mb-4 px-3 py-2.5 rounded-xl"
-                          style={{ background: `${integ.color}10`, border: `1px solid ${integ.color}20` }}>
+                        <div className="mb-4 px-3 py-2.5 rounded-xl" style={{ background: `${integ.color}10`, border: `1px solid ${integ.color}20` }}>
                           <div className="text-xs font-medium" style={{ color: integ.color }}>{integ.account}</div>
-                          {integ.followers && (
-                            <div className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>{integ.followers}</div>
-                          )}
+                          {integ.followers && <div className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>{integ.followers}</div>}
                         </div>
                       )}
-
                       <div className="mb-4 space-y-1.5">
                         {integ.features.map((f) => (
                           <div key={f} className="flex items-center gap-2">
-                            <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0"
-                              style={{ color: integ.connected ? "#34D399" : "rgba(255,255,255,0.2)" }} />
-                            <span className="text-[11px]" style={{ color: integ.connected ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.25)" }}>
-                              {f}
-                            </span>
+                            <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: integ.connected ? "#34D399" : "rgba(255,255,255,0.2)" }} />
+                            <span className="text-[11px]" style={{ color: integ.connected ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.25)" }}>{f}</span>
                           </div>
                         ))}
                       </div>
-
-                      <button
-                        className="w-full py-2.5 rounded-xl text-xs font-medium transition-all"
+                      <button className="w-full py-2.5 rounded-xl text-xs font-medium transition-all"
                         style={integ.connected
                           ? { background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.1)" }
-                          : { background: integ.bg, color: integ.color, border: `1px solid ${integ.border}` }
-                        }
-                      >
+                          : { background: integ.bg, color: integ.color, border: `1px solid ${integ.border}` }}>
                         {integ.connected ? "Gerenciar conexão" : `Conectar ${integ.name}`}
                       </button>
                     </motion.div>

@@ -1,29 +1,43 @@
-export interface Client {
+export interface Contact {
   id: string;
   name: string;
-  industry: string;
-  color: string;
-  initials: string;
-  status: "Ativo" | "Onboarding" | "Em pausa";
-  agentActive: boolean;
-  postsMonth: number;
-  campaigns: number;
-  lastActivity: string;
-  revenue: string;
-  nextAction: string;
-  followers: { instagram: string; facebook: string };
-  recentPosts: Post[];
-  activeCampaigns: Campaign[];
-  agentFeed: AgentActivity[];
-  weeklyContent: WeekDay[];
-  metrics: Metric[];
+  company: string;
+  role: string;
+  email: string;
+  status: "Lead" | "Qualificado" | "Cliente" | "Inativo";
+  lastContact: string;
+  value?: string;
+  tags: string[];
+}
+
+export interface Deal {
+  id: string;
+  title: string;
+  contact: string;
+  value: string;
+  stage: "prospeccao" | "qualificacao" | "proposta" | "negociacao" | "ganho";
+  probability: number;
+  dueDate: string;
+}
+
+export interface AgentTask {
+  current: string;
+  status: "trabalhando" | "aguardando" | "concluído" | "idle";
+  recent: string[];
+  progress: number;
+}
+
+export interface OrchestratorStep {
+  step: string;
+  done: boolean;
+  active?: boolean;
 }
 
 export interface Post {
   id: string;
   type: "Feed" | "Story" | "Reels";
   caption: string;
-  platform: "Instagram" | "Facebook";
+  platform: string;
   scheduledFor: string;
   status: "Publicado" | "Agendado" | "Rascunho";
   likes?: number;
@@ -62,7 +76,34 @@ export interface Metric {
   positive: boolean;
 }
 
+export interface Client {
+  id: string;
+  name: string;
+  industry: string;
+  color: string;
+  initials: string;
+  status: "Ativo" | "Onboarding" | "Em pausa";
+  agentActive: boolean;
+  postsMonth: number;
+  campaigns: number;
+  lastActivity: string;
+  revenue: string;
+  nextAction: string;
+  followers: { instagram: string; facebook: string };
+  recentPosts: Post[];
+  activeCampaigns: Campaign[];
+  agentFeed: AgentActivity[];
+  weeklyContent: WeekDay[];
+  metrics: Metric[];
+  contacts: Contact[];
+  pipeline: Deal[];
+  agentTasks: Record<string, AgentTask>;
+  orchestratorStatus: string;
+  orchestratorPlan: OrchestratorStep[];
+}
+
 export const CLIENTS: Client[] = [
+  // ── GRUPO LICITA ─────────────────────────────────────────────
   {
     id: "grupo-licita",
     name: "Grupo Licita",
@@ -91,7 +132,6 @@ export const CLIENTS: Client[] = [
       { id: "a2", action: "Agendou 4 posts para a semana", detail: "Instagram e LinkedIn — foco em autoridade e captação", time: "há 3h", type: "content" },
       { id: "a3", action: "Gerou relatório de leads", detail: "Semana 21/04 — 94 leads via LinkedIn Ads, custo médio R$ 12,23", time: "ontem 17h", type: "report" },
       { id: "a4", action: "Otimizou segmentação LinkedIn", detail: "Refinamento por cargo: diretores e gerentes de compras", time: "ontem 11h", type: "campaign" },
-      { id: "a5", action: "Analisou concorrência", detail: "3 concorrentes monitorados — nenhum com presença forte no LinkedIn", time: "há 3 dias", type: "analysis" },
     ],
     weeklyContent: [
       { day: "Seg", date: "28/04", posts: [{ type: "Feed", platform: "LI", status: "Agendado" }, { type: "Story", platform: "IG", status: "Agendado" }] },
@@ -108,7 +148,65 @@ export const CLIENTS: Client[] = [
       { label: "Leads gerados", value: "94", change: "+40%", positive: true },
       { label: "Custo por lead", value: "R$ 12,23", change: "-18%", positive: true },
     ],
+    orchestratorStatus: "Coordenando produção de conteúdo autoridade + otimização das campanhas B2B desta semana",
+    orchestratorPlan: [
+      { step: "Análise de métricas da semana anterior", done: true },
+      { step: "Briefing do artigo LinkedIn para Beatriz", done: true },
+      { step: "Revisão da segmentação das campanhas com Rafaela", done: true },
+      { step: "Publicação do artigo e agendamento da semana", done: false, active: true },
+      { step: "Relatório de performance para Caroline Lucas", done: false },
+      { step: "Pauta editorial de maio com Carolina", done: false },
+    ],
+    agentTasks: {
+      copywriter: {
+        current: "Rascunhando artigo LinkedIn: 'Nova Lei de Licitações: 5 pontos que toda empresa precisa saber'",
+        status: "trabalhando",
+        recent: ["3 legendas para Instagram (autoridade)", "Copy do anúncio LinkedIn Ads — versão B"],
+        progress: 68,
+      },
+      traffic: {
+        current: "Otimizando CPA da campanha LinkedIn — ajustando lances por segmento de cargo",
+        status: "trabalhando",
+        recent: ["Pausou conjunto de anúncios com CPA > R$ 20", "Subiu orçamento da campanha Google em 15%"],
+        progress: 45,
+      },
+      analyst: {
+        current: "Compilando relatório semanal: alcance, leads e custo por conversão",
+        status: "concluído",
+        recent: ["Relatório semanal 21/04 entregue", "Dashboard de métricas atualizado"],
+        progress: 100,
+      },
+      social: {
+        current: "Agendando os 5 posts da semana no Instagram e LinkedIn",
+        status: "trabalhando",
+        recent: ["Stories seg–sex programados (9h e 19h)", "Respondeu 12 comentários no LinkedIn"],
+        progress: 80,
+      },
+      strategist: {
+        current: "Definindo pauta editorial de maio com foco em sazonalidade de licitações",
+        status: "aguardando",
+        recent: ["Análise de concorrentes Q2 concluída", "Repositório de brand voice atualizado"],
+        progress: 0,
+      },
+    },
+    contacts: [
+      { id: "ct1", name: "Marcos Almeida", company: "ABC Construções", role: "Gerente de Compras", email: "marcos@abcconstrucoes.com.br", status: "Lead", lastContact: "hoje", tags: ["quente", "licitação"] },
+      { id: "ct2", name: "Sandra Costa", company: "Grupo XYZ", role: "Diretora Administrativa", email: "sandra@grupoxyz.com.br", status: "Cliente", lastContact: "há 2 dias", tags: ["recorrente"] },
+      { id: "ct3", name: "Roberto Pereira", company: "Construtora Pereira", role: "Sócio-Fundador", email: "roberto@construtorap.com.br", status: "Qualificado", lastContact: "há 4 dias", tags: ["proposta enviada"] },
+      { id: "ct4", name: "Fernanda Lima", company: "Prefeitura de Jundiaí", role: "Coord. de Licitações", email: "fernanda.lima@jundiai.sp.gov.br", status: "Lead", lastContact: "há 1 sem", tags: ["público", "frio"] },
+      { id: "ct5", name: "Carlos Eduardo Matos", company: "CE Tecnologia", role: "CEO", email: "ce@cetecnologia.com.br", status: "Qualificado", lastContact: "há 3 dias", tags: ["tech", "B2B"] },
+      { id: "ct6", name: "Daniela Ramos", company: "Ramos & Associados", role: "Sócia", email: "daniela@ramosadv.com.br", status: "Cliente", lastContact: "há 1 sem", tags: ["jurídico", "recorrente"] },
+    ],
+    pipeline: [
+      { id: "d1", title: "Assessoria Mensal Completa", contact: "Sandra Costa", value: "R$ 5.000/mês", stage: "ganho", probability: 100, dueDate: "01/05" },
+      { id: "d2", title: "Consultoria em Licitação", contact: "Roberto Pereira", value: "R$ 8.000", stage: "negociacao", probability: 75, dueDate: "05/05" },
+      { id: "d3", title: "Workshop Gestão de Contratos", contact: "Marcos Almeida", value: "R$ 12.000", stage: "proposta", probability: 55, dueDate: "10/05" },
+      { id: "d4", title: "Curso Nova Lei de Licitações", contact: "Fernanda Lima", value: "R$ 3.500", stage: "qualificacao", probability: 30, dueDate: "15/05" },
+      { id: "d5", title: "Plano Anual de Assessoria", contact: "Carlos Eduardo Matos", value: "R$ 48.000/ano", stage: "prospeccao", probability: 15, dueDate: "30/05" },
+    ],
   },
+
+  // ── ABCER ────────────────────────────────────────────────────
   {
     id: "abcer",
     name: "ABCER",
@@ -126,7 +224,6 @@ export const CLIENTS: Client[] = [
     recentPosts: [
       { id: "p1", type: "Feed", caption: "Participe do nosso Encontro de Líderes — vagas limitadas!", platform: "Instagram", scheduledFor: "Hoje 18h", status: "Agendado" },
       { id: "p2", type: "Reels", caption: "Veja como foi o último evento da ABCER 🎤", platform: "Instagram", scheduledFor: "Ontem", status: "Publicado", likes: 312, reach: 4200 },
-      { id: "p3", type: "Feed", caption: "Associe-se e acesse benefícios exclusivos para sua empresa", platform: "Facebook", scheduledFor: "24/04", status: "Publicado", likes: 148, reach: 3100 },
     ],
     activeCampaigns: [
       { id: "c1", name: "Captação de Associados — Awareness", platform: "Facebook Ads", status: "Ativa", budget: "R$ 1.500/mês", spent: "R$ 820", results: "203 leads", cpa: "R$ 4,04" },
@@ -153,7 +250,65 @@ export const CLIENTS: Client[] = [
       { label: "Novos associados", value: "14", change: "+40%", positive: true },
       { label: "Inscrições evento", value: "67", change: "+67%", positive: true },
     ],
+    orchestratorStatus: "Priorizando divulgação do Encontro de Líderes (maio) e captação de novos associados",
+    orchestratorPlan: [
+      { step: "Briefing do evento Encontro de Líderes", done: true },
+      { step: "Criação dos 3 criativos para Facebook Ads", done: true },
+      { step: "Copy de convite e email marketing", done: true },
+      { step: "Campanha de remarketing para ex-associados", done: false, active: true },
+      { step: "Cobertura ao vivo do evento (01/05)", done: false },
+      { step: "Relatório de captação pós-evento", done: false },
+    ],
+    agentTasks: {
+      copywriter: {
+        current: "Escrevendo copy do convite oficial para o Encontro de Líderes de Maio",
+        status: "trabalhando",
+        recent: ["3 variações de copy para Facebook Ads", "E-mail de boas-vindas para novos associados"],
+        progress: 55,
+      },
+      traffic: {
+        current: "Configurando campanha de remarketing para lista de ex-associados",
+        status: "trabalhando",
+        recent: ["Criou lookalike audience a partir de associados ativos", "Aumentou budget do ad de inscrição em R$ 200"],
+        progress: 38,
+      },
+      analyst: {
+        current: "Aguardando dados de inscrição para compilar relatório do evento",
+        status: "aguardando",
+        recent: ["Relatório de abril: +14 novos associados via social", "Análise de funil de captação Q1 2025"],
+        progress: 0,
+      },
+      social: {
+        current: "Montando calendário de contagem regressiva para o evento (7 dias)",
+        status: "trabalhando",
+        recent: ["Reels de cobertura do último evento publicado (312 curtidas)", "Programou 6 posts da semana"],
+        progress: 72,
+      },
+      strategist: {
+        current: "Desenvolvendo estratégia de pós-evento para reter novos associados",
+        status: "trabalhando",
+        recent: ["Mapeou jornada do novo associado (onboarding)", "Definiu posicionamento da ABCER para H2 2025"],
+        progress: 30,
+      },
+    },
+    contacts: [
+      { id: "ct1", name: "Ana Silva", company: "Silva & Associados", role: "Diretora", email: "ana@silvaassociados.com.br", status: "Cliente", lastContact: "hoje", tags: ["associada", "VIP"] },
+      { id: "ct2", name: "João Martins", company: "Martins Distribuidora", role: "Gerente Comercial", email: "joao@martinsdist.com.br", status: "Lead", lastContact: "há 3 dias", tags: ["evento", "quente"] },
+      { id: "ct3", name: "Patrícia Souza", company: "Sindicato do Comércio Local", role: "Presidente", email: "patricia@sindicatolocal.org.br", status: "Qualificado", lastContact: "há 5 dias", tags: ["parceira", "influente"] },
+      { id: "ct4", name: "Ricardo Nunes", company: "Nunes Engenharia", role: "Sócio", email: "ricardo@nuneseng.com.br", status: "Lead", lastContact: "há 1 sem", tags: ["construção", "frio"] },
+      { id: "ct5", name: "Camila Ramos", company: "Ramos Digital", role: "CEO", email: "camila@ramosdigital.com.br", status: "Qualificado", lastContact: "há 2 dias", tags: ["tech", "evento"] },
+      { id: "ct6", name: "Fernando Carvalho", company: "Grupo FC", role: "Diretor Executivo", email: "f.carvalho@grupofc.com.br", status: "Cliente", lastContact: "há 1 sem", tags: ["patrocinador"] },
+    ],
+    pipeline: [
+      { id: "d1", title: "Associação Premium Anual", contact: "Fernando Carvalho", value: "R$ 4.800/ano", stage: "ganho", probability: 100, dueDate: "01/05" },
+      { id: "d2", title: "Patrocínio Encontro de Líderes", contact: "João Martins", value: "R$ 5.000", stage: "negociacao", probability: 80, dueDate: "28/04" },
+      { id: "d3", title: "Parceria Institucional 2025", contact: "Patrícia Souza", value: "R$ 7.200/ano", stage: "proposta", probability: 60, dueDate: "10/05" },
+      { id: "d4", title: "Associação Empresarial", contact: "Camila Ramos", value: "R$ 2.400/ano", stage: "qualificacao", probability: 40, dueDate: "15/05" },
+      { id: "d5", title: "Cota de Patrocínio Silver", contact: "Ricardo Nunes", value: "R$ 3.000", stage: "prospeccao", probability: 20, dueDate: "30/05" },
+    ],
   },
+
+  // ── GNX ──────────────────────────────────────────────────────
   {
     id: "gnx",
     name: "GNX",
@@ -166,7 +321,7 @@ export const CLIENTS: Client[] = [
     campaigns: 1,
     lastActivity: "ontem",
     revenue: "R$ 3.200",
-    nextAction: "Criar série de conteúdo sobre inovação",
+    nextAction: "Criar série de conteúdo sobre automação e IA",
     followers: { instagram: "2,4k", facebook: "4,1k" },
     recentPosts: [
       { id: "p1", type: "Feed", caption: "Como a automação está transformando pequenas empresas em 2025", platform: "Instagram", scheduledFor: "Ontem 17h", status: "Publicado", likes: 221, reach: 3600 },
@@ -194,6 +349,62 @@ export const CLIENTS: Client[] = [
       { label: "Engajamento", value: "4.1%", change: "+0.9pp", positive: true },
       { label: "Leads gerados", value: "78", change: "+22%", positive: true },
       { label: "Custo por lead", value: "R$ 17,95", change: "-11%", positive: true },
+    ],
+    orchestratorStatus: "Construindo autoridade em IA e automação para PMEs + otimizando funil de leads B2B",
+    orchestratorPlan: [
+      { step: "Definir série de conteúdo 'IA para PMEs' com a estrategista", done: true },
+      { step: "Briefing dos 4 artigos para Beatriz (copywriter)", done: true },
+      { step: "Artigo 1 publicado e impulsionado via LinkedIn Ads", done: false, active: true },
+      { step: "Case study com cliente atual", done: false },
+      { step: "Webinar de posicionamento — convites", done: false },
+      { step: "Relatório de leads e pipeline do mês", done: false },
+    ],
+    agentTasks: {
+      copywriter: {
+        current: "Produzindo artigo 2 da série: 'Como implementar IA no atendimento sem saber programar'",
+        status: "trabalhando",
+        recent: ["Artigo 1 da série: 'Automação para PMEs' publicado", "3 legendas de destaque para Instagram"],
+        progress: 42,
+      },
+      traffic: {
+        current: "Rodando testes A/B no anúncio do LinkedIn — comparando títulos com e sem dado estatístico",
+        status: "trabalhando",
+        recent: ["Reduziu CPA de R$ 21 para R$ 17,95 em 2 semanas", "Criou público semelhante a partir de leads convertidos"],
+        progress: 60,
+      },
+      analyst: {
+        current: "Mapeando a jornada dos leads: do anúncio até o contato comercial",
+        status: "trabalhando",
+        recent: ["Relatório quinzenal de leads entregue", "Análise: Reels têm 2,4x mais alcance que feed nesta conta"],
+        progress: 55,
+      },
+      social: {
+        current: "Construindo calendário editorial de maio com a série de IA + datas comemorativas",
+        status: "concluído",
+        recent: ["Posts da semana 28/04 agendados (4 conteúdos)", "Respondeu 8 DMs e comentários no Instagram"],
+        progress: 100,
+      },
+      strategist: {
+        current: "Desenhando proposta de webinar de posicionamento para o mês de junho",
+        status: "aguardando",
+        recent: ["Definiu linha editorial: autoridade em automação para negócios", "Repositório de provas sociais e cases atualizado"],
+        progress: 0,
+      },
+    },
+    contacts: [
+      { id: "ct1", name: "Paulo Silveira", company: "TechCorp Brasil", role: "CTO", email: "paulo@techcorp.com.br", status: "Cliente", lastContact: "há 2 dias", tags: ["tech", "alto valor"] },
+      { id: "ct2", name: "Bruna Ferreira", company: "Mega Retail", role: "Diretora de TI", email: "bruna.ferreira@megaretail.com.br", status: "Lead", lastContact: "hoje", tags: ["varejo", "quente"] },
+      { id: "ct3", name: "Diego Santos", company: "Startup DS", role: "CEO", email: "diego@startupds.com.br", status: "Qualificado", lastContact: "há 3 dias", tags: ["startup", "IA"] },
+      { id: "ct4", name: "Amanda Cruz", company: "Grupo Industrial CR", role: "Gerente de Inovação", email: "amanda.cruz@grupocr.com.br", status: "Qualificado", lastContact: "há 1 sem", tags: ["indústria", "transformação digital"] },
+      { id: "ct5", name: "Rafael Monteiro", company: "FinTech RM", role: "Fundador", email: "rafael@fintechrm.com.br", status: "Lead", lastContact: "há 4 dias", tags: ["fintech", "frio"] },
+      { id: "ct6", name: "Larissa Andrade", company: "Andrade Educação", role: "Diretora", email: "larissa@andradeedu.com.br", status: "Cliente", lastContact: "há 5 dias", tags: "edutech" as any },
+    ],
+    pipeline: [
+      { id: "d1", title: "Implantação Automação de Atendimento", contact: "Paulo Silveira", value: "R$ 18.000", stage: "ganho", probability: 100, dueDate: "30/04" },
+      { id: "d2", title: "Consultoria Transformação Digital", contact: "Diego Santos", value: "R$ 25.000", stage: "negociacao", probability: 70, dueDate: "08/05" },
+      { id: "d3", title: "Dashboard Analytics Personalizado", contact: "Amanda Cruz", value: "R$ 12.000", stage: "proposta", probability: 50, dueDate: "15/05" },
+      { id: "d4", title: "Automação de Marketing", contact: "Bruna Ferreira", value: "R$ 9.500", stage: "qualificacao", probability: 35, dueDate: "20/05" },
+      { id: "d5", title: "Plano Anual Tech + Conteúdo", contact: "Rafael Monteiro", value: "R$ 36.000/ano", stage: "prospeccao", probability: 10, dueDate: "30/05" },
     ],
   },
 ];
