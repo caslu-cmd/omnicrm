@@ -3,117 +3,96 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles, X, Send, Minimize2, Maximize2, Bot, User,
   ThumbsUp, ThumbsDown, Copy, RotateCcw, Lightbulb,
-  TrendingUp, MessageSquare, Mic, MicOff
+  TrendingUp, MessageSquare
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Message {
   id: number;
   role: "user" | "assistant";
   content: string;
   timestamp: string;
-  sentiment?: "positive" | "neutral" | "negative";
-  suggestions?: string[];
 }
 
 const initialMessages: Message[] = [
   {
     id: 1,
     role: "assistant",
-    content: "Olá! 👋 Sou o assistente IA do OmniCRM. Posso ajudar com:\n\n• **Análise de conversas** e recomendação de respostas\n• **Resumos automáticos** de interações\n• **Análise de sentimento** dos seus clientes\n• **Sugestões** para melhorar suas métricas\n\nComo posso ajudar?",
+    content: "Olá! Sou a Caroline IA, sua assistente de marketing e CRM.\n\nPosso ajudar com:\n\n• **Estratégia de conteúdo** para seus clientes\n• **Copy pronto** para posts, stories e campanhas\n• **Análise de clientes** e próximos passos\n• **Briefing e posicionamento** de marca\n\nComo posso ajudar?",
     timestamp: "Agora",
   },
 ];
 
 const quickActions = [
-  { label: "Resumir conversas", icon: MessageSquare },
-  { label: "Analisar sentimento", icon: TrendingUp },
-  { label: "Sugerir resposta", icon: Lightbulb },
+  { label: "Criar copy para post", icon: MessageSquare },
+  { label: "Analisar cliente", icon: TrendingUp },
+  { label: "Sugerir pauta mensal", icon: Lightbulb },
 ];
 
 const AiAssistant = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [messages, setMessages] = useState<Message[]>(initialMessages);
+  const [history, setHistory] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isTyping]);
 
-  const simulateResponse = (userText: string) => {
-    setIsTyping(true);
-    const responses: Record<string, { content: string; sentiment?: "positive" | "neutral" | "negative"; suggestions?: string[] }> = {
-      default: {
-        content: "Analisei os dados disponíveis. Aqui estão alguns insights:\n\n📊 **Performance desta semana:**\n- Taxa de resposta: **94.2%** (↑ 3.1%)\n- Tempo médio de resposta: **4.2 min**\n- Satisfação do cliente: **4.7/5.0**\n\n💡 **Recomendações:**\n1. Leads com score >80 devem receber follow-up em até 2h\n2. Canal WhatsApp tem melhor taxa de conversão (34%)\n3. Considere automação para respostas frequentes sobre preços",
-        sentiment: "positive",
-        suggestions: ["Criar automação de preços", "Ver leads quentes", "Exportar relatório"],
-      },
-      resumir: {
-        content: "📋 **Resumo das últimas 24h:**\n\n• **247 conversas ativas** — 12 aguardando resposta há >1h\n• **Maria Silva** (Lead Quente) quer demo do Plano Pro para equipe de 5\n• **Roberto Santos** solicitou cancelamento — sugiro oferecer desconto de retenção\n• **3 novos leads** via landing page Black Friday\n• **Campanha e-mail** \"Newsletter Março\" agendada para 5 Mar\n\n⚠️ **Atenção:** 2 conversas com sentimento negativo detectado",
-        sentiment: "neutral",
-        suggestions: ["Responder Maria", "Ver Roberto Santos", "Configurar retenção"],
-      },
-      sentimento: {
-        content: "🎭 **Análise de Sentimento — Últimas 24h:**\n\n| Sentimento | Conversas | % |\n|---|---|---|\n| 😊 Positivo | 187 | 75.7% |\n| 😐 Neutro | 48 | 19.4% |\n| 😟 Negativo | 12 | 4.9% |\n\n**Tendência:** ↑ Melhoria de 2.3% vs semana anterior\n\n🔴 **Alertas de sentimento negativo:**\n- Roberto Santos — frustração com cobrança\n- Ana Lima — tempo de espera longo\n\n💡 Recomendo priorizar estas conversas e configurar alertas automáticos para sentimento negativo.",
-        sentiment: "positive",
-        suggestions: ["Criar alerta automático", "Priorizar negativos", "Ver tendências"],
-      },
-      resposta: {
-        content: "✍️ **Sugestão de resposta para Maria Silva:**\n\n> \"Olá Maria! 😊 Fico feliz com seu interesse no Plano Pro!\n>\n> Para sua equipe de 5 vendedores, o Pro oferece:\n> • Inbox unificado ilimitado\n> • Automações avançadas com templates prontos\n> • Pipelines e relatórios completos\n>\n> Posso agendar uma demo personalizada para amanhã às 14h? Assim mostro tudo em ação para toda a equipe!\n>\n> Abraços, [Seu Nome]\"\n\n**Tom:** Profissional e acolhedor ✅\n**Probabilidade de conversão:** Alta (82%)",
-        sentiment: "positive",
-        suggestions: ["Enviar esta resposta", "Editar tom", "Agendar demo"],
-      },
-    };
+  const sendMessage = async (text: string) => {
+    if (!text.trim() || isTyping) return;
 
-    setTimeout(() => {
-      const lower = userText.toLowerCase();
-      let response = responses.default;
-      if (lower.includes("resum")) response = responses.resumir;
-      else if (lower.includes("sentimento") || lower.includes("sentiment")) response = responses.sentimento;
-      else if (lower.includes("resposta") || lower.includes("suger")) response = responses.resposta;
-
-      setMessages(prev => [...prev, {
-        id: prev.length + 1,
-        role: "assistant",
-        content: response.content,
-        timestamp: "Agora",
-        sentiment: response.sentiment,
-        suggestions: response.suggestions,
-      }]);
-      setIsTyping(false);
-    }, 1500);
-  };
-
-  const handleSend = () => {
-    if (!input.trim()) return;
-    const userMsg: Message = {
+    const userMessage: Message = {
       id: messages.length + 1,
       role: "user",
-      content: input,
+      content: text,
       timestamp: "Agora",
     };
-    setMessages(prev => [...prev, userMsg]);
+
+    const updatedHistory = [...history, { role: "user" as const, content: text }];
+
+    setMessages((prev) => [...prev, userMessage]);
+    setHistory(updatedHistory);
     setInput("");
-    simulateResponse(input);
+    setIsTyping(true);
+    setError(null);
+
+    try {
+      const { data, error: fnError } = await supabase.functions.invoke("chat-ai", {
+        body: { messages: updatedHistory },
+      });
+
+      if (fnError) throw new Error(fnError.message);
+      if (!data?.content) throw new Error("Resposta inválida da IA");
+
+      const assistantMessage: Message = {
+        id: messages.length + 2,
+        role: "assistant",
+        content: data.content,
+        timestamp: "Agora",
+      };
+
+      setMessages((prev) => [...prev, assistantMessage]);
+      setHistory((prev) => [...prev, { role: "assistant", content: data.content }]);
+    } catch (err) {
+      setError("Não consegui me conectar. Verifique a configuração da chave da API.");
+    } finally {
+      setIsTyping(false);
+    }
   };
 
-  const handleQuickAction = (label: string) => {
-    const userMsg: Message = {
-      id: messages.length + 1,
-      role: "user",
-      content: label,
-      timestamp: "Agora",
-    };
-    setMessages(prev => [...prev, userMsg]);
-    simulateResponse(label);
-  };
+  const handleSend = () => sendMessage(input);
+  const handleQuickAction = (label: string) => sendMessage(label);
+
+  const copyToClipboard = (text: string) => navigator.clipboard.writeText(text);
 
   return (
     <>
-      {/* FAB */}
       <AnimatePresence>
         {!isOpen && (
           <motion.button
@@ -130,7 +109,6 @@ const AiAssistant = () => {
         )}
       </AnimatePresence>
 
-      {/* Chat Panel */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
@@ -152,15 +130,21 @@ const AiAssistant = () => {
                   <Sparkles className="h-4 w-4 text-primary-foreground" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-foreground">Assistente IA</h3>
-                  <p className="text-[10px] text-muted-foreground">Powered by Lovable AI · Online</p>
+                  <h3 className="text-sm font-semibold text-foreground">Caroline IA</h3>
+                  <p className="text-[10px] text-muted-foreground">Powered by Claude · Online</p>
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={() => setIsExpanded(!isExpanded)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground">
+                <button
+                  onClick={() => setIsExpanded(!isExpanded)}
+                  className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"
+                >
                   {isExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                 </button>
-                <button onClick={() => setIsOpen(false)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground">
+                <button
+                  onClick={() => setIsOpen(false)}
+                  className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"
+                >
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -168,7 +152,7 @@ const AiAssistant = () => {
 
             {/* Messages */}
             <div className="flex-1 overflow-y-auto scrollbar-thin p-4 space-y-4">
-              {messages.map(msg => (
+              {messages.map((msg) => (
                 <motion.div
                   key={msg.id}
                   initial={{ opacity: 0, y: 6 }}
@@ -181,33 +165,38 @@ const AiAssistant = () => {
                     </div>
                   )}
                   <div className={cn("max-w-[85%] space-y-2", msg.role === "user" ? "items-end" : "items-start")}>
-                    <div className={cn(
-                      "rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-line",
-                      msg.role === "user"
-                        ? "bg-primary text-primary-foreground rounded-br-md"
-                        : "bg-muted text-foreground rounded-bl-md"
-                    )}>
+                    <div
+                      className={cn(
+                        "rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-line",
+                        msg.role === "user"
+                          ? "bg-primary text-primary-foreground rounded-br-md"
+                          : "bg-muted text-foreground rounded-bl-md"
+                      )}
+                    >
                       {msg.content}
                     </div>
                     {msg.role === "assistant" && (
                       <div className="flex items-center gap-1">
-                        <button className="p-1 rounded hover:bg-muted text-muted-foreground"><ThumbsUp className="h-3 w-3" /></button>
-                        <button className="p-1 rounded hover:bg-muted text-muted-foreground"><ThumbsDown className="h-3 w-3" /></button>
-                        <button className="p-1 rounded hover:bg-muted text-muted-foreground"><Copy className="h-3 w-3" /></button>
-                        <button className="p-1 rounded hover:bg-muted text-muted-foreground"><RotateCcw className="h-3 w-3" /></button>
-                      </div>
-                    )}
-                    {msg.suggestions && (
-                      <div className="flex flex-wrap gap-1.5">
-                        {msg.suggestions.map(s => (
-                          <button
-                            key={s}
-                            onClick={() => handleQuickAction(s)}
-                            className="px-2.5 py-1 rounded-lg text-[11px] font-medium border border-border bg-card text-foreground hover:border-primary/40 hover:text-primary transition-colors"
-                          >
-                            {s}
-                          </button>
-                        ))}
+                        <button className="p-1 rounded hover:bg-muted text-muted-foreground">
+                          <ThumbsUp className="h-3 w-3" />
+                        </button>
+                        <button className="p-1 rounded hover:bg-muted text-muted-foreground">
+                          <ThumbsDown className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => copyToClipboard(msg.content)}
+                          className="p-1 rounded hover:bg-muted text-muted-foreground"
+                          title="Copiar"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => sendMessage(messages[msg.id - 2]?.content ?? "")}
+                          className="p-1 rounded hover:bg-muted text-muted-foreground"
+                          title="Regenerar"
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                        </button>
                       </div>
                     )}
                   </div>
@@ -226,7 +215,7 @@ const AiAssistant = () => {
                   </div>
                   <div className="bg-muted rounded-2xl rounded-bl-md px-4 py-3">
                     <div className="flex gap-1">
-                      {[0, 1, 2].map(i => (
+                      {[0, 1, 2].map((i) => (
                         <motion.div
                           key={i}
                           className="h-2 w-2 rounded-full bg-muted-foreground/40"
@@ -238,13 +227,20 @@ const AiAssistant = () => {
                   </div>
                 </motion.div>
               )}
+
+              {error && (
+                <div className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">
+                  {error}
+                </div>
+              )}
+
               <div ref={messagesEndRef} />
             </div>
 
             {/* Quick Actions */}
             {messages.length <= 1 && (
-              <div className="px-4 pb-2 flex gap-2">
-                {quickActions.map(a => (
+              <div className="px-4 pb-2 flex gap-2 flex-wrap">
+                {quickActions.map((a) => (
                   <button
                     key={a.label}
                     onClick={() => handleQuickAction(a.label)}
@@ -261,14 +257,15 @@ const AiAssistant = () => {
               <div className="flex items-center gap-2">
                 <input
                   value={input}
-                  onChange={e => setInput(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && handleSend()}
-                  placeholder="Pergunte algo à IA..."
-                  className="flex-1 rounded-xl border border-input bg-background py-2.5 px-3.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20"
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+                  placeholder="Pergunte algo à Caroline IA..."
+                  disabled={isTyping}
+                  className="flex-1 rounded-xl border border-input bg-background py-2.5 px-3.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 disabled:opacity-50"
                 />
                 <button
                   onClick={handleSend}
-                  disabled={!input.trim()}
+                  disabled={!input.trim() || isTyping}
                   className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40 transition-all active:scale-95"
                 >
                   <Send className="h-4 w-4" />
