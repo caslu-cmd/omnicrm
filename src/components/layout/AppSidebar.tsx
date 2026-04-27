@@ -3,9 +3,10 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Inbox, Users, GitBranch, Zap, Send, Calendar,
   Globe, GraduationCap, CreditCard, BarChart3, Puzzle, Settings,
-  HelpCircle, Shield, ChevronLeft, ChevronRight, Sparkles, Phone,
+  HelpCircle, Shield, ChevronLeft, ChevronRight, Phone,
   Palette, Bell, Crown, ArrowLeftRight, Star,
-  ArrowLeft, Megaphone, Eye, BarChart2, ExternalLink
+  ArrowLeft, Megaphone, BarChart2, ExternalLink,
+  Bot, Activity, CheckSquare, Link2, ListTodo
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useIsAdmin } from "@/hooks/useAdmin";
@@ -49,13 +50,12 @@ const bottomItems = [
 
 // ── Client workspace tools ────────────────────────────────────
 const clientTools = [
-  { tab: "",           icon: LayoutDashboard, label: "Visão Geral" },
-  { tab: "crm",        icon: Users,           label: "CRM & Contatos" },
-  { tab: "content",    icon: Calendar,        label: "Conteúdo" },
-  { tab: "campaigns",  icon: Megaphone,       label: "Campanhas" },
-  { tab: "site",       icon: Globe,           label: "Site" },
-  { tab: "reports",    icon: BarChart2,       label: "Relatórios" },
-  { tab: "settings",   icon: Settings,        label: "Configurações" },
+  { tab: "",             icon: LayoutDashboard, label: "Visão Geral" },
+  { tab: "crm",          icon: Users,           label: "CRM" },
+  { tab: "agents",       icon: Bot,             label: "Agentes IA" },
+  { tab: "activities",   icon: Activity,        label: "Atividades" },
+  { tab: "tasks",        icon: ListTodo,        label: "O que fazer" },
+  { tab: "integrations", icon: Link2,           label: "Integrações" },
 ];
 
 export const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
@@ -355,7 +355,7 @@ export const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
             animate={{ opacity: 1 }}
             className="text-base font-bold font-display text-sidebar-accent-foreground tracking-tight truncate"
           >
-            {isClientWorkspace && client ? client.name : "OmniCRM"}
+            {isClientWorkspace && client ? client.name : "Calu Agência"}
           </motion.span>
         )}
       </div>

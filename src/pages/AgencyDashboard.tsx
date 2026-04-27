@@ -63,7 +63,7 @@ export default function AgencyDashboard() {
               </div>
               <span className="text-[11px] font-medium tracking-[0.22em] uppercase"
                 style={{ color: "rgba(245,200,66,0.7)" }}>
-                Painel da Agência
+                Super Admin · Calu Agência
               </span>
             </div>
             <h1
