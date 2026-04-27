@@ -11,6 +11,7 @@ import {
   Pencil, ShieldCheck, GraduationCap, Smartphone, QrCode,
   UserCheck, PhoneCall, MessageSquare as MsgSq, BadgeCheck,
   Paperclip, X, Palette, PenLine, BarChart3, Layout, Table2, AtSign,
+  Target, ArrowRight, Repeat2, MousePointerClick, Filter,
 } from "lucide-react";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { CLIENTS } from "@/data/agencyData";
@@ -384,6 +385,22 @@ export default function ClientWorkspace() {
     : null;
 
   const vTask = viewedAgent ? client.agentTasks[viewedAgent.id] : null;
+
+  // ── Campaigns tab derived variables ───────────────────────────
+  const campList = client.collabCampaigns ?? [];
+  const PHASE_AGENT_COLOR: Record<string, string> = {
+    strategist: "#FBBF24", copywriter: "#A78BFA", designer: "#D946EF",
+    traffic: "#F97316", social: "#60A5FA", sales: "#F59E0B",
+    analyst: "#34D399", site: "#06B6D4", revisor: "#EC4899",
+  };
+  const REMARK_TYPE_ICON: Record<string, typeof Target> = {
+    website: MousePointerClick, video: Film, lookalike: Users,
+    email: Mail, custom: Filter,
+  };
+  const REMARK_TYPE_LABEL: Record<string, string> = {
+    website: "Visitantes do site", video: "Vídeo", lookalike: "Lookalike",
+    email: "E-mail", custom: "Personalizado",
+  };
   const vTaskIsWorking = vTask?.status === "trabalhando";
   const vSitePages = viewedAgent?.id === "site" ? (SITE_PAGES[client.id] ?? []) : [];
   const vRevisedFiles = viewedAgent?.id === "revisor" ? (REVISED_FILES[client.id] ?? []) : [];
@@ -806,6 +823,254 @@ export default function ClientWorkspace() {
                   </div>
                 )}
               </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════════
+                CAMPANHAS — COLABORAÇÃO DE AGENTES
+            ══════════════════════════════════════════════════════ */}
+            {activeTab === "campaigns" && (
+                <div className="space-y-6">
+                  {/* ── Summary bar ── */}
+                  <div className="grid grid-cols-4 gap-4">
+                    {[
+                      { label: "Campanhas ativas",  value: campList.filter(c => c.status === "ativa").length.toString(), icon: Megaphone, color: client.color },
+                      { label: "Leads gerados",      value: campList.reduce((s, c) => s + c.leads, 0).toString(), icon: Target, color: "#34D399" },
+                      { label: "No CRM",             value: campList.reduce((s, c) => s + c.crmLeads, 0).toString(), icon: Users, color: "#A78BFA" },
+                      { label: "Alcance total",      value: campList.reduce((s, c) => s + parseInt(c.reach.replace(/\D/g, ""), 10), 0).toLocaleString("pt-BR"), icon: Eye, color: "#60A5FA" },
+                    ].map((s) => (
+                      <div key={s.label} className="rounded-xl p-4 flex items-center gap-3"
+                        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                        <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+                          style={{ background: `${s.color}15`, border: `1px solid ${s.color}25` }}>
+                          <s.icon className="w-4 h-4" style={{ color: s.color }} />
+                        </div>
+                        <div>
+                          <div className="text-[10px] uppercase tracking-wide mb-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>{s.label}</div>
+                          <div className="text-xl font-bold" style={{ color: "#F0F0F0" }}>{s.value}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {campList.length === 0 && (
+                    <div className="rounded-2xl p-16 text-center"
+                      style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.08)" }}>
+                      <Megaphone className="w-8 h-8 mx-auto mb-3" style={{ color: "rgba(255,255,255,0.15)" }} />
+                      <p className="text-sm" style={{ color: "rgba(255,255,255,0.25)" }}>Nenhuma campanha configurada</p>
+                    </div>
+                  )}
+
+                  {campList.map((camp) => {
+                    const doneCount = camp.phases.filter(p => p.status === "done").length;
+                    const progress = Math.round((doneCount / camp.phases.length) * 100);
+                    const statusStyle = camp.status === "ativa"
+                      ? { color: "#34D399", bg: "rgba(52,211,153,0.12)", border: "rgba(52,211,153,0.25)" }
+                      : camp.status === "pausada"
+                      ? { color: "#FBBF24", bg: "rgba(251,191,36,0.1)", border: "rgba(251,191,36,0.2)" }
+                      : { color: "#94A3B8", bg: "rgba(148,163,184,0.1)", border: "rgba(148,163,184,0.2)" };
+
+                    return (
+                      <motion.div key={camp.id}
+                        initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                        className="rounded-2xl overflow-hidden"
+                        style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
+
+                        {/* Campaign header */}
+                        <div className="px-6 py-5"
+                          style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: `${client.color}06` }}>
+                          <div className="flex items-start justify-between gap-4 mb-3">
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2.5 mb-1">
+                                <h3 className="text-base font-bold" style={{ color: "#F0F0F0" }}>{camp.name}</h3>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
+                                  style={{ background: statusStyle.bg, color: statusStyle.color, border: `1px solid ${statusStyle.border}` }}>
+                                  {camp.status.charAt(0).toUpperCase() + camp.status.slice(1)}
+                                </span>
+                              </div>
+                              <p className="text-[11px] leading-relaxed" style={{ color: "rgba(255,255,255,0.4)" }}>{camp.objective}</p>
+                            </div>
+                            <div className="flex gap-1.5 flex-wrap justify-end flex-shrink-0">
+                              {camp.platforms.map((p) => (
+                                <span key={p} className="text-[10px] px-2 py-0.5 rounded-lg font-medium"
+                                  style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                                  {p}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+
+                          {/* Metrics row */}
+                          <div className="flex items-center gap-6">
+                            {[
+                              { label: "Orçamento",  value: camp.budget },
+                              { label: "Investido",  value: camp.spent },
+                              { label: "Alcance",    value: camp.reach },
+                              { label: "Leads",      value: camp.leads.toString() },
+                              { label: "CPA",        value: camp.cpa },
+                              ...(camp.roas ? [{ label: "ROAS", value: camp.roas }] : []),
+                              { label: "No CRM",     value: camp.crmLeads.toString() },
+                            ].map((m) => (
+                              <div key={m.label}>
+                                <div className="text-[9px] uppercase tracking-widest mb-0.5" style={{ color: "rgba(255,255,255,0.25)" }}>{m.label}</div>
+                                <div className="text-sm font-bold" style={{ color: "#F0F0F0" }}>{m.value}</div>
+                              </div>
+                            ))}
+                            <div className="ml-auto text-right">
+                              <div className="text-[9px] uppercase tracking-widest mb-1" style={{ color: "rgba(255,255,255,0.25)" }}>Progresso</div>
+                              <div className="flex items-center gap-2">
+                                <div className="w-24 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
+                                  <div className="h-full rounded-full" style={{ width: `${progress}%`, background: client.color }} />
+                                </div>
+                                <span className="text-xs font-bold" style={{ color: client.color }}>{progress}%</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="p-6 space-y-6">
+
+                          {/* ── Collaboration flow ── */}
+                          <div>
+                            <div className="flex items-center gap-2 mb-4">
+                              <Zap className="w-3.5 h-3.5" style={{ color: client.color }} />
+                              <h4 className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>Fluxo de Colaboração dos Agentes</h4>
+                            </div>
+                            <div className="flex items-start gap-1 overflow-x-auto pb-2" style={{ scrollbarWidth: "none" }}>
+                              {camp.phases.map((phase, i) => {
+                                const agentDef = MARKETING_TEAM.find(a => a.id === phase.agentId);
+                                const phaseColor = PHASE_AGENT_COLOR[phase.agentId] ?? "#94A3B8";
+                                return (
+                                  <div key={phase.id} className="flex items-start gap-1 flex-shrink-0">
+                                    <div className="flex flex-col items-center w-[120px]">
+                                      {/* Status indicator + box */}
+                                      <div className="relative w-full rounded-xl p-3 text-center"
+                                        style={{
+                                          background: phase.status === "done"
+                                            ? `${phaseColor}12`
+                                            : phase.status === "active"
+                                            ? `${phaseColor}20`
+                                            : "rgba(255,255,255,0.02)",
+                                          border: phase.status === "done"
+                                            ? `1px solid ${phaseColor}30`
+                                            : phase.status === "active"
+                                            ? `1px solid ${phaseColor}50`
+                                            : "1px solid rgba(255,255,255,0.06)",
+                                          boxShadow: phase.status === "active"
+                                            ? `0 0 20px -6px ${phaseColor}40`
+                                            : "none",
+                                        }}>
+                                        {phase.status === "active" && (
+                                          <span className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: phaseColor }} />
+                                            <span className="relative inline-flex rounded-full h-2.5 w-2.5" style={{ background: phaseColor }} />
+                                          </span>
+                                        )}
+                                        <div className="w-7 h-7 rounded-lg mx-auto mb-1.5 flex items-center justify-center text-[11px] font-bold"
+                                          style={{ background: `${phaseColor}20`, border: `1px solid ${phaseColor}35`, color: phaseColor }}>
+                                          {agentDef?.initial ?? "?"}
+                                        </div>
+                                        <div className="text-[9px] font-bold mb-0.5" style={{ color: phaseColor }}>{agentDef?.name ?? phase.agentId}</div>
+                                        <div className="text-[9px] leading-tight" style={{ color: "rgba(255,255,255,0.45)" }}>{phase.label}</div>
+                                        {phase.status === "done" && (
+                                          <div className="mt-1.5">
+                                            <CheckCircle2 className="w-3 h-3 mx-auto" style={{ color: phaseColor, opacity: 0.8 }} />
+                                          </div>
+                                        )}
+                                        {phase.status === "pending" && (
+                                          <div className="mt-1.5">
+                                            <Clock className="w-3 h-3 mx-auto" style={{ color: "rgba(255,255,255,0.2)" }} />
+                                          </div>
+                                        )}
+                                        {phase.output && (
+                                          <div className="mt-2 text-[8px] leading-tight px-1"
+                                            style={{ color: "rgba(255,255,255,0.3)" }}>
+                                            {phase.output.length > 55 ? phase.output.slice(0, 55) + "…" : phase.output}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                    {i < camp.phases.length - 1 && (
+                                      <div className="flex-shrink-0 mt-6">
+                                        <ArrowRight className="w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.15)" }} />
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* ── Remarketing audiences ── */}
+                          {camp.remarketing.length > 0 && (
+                            <div>
+                              <div className="flex items-center gap-2 mb-4">
+                                <Repeat2 className="w-3.5 h-3.5" style={{ color: "#F97316" }} />
+                                <h4 className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>Audiências de Remarketing</h4>
+                              </div>
+                              <div className="grid grid-cols-2 gap-3">
+                                {camp.remarketing.map((aud) => {
+                                  const Icon = REMARK_TYPE_ICON[aud.type] ?? Target;
+                                  const isActive = aud.status === "ativa";
+                                  return (
+                                    <div key={aud.id} className="rounded-xl p-3.5"
+                                      style={{ background: "rgba(255,255,255,0.025)", border: `1px solid ${isActive ? "rgba(249,115,22,0.2)" : "rgba(255,255,255,0.05)"}` }}>
+                                      <div className="flex items-start gap-2.5 mb-2">
+                                        <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                                          style={{ background: isActive ? "rgba(249,115,22,0.12)" : "rgba(255,255,255,0.04)", border: isActive ? "1px solid rgba(249,115,22,0.25)" : "1px solid rgba(255,255,255,0.06)" }}>
+                                          <Icon className="w-3.5 h-3.5" style={{ color: isActive ? "#F97316" : "rgba(255,255,255,0.2)" }} />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <div className="text-[11px] font-semibold leading-snug" style={{ color: "rgba(255,255,255,0.8)" }}>{aud.name}</div>
+                                          <div className="text-[9px] mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>{REMARK_TYPE_LABEL[aud.type]} · {aud.platform}</div>
+                                        </div>
+                                        <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium flex-shrink-0"
+                                          style={{ background: isActive ? "rgba(52,211,153,0.1)" : "rgba(255,255,255,0.05)", color: isActive ? "#34D399" : "rgba(255,255,255,0.3)" }}>
+                                          {isActive ? "Ativa" : "Pausada"}
+                                        </span>
+                                      </div>
+                                      <div className="flex items-center gap-3">
+                                        <div>
+                                          <div className="text-[9px]" style={{ color: "rgba(255,255,255,0.25)" }}>Audiência</div>
+                                          <div className="text-xs font-semibold" style={{ color: "#F0F0F0" }}>{aud.size}</div>
+                                        </div>
+                                        {aud.cpa && (
+                                          <div>
+                                            <div className="text-[9px]" style={{ color: "rgba(255,255,255,0.25)" }}>CPA</div>
+                                            <div className="text-xs font-semibold" style={{ color: "#34D399" }}>{aud.cpa}</div>
+                                          </div>
+                                        )}
+                                        {aud.leadsThisWeek !== undefined && (
+                                          <div>
+                                            <div className="text-[9px]" style={{ color: "rgba(255,255,255,0.25)" }}>Leads (7d)</div>
+                                            <div className="text-xs font-semibold" style={{ color: "#60A5FA" }}>{aud.leadsThisWeek}</div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* ── CRM integration note ── */}
+                          <div className="rounded-xl p-4 flex items-start gap-3"
+                            style={{ background: "rgba(167,139,250,0.06)", border: "1px solid rgba(167,139,250,0.15)" }}>
+                            <Users className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: "#A78BFA" }} />
+                            <div>
+                              <div className="text-xs font-semibold mb-0.5" style={{ color: "#A78BFA" }}>
+                                {camp.crmLeads} leads desta campanha no CRM
+                              </div>
+                              <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.35)" }}>
+                                Eduardo está nutrindo estes contatos com follow-up via WhatsApp. Cada lead qualificado entra automaticamente no pipeline de vendas.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
             )}
 
             {/* ══════════════════════════════════════════════════════

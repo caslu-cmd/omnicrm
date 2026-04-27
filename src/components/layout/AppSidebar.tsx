@@ -52,6 +52,7 @@ const bottomItems = [
 const clientTools = [
   { tab: "",             icon: LayoutDashboard, label: "Visão Geral" },
   { tab: "crm",          icon: Users,           label: "CRM" },
+  { tab: "campaigns",    icon: Megaphone,       label: "Campanhas" },
   { tab: "agents",       icon: Bot,             label: "Agentes IA" },
   { tab: "activities",   icon: Activity,        label: "Atividades" },
   { tab: "tasks",        icon: ListTodo,        label: "O que fazer" },

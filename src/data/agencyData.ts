@@ -74,6 +74,43 @@ export interface OrchestratorStep {
   active?: boolean;
 }
 
+export interface CampaignPhase {
+  id: string;
+  label: string;
+  agentId: string;
+  status: "done" | "active" | "pending";
+  output?: string;
+}
+
+export interface RemarketingAudience {
+  id: string;
+  name: string;
+  size: string;
+  platform: string;
+  type: "website" | "video" | "lookalike" | "email" | "custom";
+  status: "ativa" | "pausada";
+  cpa?: string;
+  leadsThisWeek?: number;
+}
+
+export interface CollabCampaign {
+  id: string;
+  name: string;
+  objective: string;
+  status: "ativa" | "rascunho" | "pausada" | "concluída";
+  platforms: string[];
+  budget: string;
+  spent: string;
+  reach: string;
+  leads: number;
+  cpa: string;
+  roas?: string;
+  startDate: string;
+  phases: CampaignPhase[];
+  remarketing: RemarketingAudience[];
+  crmLeads: number;
+}
+
 export interface Post {
   id: string;
   type: "Feed" | "Story" | "Reels";
@@ -144,6 +181,7 @@ export interface Client {
   courses?: Course[];
   whatsappLeads?: WhatsAppLead[];
   outputs: GeneratedOutput[];
+  collabCampaigns?: CollabCampaign[];
 }
 
 export const CLIENTS: Client[] = [
@@ -449,6 +487,30 @@ export const CLIENTS: Client[] = [
       { id: "gl-o9", agent: "sales", name: "Mensagem de Follow-up — Leads WhatsApp", type: "copy", createdAt: "hoje, 15h", platform: "WhatsApp", status: "aprovado", preview: "Olá [nome]! 👋 Aqui é o Eduardo do Grupo Licita. Vi que você se interessou pelo Curso Nova Lei 14.133. Tenho uma oferta especial para fechar ainda esta semana — posso te contar mais?" },
       { id: "gl-o10", agent: "site", name: "Texto — Página Serviços (revisado)", type: "copy", createdAt: "hoje, 13h", status: "revisão", preview: "Oferecemos assessoria completa em licitações públicas, desde a análise de editais até a gestão de contratos. Nossa metodologia exclusiva elevou a taxa de vitória dos nossos clientes em até 340% no último ano." },
     ],
+    collabCampaigns: [
+      {
+        id: "cc1", name: "Autoridade B2B — Licitações Públicas",
+        objective: "Gerar leads qualificados (diretores e gestores de compras) e posicionar Grupo Licita como referência no setor",
+        status: "ativa", platforms: ["LinkedIn Ads", "Google Ads", "Instagram"],
+        budget: "R$ 3.200/mês", spent: "R$ 1.830", reach: "48.200", leads: 94, cpa: "R$ 12,23", roas: "4,8×",
+        startDate: "01/04/2025", crmLeads: 28,
+        phases: [
+          { id: "p1", label: "Estratégia & Posicionamento", agentId: "strategist", status: "done", output: "Pauta editorial + posicionamento de marca aprovado pelo cliente" },
+          { id: "p2", label: "Copy & Roteiros", agentId: "copywriter", status: "done", output: "3 versões de anúncio LinkedIn, landing page copy, artigo autoridade" },
+          { id: "p3", label: "Criação Visual", agentId: "designer", status: "done", output: "Banner LinkedIn 1200×628px (2 variações), carrossel Instagram 6 slides" },
+          { id: "p4", label: "Configuração de Anúncios", agentId: "traffic", status: "active", output: "Campanhas LinkedIn + Google ativas — otimizando segmentação por cargo" },
+          { id: "p5", label: "Publicação Orgânica", agentId: "social", status: "active", output: "3 posts por semana no Instagram + 2 artigos por mês no LinkedIn" },
+          { id: "p6", label: "Remarketing & Retargeting", agentId: "traffic", status: "pending", output: null },
+          { id: "p7", label: "Nutrição CRM — WhatsApp", agentId: "sales", status: "pending", output: null },
+        ],
+        remarketing: [
+          { id: "r1", name: "Visitantes do Site (últimos 30 dias)", size: "1.240 pessoas", platform: "Google Ads", type: "website", status: "ativa", cpa: "R$ 8,40", leadsThisWeek: 6 },
+          { id: "r2", name: "Engajados com Posts LinkedIn", size: "3.800 pessoas", platform: "LinkedIn Ads", type: "custom", status: "ativa", cpa: "R$ 14,20", leadsThisWeek: 9 },
+          { id: "r3", name: "Lookalike — Clientes Atuais", size: "22.000 pessoas", platform: "LinkedIn Ads", type: "lookalike", status: "ativa", cpa: "R$ 11,80", leadsThisWeek: 12 },
+          { id: "r4", name: "Visualizadores do Vídeo 75%+", size: "680 pessoas", platform: "Instagram", type: "video", status: "pausada" },
+        ],
+      },
+    ],
   },
 
   // ── ABCER ────────────────────────────────────────────────────
@@ -584,6 +646,50 @@ export const CLIENTS: Client[] = [
       { id: "ab-o6", agent: "copywriter", name: "E-mail Boas-vindas — Novos Associados", type: "email", createdAt: "há 2 dias", status: "publicado", preview: "Seja bem-vindo à ABCER! Você agora faz parte de uma comunidade com mais de 400 empresas associadas. Neste e-mail você encontra todos os seus benefícios e como aproveitá-los ao máximo." },
       { id: "ab-o7", agent: "social", name: "Calendário de Conteúdo — Semana do Evento", type: "plan", createdAt: "hoje, 9h", platform: "Facebook / Instagram", status: "aprovado", preview: "Seg: Contagem regressiva (10 dias). Ter: Perfil de palestrante #1. Qua: Story interativo (enquete). Qui: Perfil de palestrante #2. Sex: Urgência — últimas vagas." },
     ],
+    collabCampaigns: [
+      {
+        id: "cc1", name: "Captação de Associados — Awareness 2025",
+        objective: "Aumentar base de associados e reforçar posicionamento da ABCER como hub de negócios regional",
+        status: "ativa", platforms: ["Facebook Ads", "Instagram", "E-mail Marketing"],
+        budget: "R$ 1.500/mês", spent: "R$ 820", reach: "31.600", leads: 203, cpa: "R$ 4,04",
+        startDate: "10/04/2025", crmLeads: 47,
+        phases: [
+          { id: "p1", label: "Estratégia & Público-alvo", agentId: "strategist", status: "done", output: "Persona definida: empresários locais 35-55 anos, faturamento R$ 500k-5M" },
+          { id: "p2", label: "Copy & Roteiros", agentId: "copywriter", status: "done", output: "4 variações de anúncio, e-mail de boas-vindas, SMS de confirmação" },
+          { id: "p3", label: "Criação Visual", agentId: "designer", status: "done", output: "Arte evento 3 formatos, banner awareness associação, capa Facebook" },
+          { id: "p4", label: "Anúncios Facebook/Instagram", agentId: "traffic", status: "active", output: "2 campanhas ativas — awareness associação + evento líderes" },
+          { id: "p5", label: "E-mail Marketing", agentId: "copywriter", status: "active", output: "Sequência de 3 e-mails para leads que visitaram a landing page" },
+          { id: "p6", label: "Remarketing Dinâmico", agentId: "traffic", status: "active", output: "Retargeting para visitantes não convertidos nos últimos 14 dias" },
+          { id: "p7", label: "Follow-up CRM", agentId: "sales", status: "pending", output: null },
+        ],
+        remarketing: [
+          { id: "r1", name: "Abandonaram LP sem preencher", size: "890 pessoas", platform: "Facebook Ads", type: "website", status: "ativa", cpa: "R$ 3,20", leadsThisWeek: 14 },
+          { id: "r2", name: "Curtidas na Página Facebook (90 dias)", size: "9.300 pessoas", platform: "Facebook Ads", type: "custom", status: "ativa", cpa: "R$ 2,80", leadsThisWeek: 22 },
+          { id: "r3", name: "Lookalike Associados Atuais 2%", size: "45.000 pessoas", platform: "Facebook Ads", type: "lookalike", status: "ativa", cpa: "R$ 5,10", leadsThisWeek: 8 },
+          { id: "r4", name: "Assistiram Reels 50%+", size: "1.420 pessoas", platform: "Instagram", type: "video", status: "ativa", cpa: "R$ 6,30", leadsThisWeek: 5 },
+        ],
+      },
+      {
+        id: "cc2", name: "Encontro de Líderes — Maio 2025",
+        objective: "Atingir 120 inscrições para o evento presencial de networking com custo por inscrição abaixo de R$ 15",
+        status: "ativa", platforms: ["Facebook Ads", "WhatsApp", "E-mail"],
+        budget: "R$ 800/mês", spent: "R$ 310", reach: "12.400", leads: 89, cpa: "R$ 3,48",
+        startDate: "22/04/2025", crmLeads: 19,
+        phases: [
+          { id: "p1", label: "Planejamento do Evento", agentId: "strategist", status: "done", output: "Timeline de comunicação de 3 semanas + personas para segmentação" },
+          { id: "p2", label: "Material de Divulgação", agentId: "copywriter", status: "done", output: "Copy convite, script WhatsApp, landing page de inscrição" },
+          { id: "p3", label: "Identidade Visual Evento", agentId: "designer", status: "done", output: "Kit visual completo: banner, stories, e-mail header, material impresso" },
+          { id: "p4", label: "Anúncios Patrocinados", agentId: "traffic", status: "active", output: "1 campanha Facebook com 3 conjuntos de anúncio — segmentação por setor" },
+          { id: "p5", label: "Disparo WhatsApp", agentId: "sales", status: "active", output: "Convites enviados para 340 contatos da base — 67 confirmados" },
+          { id: "p6", label: "Remarketing Pré-evento", agentId: "traffic", status: "pending", output: null },
+          { id: "p7", label: "Pós-evento CRM", agentId: "sales", status: "pending", output: null },
+        ],
+        remarketing: [
+          { id: "r1", name: "Visitaram LP e não inscreveram", size: "340 pessoas", platform: "Facebook Ads", type: "website", status: "ativa", cpa: "R$ 4,10", leadsThisWeek: 7 },
+          { id: "r2", name: "Engajados com posts do evento", size: "2.100 pessoas", platform: "Instagram", type: "custom", status: "ativa", cpa: "R$ 5,80", leadsThisWeek: 4 },
+        ],
+      },
+    ],
   },
 
   // ── GNX ──────────────────────────────────────────────────────
@@ -717,6 +823,30 @@ export const CLIENTS: Client[] = [
       { id: "gn-o6", agent: "strategist", name: "Posicionamento de Marca — GNX 2025", type: "plan", createdAt: "há 3 dias", status: "aprovado", preview: "Proposta de valor central: A GNX transforma PMEs tradicionais em empresas digitais em até 30 dias, sem necessidade de equipe de TI. Tom: Confiante, técnico mas acessível, orientado a resultado." },
       { id: "gn-o7", agent: "site", name: "Blog — Automação para PMEs (revisado)", type: "article", createdAt: "ontem", platform: "Blog", status: "aprovado", preview: "Texto completo revisado e publicado. 1.240 palavras. SEO: palavra-chave principal automação empresarial PME, densidade 2,1%. Meta description atualizada. Slug: /blog/automacao-pme." },
       { id: "gn-o8", agent: "social", name: "Calendário Conteúdo — Semana 28/04", type: "plan", createdAt: "hoje, 8h", platform: "LinkedIn / Instagram", status: "aprovado", preview: "Seg: Artigo automação (LinkedIn). Ter: Bastidores cliente (Instagram). Qua: Dado de impacto (LinkedIn). Qui: Reels dica rápida (Instagram). Sex: Case de sucesso (ambos)." },
+    ],
+    collabCampaigns: [
+      {
+        id: "cc1", name: "Automação B2B — Geração de Demos",
+        objective: "Gerar demonstrações qualificadas com tomadores de decisão de PMEs que faturam acima de R$ 2M/ano",
+        status: "ativa", platforms: ["LinkedIn Ads", "Google Ads", "Site/Blog"],
+        budget: "R$ 2.500/mês", spent: "R$ 1.400", reach: "22.800", leads: 78, cpa: "R$ 17,95", roas: "3,2×",
+        startDate: "05/04/2025", crmLeads: 21,
+        phases: [
+          { id: "p1", label: "Posicionamento & ICP", agentId: "strategist", status: "done", output: "ICP definido: diretores de operações, PMEs tech, ticket médio R$ 15k+" },
+          { id: "p2", label: "Copy Anúncios & Landing Page", agentId: "copywriter", status: "done", output: "3 variações de headline, copy LinkedIn, landing page com 3 CTAs testados" },
+          { id: "p3", label: "Criação Visual Campanhas", agentId: "designer", status: "done", output: "Landing page visual, banners LinkedIn/Google, infográfico processo GNX" },
+          { id: "p4", label: "SEO & Blog", agentId: "site", status: "done", output: "2 artigos publicados, palavras-chave rankeando, meta descriptions otimizadas" },
+          { id: "p5", label: "Campanhas Pagas", agentId: "traffic", status: "active", output: "LinkedIn Ads + Google Search ativos — testando 3 variações de anúncio" },
+          { id: "p6", label: "Remarketing Inteligente", agentId: "traffic", status: "active", output: "Retargeting visitantes LP + engajados LinkedIn — 48h de janela" },
+          { id: "p7", label: "Sequência de Vendas", agentId: "sales", status: "pending", output: null },
+        ],
+        remarketing: [
+          { id: "r1", name: "Visitaram LP Demo (não agendaram)", size: "560 pessoas", platform: "Google Ads", type: "website", status: "ativa", cpa: "R$ 12,40", leadsThisWeek: 5 },
+          { id: "r2", name: "Leram Artigos do Blog 2+ min", size: "2.100 pessoas", platform: "Google Ads", type: "website", status: "ativa", cpa: "R$ 9,80", leadsThisWeek: 8 },
+          { id: "r3", name: "Engajaram com Posts LinkedIn", size: "4.200 pessoas", platform: "LinkedIn Ads", type: "custom", status: "ativa", cpa: "R$ 22,10", leadsThisWeek: 6 },
+          { id: "r4", name: "Lookalike Clientes Atuais 1%", size: "18.000 pessoas", platform: "LinkedIn Ads", type: "lookalike", status: "ativa", cpa: "R$ 19,30", leadsThisWeek: 9 },
+        ],
+      },
     ],
   },
 ];
