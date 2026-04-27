@@ -188,6 +188,12 @@ export const CLIENTS: Client[] = [
         recent: ["Análise de concorrentes Q2 concluída", "Repositório de brand voice atualizado"],
         progress: 0,
       },
+      designer: {
+        current: "Criando carrossel visual para o artigo 'Nova Lei de Licitações' — 6 slides no formato 1080×1080",
+        status: "trabalhando",
+        recent: ["Template de Stories (9×16) com identidade do Grupo Licita", "Banner LinkedIn para campanha B2B — 2 versões"],
+        progress: 72,
+      },
       site: {
         current: "Atualizando página 'Serviços' com novos textos sobre a Nova Lei 14.133",
         status: "trabalhando",
@@ -302,6 +308,12 @@ export const CLIENTS: Client[] = [
         recent: ["Mapeou jornada do novo associado (onboarding)", "Definiu posicionamento da ABCER para H2 2025"],
         progress: 30,
       },
+      designer: {
+        current: "Desenvolvendo kit visual completo do Encontro de Líderes: banner, stories e crachás",
+        status: "trabalhando",
+        recent: ["Arte do convite digital (formato PDF e PNG)", "Pack de stories contagem regressiva — 7 peças"],
+        progress: 88,
+      },
       site: {
         current: "Atualizando banner principal do site com arte do Encontro de Líderes",
         status: "trabalhando",
@@ -413,6 +425,12 @@ export const CLIENTS: Client[] = [
         status: "aguardando",
         recent: ["Definiu linha editorial: autoridade em automação para negócios", "Repositório de provas sociais e cases atualizado"],
         progress: 0,
+      },
+      designer: {
+        current: "Criando série de cards visuais para a campanha 'IA para PMEs' — estilo tech minimalista",
+        status: "trabalhando",
+        recent: ["Identidade visual da landing page de captação de leads", "3 variações de criativo para teste A/B no LinkedIn Ads"],
+        progress: 50,
       },
       site: {
         current: "Otimizando landing page de captação de leads — aumentando velocidade e CTA",

@@ -61,6 +61,15 @@ const MARKETING_TEAM = [
     description: "Define o posicionamento e a pauta editorial do cliente",
   },
   {
+    id: "designer",
+    name: "Isadora",
+    role: "Designer",
+    initial: "I",
+    skill: "Visual · Social Media · Motion",
+    color: "#D946EF",
+    description: "Cria peças visuais, templates e identidade visual nas redes",
+  },
+  {
     id: "site",
     name: "Teo",
     role: "Editor de Site",
