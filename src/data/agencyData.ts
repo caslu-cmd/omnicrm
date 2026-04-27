@@ -57,6 +57,17 @@ export interface AgentTask {
   progress: number;
 }
 
+export interface GeneratedOutput {
+  id: string;
+  name: string;
+  type: "copy" | "design" | "post" | "article" | "report" | "plan" | "email" | "ad";
+  agent: string;
+  createdAt: string;
+  preview: string;
+  platform?: string;
+  status: "rascunho" | "revisão" | "aprovado" | "publicado";
+}
+
 export interface OrchestratorStep {
   step: string;
   done: boolean;
@@ -132,6 +143,7 @@ export interface Client {
   orchestratorPlan: OrchestratorStep[];
   courses?: Course[];
   whatsappLeads?: WhatsAppLead[];
+  outputs: GeneratedOutput[];
 }
 
 export const CLIENTS: Client[] = [
@@ -425,6 +437,18 @@ export const CLIENTS: Client[] = [
       { id: "d4", title: "Curso Nova Lei de Licitações", contact: "Fernanda Lima", value: "R$ 3.500", stage: "qualificacao", probability: 30, dueDate: "15/05" },
       { id: "d5", title: "Plano Anual de Assessoria", contact: "Carlos Eduardo Matos", value: "R$ 48.000/ano", stage: "prospeccao", probability: 15, dueDate: "30/05" },
     ],
+    outputs: [
+      { id: "gl-o1", agent: "copywriter", name: "Artigo LinkedIn — Nova Lei de Licitações", type: "article", createdAt: "hoje, 14h", platform: "LinkedIn", status: "revisão", preview: "A Nova Lei de Licitações (14.133/21) trouxe mudanças estruturais que toda empresa fornecedora precisa conhecer. Neste artigo, vamos explorar os 5 pontos mais críticos que impactam diretamente o processo de habilitação e julgamento de propostas..." },
+      { id: "gl-o2", agent: "copywriter", name: "Legenda Instagram — Post Autoridade", type: "post", createdAt: "hoje, 10h", platform: "Instagram", status: "aprovado", preview: "Você sabia que a maioria das empresas perde licitações por erros evitáveis na documentação? 🔎 Separamos os 3 erros mais comuns e como você pode corrigi-los agora..." },
+      { id: "gl-o3", agent: "copywriter", name: "Copy LinkedIn Ads — Versão B", type: "ad", createdAt: "ontem", platform: "LinkedIn Ads", status: "aprovado", preview: "Sua empresa já perdeu contratos por desconhecer a Nova Lei 14.133? Nossa consultoria especializada transforma sua equipe em especialistas em licitações públicas. Saiba mais." },
+      { id: "gl-o4", agent: "designer", name: "Carrossel — Nova Lei de Licitações (6 slides)", type: "design", createdAt: "hoje, 11h", platform: "Instagram", status: "revisão", preview: "Carrossel visual 1080×1080px com identidade Grupo Licita. Slides: Capa / 5 erros comuns / Lei 14.133 em 3 pontos / Benefícios da assessoria / CTA." },
+      { id: "gl-o5", agent: "designer", name: "Banner LinkedIn Ads — 2 variações", type: "design", createdAt: "ontem", platform: "LinkedIn Ads", status: "publicado", preview: "Banner 1200×628px em duas versões (azul escuro e branco). Ambas aprovadas pelo cliente e ativas nas campanhas B2B." },
+      { id: "gl-o6", agent: "analyst", name: "Relatório Semanal 21/04 — Métricas", type: "report", createdAt: "21/04", status: "publicado", preview: "Alcance total: 28.400 impressões (+12%). Engajamento: 4,8% (benchmark: 3,2%). Leads gerados: 14 via LinkedIn. CPA médio: R$ 18,60. Campanha Google: ROAS 3,8×." },
+      { id: "gl-o7", agent: "strategist", name: "Pauta Editorial — Maio/2025", type: "plan", createdAt: "ontem", status: "aprovado", preview: "Semana 1: Sazonalidade de licitações em maio. Semana 2: Habilitação jurídica pós Nova Lei. Semana 3: Case de sucesso — cliente ganhou contrato de R$ 380k. Semana 4: Dicas para ME/EPP." },
+      { id: "gl-o8", agent: "social", name: "Calendário de Posts — Semana 28/04", type: "plan", createdAt: "hoje, 9h", platform: "Instagram / LinkedIn", status: "aprovado", preview: "Seg: Carrossel nova lei. Ter: Story bastidores. Qua: Reels dica rápida. Qui: Post autoridade. Sex: Story enquete. 5 publicações agendadas via plataforma." },
+      { id: "gl-o9", agent: "sales", name: "Mensagem de Follow-up — Leads WhatsApp", type: "copy", createdAt: "hoje, 15h", platform: "WhatsApp", status: "aprovado", preview: "Olá [nome]! 👋 Aqui é o Eduardo do Grupo Licita. Vi que você se interessou pelo Curso Nova Lei 14.133. Tenho uma oferta especial para fechar ainda esta semana — posso te contar mais?" },
+      { id: "gl-o10", agent: "site", name: "Texto — Página Serviços (revisado)", type: "copy", createdAt: "hoje, 13h", status: "revisão", preview: "Oferecemos assessoria completa em licitações públicas, desde a análise de editais até a gestão de contratos. Nossa metodologia exclusiva elevou a taxa de vitória dos nossos clientes em até 340% no último ano." },
+    ],
   },
 
   // ── ABCER ────────────────────────────────────────────────────
@@ -551,6 +575,15 @@ export const CLIENTS: Client[] = [
       { id: "d4", title: "Associação Empresarial", contact: "Camila Ramos", value: "R$ 2.400/ano", stage: "qualificacao", probability: 40, dueDate: "15/05" },
       { id: "d5", title: "Cota de Patrocínio Silver", contact: "Ricardo Nunes", value: "R$ 3.000", stage: "prospeccao", probability: 20, dueDate: "30/05" },
     ],
+    outputs: [
+      { id: "ab-o1", agent: "copywriter", name: "Copy Convite — Encontro de Líderes de Maio", type: "copy", createdAt: "hoje, 13h", platform: "E-mail / WhatsApp", status: "aprovado", preview: "Prezado(a) [nome], É com grande satisfação que convidamos você para o Encontro de Líderes Empresariais — edição Maio 2025. Um espaço exclusivo para conexões estratégicas e troca de experiências entre os principais nomes do setor." },
+      { id: "ab-o2", agent: "copywriter", name: "Legenda Facebook — Post Evento", type: "post", createdAt: "ontem", platform: "Facebook", status: "publicado", preview: "O maior encontro de líderes empresariais do estado está chegando! 🤝 Reserve sua vaga e venha fazer parte de uma rede que transforma negócios. Inscrições abertas — link na bio." },
+      { id: "ab-o3", agent: "designer", name: "Arte Evento — Encontro de Líderes (3 formatos)", type: "design", createdAt: "ontem", platform: "Facebook / Instagram / Stories", status: "publicado", preview: "Peças em 3 formatos: Feed quadrado 1080×1080, Stories 1080×1920, capa de evento Facebook 820×312. Cores institucionais ABCER. Aprovadas e publicadas." },
+      { id: "ab-o4", agent: "analyst", name: "Relatório Captação Pré-Evento", type: "report", createdAt: "hoje, 10h", status: "revisão", preview: "Inscrições recebidas: 89 (meta: 120). Canal Facebook Ads: 41 inscrições (CPA R$ 12). E-mail marketing: 28 inscrições (taxa de abertura 38%). WhatsApp orgânico: 20 inscrições." },
+      { id: "ab-o5", agent: "strategist", name: "Plano de Comunicação — Evento Maio", type: "plan", createdAt: "há 3 dias", status: "aprovado", preview: "Semana 1: Lançamento com urgência (vagas limitadas). Semana 2: Destaques dos palestrantes. Semana 3: Testemunhos de edições anteriores. Semana 4: Chamada final + encerramento de inscrições." },
+      { id: "ab-o6", agent: "copywriter", name: "E-mail Boas-vindas — Novos Associados", type: "email", createdAt: "há 2 dias", status: "publicado", preview: "Seja bem-vindo à ABCER! Você agora faz parte de uma comunidade com mais de 400 empresas associadas. Neste e-mail você encontra todos os seus benefícios e como aproveitá-los ao máximo." },
+      { id: "ab-o7", agent: "social", name: "Calendário de Conteúdo — Semana do Evento", type: "plan", createdAt: "hoje, 9h", platform: "Facebook / Instagram", status: "aprovado", preview: "Seg: Contagem regressiva (10 dias). Ter: Perfil de palestrante #1. Qua: Story interativo (enquete). Qui: Perfil de palestrante #2. Sex: Urgência — últimas vagas." },
+    ],
   },
 
   // ── GNX ──────────────────────────────────────────────────────
@@ -674,6 +707,16 @@ export const CLIENTS: Client[] = [
       { id: "d3", title: "Dashboard Analytics Personalizado", contact: "Amanda Cruz", value: "R$ 12.000", stage: "proposta", probability: 50, dueDate: "15/05" },
       { id: "d4", title: "Automação de Marketing", contact: "Bruna Ferreira", value: "R$ 9.500", stage: "qualificacao", probability: 35, dueDate: "20/05" },
       { id: "d5", title: "Plano Anual Tech + Conteúdo", contact: "Rafael Monteiro", value: "R$ 36.000/ano", stage: "prospeccao", probability: 10, dueDate: "30/05" },
+    ],
+    outputs: [
+      { id: "gn-o1", agent: "copywriter", name: "Artigo 2 — Como Implementar IA no Atendimento", type: "article", createdAt: "hoje, 15h", platform: "Blog / LinkedIn", status: "revisão", preview: "A inteligência artificial deixou de ser um diferencial e se tornou uma necessidade competitiva. Neste artigo, mostramos um passo a passo para PMEs que querem automatizar o atendimento sem precisar de equipe técnica especializada..." },
+      { id: "gn-o2", agent: "copywriter", name: "Headlines Landing Page — Automação B2B", type: "copy", createdAt: "hoje, 11h", platform: "Site", status: "revisão", preview: "H1: Automatize seu negócio em 30 dias — sem código, sem complicação. H2: Mais de 50 empresas já transformaram seu atendimento com a GNX. CTA: Agende uma conversa gratuita." },
+      { id: "gn-o3", agent: "copywriter", name: "Copy Google Ads — Campanha Automação", type: "ad", createdAt: "ontem", platform: "Google Ads", status: "publicado", preview: "Título 1: Automação para PMEs | Título 2: Atendimento 24h Sem Equipe | Título 3: Teste Grátis 14 Dias. Descrição: A GNX conecta IA ao seu negócio em poucos dias. Veja como funciona." },
+      { id: "gn-o4", agent: "designer", name: "Identidade Visual Landing Page — 8 peças", type: "design", createdAt: "há 2 dias", platform: "Site", status: "aprovado", preview: "Header hero, 3 seções de benefícios, seção de depoimentos, CTA banner e footer. Paleta azul tech + gradiente roxo. Mockups mobile e desktop entregues." },
+      { id: "gn-o5", agent: "analyst", name: "Dashboard de Leads — Abril 2025", type: "report", createdAt: "hoje, 10h", status: "rascunho", preview: "Leads totais: 47 (meta: 60). Google Ads: 22 leads (CPA R$ 85). LinkedIn: 8 leads (CPA R$ 210). Orgânico: 17 leads. Taxa de conversão Lead→Demo: 34%. Pipeline gerado: R$ 94.000." },
+      { id: "gn-o6", agent: "strategist", name: "Posicionamento de Marca — GNX 2025", type: "plan", createdAt: "há 3 dias", status: "aprovado", preview: "Proposta de valor central: A GNX transforma PMEs tradicionais em empresas digitais em até 30 dias, sem necessidade de equipe de TI. Tom: Confiante, técnico mas acessível, orientado a resultado." },
+      { id: "gn-o7", agent: "site", name: "Blog — Automação para PMEs (revisado)", type: "article", createdAt: "ontem", platform: "Blog", status: "aprovado", preview: "Texto completo revisado e publicado. 1.240 palavras. SEO: palavra-chave principal automação empresarial PME, densidade 2,1%. Meta description atualizada. Slug: /blog/automacao-pme." },
+      { id: "gn-o8", agent: "social", name: "Calendário Conteúdo — Semana 28/04", type: "plan", createdAt: "hoje, 8h", platform: "LinkedIn / Instagram", status: "aprovado", preview: "Seg: Artigo automação (LinkedIn). Ter: Bastidores cliente (Instagram). Qua: Dado de impacto (LinkedIn). Qui: Reels dica rápida (Instagram). Sex: Case de sucesso (ambos)." },
     ],
   },
 ];

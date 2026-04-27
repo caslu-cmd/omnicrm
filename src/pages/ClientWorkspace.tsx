@@ -10,7 +10,7 @@ import {
   Globe, FileEdit, FileCheck, ChevronDown, AlertTriangle, RefreshCw,
   Pencil, ShieldCheck, GraduationCap, Smartphone, QrCode,
   UserCheck, PhoneCall, MessageSquare as MsgSq, BadgeCheck,
-  Paperclip, X,
+  Paperclip, X, Palette, PenLine, BarChart3, Layout, Table2, AtSign,
 } from "lucide-react";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { CLIENTS } from "@/data/agencyData";
@@ -131,6 +131,23 @@ const PRIORITY_STYLE: Record<string, { color: string; bg: string; label: string 
   alta:  { color: "#F87171", bg: "rgba(248,113,113,0.1)", label: "Alta" },
   media: { color: "#FBBF24", bg: "rgba(251,191,36,0.1)",  label: "Média" },
   baixa: { color: "#34D399", bg: "rgba(52,211,153,0.1)",  label: "Baixa" },
+};
+
+const OUTPUT_TYPE_STYLE: Record<string, { Icon: typeof FileText; color: string; label: string }> = {
+  copy:    { Icon: PenLine,   color: "#A78BFA", label: "Copy" },
+  design:  { Icon: Palette,   color: "#D946EF", label: "Design" },
+  post:    { Icon: AtSign,    color: "#F97316", label: "Post" },
+  article: { Icon: FileText,  color: "#60A5FA", label: "Artigo" },
+  report:  { Icon: BarChart3, color: "#34D399", label: "Relatório" },
+  plan:    { Icon: Table2,    color: "#FBBF24", label: "Plano" },
+  email:   { Icon: Mail,      color: "#F87171", label: "E-mail" },
+  ad:      { Icon: Layout,    color: "#FB923C", label: "Anúncio" },
+};
+const OUTPUT_STATUS_STYLE: Record<string, { color: string; bg: string; label: string }> = {
+  rascunho: { color: "rgba(255,255,255,0.4)", bg: "rgba(255,255,255,0.06)", label: "Rascunho" },
+  revisão:  { color: "#FBBF24",               bg: "rgba(251,191,36,0.1)",   label: "Em revisão" },
+  aprovado: { color: "#60A5FA",               bg: "rgba(96,165,250,0.1)",   label: "Aprovado" },
+  publicado:{ color: "#34D399",               bg: "rgba(52,211,153,0.1)",   label: "Publicado" },
 };
 
 const MOCK_TASKS_BY_CLIENT: Record<string, typeof MOCK_TASKS_TEMPLATE> = {};
@@ -287,6 +304,7 @@ export default function ClientWorkspace() {
   const [agentFileText, setAgentFileText] = useState<string | null>(null);
   const agentFileRef = useRef<HTMLInputElement>(null);
   const [expandedFile, setExpandedFile] = useState<string | null>(null);
+  const [expandedOutput, setExpandedOutput] = useState<string | null>(null);
   const [editingPage, setEditingPage] = useState<string | null>(null);
   const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
   const [wpStatus, setWpStatus] = useState<"idle" | "loading" | "connected" | "disconnected">("idle");
@@ -369,6 +387,7 @@ export default function ClientWorkspace() {
   const vTaskIsWorking = vTask?.status === "trabalhando";
   const vSitePages = viewedAgent?.id === "site" ? (SITE_PAGES[client.id] ?? []) : [];
   const vRevisedFiles = viewedAgent?.id === "revisor" ? (REVISED_FILES[client.id] ?? []) : [];
+  const vOutputs = viewedAgent ? (client.outputs ?? []).filter((o) => o.agent === viewedAgent.id) : [];
 
   const handleAriaFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
@@ -2273,6 +2292,67 @@ export default function ClientWorkspace() {
                             )}
                           </div>
                         ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Generated outputs */}
+                  {vOutputs.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="text-[10px] uppercase tracking-widest font-semibold"
+                          style={{ color: "rgba(255,255,255,0.3)" }}>Arquivos gerados</div>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
+                          style={{ background: `${viewedAgent.color}15`, color: viewedAgent.color }}>
+                          {vOutputs.length}
+                        </span>
+                      </div>
+                      <div className="space-y-1.5">
+                        {vOutputs.map((out) => {
+                          const ts = OUTPUT_TYPE_STYLE[out.type] ?? OUTPUT_TYPE_STYLE.copy;
+                          const ss = OUTPUT_STATUS_STYLE[out.status] ?? OUTPUT_STATUS_STYLE.rascunho;
+                          const TypeIcon = ts.Icon;
+                          const isExpanded = expandedOutput === out.id;
+                          return (
+                            <div key={out.id} className="rounded-xl overflow-hidden"
+                              style={{ border: `1px solid ${isExpanded ? `${ts.color}30` : "rgba(255,255,255,0.07)"}`, background: isExpanded ? `${ts.color}06` : "rgba(255,255,255,0.02)", transition: "all 0.15s" }}>
+                              <button
+                                className="w-full flex items-center gap-3 px-4 py-3 text-left"
+                                onClick={() => setExpandedOutput(isExpanded ? null : out.id)}>
+                                <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
+                                  style={{ background: `${ts.color}15`, border: `1px solid ${ts.color}25` }}>
+                                  <TypeIcon className="w-3.5 h-3.5" style={{ color: ts.color }} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-xs font-medium truncate" style={{ color: "rgba(255,255,255,0.85)" }}>{out.name}</div>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <span className="text-[10px]" style={{ color: `${ts.color}90` }}>{ts.label}</span>
+                                    {out.platform && <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.2)" }}>· {out.platform}</span>}
+                                    <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.2)" }}>· {out.createdAt}</span>
+                                  </div>
+                                </div>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full font-medium flex-shrink-0"
+                                  style={{ background: ss.bg, color: ss.color }}>{ss.label}</span>
+                                <ChevronDown className="w-3.5 h-3.5 flex-shrink-0 ml-1"
+                                  style={{ color: "rgba(255,255,255,0.2)", transform: isExpanded ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+                              </button>
+                              {isExpanded && (
+                                <div className="px-4 pb-4">
+                                  {out.type === "design" ? (
+                                    <div className="rounded-xl overflow-hidden mb-3"
+                                      style={{ background: `linear-gradient(135deg, ${ts.color}18, ${viewedAgent.color}12)`, border: `1px solid ${ts.color}20`, height: 100, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                      <div className="text-center">
+                                        <Palette className="w-8 h-8 mx-auto mb-1" style={{ color: `${ts.color}60` }} />
+                                        <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>Preview não disponível</div>
+                                      </div>
+                                    </div>
+                                  ) : null}
+                                  <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.5)" }}>{out.preview}</p>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}
