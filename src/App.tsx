@@ -67,8 +67,9 @@ const ProtectedRoutes = () => {
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/agency" element={<AgencyDashboard />} />
           <Route path="/agency/clients/:id" element={<ClientWorkspace />} />
-          <Route path="/portal" element={<ClientPortal />} />
         </Route>
+        {/* Portal do cliente — sem sidebar, fullscreen */}
+        <Route path="/portal" element={<ClientPortal />} />
       </Routes>
       <AiAssistant />
     </>
