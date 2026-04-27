@@ -148,17 +148,17 @@ export default function LandingPage() {
           <div>
             <div className="calu-fade calu-d1" style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 28 }}>
               <div className="calu-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: LIME }} />
-              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" }}>Marketing digital de alta performance</span>
+              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" }}>Publicidade · Tecnologia · IA</span>
             </div>
 
             <div className="calu-fade calu-d2" style={{ fontSize: "clamp(48px, 7vw, 90px)", fontWeight: 800, lineHeight: 1.02, letterSpacing: "-0.04em", marginBottom: 0 }}>
-              Marketing<br />
-              <span>que realmente</span><br />
-              <span style={{ color: LIME }}>converte.</span>
+              Criatividade<br />
+              <span>que vende.</span><br />
+              <span style={{ color: LIME }}>IA que escala.</span>
             </div>
 
             <p className="calu-fade calu-d3" style={{ fontSize: 16, color: "rgba(240,239,232,0.4)", lineHeight: 1.65, marginTop: 24, maxWidth: 500 }}>
-              Time completo de especialistas em IA — estrategista, copywriter, designer, gestor de tráfego e mais 6 profissionais — trabalhando pela sua marca todos os dias.
+              A Calu Agência une estratégia criativa de alta performance com tecnologia de IA proprietária — para que sua marca cresça sem limite de equipe.
             </p>
 
             <div className="calu-fade calu-d4" style={{ display: "flex", gap: 12, marginTop: 36, alignItems: "center" }}>
@@ -237,6 +237,81 @@ export default function LandingPage() {
                 <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: LIME, marginBottom: 16, letterSpacing: "0.06em" }}>{s.n}</div>
                 <h3 style={{ fontSize: 19, fontWeight: 700, color: OFF, lineHeight: 1.2, letterSpacing: "-0.03em", marginBottom: 12 }}>{s.title}</h3>
                 <p style={{ fontSize: 14, color: "rgba(240,239,232,0.37)", lineHeight: 1.65 }}>{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── AI SOLUTIONS ──────────────────────── */}
+      <section style={{ padding: "100px 64px", background: "#0D0D0D", borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 64 }}>
+            <div>
+              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" as const }}>Soluções com IA</span>
+              <h2 style={{ fontSize: "clamp(30px, 4.5vw, 56px)", fontWeight: 800, color: OFF, lineHeight: 1.06, letterSpacing: "-0.04em", marginTop: 10 }}>
+                Tecnologia que<br />trabalha por você.
+              </h2>
+            </div>
+            <p style={{ fontSize: 15, color: "rgba(240,239,232,0.33)", maxWidth: 280, lineHeight: 1.65, textAlign: "right" as const }}>
+              Produtos proprietários que amplificam os resultados de cada cliente.
+            </p>
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+            {[
+              {
+                tag: "CRM",
+                name: "OmniCRM",
+                sub: "Omnichannel",
+                color: LIME,
+                desc: "Central de comunicação que une WhatsApp, Instagram, e-mail e mais em um único lugar. Nunca perca um lead por falta de acompanhamento.",
+                features: ["Inbox unificado", "Pipeline de vendas", "Automações", "Relatórios em tempo real"],
+              },
+              {
+                tag: "IA",
+                name: "Posture.AI",
+                sub: "Análise de Posicionamento",
+                color: "#A78BFA",
+                desc: "Analisa a presença digital da sua marca e aponta exatamente onde e como melhorar o posicionamento para atrair mais clientes qualificados.",
+                features: ["Diagnóstico de marca", "Análise de concorrência", "Plano de ação IA", "Score de autoridade"],
+              },
+              {
+                tag: "RH",
+                name: "RH Inteligente",
+                sub: "Gestão de Pessoas com IA",
+                color: "#34D399",
+                desc: "Automatiza triagem de currículos, onboarding e avaliações. Seu RH foca no que importa — as pessoas — enquanto a IA cuida do operacional.",
+                features: ["Triagem automática", "Onboarding digital", "Avaliações de desempenho", "People analytics"],
+              },
+            ].map((prod) => (
+              <div key={prod.name} style={{
+                borderRadius: 18,
+                border: `1px solid ${prod.color}25`,
+                background: `linear-gradient(135deg, ${prod.color}06 0%, transparent 60%)`,
+                padding: "32px 28px",
+                position: "relative" as const,
+                overflow: "hidden",
+              }}>
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 2, background: `linear-gradient(90deg, ${prod.color} 0%, transparent 70%)` }} />
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+                  <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, color: prod.color, background: `${prod.color}15`, border: `1px solid ${prod.color}30`, padding: "3px 10px", borderRadius: 100, letterSpacing: "0.08em", textTransform: "uppercase" as const }}>{prod.tag}</span>
+                </div>
+                <h3 style={{ fontSize: 24, fontWeight: 800, color: OFF, letterSpacing: "-0.03em", lineHeight: 1 }}>{prod.name}</h3>
+                <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 11, color: prod.color, marginTop: 4, marginBottom: 16 }}>{prod.sub}</div>
+                <p style={{ fontSize: 14, color: "rgba(240,239,232,0.4)", lineHeight: 1.65, marginBottom: 24 }}>{prod.desc}</p>
+                <div style={{ display: "flex", flexDirection: "column" as const, gap: 8 }}>
+                  {prod.features.map(f => (
+                    <div key={f} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ width: 4, height: 4, borderRadius: "50%", background: prod.color, flexShrink: 0 }} />
+                      <span style={{ fontSize: 13, color: "rgba(240,239,232,0.5)", fontWeight: 500 }}>{f}</span>
+                    </div>
+                  ))}
+                </div>
+                <a href="https://wa.me/5511999999999" target="_blank" rel="noreferrer" className="calu-btn-main"
+                  style={{ display: "inline-flex", alignItems: "center", gap: 6, marginTop: 28, fontSize: 13, fontWeight: 700, color: prod.color, background: `${prod.color}12`, border: `1px solid ${prod.color}30`, padding: "9px 18px", borderRadius: 100 }}>
+                  Saber mais <ArrowUpRight size={13} />
+                </a>
               </div>
             ))}
           </div>
