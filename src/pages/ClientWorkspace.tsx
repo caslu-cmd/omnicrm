@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
@@ -10,6 +10,7 @@ import {
   Globe, FileEdit, FileCheck, ChevronDown, AlertTriangle, RefreshCw,
   Pencil, ShieldCheck, GraduationCap, Smartphone, QrCode,
   UserCheck, PhoneCall, MessageSquare as MsgSq, BadgeCheck,
+  Paperclip, X, FileText as FileIcon,
 } from "lucide-react";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { CLIENTS } from "@/data/agencyData";
@@ -273,6 +274,8 @@ export default function ClientWorkspace() {
   const [crmView, setCrmView] = useState<"contacts" | "pipeline">("contacts");
   const [contactSearch, setContactSearch] = useState("");
   const [agentCommand, setAgentCommand] = useState("");
+  const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [expandedFile, setExpandedFile] = useState<string | null>(null);
   const [editingPage, setEditingPage] = useState<string | null>(null);
   const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
@@ -768,7 +771,7 @@ export default function ClientWorkspace() {
                     </div>
 
                     {/* Command input */}
-                    <div className="flex-shrink-0 w-60">
+                    <div className="flex-shrink-0 w-64">
                       <div className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "rgba(255,255,255,0.25)" }}>Dar instrução ao time</div>
                       <div className="flex flex-col gap-2">
                         <textarea
@@ -777,12 +780,58 @@ export default function ClientWorkspace() {
                           placeholder="Ex: Crie 3 posts sobre a nova lei..."
                           rows={3}
                           className="w-full rounded-xl px-3 py-2 text-xs resize-none"
-                          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(185,255,75,0.15)", color: "#F0F0F0" }}
+                          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(185,255,75,0.15)", color: "#F0F0F0", outline: "none" }}
                         />
+
+                        {/* File attachment */}
+                        <input
+                          ref={fileInputRef}
+                          type="file"
+                          accept=".pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg,.csv,.xlsx"
+                          className="hidden"
+                          onChange={(e) => setAttachedFile(e.target.files?.[0] ?? null)}
+                        />
+
+                        {attachedFile ? (
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
+                            style={{ background: "rgba(185,255,75,0.06)", border: "1px solid rgba(185,255,75,0.18)" }}>
+                            {attachedFile.type.startsWith("image/")
+                              ? <Image className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#B9FF4B" }} />
+                              : <FileIcon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#B9FF4B" }} />
+                            }
+                            <div className="flex-1 min-w-0">
+                              <div className="text-[10px] font-medium truncate" style={{ color: "rgba(255,255,255,0.75)" }}>
+                                {attachedFile.name}
+                              </div>
+                              <div className="text-[9px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                                {(attachedFile.size / 1024).toFixed(0)} KB
+                              </div>
+                            </div>
+                            <button
+                              onClick={() => { setAttachedFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                              className="flex-shrink-0 rounded p-0.5 transition-colors"
+                              style={{ color: "rgba(255,255,255,0.3)" }}
+                              onMouseEnter={(e) => (e.currentTarget.style.color = "#F87171")}
+                              onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}>
+                              <X className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ) : (
+                          <button
+                            onClick={() => fileInputRef.current?.click()}
+                            className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-medium w-full transition-all"
+                            style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.35)", border: "1px dashed rgba(255,255,255,0.12)" }}
+                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(185,255,75,0.3)"; e.currentTarget.style.color = "rgba(185,255,75,0.7)"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.color = "rgba(255,255,255,0.35)"; }}>
+                            <Paperclip className="w-3 h-3" /> Anexar arquivo de referência
+                          </button>
+                        )}
+
                         <button
-                          onClick={() => setAgentCommand("")}
-                          className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold w-full transition-all"
-                          style={{ background: "#B9FF4B", color: "#07080A", boxShadow: agentCommand ? "0 0 16px -4px rgba(185,255,75,0.5)" : "none" }}>
+                          onClick={() => { setAgentCommand(""); setAttachedFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                          disabled={!agentCommand.trim() && !attachedFile}
+                          className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold w-full transition-all disabled:opacity-40"
+                          style={{ background: "#B9FF4B", color: "#07080A", boxShadow: (agentCommand || attachedFile) ? "0 0 16px -4px rgba(185,255,75,0.5)" : "none" }}>
                           <Send className="w-3 h-3" /> Enviar para ARIA
                         </button>
                       </div>
