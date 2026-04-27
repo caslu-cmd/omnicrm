@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useParams } from "react-router-dom";
 import {
@@ -80,11 +80,7 @@ function PinScreen({ client, onUnlock }: { client: typeof CLIENTS[0]; onUnlock: 
   const [pin, setPin] = useState("");
   const [error, setError] = useState(false);
   const [shake, setShake] = useState(false);
-
-  const handleKey = (k: string) => {
-    if (pin.length < 6) setPin(prev => prev + k);
-  };
-  const handleDel = () => setPin(prev => prev.slice(0, -1));
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = () => {
     if (pin.toUpperCase() === client.portalPin.toUpperCase()) {
@@ -99,7 +95,6 @@ function PinScreen({ client, onUnlock }: { client: typeof CLIENTS[0]; onUnlock: 
     }
   };
 
-  const keys = ["1","2","3","4","5","6","7","8","9","0"];
 
   return (
     <div className="min-h-screen flex items-center justify-center"
@@ -143,11 +138,12 @@ function PinScreen({ client, onUnlock }: { client: typeof CLIENTS[0]; onUnlock: 
             </div>
           </div>
 
-          {/* PIN display */}
+          {/* PIN display — click to focus input */}
           <motion.div
             animate={shake ? { x: [-8, 8, -6, 6, -4, 4, 0] } : {}}
             transition={{ duration: 0.5 }}
-            className="flex justify-center gap-3 mb-6"
+            className="flex justify-center gap-3 mb-6 cursor-text"
+            onClick={() => inputRef.current?.focus()}
           >
             {Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="w-10 h-12 rounded-xl flex items-center justify-center text-lg font-bold relative"
@@ -180,49 +176,38 @@ function PinScreen({ client, onUnlock }: { client: typeof CLIENTS[0]; onUnlock: 
             )}
           </AnimatePresence>
 
-          {/* Keypad */}
-          <div className="grid grid-cols-3 gap-2.5 mb-4">
-            {["1","2","3","4","5","6","7","8","9","←","0","✓"].map((k) => {
-              const isDel = k === "←";
-              const isOk = k === "✓";
-              return (
-                <motion.button
-                  key={k}
-                  whileTap={{ scale: 0.93 }}
-                  onClick={() => isDel ? handleDel() : isOk ? handleSubmit() : handleKey(k)}
-                  disabled={isOk && pin.length === 0}
-                  className="h-14 rounded-2xl text-base font-bold transition-all"
-                  style={{
-                    background: isOk
-                      ? (pin.length > 0 ? client.color : "rgba(255,255,255,0.04)")
-                      : isDel
-                      ? "rgba(255,255,255,0.06)"
-                      : "rgba(255,255,255,0.06)",
-                    color: isOk
-                      ? (pin.length > 0 ? "#07080A" : "rgba(255,255,255,0.2)")
-                      : "rgba(255,255,255,0.75)",
-                    border: isOk && pin.length > 0
-                      ? `1px solid ${client.color}60`
-                      : "1px solid rgba(255,255,255,0.08)",
-                  }}>
-                  {k}
-                </motion.button>
-              );
-            })}
-          </div>
+          {/* Hidden input — captures keyboard/phone typing */}
+          <input
+            ref={inputRef}
+            autoFocus
+            className="opacity-0 absolute pointer-events-none w-0 h-0"
+            value={pin}
+            onChange={(e) => setPin(e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 6))}
+            onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
+          />
 
-          {/* Also allow keyboard */}
-          <div className="text-center">
-            <input
-              className="opacity-0 absolute pointer-events-none"
-              value={pin}
-              onChange={(e) => {
-                const v = e.target.value.slice(0, 6);
-                setPin(v);
-              }}
-              onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
-            />
-          </div>
+          {/* Click anywhere on dots area to focus input */}
+          <button
+            type="button"
+            onClick={() => inputRef.current?.focus()}
+            className="w-full mb-6 text-center text-[11px] cursor-default"
+            style={{ color: "rgba(255,255,255,0.25)", background: "none", border: "none" }}>
+            Clique nos espaços e digite o código
+          </button>
+
+          {/* Confirm button */}
+          <motion.button
+            whileTap={{ scale: 0.97 }}
+            onClick={handleSubmit}
+            disabled={pin.length === 0}
+            className="w-full h-12 rounded-2xl text-sm font-bold transition-all"
+            style={{
+              background: pin.length > 0 ? client.color : "rgba(255,255,255,0.06)",
+              color: pin.length > 0 ? "#07080A" : "rgba(255,255,255,0.2)",
+              border: pin.length > 0 ? `1px solid ${client.color}60` : "1px solid rgba(255,255,255,0.08)",
+            }}>
+            Entrar
+          </motion.button>
         </div>
 
         {/* Help text */}
