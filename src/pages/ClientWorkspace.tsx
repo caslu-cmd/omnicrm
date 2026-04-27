@@ -276,6 +276,10 @@ export default function ClientWorkspace() {
   const [agentCommand, setAgentCommand] = useState("");
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [agentInstruction, setAgentInstruction] = useState("");
+  const [agentFile, setAgentFile] = useState<File | null>(null);
+  const agentFileRef = useRef<HTMLInputElement>(null);
   const [expandedFile, setExpandedFile] = useState<string | null>(null);
   const [editingPage, setEditingPage] = useState<string | null>(null);
   const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
@@ -714,22 +718,21 @@ export default function ClientWorkspace() {
                 {/* ── ARIA — Orquestradora ── */}
                 <motion.div
                   initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
-                  className="rounded-2xl p-6"
+                  className="rounded-2xl overflow-hidden"
                   style={{
                     background: "rgba(185,255,75,0.04)",
                     border: "1px solid rgba(185,255,75,0.2)",
                     boxShadow: "0 0 48px -16px rgba(185,255,75,0.15)",
                   }}>
-                  <div className="flex items-start gap-5">
 
-                    {/* Identity */}
+                  {/* Status row */}
+                  <div className="flex items-start gap-5 p-6 pb-5">
                     <div className="flex-shrink-0">
                       <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
                         style={{ background: "#B9FF4B", boxShadow: "0 0 24px -4px rgba(185,255,75,0.55)" }}>
                         <Zap className="w-7 h-7" style={{ color: "#07080A" }} />
                       </div>
                     </div>
-
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-3 mb-1">
                         <h3 className="text-base font-bold" style={{ color: "#F0F0F0" }}>ARIA</h3>
@@ -746,8 +749,6 @@ export default function ClientWorkspace() {
                       <p className="text-sm mb-4" style={{ color: "rgba(255,255,255,0.45)" }}>
                         {client.orchestratorStatus}
                       </p>
-
-                      {/* Plan steps */}
                       <div className="grid grid-cols-3 gap-2">
                         {client.orchestratorPlan.map((step, i) => (
                           <div key={i} className="flex items-start gap-2 px-3 py-2 rounded-xl"
@@ -769,72 +770,69 @@ export default function ClientWorkspace() {
                         ))}
                       </div>
                     </div>
+                  </div>
 
-                    {/* Command input */}
-                    <div className="flex-shrink-0 w-64">
-                      <div className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "rgba(255,255,255,0.25)" }}>Dar instrução ao time</div>
-                      <div className="flex flex-col gap-2">
-                        <textarea
-                          value={agentCommand}
-                          onChange={(e) => setAgentCommand(e.target.value)}
-                          placeholder="Ex: Crie 3 posts sobre a nova lei..."
-                          rows={3}
-                          className="w-full rounded-xl px-3 py-2 text-xs resize-none"
-                          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(185,255,75,0.15)", color: "#F0F0F0", outline: "none" }}
-                        />
+                  {/* ── Instrução à ARIA — full-width bottom ── */}
+                  <div className="px-6 pb-6" style={{ borderTop: "1px solid rgba(185,255,75,0.1)", paddingTop: "20px" }}>
+                    <div className="text-[10px] uppercase tracking-widest font-semibold mb-3" style={{ color: "rgba(185,255,75,0.5)" }}>
+                      Dar instrução ao time
+                    </div>
+                    <textarea
+                      value={agentCommand}
+                      onChange={(e) => setAgentCommand(e.target.value)}
+                      placeholder="Ex: Crie 3 posts sobre a nova lei de licitações com foco em gestores municipais..."
+                      rows={2}
+                      className="w-full rounded-xl px-4 py-3 text-sm resize-none mb-3"
+                      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(185,255,75,0.18)", color: "#F0F0F0", outline: "none" }}
+                    />
 
-                        {/* File attachment */}
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept=".pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg,.csv,.xlsx"
-                          className="hidden"
-                          onChange={(e) => setAttachedFile(e.target.files?.[0] ?? null)}
-                        />
+                    {/* hidden file input for ARIA */}
+                    <input ref={fileInputRef} type="file"
+                      accept=".pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg,.csv,.xlsx"
+                      className="hidden"
+                      onChange={(e) => setAttachedFile(e.target.files?.[0] ?? null)} />
 
-                        {attachedFile ? (
-                          <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
-                            style={{ background: "rgba(185,255,75,0.06)", border: "1px solid rgba(185,255,75,0.18)" }}>
-                            {attachedFile.type.startsWith("image/")
-                              ? <Image className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#B9FF4B" }} />
-                              : <FileIcon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#B9FF4B" }} />
-                            }
-                            <div className="flex-1 min-w-0">
-                              <div className="text-[10px] font-medium truncate" style={{ color: "rgba(255,255,255,0.75)" }}>
-                                {attachedFile.name}
-                              </div>
-                              <div className="text-[9px]" style={{ color: "rgba(255,255,255,0.3)" }}>
-                                {(attachedFile.size / 1024).toFixed(0)} KB
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => { setAttachedFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
-                              className="flex-shrink-0 rounded p-0.5 transition-colors"
-                              style={{ color: "rgba(255,255,255,0.3)" }}
-                              onMouseEnter={(e) => (e.currentTarget.style.color = "#F87171")}
-                              onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}>
-                              <X className="w-3 h-3" />
-                            </button>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => fileInputRef.current?.click()}
-                            className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-medium w-full transition-all"
-                            style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.35)", border: "1px dashed rgba(255,255,255,0.12)" }}
-                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(185,255,75,0.3)"; e.currentTarget.style.color = "rgba(185,255,75,0.7)"; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)"; e.currentTarget.style.color = "rgba(255,255,255,0.35)"; }}>
-                            <Paperclip className="w-3 h-3" /> Anexar arquivo de referência
+                    <div className="flex items-center gap-3">
+                      {/* File attachment / pill */}
+                      {attachedFile ? (
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg flex-shrink-0"
+                          style={{ background: "rgba(185,255,75,0.08)", border: "1px solid rgba(185,255,75,0.2)" }}>
+                          {attachedFile.type.startsWith("image/")
+                            ? <Image className="w-3 h-3 flex-shrink-0" style={{ color: "#B9FF4B" }} />
+                            : <FileIcon className="w-3 h-3 flex-shrink-0" style={{ color: "#B9FF4B" }} />
+                          }
+                          <span className="text-[11px] font-medium max-w-[160px] truncate" style={{ color: "rgba(255,255,255,0.7)" }}>
+                            {attachedFile.name}
+                          </span>
+                          <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                            {(attachedFile.size / 1024).toFixed(0)} KB
+                          </span>
+                          <button onClick={() => { setAttachedFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                            style={{ color: "rgba(255,255,255,0.3)" }}
+                            onMouseEnter={(e) => (e.currentTarget.style.color = "#F87171")}
+                            onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}>
+                            <X className="w-3 h-3" />
                           </button>
-                        )}
-
-                        <button
-                          onClick={() => { setAgentCommand(""); setAttachedFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
-                          disabled={!agentCommand.trim() && !attachedFile}
-                          className="flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold w-full transition-all disabled:opacity-40"
-                          style={{ background: "#B9FF4B", color: "#07080A", boxShadow: (agentCommand || attachedFile) ? "0 0 16px -4px rgba(185,255,75,0.5)" : "none" }}>
-                          <Send className="w-3 h-3" /> Enviar para ARIA
+                        </div>
+                      ) : (
+                        <button onClick={() => fileInputRef.current?.click()}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all flex-shrink-0"
+                          style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.35)", border: "1px dashed rgba(255,255,255,0.14)" }}
+                          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(185,255,75,0.35)"; e.currentTarget.style.color = "rgba(185,255,75,0.75)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)"; e.currentTarget.style.color = "rgba(255,255,255,0.35)"; }}>
+                          <Paperclip className="w-3 h-3" /> Anexar referência
                         </button>
-                      </div>
+                      )}
+
+                      <div className="flex-1" />
+
+                      <button
+                        onClick={() => { setAgentCommand(""); setAttachedFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                        disabled={!agentCommand.trim() && !attachedFile}
+                        className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-35"
+                        style={{ background: "#B9FF4B", color: "#07080A", boxShadow: (agentCommand || attachedFile) ? "0 0 20px -4px rgba(185,255,75,0.5)" : "none" }}>
+                        <Send className="w-3.5 h-3.5" /> Enviar para ARIA
+                      </button>
                     </div>
                   </div>
                 </motion.div>
@@ -846,7 +844,7 @@ export default function ClientWorkspace() {
                       Time de Especialistas
                     </h3>
                     <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
-                    <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.2)" }}>5 agentes</span>
+                    <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.2)" }}>{MARKETING_TEAM.length} agentes</span>
                   </div>
 
                   <div className="grid grid-cols-4 gap-4">
@@ -854,16 +852,17 @@ export default function ClientWorkspace() {
                       const task = client.agentTasks[agent.id];
                       const isWorking = task?.status === "trabalhando";
                       const isDone = task?.status === "concluído";
+                      const isSelected = selectedAgentId === agent.id;
 
                       return (
                         <motion.div key={agent.id}
                           initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: i * 0.08 }}
-                          className="rounded-2xl p-4 flex flex-col"
+                          transition={{ delay: i * 0.06 }}
+                          className="rounded-2xl p-4 flex flex-col cursor-default"
                           style={{
-                            background: "rgba(255,255,255,0.025)",
-                            border: `1px solid ${isWorking ? `${agent.color}28` : "rgba(255,255,255,0.07)"}`,
-                            boxShadow: isWorking ? `0 0 28px -10px ${agent.color}30` : "none",
+                            background: isSelected ? `${agent.color}0d` : "rgba(255,255,255,0.025)",
+                            border: `1px solid ${isSelected ? `${agent.color}40` : isWorking ? `${agent.color}28` : "rgba(255,255,255,0.07)"}`,
+                            boxShadow: isSelected ? `0 0 32px -10px ${agent.color}40` : isWorking ? `0 0 28px -10px ${agent.color}30` : "none",
                           }}>
 
                           {/* Avatar + name */}
@@ -884,7 +883,7 @@ export default function ClientWorkspace() {
                                 <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: agent.color }} />
                               </span>
                             )}
-                            {isDone && <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-1" style={{ color: "#34D399" }} />}
+                            {isDone && !isWorking && <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-1" style={{ color: "#34D399" }} />}
                           </div>
 
                           {/* Skill */}
@@ -900,13 +899,11 @@ export default function ClientWorkspace() {
                                   style={{ color: isWorking ? agent.color : isDone ? "#34D399" : "rgba(255,255,255,0.2)" }}>
                                   {isWorking ? "● Fazendo agora" : isDone ? "✓ Concluído" : "○ Aguardando"}
                                 </div>
-                                <p className="text-[11px] leading-relaxed" style={{ color: "rgba(255,255,255,0.6)" }}
-                                  style={{ display: "-webkit-box", WebkitLineClamp: 3, WebkitBoxOrient: "vertical", overflow: "hidden" } as any}>
+                                <p className="text-[11px] leading-relaxed line-clamp-3" style={{ color: "rgba(255,255,255,0.6)" }}>
                                   {task.current}
                                 </p>
                               </div>
 
-                              {/* Progress bar */}
                               {isWorking && task.progress > 0 && (
                                 <div className="mb-3">
                                   <div className="flex justify-between mb-1">
@@ -924,7 +921,6 @@ export default function ClientWorkspace() {
                                 </div>
                               )}
 
-                              {/* Recent */}
                               {task.recent.length > 0 && (
                                 <div className="space-y-1.5 mb-3 flex-1">
                                   {task.recent.slice(0, 2).map((r, j) => (
@@ -938,16 +934,128 @@ export default function ClientWorkspace() {
                             </>
                           )}
 
-                          <button className="mt-auto w-full py-1.5 rounded-lg text-[10px] font-semibold transition-all"
-                            style={{ background: `${agent.color}10`, color: agent.color, border: `1px solid ${agent.color}22` }}
+                          <button
+                            onClick={() => {
+                              setSelectedAgentId(isSelected ? null : agent.id);
+                              setAgentInstruction("");
+                              setAgentFile(null);
+                              if (agentFileRef.current) agentFileRef.current.value = "";
+                            }}
+                            className="mt-auto w-full py-1.5 rounded-lg text-[10px] font-semibold transition-all"
+                            style={{
+                              background: isSelected ? `${agent.color}20` : `${agent.color}10`,
+                              color: agent.color,
+                              border: `1px solid ${isSelected ? `${agent.color}40` : `${agent.color}22`}`,
+                            }}
                             onMouseEnter={(e) => (e.currentTarget.style.background = `${agent.color}20`)}
-                            onMouseLeave={(e) => (e.currentTarget.style.background = `${agent.color}10`)}>
-                            Dar instrução
+                            onMouseLeave={(e) => (e.currentTarget.style.background = isSelected ? `${agent.color}20` : `${agent.color}10`)}>
+                            {isSelected ? "▲ Fechar" : "Dar instrução"}
                           </button>
                         </motion.div>
                       );
                     })}
                   </div>
+
+                  {/* ── Painel de instrução individual ── */}
+                  <AnimatePresence>
+                    {selectedAgentId && (() => {
+                      const agent = MARKETING_TEAM.find((a) => a.id === selectedAgentId)!;
+                      return (
+                        <motion.div
+                          key={selectedAgentId}
+                          initial={{ opacity: 0, y: -8, height: 0 }}
+                          animate={{ opacity: 1, y: 0, height: "auto" }}
+                          exit={{ opacity: 0, y: -8, height: 0 }}
+                          transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}
+                          className="mt-4 rounded-2xl overflow-hidden"
+                          style={{ border: `1px solid ${agent.color}30`, background: `${agent.color}06` }}>
+
+                          {/* hidden file input for agent */}
+                          <input ref={agentFileRef} type="file"
+                            accept=".pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg,.csv,.xlsx"
+                            className="hidden"
+                            onChange={(e) => setAgentFile(e.target.files?.[0] ?? null)} />
+
+                          <div className="px-5 py-4">
+                            {/* Header */}
+                            <div className="flex items-center gap-3 mb-4">
+                              <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
+                                style={{ background: `${agent.color}18`, border: `1px solid ${agent.color}35`, color: agent.color }}>
+                                {agent.initial}
+                              </div>
+                              <div>
+                                <div className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>
+                                  Instrução para {agent.name}
+                                </div>
+                                <div className="text-[10px]" style={{ color: agent.color }}>{agent.role} · {agent.skill}</div>
+                              </div>
+                              <button onClick={() => setSelectedAgentId(null)}
+                                className="ml-auto p-1 rounded-lg transition-colors"
+                                style={{ color: "rgba(255,255,255,0.25)" }}
+                                onMouseEnter={(e) => (e.currentTarget.style.color = "#F87171")}
+                                onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.25)")}>
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+
+                            {/* Textarea */}
+                            <textarea
+                              value={agentInstruction}
+                              onChange={(e) => setAgentInstruction(e.target.value)}
+                              placeholder={`O que você quer que ${agent.name} faça? Seja específico...`}
+                              rows={3}
+                              autoFocus
+                              className="w-full rounded-xl px-4 py-3 text-sm resize-none mb-3"
+                              style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${agent.color}25`, color: "#F0F0F0", outline: "none" }}
+                            />
+
+                            {/* Attach + Send row */}
+                            <div className="flex items-center gap-3">
+                              {agentFile ? (
+                                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg flex-shrink-0"
+                                  style={{ background: `${agent.color}10`, border: `1px solid ${agent.color}25` }}>
+                                  {agentFile.type.startsWith("image/")
+                                    ? <Image className="w-3 h-3 flex-shrink-0" style={{ color: agent.color }} />
+                                    : <FileIcon className="w-3 h-3 flex-shrink-0" style={{ color: agent.color }} />
+                                  }
+                                  <span className="text-[11px] font-medium max-w-[180px] truncate" style={{ color: "rgba(255,255,255,0.7)" }}>
+                                    {agentFile.name}
+                                  </span>
+                                  <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                                    {(agentFile.size / 1024).toFixed(0)} KB
+                                  </span>
+                                  <button onClick={() => { setAgentFile(null); if (agentFileRef.current) agentFileRef.current.value = ""; }}
+                                    style={{ color: "rgba(255,255,255,0.3)" }}
+                                    onMouseEnter={(e) => (e.currentTarget.style.color = "#F87171")}
+                                    onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}>
+                                    <X className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              ) : (
+                                <button onClick={() => agentFileRef.current?.click()}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all flex-shrink-0"
+                                  style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.35)", border: "1px dashed rgba(255,255,255,0.14)" }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = `${agent.color}50`; e.currentTarget.style.color = agent.color; }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)"; e.currentTarget.style.color = "rgba(255,255,255,0.35)"; }}>
+                                  <Paperclip className="w-3 h-3" /> Anexar referência
+                                </button>
+                              )}
+
+                              <div className="flex-1" />
+
+                              <button
+                                onClick={() => { setAgentInstruction(""); setAgentFile(null); setSelectedAgentId(null); if (agentFileRef.current) agentFileRef.current.value = ""; }}
+                                disabled={!agentInstruction.trim() && !agentFile}
+                                className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-35"
+                                style={{ background: agent.color, color: "#07080A", boxShadow: (agentInstruction || agentFile) ? `0 0 20px -4px ${agent.color}60` : "none" }}>
+                                <Send className="w-3.5 h-3.5" /> Enviar para {agent.name}
+                              </button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      );
+                    })()}
+                  </AnimatePresence>
                 </div>
 
                 {/* ── Painel do Site (Teo) ── */}
