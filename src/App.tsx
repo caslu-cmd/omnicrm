@@ -24,6 +24,9 @@ import IntegrationsPage from "@/pages/IntegrationsPage";
 import SettingsPage from "@/pages/SettingsPage";
 import HelpPage from "@/pages/HelpPage";
 import AdminPage from "@/pages/AdminPage";
+import AgencyDashboard from "@/pages/AgencyDashboard";
+import ClientWorkspace from "@/pages/ClientWorkspace";
+import ClientPortal from "@/pages/ClientPortal";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -62,6 +65,9 @@ const ProtectedRoutes = () => {
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/help" element={<HelpPage />} />
           <Route path="/admin" element={<AdminPage />} />
+          <Route path="/agency" element={<AgencyDashboard />} />
+          <Route path="/agency/clients/:id" element={<ClientWorkspace />} />
+          <Route path="/portal" element={<ClientPortal />} />
         </Route>
       </Routes>
       <AiAssistant />

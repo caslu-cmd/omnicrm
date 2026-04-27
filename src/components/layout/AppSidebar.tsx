@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Inbox, Users, GitBranch, Zap, Send, Calendar,
   Globe, GraduationCap, CreditCard, BarChart3, Puzzle, Settings,
   HelpCircle, Shield, ChevronLeft, ChevronRight, Sparkles, Phone,
-  Palette, Bell, Crown, ArrowLeftRight
+  Palette, Bell, Crown, ArrowLeftRight, Star
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useIsAdmin } from "@/hooks/useAdmin";
@@ -15,6 +15,7 @@ interface AppSidebarProps {
 }
 
 const navItems = [
+  { to: "/agency", icon: Star, label: "Minha Agência" },
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/inbox", icon: Inbox, label: "Inbox", badge: 12 },
   { to: "/contacts", icon: Users, label: "Contatos" },
