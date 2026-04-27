@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Zap, ArrowUpRight, MessageCircle, Instagram, Linkedin, ArrowRight, Check } from "lucide-react";
 
 const LIME  = "#B9FF4B";
@@ -46,16 +46,16 @@ const PRODUCTS = [
 ];
 
 const TEAM = [
-  { i: "A", name: "ARIA",     role: "Orquestradora",  color: LIME      },
-  { i: "C", name: "Carolina", role: "Estrategista",   color: "#FBBF24" },
-  { i: "B", name: "Beatriz",  role: "Copywriter",     color: "#A78BFA" },
-  { i: "I", name: "Isadora",  role: "Designer",       color: "#D946EF" },
-  { i: "R", name: "Rafaela",  role: "Tráfego",        color: "#F97316" },
-  { i: "M", name: "Marina",   role: "Social Media",   color: "#60A5FA" },
-  { i: "L", name: "Lucas",    role: "Analytics",      color: "#34D399" },
-  { i: "E", name: "Eduardo",  role: "Vendas / CRM",   color: "#F59E0B" },
-  { i: "T", name: "Teo",      role: "Web & SEO",      color: "#06B6D4" },
-  { i: "V", name: "Vitória",  role: "Revisão",        color: "#EC4899" },
+  { i: "A", name: "ARIA",     role: "Orquestradora Geral",      color: LIME,      desc: "Coordena todo o time em tempo real, define prioridades e garante que cada entrega saia no prazo e com qualidade. É o cérebro que conecta todos os agentes.", tasks: ["Orquestração do time", "Controle de prazos", "Briefing automatizado", "Relatório executivo"] },
+  { i: "C", name: "Carolina", role: "Estrategista de Marca",    color: "#FBBF24", desc: "Define o posicionamento, a pauta editorial e a direção criativa da marca. Cria o mapa de conteúdo mensal e garante consistência de mensagem em todos os canais.", tasks: ["Pauta editorial mensal", "Posicionamento de marca", "Análise de concorrência", "Direção criativa"] },
+  { i: "B", name: "Beatriz",  role: "Copywriter & Redatora",    color: "#A78BFA", desc: "Escreve cada legenda, artigo, e-mail e anúncio com foco em conversão. Seu copy tem personalidade, clareza e intenção — porque cada palavra tem um objetivo.", tasks: ["Legendas e posts", "Artigos e blog", "Roteiros de vídeo", "Copy de anúncios"] },
+  { i: "I", name: "Isadora",  role: "Designer Visual",          color: "#D946EF", desc: "Cria todos os visuais da marca — posts, stories, banners, apresentações e peças de campanha. Cada pixel alinhado ao manual de identidade da empresa.", tasks: ["Posts e stories", "Banners e anúncios", "Apresentações", "Identidade visual"] },
+  { i: "R", name: "Rafaela",  role: "Gestora de Tráfego Pago",  color: "#F97316", desc: "Gerencia campanhas no Meta Ads e Google Ads com foco em ROAS alto e CPA que faz sentido. Testa, otimiza e escala o que funciona — todos os dias.", tasks: ["Meta Ads (FB/IG)", "Google Ads", "Remarketing", "Otimização de verba"] },
+  { i: "M", name: "Marina",   role: "Social Media Manager",     color: "#60A5FA", desc: "Agenda, publica e monitora todo o conteúdo orgânico. Responde comentários, monitora menções e mantém sua marca ativa e presente em todos os momentos.", tasks: ["Agendamento de posts", "Engajamento", "Monitoramento", "Relatório semanal"] },
+  { i: "L", name: "Lucas",    role: "Analista de Dados",        color: "#34D399", desc: "Transforma números em decisões. Monitora métricas de tráfego, engajamento e vendas, e entrega relatórios com insights claros e ações recomendadas.", tasks: ["Dashboards de resultado", "Google Analytics", "Relatórios semanais", "Insights estratégicos"] },
+  { i: "E", name: "Eduardo",  role: "Agente de Vendas & CRM",   color: "#F59E0B", desc: "Qualifica leads via WhatsApp, alimenta o CRM e garante que nenhum contato seja perdido. Do primeiro 'oi' até o fechamento do contrato.", tasks: ["Qualificação de leads", "Follow-up automatizado", "Gestão do CRM", "Relatório de pipeline"] },
+  { i: "T", name: "Teo",      role: "Web Designer & SEO",       color: "#06B6D4", desc: "Mantém seu site atualizado, publica no blog e otimiza cada página para os buscadores. Mais visibilidade orgânica, mais clientes chegando até você.", tasks: ["Atualização de site", "SEO on-page", "Blog e artigos", "Landing pages"] },
+  { i: "V", name: "Vitória",  role: "Revisora de Conteúdo",     color: "#EC4899", desc: "Revisa e corrige 100% do conteúdo antes de publicar. Gramática, tom de voz, consistência de marca — zero erros, zero vergonha.", tasks: ["Revisão gramatical", "Tom de voz", "Checagem de fatos", "Aprovação final"] },
 ];
 
 const TICKER = [
@@ -91,6 +91,103 @@ const CSS = `
 `;
 
 function fmt(n: number) { return n.toLocaleString("pt-BR"); }
+
+function TeamCarousel() {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(0);
+  const CARD_W = 340;
+  const GAP = 16;
+
+  const scrollTo = (idx: number) => {
+    if (!trackRef.current) return;
+    const clamped = Math.max(0, Math.min(idx, TEAM.length - 1));
+    setActive(clamped);
+    trackRef.current.scrollTo({ left: clamped * (CARD_W + GAP), behavior: "smooth" });
+  };
+
+  const onScroll = () => {
+    if (!trackRef.current) return;
+    const idx = Math.round(trackRef.current.scrollLeft / (CARD_W + GAP));
+    setActive(idx);
+  };
+
+  return (
+    <section id="time" style={{ padding: "100px 0", overflow: "hidden" }}>
+      {/* Header */}
+      <div style={{ padding: "0 64px", maxWidth: 1200, margin: "0 auto 48px", display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
+        <div>
+          <span style={{ fontFamily: mono, fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" as const }}>Nosso time de IA</span>
+          <h2 style={{ fontSize: "clamp(30px, 4.5vw, 56px)", fontWeight: 800, lineHeight: 1.06, letterSpacing: "-0.04em", marginTop: 10 }}>
+            10 especialistas.<br />1 investimento.
+          </h2>
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 16px", borderRadius: 100, border: "1px solid rgba(185,255,75,.2)", background: "rgba(185,255,75,.06)" }}>
+            <div className="cl-dot" style={{ width: 7, height: 7, borderRadius: "50%", background: LIME }} />
+            <span style={{ fontFamily: mono, fontSize: 11, color: LIME }}>Todos online agora</span>
+          </div>
+          {/* Arrows */}
+          <div style={{ display: "flex", gap: 8 }}>
+            {["←", "→"].map((arrow, dir) => (
+              <button key={arrow} onClick={() => scrollTo(active + (dir === 0 ? -1 : 1))}
+                style={{ width: 44, height: 44, borderRadius: "50%", border: "1px solid rgba(255,255,255,.12)", background: "transparent", color: OFF, fontSize: 16, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "border-color .2s, background .2s" }}
+                onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = LIME; (e.currentTarget as HTMLButtonElement).style.background = `${LIME}12`; }}
+                onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(255,255,255,.12)"; (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}>
+                {arrow}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Track */}
+      <div ref={trackRef} onScroll={onScroll}
+        style={{ display: "flex", gap: GAP, overflowX: "auto", scrollSnapType: "x mandatory", scrollbarWidth: "none", padding: "4px 64px 24px", WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
+        <style>{`.cl-track::-webkit-scrollbar{display:none}`}</style>
+        {TEAM.map((t, idx) => (
+          <div key={t.i}
+            style={{ flexShrink: 0, width: CARD_W, scrollSnapAlign: "start", borderRadius: 20, background: idx === active ? `${t.color}0C` : "rgba(255,255,255,.025)", border: `1px solid ${idx === active ? `${t.color}40` : "rgba(255,255,255,.07)"}`, padding: "36px 28px", display: "flex", flexDirection: "column" as const, transition: "background .3s, border-color .3s", minHeight: 460 }}>
+
+            {/* Avatar */}
+            <div style={{ width: 72, height: 72, borderRadius: 18, background: `${t.color}20`, border: `2px solid ${t.color}50`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 800, color: t.color, marginBottom: 24, flexShrink: 0 }}>{t.i}</div>
+
+            {/* Identity */}
+            <div style={{ fontFamily: mono, fontSize: 10, color: t.color, letterSpacing: "0.08em", textTransform: "uppercase" as const, marginBottom: 6 }}>Agente especialista</div>
+            <h3 style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.035em", lineHeight: 1, marginBottom: 4 }}>{t.name}</h3>
+            <div style={{ fontFamily: mono, fontSize: 11, color: MUTED, marginBottom: 20 }}>{t.role}</div>
+
+            {/* Desc */}
+            <p style={{ fontSize: 14, color: DIM, lineHeight: 1.7, marginBottom: 24, flexGrow: 1 }}>{t.desc}</p>
+
+            {/* Tasks */}
+            <div style={{ display: "flex", flexDirection: "column" as const, gap: 8, marginBottom: 24 }}>
+              {t.tasks.map(task => (
+                <div key={task} style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                  <div style={{ width: 5, height: 5, borderRadius: "50%", background: t.color, flexShrink: 0 }} />
+                  <span style={{ fontSize: 13, color: "rgba(240,239,232,.5)", fontWeight: 500 }}>{task}</span>
+                </div>
+              ))}
+            </div>
+
+            {/* Status */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,.06)" }}>
+              <div style={{ width: 7, height: 7, borderRadius: "50%", background: LIME, boxShadow: `0 0 8px ${LIME}` }} />
+              <span style={{ fontFamily: mono, fontSize: 10, color: LIME }}>trabalhando agora</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Dots */}
+      <div style={{ display: "flex", justifyContent: "center", gap: 6, marginTop: 8 }}>
+        {TEAM.map((_, i) => (
+          <button key={i} onClick={() => scrollTo(i)}
+            style={{ width: i === active ? 24 : 7, height: 7, borderRadius: 100, background: i === active ? LIME : "rgba(255,255,255,.2)", border: "none", cursor: "pointer", padding: 0, transition: "width .3s, background .3s" }} />
+        ))}
+      </div>
+    </section>
+  );
+}
 
 export default function LandingPage() {
   const [scrolled, setScrolled] = useState(false);
@@ -330,36 +427,8 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* TEAM */}
-      <section id="time" style={{ padding: "100px 64px" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto" }}>
-          <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", marginBottom: 56 }}>
-            <div>
-              <span style={{ fontFamily: mono, fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" }}>Nosso time</span>
-              <h2 style={{ fontSize: "clamp(30px, 4.5vw, 56px)", fontWeight: 800, lineHeight: 1.06, letterSpacing: "-0.04em", marginTop: 10 }}>
-                10 especialistas.<br />1 investimento.
-              </h2>
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "9px 16px", borderRadius: 100, border: "1px solid rgba(185,255,75,.2)", background: "rgba(185,255,75,.06)" }}>
-              <div className="cl-dot" style={{ width: 7, height: 7, borderRadius: "50%", background: LIME }} />
-              <span style={{ fontFamily: mono, fontSize: 11, color: LIME }}>Todos online agora</span>
-            </div>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10 }}>
-            {TEAM.map(t => (
-              <div key={t.i} className="cl-card" style={{ padding: "20px 16px", borderRadius: 14, border: "1px solid rgba(255,255,255,.07)", background: "rgba(255,255,255,.02)" }}>
-                <div style={{ width: 40, height: 40, borderRadius: 11, background: `${t.color}20`, border: `1px solid ${t.color}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 14, fontWeight: 800, color: t.color, marginBottom: 12 }}>{t.i}</div>
-                <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: "-0.02em", marginBottom: 3 }}>{t.name}</div>
-                <div style={{ fontFamily: mono, fontSize: 10, color: MUTED, marginBottom: 12 }}>{t.role}</div>
-                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                  <div style={{ width: 5, height: 5, borderRadius: "50%", background: LIME }} />
-                  <span style={{ fontFamily: mono, fontSize: 9, color: LIME }}>trabalhando</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* TEAM CAROUSEL */}
+      <TeamCarousel />
 
       {/* PROCESS */}
       <section style={{ padding: "100px 64px", borderTop: "1px solid rgba(255,255,255,.05)" }}>
