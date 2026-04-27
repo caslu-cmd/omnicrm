@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, type ReactNode } from "react";
 import { motion, useInView, useScroll, useTransform } from "framer-motion";
 import { ArrowUpRight, Zap, ChevronDown, Instagram, Linkedin, MessageCircle, ArrowRight, Check } from "lucide-react";
 
@@ -84,7 +84,7 @@ function fmt(n: number) {
 
 // ── Sub-components
 
-function InViewFade({ children, delay = 0, className = "" }: { children: React.ReactNode; delay?: number; className?: string }) {
+function InViewFade({ children, delay = 0, className = "" }: { children: ReactNode; delay?: number; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const inView = useInView(ref, { once: true, margin: "-80px" });
   return (
