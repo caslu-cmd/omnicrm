@@ -276,10 +276,15 @@ export default function ClientWorkspace() {
   const [agentCommand, setAgentCommand] = useState("");
   const [showCompleted, setShowCompleted] = useState(false);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
+  const [attachedFileUrl, setAttachedFileUrl] = useState<string | null>(null);
+  const [attachedFileText, setAttachedFileText] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
+  const [viewingAgentId, setViewingAgentId] = useState<string | null>(null);
   const [agentInstruction, setAgentInstruction] = useState("");
   const [agentFile, setAgentFile] = useState<File | null>(null);
+  const [agentFileUrl, setAgentFileUrl] = useState<string | null>(null);
+  const [agentFileText, setAgentFileText] = useState<string | null>(null);
   const agentFileRef = useRef<HTMLInputElement>(null);
   const [expandedFile, setExpandedFile] = useState<string | null>(null);
   const [editingPage, setEditingPage] = useState<string | null>(null);
@@ -355,6 +360,76 @@ export default function ClientWorkspace() {
   const selectedAgent = selectedAgentId
     ? (MARKETING_TEAM.find((a) => a.id === selectedAgentId) ?? null)
     : null;
+
+  const viewedAgent = viewingAgentId
+    ? (MARKETING_TEAM.find((a) => a.id === viewingAgentId) ?? null)
+    : null;
+
+  const vTask = viewedAgent ? client.agentTasks[viewedAgent.id] : null;
+  const vTaskIsWorking = vTask?.status === "trabalhando";
+  const vSitePages = viewedAgent?.id === "site" ? (SITE_PAGES[client.id] ?? []) : [];
+  const vRevisedFiles = viewedAgent?.id === "revisor" ? (REVISED_FILES[client.id] ?? []) : [];
+
+  const handleAriaFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    if (attachedFileUrl) URL.revokeObjectURL(attachedFileUrl);
+    setAttachedFile(file);
+    setAttachedFileText(null);
+    if (!file) { setAttachedFileUrl(null); return; }
+    const url = URL.createObjectURL(file);
+    setAttachedFileUrl(url);
+    if (file.type.startsWith("text/") || /\.(md|csv|txt)$/i.test(file.name)) {
+      const reader = new FileReader();
+      reader.onload = (ev) => setAttachedFileText((ev.target?.result as string) ?? null);
+      reader.readAsText(file);
+    }
+  };
+
+  const handleAgentFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    if (agentFileUrl) URL.revokeObjectURL(agentFileUrl);
+    setAgentFile(file);
+    setAgentFileText(null);
+    if (!file) { setAgentFileUrl(null); return; }
+    const url = URL.createObjectURL(file);
+    setAgentFileUrl(url);
+    if (file.type.startsWith("text/") || /\.(md|csv|txt)$/i.test(file.name)) {
+      const reader = new FileReader();
+      reader.onload = (ev) => setAgentFileText((ev.target?.result as string) ?? null);
+      reader.readAsText(file);
+    }
+  };
+
+  const clearAriaFile = () => {
+    if (attachedFileUrl) URL.revokeObjectURL(attachedFileUrl);
+    setAttachedFile(null); setAttachedFileUrl(null); setAttachedFileText(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const clearAgentFile = () => {
+    if (agentFileUrl) URL.revokeObjectURL(agentFileUrl);
+    setAgentFile(null); setAgentFileUrl(null); setAgentFileText(null);
+    if (agentFileRef.current) agentFileRef.current.value = "";
+  };
+
+  const renderFilePreview = (file: File, url: string | null, text: string | null, accent: string) => (
+    <div className="mt-2 rounded-xl overflow-hidden"
+      style={{ border: `1px solid ${accent}20`, background: "rgba(0,0,0,0.25)" }}>
+      {file.type.startsWith("image/") && url ? (
+        <img src={url} alt={file.name} style={{ width: "100%", maxHeight: 200, objectFit: "contain", display: "block" }} />
+      ) : file.type === "application/pdf" && url ? (
+        <iframe src={`${url}#toolbar=0&navpanes=0`} title={file.name} style={{ width: "100%", height: 220, border: "none", display: "block" }} />
+      ) : text !== null ? (
+        <pre style={{ padding: "10px 14px", fontSize: 10, color: "rgba(255,255,255,0.55)", maxHeight: 160, overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all", margin: 0, fontFamily: "monospace" }}>
+          {text.length > 4000 ? text.slice(0, 4000) + "\n\n[...]" : text}
+        </pre>
+      ) : (
+        <div style={{ padding: "10px 14px", fontSize: 11, color: "rgba(255,255,255,0.3)" }}>
+          Pré-visualização não disponível para .{file.name.split(".").pop()?.toUpperCase()}
+        </div>
+      )}
+    </div>
+  );
 
   const toggleTask = (taskId: string) =>
     setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, done: !t.done } : t));
@@ -795,10 +870,12 @@ export default function ClientWorkspace() {
                     <input ref={fileInputRef} type="file"
                       accept=".pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg,.csv,.xlsx"
                       className="hidden"
-                      onChange={(e) => setAttachedFile(e.target.files?.[0] ?? null)} />
+                      onChange={handleAriaFileChange} />
 
-                    <div className="flex items-center gap-3">
-                      {/* File attachment / pill */}
+                    {/* File preview */}
+                    {attachedFile && renderFilePreview(attachedFile, attachedFileUrl, attachedFileText, "#B9FF4B")}
+
+                    <div className="flex items-center gap-3 mt-3">
                       {attachedFile ? (
                         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg flex-shrink-0"
                           style={{ background: "rgba(185,255,75,0.08)", border: "1px solid rgba(185,255,75,0.2)" }}>
@@ -812,7 +889,7 @@ export default function ClientWorkspace() {
                           <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>
                             {(attachedFile.size / 1024).toFixed(0)} KB
                           </span>
-                          <button onClick={() => { setAttachedFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                          <button onClick={clearAriaFile}
                             style={{ color: "rgba(255,255,255,0.3)" }}
                             onMouseEnter={(e) => (e.currentTarget.style.color = "#F87171")}
                             onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}>
@@ -828,11 +905,9 @@ export default function ClientWorkspace() {
                           <Paperclip className="w-3 h-3" /> Anexar referência
                         </button>
                       )}
-
                       <div className="flex-1" />
-
                       <button
-                        onClick={() => { setAgentCommand(""); setAttachedFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                        onClick={() => { setAgentCommand(""); clearAriaFile(); }}
                         disabled={!agentCommand.trim() && !attachedFile}
                         className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
                         style={{ background: "#B9FF4B", color: "#07080A", boxShadow: (agentCommand || attachedFile) ? "0 0 20px -4px rgba(185,255,75,0.5)" : "none" }}>
@@ -858,6 +933,8 @@ export default function ClientWorkspace() {
                       const isWorking = task?.status === "trabalhando";
                       const isDone = task?.status === "concluído";
                       const isSelected = selectedAgentId === agent.id;
+                      const isViewing = viewingAgentId === agent.id;
+                      const isActive = isSelected || isViewing;
 
                       return (
                         <motion.div key={agent.id}
@@ -865,9 +942,9 @@ export default function ClientWorkspace() {
                           transition={{ delay: i * 0.06 }}
                           className="rounded-2xl p-4 flex flex-col cursor-default"
                           style={{
-                            background: isSelected ? `${agent.color}0d` : "rgba(255,255,255,0.025)",
-                            border: `1px solid ${isSelected ? `${agent.color}40` : isWorking ? `${agent.color}28` : "rgba(255,255,255,0.07)"}`,
-                            boxShadow: isSelected ? `0 0 32px -10px ${agent.color}40` : isWorking ? `0 0 28px -10px ${agent.color}30` : "none",
+                            background: isActive ? `${agent.color}0d` : "rgba(255,255,255,0.025)",
+                            border: `1px solid ${isActive ? `${agent.color}40` : isWorking ? `${agent.color}28` : "rgba(255,255,255,0.07)"}`,
+                            boxShadow: isActive ? `0 0 32px -10px ${agent.color}40` : isWorking ? `0 0 28px -10px ${agent.color}30` : "none",
                           }}>
 
                           {/* Avatar + name */}
@@ -939,27 +1016,224 @@ export default function ClientWorkspace() {
                             </>
                           )}
 
-                          <button
-                            onClick={() => {
-                              setSelectedAgentId(isSelected ? null : agent.id);
-                              setAgentInstruction("");
-                              setAgentFile(null);
-                              if (agentFileRef.current) agentFileRef.current.value = "";
-                            }}
-                            className="mt-auto w-full py-1.5 rounded-lg text-[10px] font-semibold transition-all"
-                            style={{
-                              background: isSelected ? `${agent.color}20` : `${agent.color}10`,
-                              color: agent.color,
-                              border: `1px solid ${isSelected ? `${agent.color}40` : `${agent.color}22`}`,
-                            }}
-                            onMouseEnter={(e) => (e.currentTarget.style.background = `${agent.color}20`)}
-                            onMouseLeave={(e) => (e.currentTarget.style.background = isSelected ? `${agent.color}20` : `${agent.color}10`)}>
-                            {isSelected ? "▲ Fechar" : "Dar instrução"}
-                          </button>
+                          <div className="mt-auto flex gap-1.5">
+                            <button
+                              onClick={() => {
+                                setViewingAgentId(isViewing ? null : agent.id);
+                                if (!isViewing) setSelectedAgentId(null);
+                              }}
+                              className="flex-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all"
+                              style={{
+                                background: isViewing ? `${agent.color}22` : `${agent.color}08`,
+                                color: agent.color,
+                                border: `1px solid ${isViewing ? `${agent.color}45` : `${agent.color}20`}`,
+                              }}>
+                              {isViewing ? "▲ Fechar" : "Ver"}
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedAgentId(isSelected ? null : agent.id);
+                                setViewingAgentId(null);
+                                setAgentInstruction("");
+                                clearAgentFile();
+                              }}
+                              className="flex-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all"
+                              style={{
+                                background: isSelected ? `${agent.color}22` : `${agent.color}08`,
+                                color: agent.color,
+                                border: `1px solid ${isSelected ? `${agent.color}45` : `${agent.color}20`}`,
+                              }}>
+                              {isSelected ? "▲ Fechar" : "Dar instrução"}
+                            </button>
+                          </div>
                         </motion.div>
                       );
                     })}
                   </div>
+
+                  {/* ── Painel de visualização ── */}
+                  <AnimatePresence>
+                    {viewedAgent && (
+                        <motion.div key={"view-" + viewedAgent.id}
+                          initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}
+                          className="mt-4 rounded-2xl overflow-hidden"
+                          style={{ border: `1px solid ${viewedAgent.color}35`, background: `${viewedAgent.color}06` }}>
+
+                          {/* View header */}
+                          <div className="flex items-center gap-3 px-5 py-4"
+                            style={{ borderBottom: `1px solid ${viewedAgent.color}15` }}>
+                            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
+                              style={{ background: `${viewedAgent.color}18`, border: `1px solid ${viewedAgent.color}35`, color: viewedAgent.color }}>
+                              {viewedAgent.initial}
+                            </div>
+                            <div className="flex-1">
+                              <div className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.9)" }}>{viewedAgent.name}</div>
+                              <div className="text-[10px]" style={{ color: viewedAgent.color }}>{viewedAgent.role} · {viewedAgent.skill}</div>
+                            </div>
+                            {vTask && (
+                              <span className="text-[10px] px-2.5 py-1 rounded-full font-medium flex-shrink-0"
+                                style={{
+                                  background: vTaskIsWorking ? `${viewedAgent.color}15` : "rgba(52,211,153,0.1)",
+                                  color: vTaskIsWorking ? viewedAgent.color : "#34D399",
+                                  border: `1px solid ${vTaskIsWorking ? `${viewedAgent.color}30` : "rgba(52,211,153,0.25)"}`,
+                                }}>
+                                {vTaskIsWorking ? "● Trabalhando" : "✓ Concluído"}
+                              </span>
+                            )}
+                            <button onClick={() => setViewingAgentId(null)}
+                              className="p-1 rounded-lg transition-colors flex-shrink-0"
+                              style={{ color: "rgba(255,255,255,0.25)" }}
+                              onMouseEnter={(e) => (e.currentTarget.style.color = "#F87171")}
+                              onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.25)")}>
+                              <X className="w-4 h-4" />
+                            </button>
+                          </div>
+
+                          <div className="px-5 py-4 space-y-4">
+                            {/* Current task (full) */}
+                            {vTask && (
+                              <div>
+                                <div className="text-[10px] uppercase tracking-widest font-semibold mb-2"
+                                  style={{ color: "rgba(255,255,255,0.3)" }}>Fazendo agora</div>
+                                <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.75)" }}>{vTask.current}</p>
+                                {vTaskIsWorking && vTask.progress > 0 && (
+                                  <div className="mt-3">
+                                    <div className="flex justify-between mb-1">
+                                      <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>Progresso</span>
+                                      <span className="text-[10px] font-semibold" style={{ color: viewedAgent.color }}>{vTask.progress}%</span>
+                                    </div>
+                                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
+                                      <motion.div className="h-full rounded-full"
+                                        style={{ background: viewedAgent.color }}
+                                        initial={{ width: 0 }} animate={{ width: `${vTask.progress}%` }}
+                                        transition={{ duration: 0.8, ease: "easeOut" }} />
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+
+                            {/* Recent work (all items) */}
+                            {vTask && vTask.recent.length > 0 && (
+                              <div>
+                                <div className="text-[10px] uppercase tracking-widest font-semibold mb-2"
+                                  style={{ color: "rgba(255,255,255,0.3)" }}>Trabalho recente</div>
+                                <div className="space-y-1.5">
+                                  {vTask.recent.map((r, j) => (
+                                    <div key={j} className="flex items-start gap-2 px-3 py-2 rounded-lg"
+                                      style={{ background: "rgba(255,255,255,0.03)" }}>
+                                      <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: `${viewedAgent.color}80` }} />
+                                      <span className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.55)" }}>{r}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Teo: site pages */}
+                            {vSitePages.length > 0 && (
+                              <div>
+                                <div className="text-[10px] uppercase tracking-widest font-semibold mb-2"
+                                  style={{ color: "rgba(255,255,255,0.3)" }}>Páginas do site</div>
+                                <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
+                                  {vSitePages.map((p, pi) => (
+                                    <div key={pi} className="flex items-center gap-3 px-4 py-2.5 text-xs"
+                                      style={{ borderBottom: pi < vSitePages.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", background: p.status === "editando" ? "rgba(6,182,212,0.04)" : "transparent" }}>
+                                      <Globe className="w-3 h-3 flex-shrink-0" style={{ color: "#06B6D4" }} />
+                                      <span className="flex-1 font-medium" style={{ color: "rgba(255,255,255,0.75)" }}>{p.page}</span>
+                                      <span style={{ color: "rgba(255,255,255,0.3)" }}>{p.url}</span>
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded-full ml-2"
+                                        style={{ background: p.status === "editando" ? "rgba(6,182,212,0.15)" : p.status === "publicado" ? "rgba(52,211,153,0.1)" : "rgba(255,255,255,0.05)", color: p.status === "editando" ? "#06B6D4" : p.status === "publicado" ? "#34D399" : "rgba(255,255,255,0.3)" }}>
+                                        {p.status}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Vitória: revised files */}
+                            {vRevisedFiles.length > 0 && (
+                              <div>
+                                <div className="text-[10px] uppercase tracking-widest font-semibold mb-2"
+                                  style={{ color: "rgba(255,255,255,0.3)" }}>Arquivos revisados</div>
+                                <div className="space-y-2">
+                                  {vRevisedFiles.map((file) => (
+                                    <div key={file.id} className="rounded-xl overflow-hidden"
+                                      style={{ border: "1px solid rgba(236,72,153,0.2)", background: "rgba(236,72,153,0.04)" }}>
+                                      <button className="w-full flex items-center gap-3 px-4 py-3 text-left"
+                                        onClick={() => setExpandedFile(expandedFile === file.id ? null : file.id)}>
+                                        <FileText className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#EC4899" }} />
+                                        <span className="flex-1 text-xs font-medium" style={{ color: "rgba(255,255,255,0.8)" }}>{file.name}</span>
+                                        <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: "rgba(52,211,153,0.1)", color: "#34D399" }}>{file.fixed} correções</span>
+                                        <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "rgba(255,255,255,0.3)", transform: expandedFile === file.id ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+                                      </button>
+                                      {expandedFile === file.id && (
+                                        <div className="px-4 pb-3 space-y-2">
+                                          {file.diffs.map((d, di) => (
+                                            <div key={di} className="rounded-lg overflow-hidden text-[11px]">
+                                              <div className="px-3 py-1.5" style={{ background: "rgba(248,113,113,0.08)", color: "#F87171" }}>− {d.before}</div>
+                                              <div className="px-3 py-1.5" style={{ background: "rgba(52,211,153,0.08)", color: "#34D399" }}>+ {d.after}</div>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Instruction form at bottom of view */}
+                            <div style={{ borderTop: `1px solid ${viewedAgent.color}15`, paddingTop: 16 }}>
+                              <div className="text-[10px] uppercase tracking-widest font-semibold mb-2"
+                                style={{ color: `${viewedAgent.color}80` }}>Dar instrução a {viewedAgent.name}</div>
+                              <input ref={agentFileRef} type="file"
+                                accept=".pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg,.csv,.xlsx"
+                                className="hidden" onChange={handleAgentFileChange} />
+                              <textarea
+                                value={agentInstruction}
+                                onChange={(e) => setAgentInstruction(e.target.value)}
+                                placeholder={`O que você quer que ${viewedAgent.name} faça?`}
+                                rows={2}
+                                className="w-full rounded-xl px-4 py-3 text-sm resize-none mb-2"
+                                style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${viewedAgent.color}22`, color: "#F0F0F0", outline: "none" }}
+                              />
+                              {agentFile && renderFilePreview(agentFile, agentFileUrl, agentFileText, viewedAgent.color)}
+                              <div className="flex items-center gap-3 mt-2">
+                                {agentFile ? (
+                                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg flex-shrink-0"
+                                    style={{ background: `${viewedAgent.color}10`, border: `1px solid ${viewedAgent.color}25` }}>
+                                    {agentFile.type.startsWith("image/") ? <Image className="w-3 h-3" style={{ color: viewedAgent.color }} /> : <FileText className="w-3 h-3" style={{ color: viewedAgent.color }} />}
+                                    <span className="text-[11px] max-w-[140px] truncate" style={{ color: "rgba(255,255,255,0.7)" }}>{agentFile.name}</span>
+                                    <button onClick={clearAgentFile} style={{ color: "rgba(255,255,255,0.3)" }}
+                                      onMouseEnter={(e) => (e.currentTarget.style.color = "#F87171")}
+                                      onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}><X className="w-3 h-3" /></button>
+                                  </div>
+                                ) : (
+                                  <button onClick={() => agentFileRef.current?.click()}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all flex-shrink-0"
+                                    style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.35)", border: "1px dashed rgba(255,255,255,0.14)" }}
+                                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = `${viewedAgent.color}50`; e.currentTarget.style.color = viewedAgent.color; }}
+                                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)"; e.currentTarget.style.color = "rgba(255,255,255,0.35)"; }}>
+                                    <Paperclip className="w-3 h-3" /> Anexar referência
+                                  </button>
+                                )}
+                                <div className="flex-1" />
+                                <button
+                                  onClick={() => { setAgentInstruction(""); clearAgentFile(); setViewingAgentId(null); }}
+                                  disabled={!agentInstruction.trim() && !agentFile}
+                                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
+                                  style={{ background: viewedAgent.color, color: "#07080A", boxShadow: (agentInstruction || agentFile) ? `0 0 16px -4px ${viewedAgent.color}60` : "none" }}>
+                                  <Send className="w-3.5 h-3.5" /> Enviar para {viewedAgent.name}
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        </motion.div>
+                    )}
+                  </AnimatePresence>
 
                   {/* ── Painel de instrução individual ── */}
                   <AnimatePresence>
@@ -977,7 +1251,7 @@ export default function ClientWorkspace() {
                           <input ref={agentFileRef} type="file"
                             accept=".pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg,.csv,.xlsx"
                             className="hidden"
-                            onChange={(e) => setAgentFile(e.target.files?.[0] ?? null)} />
+                            onChange={handleAgentFileChange} />
 
                           <div className="px-5 py-4">
                             {/* Header */}
@@ -1027,7 +1301,7 @@ export default function ClientWorkspace() {
                                   <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>
                                     {(agentFile.size / 1024).toFixed(0)} KB
                                   </span>
-                                  <button onClick={() => { setAgentFile(null); if (agentFileRef.current) agentFileRef.current.value = ""; }}
+                                  <button onClick={clearAgentFile}
                                     style={{ color: "rgba(255,255,255,0.3)" }}
                                     onMouseEnter={(e) => (e.currentTarget.style.color = "#F87171")}
                                     onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}>
@@ -1047,13 +1321,15 @@ export default function ClientWorkspace() {
                               <div className="flex-1" />
 
                               <button
-                                onClick={() => { setAgentInstruction(""); setAgentFile(null); setSelectedAgentId(null); if (agentFileRef.current) agentFileRef.current.value = ""; }}
+                                onClick={() => { setAgentInstruction(""); clearAgentFile(); setSelectedAgentId(null); }}
                                 disabled={!agentInstruction.trim() && !agentFile}
                                 className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
                                 style={{ background: selectedAgent.color, color: "#07080A", boxShadow: (agentInstruction || agentFile) ? `0 0 20px -4px ${selectedAgent.color}60` : "none" }}>
                                 <Send className="w-3.5 h-3.5" /> Enviar para {selectedAgent.name}
                               </button>
                             </div>
+
+                            {agentFile && renderFilePreview(agentFile, agentFileUrl, agentFileText, selectedAgent.color)}
                           </div>
                         </motion.div>
                       )}
