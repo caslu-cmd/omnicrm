@@ -2,96 +2,105 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap');
+/* ── Design System: Noir Volt ───────────────────────────────
+   Paleta: Preto profundo + Verde Limão elétrico
+   Fontes: Cormorant Garamond (display) + DM Sans (UI)
+   ─────────────────────────────────────────────────────────── */
 
 @layer base {
   :root {
-    --background: 210 33% 97%;
-    --foreground: 220 20% 14%;
+    /* ── Backgrounds ── */
+    --background: 220 15% 5%;
+    --foreground: 0 0% 94%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 220 20% 14%;
+    --card: 220 13% 8%;
+    --card-foreground: 0 0% 92%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 220 20% 14%;
+    --popover: 220 13% 9%;
+    --popover-foreground: 0 0% 92%;
 
-    --primary: 196 87% 32%;
-    --primary-foreground: 0 0% 100%;
+    /* ── Verde Limão como primário ── */
+    --primary: 83 100% 64%;
+    --primary-foreground: 220 15% 5%;
 
-    --secondary: 168 75% 36%;
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 220 13% 14%;
+    --secondary-foreground: 0 0% 85%;
 
-    --muted: 210 27% 95%;
-    --muted-foreground: 220 9% 46%;
+    --muted: 220 13% 12%;
+    --muted-foreground: 220 8% 42%;
 
-    --accent: 37 91% 55%;
-    --accent-foreground: 30 60% 16%;
+    --accent: 83 100% 64%;
+    --accent-foreground: 220 15% 5%;
 
-    --destructive: 0 70% 62%;
+    --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 214 20% 90%;
-    --input: 214 20% 90%;
-    --ring: 196 87% 32%;
+    --border: 220 12% 14%;
+    --input: 220 12% 12%;
+    --ring: 83 100% 64%;
 
-    --radius: 0.625rem;
+    --radius: 0.75rem;
 
-    --sidebar-background: 200 30% 12%;
-    --sidebar-foreground: 210 20% 82%;
-    --sidebar-primary: 196 87% 50%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 200 25% 18%;
-    --sidebar-accent-foreground: 210 20% 92%;
-    --sidebar-border: 200 20% 20%;
-    --sidebar-ring: 196 87% 50%;
-    --sidebar-muted: 200 15% 40%;
+    /* ── Sidebar ── */
+    --sidebar-background: 220 18% 4%;
+    --sidebar-foreground: 220 8% 55%;
+    --sidebar-primary: 83 100% 64%;
+    --sidebar-primary-foreground: 220 15% 5%;
+    --sidebar-accent: 220 14% 10%;
+    --sidebar-accent-foreground: 0 0% 88%;
+    --sidebar-border: 220 13% 11%;
+    --sidebar-ring: 83 100% 64%;
+    --sidebar-muted: 220 8% 32%;
 
-    --success: 168 75% 36%;
+    /* ── Utilitários ── */
+    --success: 142 70% 45%;
     --success-foreground: 0 0% 100%;
-    --warning: 37 91% 55%;
-    --warning-foreground: 30 60% 16%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 220 15% 5%;
 
-    --chart-1: 196 87% 32%;
-    --chart-2: 168 75% 36%;
-    --chart-3: 37 91% 55%;
-    --chart-4: 220 9% 46%;
-    --chart-5: 0 70% 62%;
+    /* ── Charts ── */
+    --chart-1: 83 100% 64%;
+    --chart-2: 142 70% 45%;
+    --chart-3: 196 80% 48%;
+    --chart-4: 38 92% 50%;
+    --chart-5: 0 72% 55%;
 
-    --gradient-primary: linear-gradient(135deg, hsl(196 87% 32%), hsl(196 87% 42%));
-    --gradient-secondary: linear-gradient(135deg, hsl(168 75% 36%), hsl(168 75% 46%));
-    --shadow-card: 0 1px 3px 0 hsl(220 20% 14% / 0.04), 0 1px 2px -1px hsl(220 20% 14% / 0.04);
-    --shadow-elevated: 0 4px 16px -2px hsl(220 20% 14% / 0.08), 0 2px 6px -2px hsl(220 20% 14% / 0.04);
+    /* ── Sombras ── */
+    --shadow-card: 0 1px 4px 0 rgba(0,0,0,0.4);
+    --shadow-elevated: 0 8px 32px -4px rgba(0,0,0,0.6), 0 2px 8px -2px rgba(0,0,0,0.3);
+    --shadow-lime: 0 0 24px -4px rgba(185,255,75,0.2);
   }
 
+  /* Mantém dark equivalente ao root para compatibilidade */
   .dark {
-    --background: 220 20% 8%;
-    --foreground: 210 20% 92%;
-    --card: 220 18% 12%;
-    --card-foreground: 210 20% 92%;
-    --popover: 220 18% 12%;
-    --popover-foreground: 210 20% 92%;
-    --primary: 196 80% 48%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 168 65% 40%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 220 15% 18%;
-    --muted-foreground: 220 10% 60%;
-    --accent: 37 85% 50%;
-    --accent-foreground: 30 60% 16%;
-    --destructive: 0 60% 50%;
+    --background: 220 15% 5%;
+    --foreground: 0 0% 94%;
+    --card: 220 13% 8%;
+    --card-foreground: 0 0% 92%;
+    --popover: 220 13% 9%;
+    --popover-foreground: 0 0% 92%;
+    --primary: 83 100% 64%;
+    --primary-foreground: 220 15% 5%;
+    --secondary: 220 13% 14%;
+    --secondary-foreground: 0 0% 85%;
+    --muted: 220 13% 12%;
+    --muted-foreground: 220 8% 42%;
+    --accent: 83 100% 64%;
+    --accent-foreground: 220 15% 5%;
+    --destructive: 0 72% 55%;
     --destructive-foreground: 0 0% 100%;
-    --border: 220 15% 22%;
-    --input: 220 15% 22%;
-    --ring: 196 80% 48%;
-    --sidebar-background: 220 22% 6%;
-    --sidebar-foreground: 210 15% 75%;
-    --sidebar-primary: 196 80% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 220 18% 14%;
-    --sidebar-accent-foreground: 210 15% 85%;
-    --sidebar-border: 220 15% 16%;
-    --sidebar-ring: 196 80% 48%;
-    --sidebar-muted: 220 10% 40%;
+    --border: 220 12% 14%;
+    --input: 220 12% 12%;
+    --ring: 83 100% 64%;
+    --sidebar-background: 220 18% 4%;
+    --sidebar-foreground: 220 8% 55%;
+    --sidebar-primary: 83 100% 64%;
+    --sidebar-primary-foreground: 220 15% 5%;
+    --sidebar-accent: 220 14% 10%;
+    --sidebar-accent-foreground: 0 0% 88%;
+    --sidebar-border: 220 13% 11%;
+    --sidebar-ring: 83 100% 64%;
+    --sidebar-muted: 220 8% 32%;
   }
 }
 
@@ -99,22 +108,38 @@
   * {
     @apply border-border;
   }
-  body {
-    @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
+
+  html {
+    /* Força dark mode como padrão */
+    color-scheme: dark;
   }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    font-size: 15px;
+  }
+
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+    font-family: 'DM Sans', system-ui, sans-serif;
+    letter-spacing: -0.01em;
+  }
+
+  /* Seleção de texto com cor verde limão */
+  ::selection {
+    background: rgba(185, 255, 75, 0.25);
+    color: #f0f0f0;
   }
 }
 
 @layer utilities {
+  /* ── Scrollbar ── */
   .scrollbar-thin {
     scrollbar-width: thin;
     scrollbar-color: hsl(var(--border)) transparent;
   }
   .scrollbar-thin::-webkit-scrollbar {
-    width: 6px;
+    width: 5px;
   }
   .scrollbar-thin::-webkit-scrollbar-track {
     background: transparent;
@@ -123,4 +148,113 @@
     background-color: hsl(var(--border));
     border-radius: 3px;
   }
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(185, 255, 75, 0.3);
+  }
+
+  /* ── Verde limão utilitários ── */
+  .lime-glow {
+    box-shadow: 0 0 20px -4px rgba(185, 255, 75, 0.3);
+  }
+
+  .lime-border {
+    border-color: rgba(185, 255, 75, 0.25);
+  }
+
+  .text-lime {
+    color: #B9FF4B;
+  }
+
+  .bg-lime {
+    background-color: #B9FF4B;
+  }
+
+  /* ── Glassmorphism card ── */
+  .glass-card {
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    backdrop-filter: blur(12px);
+  }
+
+  .glass-card-lime {
+    background: rgba(185, 255, 75, 0.04);
+    border: 1px solid rgba(185, 255, 75, 0.15);
+  }
+
+  /* ── Gradiente de texto limão ── */
+  .text-gradient-lime {
+    background: linear-gradient(135deg, #D4FF6E 0%, #8FD600 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  /* ── Pulsing lime dot ── */
+  .pulse-lime {
+    animation: pulse-lime 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  }
+
+  @keyframes pulse-lime {
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(185, 255, 75, 0.4); }
+    50% { opacity: 0.85; box-shadow: 0 0 0 6px rgba(185, 255, 75, 0); }
+  }
+
+  /* ── Hover lift ── */
+  .hover-lift {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .hover-lift:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px -8px rgba(0,0,0,0.5);
+  }
+}
+
+/* ── Botão primary com verde limão ── */
+@layer components {
+  .btn-lime {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all;
+    background: #B9FF4B;
+    color: #080A06;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .btn-lime:hover {
+    background: #CEFF72;
+    box-shadow: 0 0 20px -4px rgba(185, 255, 75, 0.4);
+    transform: translateY(-1px);
+  }
+  .btn-lime:active {
+    transform: translateY(0);
+  }
+
+  .btn-lime-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all;
+    background: rgba(185, 255, 75, 0.08);
+    color: #B9FF4B;
+    border: 1px solid rgba(185, 255, 75, 0.2);
+  }
+  .btn-lime-ghost:hover {
+    background: rgba(185, 255, 75, 0.14);
+    border-color: rgba(185, 255, 75, 0.35);
+  }
+}
+
+/* ── Animação de entrada suave ── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* ── Fundo com textura sutil de ruído ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.03'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.4;
 }

@@ -6,7 +6,7 @@ import {
   HelpCircle, Shield, ChevronLeft, ChevronRight, Phone,
   Palette, Bell, Crown, ArrowLeftRight, Star,
   ArrowLeft, Megaphone, BarChart2, ExternalLink,
-  Bot, Activity, CheckSquare, Link2, ListTodo, Sparkles
+  Bot, Activity, Link2, ListTodo
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useIsAdmin } from "@/hooks/useAdmin";
@@ -342,21 +342,28 @@ export const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
     >
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 px-4 border-b border-sidebar-border flex-shrink-0">
-        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary">
+        <div
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+          style={isClientWorkspace && client
+            ? { background: `${client.color}22`, border: `1px solid ${client.color}40` }
+            : { background: "#B9FF4B" }
+          }
+        >
           {isClientWorkspace && client ? (
-            <span className="text-xs font-bold text-primary-foreground">{client.initials}</span>
+            <span className="text-xs font-bold" style={{ color: client.color }}>{client.initials}</span>
           ) : (
-            <Sparkles className="h-5 w-5 text-primary-foreground" />
+            <Zap className="h-5 w-5" style={{ color: "#07080A" }} />
           )}
         </div>
         {!collapsed && (
-          <motion.span
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-base font-bold font-display text-sidebar-accent-foreground tracking-tight truncate"
-          >
-            {isClientWorkspace && client ? client.name : "Calu Agência"}
-          </motion.span>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+            <div className="text-sm font-bold tracking-tight truncate" style={{ color: "#F0F0F0" }}>
+              {isClientWorkspace && client ? client.name : "Calu Agência"}
+            </div>
+            {!isClientWorkspace && (
+              <div className="text-[10px]" style={{ color: "#B9FF4B", opacity: 0.6 }}>Super Admin</div>
+            )}
+          </motion.div>
         )}
       </div>
 
