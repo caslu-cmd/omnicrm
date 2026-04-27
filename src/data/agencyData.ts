@@ -188,6 +188,18 @@ export const CLIENTS: Client[] = [
         recent: ["Análise de concorrentes Q2 concluída", "Repositório de brand voice atualizado"],
         progress: 0,
       },
+      site: {
+        current: "Atualizando página 'Serviços' com novos textos sobre a Nova Lei 14.133",
+        status: "trabalhando",
+        recent: ["Corrigiu links quebrados na página Sobre", "Adicionou seção de depoimentos na Home"],
+        progress: 55,
+      },
+      revisor: {
+        current: "Revisando artigo LinkedIn antes da publicação — verificando ortografia e estrutura",
+        status: "trabalhando",
+        recent: ["Corrigiu 4 erros no copy do anúncio LinkedIn", "Reestruturou 2 legendas de baixo engajamento"],
+        progress: 82,
+      },
     },
     contacts: [
       { id: "ct1", name: "Marcos Almeida", company: "ABC Construções", role: "Gerente de Compras", email: "marcos@abcconstrucoes.com.br", status: "Lead", lastContact: "hoje", tags: ["quente", "licitação"] },
@@ -290,6 +302,18 @@ export const CLIENTS: Client[] = [
         recent: ["Mapeou jornada do novo associado (onboarding)", "Definiu posicionamento da ABCER para H2 2025"],
         progress: 30,
       },
+      site: {
+        current: "Atualizando banner principal do site com arte do Encontro de Líderes",
+        status: "trabalhando",
+        recent: ["Criou página de inscrição para o evento (conversão otimizada)", "Atualizou galeria de fotos do último evento"],
+        progress: 70,
+      },
+      revisor: {
+        current: "Revisando copy dos 3 anúncios do Facebook antes de subir para aprovação",
+        status: "trabalhando",
+        recent: ["Corrigiu tom informal demais no e-mail de boas-vindas", "Padronizou uso de maiúsculas nos títulos de 6 posts"],
+        progress: 60,
+      },
     },
     contacts: [
       { id: "ct1", name: "Ana Silva", company: "Silva & Associados", role: "Diretora", email: "ana@silvaassociados.com.br", status: "Cliente", lastContact: "hoje", tags: ["associada", "VIP"] },
@@ -389,6 +413,18 @@ export const CLIENTS: Client[] = [
         status: "aguardando",
         recent: ["Definiu linha editorial: autoridade em automação para negócios", "Repositório de provas sociais e cases atualizado"],
         progress: 0,
+      },
+      site: {
+        current: "Otimizando landing page de captação de leads — aumentando velocidade e CTA",
+        status: "trabalhando",
+        recent: ["Publicou artigo 1 da série no blog: 'Automação para PMEs'", "Corrigiu formulário de contato que não enviava"],
+        progress: 48,
+      },
+      revisor: {
+        current: "Revisando artigo 2 da série antes de entregar para a Beatriz publicar",
+        status: "trabalhando",
+        recent: ["Detectou e corrigiu anglicismo no artigo 1 ('performance' → 'desempenho')", "Reestruturou introdução do artigo para melhor progressão lógica"],
+        progress: 75,
       },
     },
     contacts: [

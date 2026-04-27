@@ -6,7 +6,9 @@ import {
   CheckCircle2, Clock, TrendingUp, Eye, Heart, Users, ExternalLink,
   Calendar, Image, Film, BookOpen, Bot, Activity, Link2, ListTodo,
   Plus, Linkedin, MessageCircle, Circle, Send,
-  Wifi, WifiOff, Search, ChevronRight, Mail, Tag, DollarSign,
+  Wifi, WifiOff, Search, ChevronRight, Mail, DollarSign,
+  Globe, FileEdit, FileCheck, ChevronDown, AlertTriangle, RefreshCw,
+  ExternalLink as ExternalLinkIcon, Pencil, ShieldCheck,
 } from "lucide-react";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { CLIENTS } from "@/data/agencyData";
@@ -58,6 +60,24 @@ const MARKETING_TEAM = [
     color: "#FBBF24",
     description: "Define o posicionamento e a pauta editorial do cliente",
   },
+  {
+    id: "site",
+    name: "Teo",
+    role: "Editor de Site",
+    initial: "T",
+    skill: "WordPress · SEO · Landing Pages",
+    color: "#06B6D4",
+    description: "Acessa, edita e publica páginas do site do cliente",
+  },
+  {
+    id: "revisor",
+    name: "Vitória",
+    role: "Revisora",
+    initial: "V",
+    skill: "Ortografia · Gramática · Estrutura",
+    color: "#EC4899",
+    description: "Revisa e corrige todos os arquivos antes de publicar",
+  },
 ];
 
 // ── CRM Pipeline Stages ────────────────────────────────────────
@@ -101,6 +121,96 @@ const MOCK_TASKS_TEMPLATE = [
   { id: "5", text: "Definir pauta editorial de junho", priority: "media", done: false, due: "05/05" },
 ];
 
+// ── Mock site pages per client ─────────────────────────────────
+const SITE_PAGES: Record<string, { page: string; url: string; lastEdit: string; status: "publicado" | "rascunho" | "editando"; changes: number }[]> = {
+  "grupo-licita": [
+    { page: "Home", url: "/", lastEdit: "há 2 dias", status: "publicado", changes: 3 },
+    { page: "Serviços", url: "/servicos", lastEdit: "há 1h", status: "editando", changes: 5 },
+    { page: "Blog — Nova Lei 14.133", url: "/blog/nova-lei", lastEdit: "há 3h", status: "publicado", changes: 12 },
+    { page: "Contato", url: "/contato", lastEdit: "há 1 sem", status: "publicado", changes: 1 },
+    { page: "Quem Somos", url: "/sobre", lastEdit: "há 2 sem", status: "rascunho", changes: 0 },
+  ],
+  "abcer": [
+    { page: "Home", url: "/", lastEdit: "há 5h", status: "editando", changes: 8 },
+    { page: "Eventos — Encontro de Líderes", url: "/eventos/encontro", lastEdit: "há 2h", status: "publicado", changes: 14 },
+    { page: "Inscrição Evento", url: "/inscricao", lastEdit: "há 1h", status: "publicado", changes: 6 },
+    { page: "Galeria", url: "/galeria", lastEdit: "ontem", status: "publicado", changes: 4 },
+    { page: "Associe-se", url: "/associe-se", lastEdit: "há 3 dias", status: "publicado", changes: 2 },
+  ],
+  "gnx": [
+    { page: "Home", url: "/", lastEdit: "ontem", status: "publicado", changes: 7 },
+    { page: "Landing Page — Leads", url: "/automacao", lastEdit: "há 3h", status: "editando", changes: 9 },
+    { page: "Blog — Automação PMEs", url: "/blog/automacao", lastEdit: "há 1 dia", status: "publicado", changes: 11 },
+    { page: "Casos de Uso", url: "/casos", lastEdit: "há 4 dias", status: "rascunho", changes: 0 },
+    { page: "Contato & Demo", url: "/contato", lastEdit: "há 1 sem", status: "publicado", changes: 2 },
+  ],
+};
+
+// ── Mock revised files per client ──────────────────────────────
+const REVISED_FILES: Record<string, { id: string; name: string; type: string; errors: number; fixed: number; diffs: { before: string; after: string; type: "typo" | "structure" | "style" }[] }[]> = {
+  "grupo-licita": [
+    {
+      id: "rf1", name: "Artigo LinkedIn — Nova Lei de Licitações", type: "Artigo", errors: 4, fixed: 4,
+      diffs: [
+        { before: "de acordo com a lei 14.133", after: "de acordo com a Lei 14.133/21", type: "typo" },
+        { before: "licitação publica", after: "licitação pública", type: "typo" },
+        { before: "O processo licitatório ele é obrigatório", after: "O processo licitatório é obrigatório", type: "structure" },
+        { before: "resultados que são muito mais eficientes", after: "resultados muito mais eficientes", type: "style" },
+      ],
+    },
+    {
+      id: "rf2", name: "Copy Anúncio LinkedIn Ads — Versão B", type: "Anúncio", errors: 2, fixed: 2,
+      diffs: [
+        { before: "Aprenda como ganhar licitações!", after: "Aprenda a ganhar licitações.", type: "style" },
+        { before: "nossa consultoria especializada em licitações publicas", after: "nossa consultoria especializada em licitações públicas", type: "typo" },
+      ],
+    },
+    {
+      id: "rf3", name: "Legenda Instagram — Post Autoridade", type: "Legenda", errors: 1, fixed: 1,
+      diffs: [
+        { before: "Você sabe quais são os erros mais comuns que as empresas cometem?", after: "Você sabe quais erros as empresas mais cometem?", type: "style" },
+      ],
+    },
+  ],
+  "abcer": [
+    {
+      id: "rf1", name: "E-mail Boas-vindas — Novos Associados", type: "E-mail", errors: 3, fixed: 3,
+      diffs: [
+        { before: "Seja muito bem vindo a ABCER", after: "Seja bem-vindo à ABCER", type: "typo" },
+        { before: "todos os beneficios que você terá acesso", after: "todos os benefícios aos quais você terá acesso", type: "structure" },
+        { before: "O nosso time está a sua disposição", after: "Nossa equipe está à sua disposição", type: "style" },
+      ],
+    },
+    {
+      id: "rf2", name: "Copy Facebook Ads — Evento Networking", type: "Anúncio", errors: 2, fixed: 2,
+      diffs: [
+        { before: "Participe do maior evento de networking!", after: "Participe do maior encontro de networking!", type: "style" },
+        { before: "Vagas limitadas, não perca!", after: "Vagas limitadas — não perca.", type: "typo" },
+      ],
+    },
+  ],
+  "gnx": [
+    {
+      id: "rf1", name: "Artigo 1 — Automação para PMEs", type: "Artigo", errors: 5, fixed: 5,
+      diffs: [
+        { before: "a performance da sua empresa", after: "o desempenho da sua empresa", type: "style" },
+        { before: "o ROI positivo", after: "o retorno sobre investimento positivo", type: "style" },
+        { before: "Empresas que não se adaptam ao mercado ficam para traz", after: "Empresas que não se adaptam ficam para trás", type: "typo" },
+        { before: "Nós podemos te ajudar a", after: "Podemos ajudá-lo a", type: "structure" },
+        { before: "Isso é um processo que", after: "Esse é um processo que", type: "typo" },
+      ],
+    },
+    {
+      id: "rf2", name: "Landing Page — CTA e Headlines", type: "Página Web", errors: 3, fixed: 3,
+      diffs: [
+        { before: "Transforme seu negocio hoje", after: "Transforme seu negócio hoje", type: "typo" },
+        { before: "Agende uma call gratuita", after: "Agende uma conversa gratuita", type: "style" },
+        { before: "Mais de 50+ empresas confiam na GNX", after: "Mais de 50 empresas confiam na GNX", type: "style" },
+      ],
+    },
+  ],
+};
+
 const reachData = [
   { name: "Sem 1", valor: 8200 }, { name: "Sem 2", valor: 11400 },
   { name: "Sem 3", valor: 9800 }, { name: "Sem 4", valor: 14600 },
@@ -143,6 +253,8 @@ export default function ClientWorkspace() {
   const [crmView, setCrmView] = useState<"contacts" | "pipeline">("contacts");
   const [contactSearch, setContactSearch] = useState("");
   const [agentCommand, setAgentCommand] = useState("");
+  const [expandedFile, setExpandedFile] = useState<string | null>(null);
+  const [editingPage, setEditingPage] = useState<string | null>(null);
 
   const client = CLIENTS.find((c) => c.id === id);
 
@@ -611,7 +723,7 @@ export default function ClientWorkspace() {
                     <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.2)" }}>5 agentes</span>
                   </div>
 
-                  <div className="grid grid-cols-5 gap-4">
+                  <div className="grid grid-cols-4 gap-4">
                     {MARKETING_TEAM.map((agent, i) => {
                       const task = client.agentTasks[agent.id];
                       const isWorking = task?.status === "trabalhando";
@@ -711,6 +823,235 @@ export default function ClientWorkspace() {
                     })}
                   </div>
                 </div>
+
+                {/* ── Painel do Site (Teo) ── */}
+                {(() => {
+                  const pages = SITE_PAGES[client.id] ?? [];
+                  const siteTask = client.agentTasks["site"];
+                  return (
+                    <div>
+                      <div className="flex items-center gap-3 mb-4">
+                        <Globe className="w-3.5 h-3.5" style={{ color: "#06B6D4" }} />
+                        <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>
+                          Site do Cliente — Teo
+                        </h3>
+                        <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
+                        {siteTask?.status === "trabalhando" && (
+                          <span className="relative flex h-1.5 w-1.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#06B6D4" }} />
+                            <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: "#06B6D4" }} />
+                          </span>
+                        )}
+                      </div>
+                      <div className="rounded-2xl overflow-hidden"
+                        style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                        {/* Header */}
+                        <div className="grid px-5 py-2.5 text-[10px] uppercase tracking-wider"
+                          style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 100px", color: "rgba(255,255,255,0.25)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                          <span>Página</span><span>URL</span><span>Última edição</span><span>Status</span><span></span>
+                        </div>
+                        {pages.map((p, i) => {
+                          const statusColor = p.status === "publicado" ? "#34D399" : p.status === "editando" ? "#06B6D4" : "#94A3B8";
+                          const statusBg   = p.status === "publicado" ? "rgba(52,211,153,0.1)" : p.status === "editando" ? "rgba(6,182,212,0.1)" : "rgba(148,163,184,0.1)";
+                          const isEditing  = editingPage === p.page;
+                          return (
+                            <div key={p.page}>
+                              <div className="grid px-5 py-3 items-center transition-colors"
+                                style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 100px", borderBottom: i < pages.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}
+                                onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
+                                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+                                <div className="flex items-center gap-2">
+                                  <Globe className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "rgba(6,182,212,0.5)" }} />
+                                  <span className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.8)" }}>{p.page}</span>
+                                  {p.changes > 0 && (
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full"
+                                      style={{ background: "rgba(6,182,212,0.12)", color: "#06B6D4" }}>
+                                      {p.changes} edições
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-xs font-mono" style={{ color: "rgba(255,255,255,0.3)" }}>{p.url}</span>
+                                <span className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>{p.lastEdit}</span>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full w-fit font-medium"
+                                  style={{ background: statusBg, color: statusColor }}>
+                                  {p.status}
+                                </span>
+                                <div className="flex items-center justify-end gap-1.5">
+                                  <button
+                                    onClick={() => setEditingPage(isEditing ? null : p.page)}
+                                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all"
+                                    style={{ background: isEditing ? "rgba(6,182,212,0.2)" : "rgba(6,182,212,0.08)", color: "#06B6D4", border: "1px solid rgba(6,182,212,0.2)" }}>
+                                    <Pencil className="w-2.5 h-2.5" />
+                                    {isEditing ? "Fechar" : "Editar"}
+                                  </button>
+                                </div>
+                              </div>
+                              {/* Inline edit panel */}
+                              <AnimatePresence>
+                                {isEditing && (
+                                  <motion.div
+                                    initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}
+                                    className="overflow-hidden"
+                                    style={{ borderBottom: "1px solid rgba(6,182,212,0.12)", background: "rgba(6,182,212,0.03)" }}>
+                                    <div className="px-5 py-4">
+                                      <div className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "rgba(6,182,212,0.6)" }}>
+                                        Editor — {p.page}
+                                      </div>
+                                      <textarea
+                                        className="w-full rounded-xl px-3 py-2.5 text-sm resize-none"
+                                        rows={4}
+                                        placeholder={`Digite as alterações para a página "${p.page}"...\nO Teo irá aplicar as mudanças no site.`}
+                                        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(6,182,212,0.2)", color: "#F0F0F0" }}
+                                      />
+                                      <div className="flex gap-2 mt-2">
+                                        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                                          style={{ background: "#06B6D4", color: "#000" }}>
+                                          <RefreshCw className="w-3 h-3" /> Aplicar alterações
+                                        </button>
+                                        <button
+                                          onClick={() => setEditingPage(null)}
+                                          className="px-3 py-1.5 rounded-lg text-xs transition-all"
+                                          style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)" }}>
+                                          Cancelar
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* ── Arquivos Revisados (Vitória) ── */}
+                {(() => {
+                  const files = REVISED_FILES[client.id] ?? [];
+                  const revisorTask = client.agentTasks["revisor"];
+                  const DIFF_TYPE_STYLE = {
+                    typo:      { color: "#F87171", label: "Erro ortográfico" },
+                    structure: { color: "#FBBF24", label: "Estrutura"         },
+                    style:     { color: "#EC4899", label: "Estilo"            },
+                  };
+                  return (
+                    <div>
+                      <div className="flex items-center gap-3 mb-4">
+                        <ShieldCheck className="w-3.5 h-3.5" style={{ color: "#EC4899" }} />
+                        <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>
+                          Arquivos Revisados — Vitória
+                        </h3>
+                        <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
+                        {revisorTask?.status === "trabalhando" && (
+                          <span className="relative flex h-1.5 w-1.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#EC4899" }} />
+                            <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: "#EC4899" }} />
+                          </span>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        {files.map((file) => {
+                          const isOpen = expandedFile === file.id;
+                          return (
+                            <motion.div key={file.id}
+                              className="rounded-2xl overflow-hidden"
+                              style={{ background: "rgba(255,255,255,0.025)", border: `1px solid ${isOpen ? "rgba(236,72,153,0.22)" : "rgba(255,255,255,0.07)"}` }}>
+                              {/* File header */}
+                              <button
+                                className="w-full flex items-center gap-4 px-5 py-3.5 transition-colors text-left"
+                                onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
+                                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                                onClick={() => setExpandedFile(isOpen ? null : file.id)}>
+                                <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                                  style={{ background: "rgba(236,72,153,0.12)", border: "1px solid rgba(236,72,153,0.2)" }}>
+                                  <FileCheck className="w-4 h-4" style={{ color: "#EC4899" }} />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.85)" }}>{file.name}</span>
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded-md"
+                                      style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.35)" }}>{file.type}</span>
+                                  </div>
+                                  <div className="flex items-center gap-3 mt-0.5">
+                                    <span className="text-[11px] flex items-center gap-1" style={{ color: file.errors > 0 ? "#34D399" : "rgba(255,255,255,0.3)" }}>
+                                      <ShieldCheck className="w-3 h-3" />
+                                      {file.fixed} correções aplicadas
+                                    </span>
+                                    {file.errors > 0 && (
+                                      <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.25)" }}>
+                                        · {file.diffs.filter(d => d.type === "typo").length} ortografia · {file.diffs.filter(d => d.type === "structure").length} estrutura · {file.diffs.filter(d => d.type === "style").length} estilo
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <ChevronDown
+                                  className="w-4 h-4 flex-shrink-0 transition-transform"
+                                  style={{ color: "rgba(255,255,255,0.3)", transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }}
+                                />
+                              </button>
+
+                              {/* Diff view */}
+                              <AnimatePresence>
+                                {isOpen && (
+                                  <motion.div
+                                    initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}
+                                    className="overflow-hidden">
+                                    <div className="px-5 pb-4 space-y-2"
+                                      style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                                      <div className="text-[10px] uppercase tracking-wider pt-3 mb-3" style={{ color: "rgba(255,255,255,0.25)" }}>
+                                        Alterações aplicadas pela Vitória
+                                      </div>
+                                      {file.diffs.map((diff, i) => {
+                                        const dt = DIFF_TYPE_STYLE[diff.type];
+                                        return (
+                                          <div key={i} className="rounded-xl overflow-hidden"
+                                            style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
+                                            <div className="flex items-center justify-between px-3 py-1.5"
+                                              style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                                              <span className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: dt.color }}>
+                                                {dt.label}
+                                              </span>
+                                            </div>
+                                            <div className="p-3 space-y-1.5">
+                                              <div className="flex items-start gap-2">
+                                                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5"
+                                                  style={{ background: "rgba(248,113,113,0.15)", color: "#F87171" }}>−</span>
+                                                <span className="text-xs font-mono" style={{ color: "rgba(248,113,113,0.8)" }}>{diff.before}</span>
+                                              </div>
+                                              <div className="flex items-start gap-2">
+                                                <span className="text-[10px] font-mono px-1.5 py-0.5 rounded flex-shrink-0 mt-0.5"
+                                                  style={{ background: "rgba(52,211,153,0.15)", color: "#34D399" }}>+</span>
+                                                <span className="text-xs font-mono" style={{ color: "rgba(52,211,153,0.85)" }}>{diff.after}</span>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                      <div className="flex gap-2 pt-1">
+                                        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                                          style={{ background: "rgba(236,72,153,0.12)", color: "#EC4899", border: "1px solid rgba(236,72,153,0.22)" }}>
+                                          <FileEdit className="w-3 h-3" /> Editar arquivo
+                                        </button>
+                                        <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                                          style={{ background: "rgba(52,211,153,0.1)", color: "#34D399", border: "1px solid rgba(52,211,153,0.2)" }}>
+                                          <CheckCircle2 className="w-3 h-3" /> Aprovar correções
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </motion.div>
+                                )}
+                              </AnimatePresence>
+                            </motion.div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* ── Activity Feed do Time ── */}
                 <div>
