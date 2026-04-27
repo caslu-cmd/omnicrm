@@ -10,7 +10,7 @@ import {
   Globe, FileEdit, FileCheck, ChevronDown, AlertTriangle, RefreshCw,
   Pencil, ShieldCheck, GraduationCap, Smartphone, QrCode,
   UserCheck, PhoneCall, MessageSquare as MsgSq, BadgeCheck,
-  Paperclip, X, FileText as FileIcon,
+  Paperclip, X,
 } from "lucide-react";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { CLIENTS } from "@/data/agencyData";
@@ -803,7 +803,7 @@ export default function ClientWorkspace() {
                           style={{ background: "rgba(185,255,75,0.08)", border: "1px solid rgba(185,255,75,0.2)" }}>
                           {attachedFile.type.startsWith("image/")
                             ? <Image className="w-3 h-3 flex-shrink-0" style={{ color: "#B9FF4B" }} />
-                            : <FileIcon className="w-3 h-3 flex-shrink-0" style={{ color: "#B9FF4B" }} />
+                            : <FileText className="w-3 h-3 flex-shrink-0" style={{ color: "#B9FF4B" }} />
                           }
                           <span className="text-[11px] font-medium max-w-[160px] truncate" style={{ color: "rgba(255,255,255,0.7)" }}>
                             {attachedFile.name}
@@ -1018,7 +1018,7 @@ export default function ClientWorkspace() {
                                   style={{ background: `${selectedAgent.color}12`, border: `1px solid ${selectedAgent.color}28` }}>
                                   {agentFile.type.startsWith("image/")
                                     ? <Image className="w-3 h-3 flex-shrink-0" style={{ color: selectedAgent.color }} />
-                                    : <FileIcon className="w-3 h-3 flex-shrink-0" style={{ color: selectedAgent.color }} />
+                                    : <FileText className="w-3 h-3 flex-shrink-0" style={{ color: selectedAgent.color }} />
                                   }
                                   <span className="text-[11px] font-medium max-w-[180px] truncate" style={{ color: "rgba(255,255,255,0.7)" }}>
                                     {agentFile.name}
@@ -1816,7 +1816,7 @@ export default function ClientWorkspace() {
                         <div className="flex-1">
                           <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "rgba(255,255,255,0.3)" }}>Como conectar</h3>
                           <ol className="space-y-2">
-                            {["Clique em "Verificar conexão" para checar o status atual", "Se desconectado, gere o QR Code abaixo", "Abra WhatsApp → Dispositivos conectados → Conectar dispositivo", "Escaneie o QR Code com o celular do cliente"].map((step, i) => (
+                            {["1. Clique em Verificar conexão para checar o status atual", "2. Se desconectado, clique em Gerar QR Code abaixo", "3. Abra WhatsApp → Dispositivos conectados → Conectar dispositivo", "4. Escaneie o QR Code com o celular do cliente"].map((step, i) => (
                               <li key={i} className="flex items-start gap-2.5 text-[11px]" style={{ color: "rgba(255,255,255,0.45)" }}>
                                 <span className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 mt-0.5"
                                   style={{ background: "rgba(37,211,102,0.12)", color: "#25D366" }}>{i + 1}</span>
