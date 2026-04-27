@@ -1,20 +1,23 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { useLocation, useNavigate, NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard, Inbox, Users, GitBranch, Zap, Send, Calendar,
   Globe, GraduationCap, CreditCard, BarChart3, Puzzle, Settings,
   HelpCircle, Shield, ChevronLeft, ChevronRight, Sparkles, Phone,
-  Palette, Bell, Crown, ArrowLeftRight, Star
+  Palette, Bell, Crown, ArrowLeftRight, Star,
+  ArrowLeft, Megaphone, Eye, BarChart2, ExternalLink
 } from "lucide-react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useIsAdmin } from "@/hooks/useAdmin";
+import { CLIENTS } from "@/data/agencyData";
 
 interface AppSidebarProps {
   collapsed: boolean;
   onToggle: () => void;
 }
 
-const navItems = [
+// ── CRM default nav ───────────────────────────────────────────
+const crmItems = [
   { to: "/agency", icon: Star, label: "Minha Agência" },
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/inbox", icon: Inbox, label: "Inbox", badge: 12 },
@@ -33,7 +36,7 @@ const navItems = [
 ];
 
 const adminItems = [
-  { to: "/admin", icon: Shield, label: "Super Admin", section: true },
+  { to: "/admin", icon: Shield, label: "Super Admin" },
   { to: "/admin?tab=clients", icon: Palette, label: "Clientes WL" },
   { to: "/admin?tab=notifications", icon: Bell, label: "Notificações" },
   { to: "/admin?tab=billing", icon: Crown, label: "Faturamento" },
@@ -44,22 +47,45 @@ const bottomItems = [
   { to: "/help", icon: HelpCircle, label: "Ajuda" },
 ];
 
+// ── Client workspace tools ────────────────────────────────────
+const clientTools = [
+  { tab: "",           icon: LayoutDashboard, label: "Visão Geral" },
+  { tab: "crm",        icon: Users,           label: "CRM & Contatos" },
+  { tab: "content",    icon: Calendar,        label: "Conteúdo" },
+  { tab: "campaigns",  icon: Megaphone,       label: "Campanhas" },
+  { tab: "site",       icon: Globe,           label: "Site" },
+  { tab: "reports",    icon: BarChart2,       label: "Relatórios" },
+  { tab: "settings",   icon: Settings,        label: "Configurações" },
+];
+
 export const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
   const location = useLocation();
+  const navigate = useNavigate();
   const { isAdmin } = useIsAdmin();
 
-  const renderNavItem = (item: { to: string; icon: any; label: string; badge?: number; section?: boolean }, idx: number) => {
-    const isActive = item.to.includes("?")
-      ? location.pathname + location.search === item.to
-      : location.pathname === item.to || (item.to !== "/" && location.pathname.startsWith(item.to) && !item.to.includes("?"));
+  // Detect context
+  const clientMatch = location.pathname.match(/^\/agency\/clients\/([^/]+)/);
+  const clientId = clientMatch?.[1] ?? null;
+  const isAgencyHome = location.pathname === "/agency";
+  const isClientWorkspace = !!clientId;
+
+  const client = clientId ? CLIENTS.find((c) => c.id === clientId) : null;
+  const currentTab = new URLSearchParams(location.search).get("tab") ?? "";
+
+  // ── Render a standard CRM nav item ─────────────────────────
+  const renderNavItem = (item: { to: string; icon: any; label: string; badge?: number }, idx: number) => {
+    const isActive =
+      item.to.includes("?")
+        ? location.pathname + location.search === item.to
+        : location.pathname === item.to ||
+          (item.to !== "/" && location.pathname.startsWith(item.to) && !item.to.includes("?"));
 
     return (
       <NavLink
         key={item.to + idx}
         to={item.to}
         className={cn(
-          "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors relative group",
-          item.section && "mt-1",
+          "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors relative",
           isActive
             ? "bg-sidebar-accent text-sidebar-accent-foreground"
             : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
@@ -74,19 +100,239 @@ export const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
         )}
         <item.icon className={cn("h-5 w-5 shrink-0", isActive ? "text-sidebar-primary" : "text-sidebar-muted")} />
         {!collapsed && <span className="truncate">{item.label}</span>}
-        {!collapsed && (item as any).badge && (
+        {!collapsed && item.badge && (
           <span className="ml-auto flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold text-primary-foreground">
-            {(item as any).badge}
-          </span>
-        )}
-        {collapsed && (item as any).badge && (
-          <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground animate-pulse-badge">
-            {(item as any).badge}
+            {item.badge}
           </span>
         )}
       </NavLink>
     );
   };
+
+  // ── CLIENT WORKSPACE SIDEBAR ────────────────────────────────
+  const renderClientSidebar = () => {
+    if (!client) return null;
+    return (
+      <AnimatePresence mode="wait">
+        <motion.div
+          key="client-sidebar"
+          initial={{ opacity: 0, x: -8 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -8 }}
+          transition={{ duration: 0.22 }}
+          className="flex flex-col h-full"
+          style={{ fontFamily: "'DM Sans', sans-serif" }}
+        >
+          {/* Back button */}
+          <button
+            onClick={() => navigate("/agency")}
+            className="flex items-center gap-2 px-4 py-3 text-xs transition-colors border-b border-sidebar-border"
+            style={{ color: "rgba(255,255,255,0.4)" }}
+            onMouseEnter={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.75)")}
+            onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.4)")}
+          >
+            <ArrowLeft className="w-3.5 h-3.5" />
+            {!collapsed && <span>Minha Agência</span>}
+          </button>
+
+          {/* Client identity */}
+          {!collapsed && (
+            <div className="px-4 py-4 border-b border-sidebar-border">
+              <div className="flex items-center gap-3 mb-3">
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
+                  style={{ background: `${client.color}22`, border: `1px solid ${client.color}40`, color: client.color }}
+                >
+                  {client.initials}
+                </div>
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold truncate" style={{ color: "rgba(255,255,255,0.9)" }}>
+                    {client.name}
+                  </div>
+                  <div className="text-[11px] truncate" style={{ color: "rgba(255,255,255,0.35)" }}>
+                    {client.industry}
+                  </div>
+                </div>
+              </div>
+              <div
+                className="inline-flex items-center gap-1.5 text-[10px] font-medium px-2 py-0.5 rounded-full"
+                style={{
+                  background: client.status === "Ativo" ? "rgba(16,185,129,0.12)" : "rgba(100,116,139,0.12)",
+                  color: client.status === "Ativo" ? "#34D399" : "#94A3B8",
+                  border: `1px solid ${client.status === "Ativo" ? "rgba(16,185,129,0.25)" : "rgba(100,116,139,0.25)"}`,
+                }}
+              >
+                {client.agentActive && (
+                  <span className="relative flex h-1.5 w-1.5">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+                  </span>
+                )}
+                {client.status}
+              </div>
+            </div>
+          )}
+
+          {/* Tool nav */}
+          <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+            {clientTools.map((tool) => {
+              const isActive = currentTab === tool.tab;
+              const href = `/agency/clients/${client.id}${tool.tab ? `?tab=${tool.tab}` : ""}`;
+              return (
+                <NavLink
+                  key={tool.tab}
+                  to={href}
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors relative"
+                  )}
+                  style={{
+                    color: isActive ? client.color : "rgba(255,255,255,0.45)",
+                    background: isActive ? `${client.color}14` : "transparent",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!isActive) e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+                  }}
+                  onMouseLeave={(e) => {
+                    if (!isActive) e.currentTarget.style.background = "transparent";
+                  }}
+                >
+                  {isActive && (
+                    <motion.div
+                      layoutId="client-sidebar-indicator"
+                      className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full"
+                      style={{ background: client.color }}
+                      transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                    />
+                  )}
+                  <tool.icon
+                    className="h-5 w-5 shrink-0"
+                    style={{ color: isActive ? client.color : "rgba(255,255,255,0.3)" }}
+                  />
+                  {!collapsed && <span className="truncate">{tool.label}</span>}
+                </NavLink>
+              );
+            })}
+          </nav>
+
+          {/* Portal link */}
+          {!collapsed && (
+            <div className="border-t border-sidebar-border p-3">
+              <NavLink
+                to="/portal"
+                className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
+                style={{ color: "rgba(255,255,255,0.35)" }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = client.color)}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}
+              >
+                <ExternalLink className="h-4 w-4" />
+                <span className="truncate">Portal do cliente</span>
+              </NavLink>
+            </div>
+          )}
+        </motion.div>
+      </AnimatePresence>
+    );
+  };
+
+  // ── AGENCY HOME SIDEBAR ─────────────────────────────────────
+  const renderAgencySidebar = () => (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key="agency-sidebar"
+        initial={{ opacity: 0, x: -8 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -8 }}
+        transition={{ duration: 0.22 }}
+        className="flex flex-col h-full"
+      >
+        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+          <NavLink
+            to="/agency"
+            className={cn(
+              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors relative",
+              "bg-sidebar-accent text-sidebar-accent-foreground"
+            )}
+          >
+            <motion.div
+              layoutId="sidebar-indicator"
+              className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-sidebar-primary"
+            />
+            <Star className="h-5 w-5 shrink-0 text-sidebar-primary" />
+            {!collapsed && <span>Painel da Agência</span>}
+          </NavLink>
+
+          {!collapsed && (
+            <div className="pt-4 pb-1 px-3">
+              <p className="text-[10px] uppercase tracking-widest font-semibold text-sidebar-muted">
+                Clientes
+              </p>
+            </div>
+          )}
+
+          {CLIENTS.map((c) => (
+            <NavLink
+              key={c.id}
+              to={`/agency/clients/${c.id}`}
+              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+            >
+              <div
+                className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+                style={{ background: `${c.color}22`, color: c.color }}
+              >
+                {c.initials}
+              </div>
+              {!collapsed && (
+                <span className="truncate text-xs">{c.name}</span>
+              )}
+              {!collapsed && c.agentActive && (
+                <span className="ml-auto relative flex h-1.5 w-1.5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+                </span>
+              )}
+            </NavLink>
+          ))}
+        </nav>
+
+        <div className="border-t border-sidebar-border py-3 px-2 space-y-0.5">
+          {renderNavItem({ to: "/settings", icon: Settings, label: "Configurações" }, 0)}
+          {renderNavItem({ to: "/help", icon: HelpCircle, label: "Ajuda" }, 1)}
+        </div>
+      </motion.div>
+    </AnimatePresence>
+  );
+
+  // ── DEFAULT CRM SIDEBAR ─────────────────────────────────────
+  const renderCrmSidebar = () => (
+    <AnimatePresence mode="wait">
+      <motion.div
+        key="crm-sidebar"
+        initial={{ opacity: 0, x: -8 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -8 }}
+        transition={{ duration: 0.22 }}
+        className="flex flex-col h-full"
+      >
+        <nav className="flex-1 overflow-y-auto scrollbar-thin py-3 px-2 space-y-0.5">
+          {crmItems.map((item, idx) => renderNavItem(item, idx))}
+          {isAdmin && (
+            <>
+              {!collapsed && (
+                <div className="pt-4 pb-1 px-3">
+                  <p className="text-[10px] uppercase tracking-widest font-semibold text-sidebar-muted">Super Admin</p>
+                </div>
+              )}
+              {collapsed && <div className="my-2 mx-3 border-t border-sidebar-border" />}
+              {adminItems.map((item, idx) => renderNavItem(item, idx))}
+            </>
+          )}
+        </nav>
+        <div className="border-t border-sidebar-border py-3 px-2 space-y-0.5">
+          {bottomItems.map((item, idx) => renderNavItem(item, idx))}
+        </div>
+      </motion.div>
+    </AnimatePresence>
+  );
 
   return (
     <motion.aside
@@ -95,45 +341,35 @@ export const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
       className="relative flex h-full flex-col bg-sidebar border-r border-sidebar-border overflow-hidden"
     >
       {/* Logo */}
-      <div className="flex h-16 items-center gap-3 px-4 border-b border-sidebar-border">
+      <div className="flex h-16 items-center gap-3 px-4 border-b border-sidebar-border flex-shrink-0">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary">
-          <Sparkles className="h-5 w-5 text-primary-foreground" />
+          {isClientWorkspace && client ? (
+            <span className="text-xs font-bold text-primary-foreground">{client.initials}</span>
+          ) : (
+            <Sparkles className="h-5 w-5 text-primary-foreground" />
+          )}
         </div>
         {!collapsed && (
           <motion.span
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-lg font-bold font-display text-sidebar-accent-foreground tracking-tight"
+            className="text-base font-bold font-display text-sidebar-accent-foreground tracking-tight truncate"
           >
-            OmniCRM
+            {isClientWorkspace && client ? client.name : "OmniCRM"}
           </motion.span>
         )}
       </div>
 
-      {/* Nav */}
-      <nav className="flex-1 overflow-y-auto scrollbar-thin py-3 px-2 space-y-0.5">
-        {navItems.map((item, idx) => renderNavItem(item, idx))}
-
-        {/* Admin section */}
-        {isAdmin && (
-          <>
-            {!collapsed && (
-              <div className="pt-4 pb-1 px-3">
-                <p className="text-[10px] uppercase tracking-widest font-semibold text-sidebar-muted">Super Admin</p>
-              </div>
-            )}
-            {collapsed && <div className="my-2 mx-3 border-t border-sidebar-border" />}
-            {adminItems.map((item, idx) => renderNavItem(item, idx))}
-          </>
-        )}
-      </nav>
-
-      {/* Bottom */}
-      <div className="border-t border-sidebar-border py-3 px-2 space-y-0.5">
-        {bottomItems.map((item, idx) => renderNavItem(item, idx))}
+      {/* Context-aware nav */}
+      <div className="flex-1 overflow-hidden">
+        {isClientWorkspace
+          ? renderClientSidebar()
+          : isAgencyHome
+          ? renderAgencySidebar()
+          : renderCrmSidebar()}
       </div>
 
-      {/* Collapse button */}
+      {/* Collapse toggle */}
       <button
         onClick={onToggle}
         className="absolute top-5 -right-3 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-card border border-border shadow-card text-muted-foreground hover:text-foreground transition-colors"
