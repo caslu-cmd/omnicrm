@@ -8,10 +8,12 @@ import {
   Plus, Linkedin, MessageCircle, Circle, Send,
   Wifi, WifiOff, Search, ChevronRight, Mail, DollarSign,
   Globe, FileEdit, FileCheck, ChevronDown, AlertTriangle, RefreshCw,
-  ExternalLink as ExternalLinkIcon, Pencil, ShieldCheck,
+  Pencil, ShieldCheck, GraduationCap, Smartphone, QrCode,
+  UserCheck, PhoneCall, MessageSquare as MsgSq, BadgeCheck,
 } from "lucide-react";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { CLIENTS } from "@/data/agencyData";
+import { supabase } from "@/integrations/supabase/client";
 
 // ── Marketing Team Definition ──────────────────────────────────
 const MARKETING_TEAM = [
@@ -59,6 +61,15 @@ const MARKETING_TEAM = [
     skill: "Posicionamento · Pauta · Brand",
     color: "#FBBF24",
     description: "Define o posicionamento e a pauta editorial do cliente",
+  },
+  {
+    id: "sales",
+    name: "Eduardo",
+    role: "Agente de Vendas",
+    initial: "E",
+    skill: "WhatsApp · CRM · Qualificação",
+    color: "#F59E0B",
+    description: "Atende leads via WhatsApp, qualifica e alimenta o pipeline",
   },
   {
     id: "designer",
@@ -264,6 +275,15 @@ export default function ClientWorkspace() {
   const [agentCommand, setAgentCommand] = useState("");
   const [expandedFile, setExpandedFile] = useState<string | null>(null);
   const [editingPage, setEditingPage] = useState<string | null>(null);
+  const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
+  const [wpStatus, setWpStatus] = useState<"idle" | "loading" | "connected" | "disconnected">("idle");
+  const [wpPhone, setWpPhone] = useState<string | null>(null);
+  const [wpQr, setWpQr] = useState<string | null>(null);
+  const [wpGroups, setWpGroups] = useState<{ id: string; name: string; participants: number }[]>([]);
+  const [wpSelectedGroups, setWpSelectedGroups] = useState<string[]>([]);
+  const [wpMessage, setWpMessage] = useState("");
+  const [wpBlasting, setWpBlasting] = useState(false);
+  const [wpBlastResult, setWpBlastResult] = useState<string | null>(null);
 
   const client = CLIENTS.find((c) => c.id === id);
 
@@ -275,6 +295,54 @@ export default function ClientWorkspace() {
       </div>
     );
   }
+
+  const checkWpStatus = async () => {
+    setWpStatus("loading");
+    setWpQr(null);
+    try {
+      const { data } = await supabase.functions.invoke("whatsapp", { body: { action: "status" } });
+      if (data?.connected) {
+        setWpStatus("connected");
+        setWpPhone(data.phone ?? null);
+        const { data: grps } = await supabase.functions.invoke("whatsapp", { body: { action: "groups" } });
+        setWpGroups(Array.isArray(grps) ? grps : []);
+      } else {
+        setWpStatus("disconnected");
+      }
+    } catch {
+      setWpStatus("disconnected");
+    }
+  };
+
+  const fetchWpQr = async () => {
+    setWpQr(null);
+    const { data } = await supabase.functions.invoke("whatsapp", { body: { action: "qrcode" } });
+    setWpQr(data?.qrcode ?? null);
+  };
+
+  const refreshWpGroups = async () => {
+    const { data } = await supabase.functions.invoke("whatsapp", { body: { action: "groups" } });
+    setWpGroups(Array.isArray(data) ? data : []);
+  };
+
+  const doWpBlast = async () => {
+    if (!wpSelectedGroups.length || !wpMessage.trim()) return;
+    setWpBlasting(true);
+    setWpBlastResult(null);
+    try {
+      const { data } = await supabase.functions.invoke("whatsapp", {
+        body: { action: "blast", groups: wpSelectedGroups, message: wpMessage },
+      });
+      const ok = (data?.results ?? []).filter((r: { ok: boolean }) => r.ok).length;
+      setWpBlastResult(`${ok} de ${wpSelectedGroups.length} grupos receberam a mensagem`);
+    } catch {
+      setWpBlastResult("Erro ao enviar. Verifique a conexão Z-API.");
+    }
+    setWpBlasting(false);
+  };
+
+  const toggleGroup = (gid: string) =>
+    setWpSelectedGroups((prev) => prev.includes(gid) ? prev.filter((g) => g !== gid) : [...prev, gid]);
 
   const toggleTask = (taskId: string) =>
     setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, done: !t.done } : t));
@@ -1196,60 +1264,524 @@ export default function ClientWorkspace() {
             )}
 
             {/* ══════════════════════════════════════════════════════
+                CURSOS
+            ══════════════════════════════════════════════════════ */}
+            {activeTab === "courses" && (
+              <div className="space-y-5">
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-base font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>Cursos</h2>
+                    <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>
+                      {client.courses?.length ?? 0} cursos · Eduardo (Agente de Vendas) monitora os leads via WhatsApp
+                    </p>
+                  </div>
+                  <button className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-medium"
+                    style={{ background: `${client.color}18`, color: client.color, border: `1px solid ${client.color}30` }}>
+                    <Plus className="w-3.5 h-3.5" /> Novo curso
+                  </button>
+                </div>
+
+                {/* Course grid */}
+                {(client.courses ?? []).length === 0 ? (
+                  <div className="rounded-2xl p-12 text-center" style={{ border: "1px dashed rgba(255,255,255,0.08)" }}>
+                    <GraduationCap className="w-8 h-8 mx-auto mb-3" style={{ color: "rgba(255,255,255,0.15)" }} />
+                    <p className="text-sm" style={{ color: "rgba(255,255,255,0.3)" }}>Nenhum curso cadastrado.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {(client.courses ?? []).map((course) => {
+                      const isOpen = expandedCourse === course.id;
+                      const spotsLeft = course.spots - course.enrolled;
+                      const fillPct = Math.round((course.enrolled / course.spots) * 100);
+                      const modalityColor: Record<string, string> = {
+                        "Online Ao Vivo": "#60A5FA",
+                        "Gravado":         "#34D399",
+                        "Presencial":      "#F97316",
+                        "Híbrido":         "#A78BFA",
+                      };
+                      const mColor = modalityColor[course.modality] ?? "#60A5FA";
+
+                      return (
+                        <motion.div key={course.id}
+                          className="rounded-2xl overflow-hidden"
+                          style={{ background: "rgba(255,255,255,0.025)", border: `1px solid ${isOpen ? `${client.color}28` : "rgba(255,255,255,0.07)"}` }}>
+
+                          {/* Course header row */}
+                          <button
+                            className="w-full flex items-center gap-4 px-5 py-4 text-left transition-colors"
+                            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
+                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                            onClick={() => setExpandedCourse(isOpen ? null : course.id)}>
+
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                              style={{ background: `${client.color}18`, border: `1px solid ${client.color}28` }}>
+                              <GraduationCap className="w-5 h-5" style={{ color: client.color }} />
+                            </div>
+
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <span className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.9)" }}>{course.name}</span>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                                  style={{ background: `${mColor}15`, color: mColor }}>
+                                  {course.modality}
+                                </span>
+                                {course.whatsappGroupId && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full"
+                                    style={{ background: "rgba(37,211,102,0.12)", color: "#25D366" }}>
+                                    WhatsApp
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>{course.tagline}</p>
+                            </div>
+
+                            {/* Compact stats */}
+                            <div className="flex items-center gap-6 flex-shrink-0">
+                              <div className="text-right">
+                                <div className="text-xs font-bold" style={{ color: client.color }}>{course.price}</div>
+                                <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>{course.duration}</div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-sm font-bold" style={{ color: spotsLeft < 10 ? "#F87171" : "rgba(255,255,255,0.8)" }}>
+                                  {spotsLeft < 999 ? `${spotsLeft} vagas` : "∞ vagas"}
+                                </div>
+                                <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>{course.nextDate}</div>
+                              </div>
+                              <ChevronDown className="w-4 h-4 transition-transform" style={{ color: "rgba(255,255,255,0.3)", transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }} />
+                            </div>
+                          </button>
+
+                          {/* Expanded spec sheet */}
+                          <AnimatePresence>
+                            {isOpen && (
+                              <motion.div
+                                initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }}
+                                className="overflow-hidden"
+                                style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                                <div className="px-5 py-5 grid grid-cols-3 gap-6">
+
+                                  {/* Col 1: Specs */}
+                                  <div className="space-y-3">
+                                    <h4 className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.3)" }}>Especificações</h4>
+                                    {[
+                                      { label: "Duração",       value: course.duration },
+                                      { label: "Modalidade",    value: course.modality },
+                                      { label: "Público-alvo",  value: course.targetAudience },
+                                      { label: "Certificado",   value: course.certificate },
+                                      { label: "Instrutor",     value: course.instructor },
+                                      { label: "Parcelamento",  value: course.installments },
+                                    ].map((s) => (
+                                      <div key={s.label}>
+                                        <div className="text-[10px] uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.25)" }}>{s.label}</div>
+                                        <div className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.7)" }}>{s.value}</div>
+                                      </div>
+                                    ))}
+                                    {/* Enrollment bar */}
+                                    <div>
+                                      <div className="flex justify-between mb-1">
+                                        <span className="text-[10px] uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.25)" }}>Ocupação</span>
+                                        <span className="text-[10px]" style={{ color: fillPct > 80 ? "#F87171" : client.color }}>{fillPct}%</span>
+                                      </div>
+                                      <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
+                                        <motion.div className="h-full rounded-full"
+                                          style={{ background: fillPct > 80 ? "#F87171" : client.color }}
+                                          initial={{ width: 0 }} animate={{ width: `${fillPct}%` }}
+                                          transition={{ duration: 0.8, ease: "easeOut" }} />
+                                      </div>
+                                      <div className="text-[10px] mt-1" style={{ color: "rgba(255,255,255,0.3)" }}>
+                                        {course.enrolled} matriculados · {course.spots < 999 ? `${spotsLeft} restantes` : "vagas ilimitadas"}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* Col 2: Topics */}
+                                  <div className="space-y-3">
+                                    <h4 className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.3)" }}>Conteúdo programático</h4>
+                                    <div className="space-y-1.5">
+                                      {course.topics.map((t, i) => (
+                                        <div key={i} className="flex items-start gap-2">
+                                          <span className="text-[10px] font-bold flex-shrink-0 mt-0.5" style={{ color: client.color }}>{String(i + 1).padStart(2, "0")}</span>
+                                          <span className="text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>{t}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                    <div>
+                                      <h4 className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>Inclui</h4>
+                                      {course.includes.map((inc, i) => (
+                                        <div key={i} className="flex items-center gap-1.5 mb-1">
+                                          <BadgeCheck className="w-3 h-3 flex-shrink-0" style={{ color: "#34D399" }} />
+                                          <span className="text-xs" style={{ color: "rgba(255,255,255,0.55)" }}>{inc}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  {/* Col 3: Actions */}
+                                  <div className="space-y-3">
+                                    <h4 className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.3)" }}>Ações</h4>
+                                    <div className="space-y-2">
+                                      {course.whatsappGroupId && (
+                                        <button className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all"
+                                          style={{ background: "rgba(37,211,102,0.1)", color: "#25D366", border: "1px solid rgba(37,211,102,0.2)" }}>
+                                          <Smartphone className="w-3.5 h-3.5" />
+                                          Disparar no grupo WhatsApp
+                                        </button>
+                                      )}
+                                      <button className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all"
+                                        style={{ background: `${client.color}12`, color: client.color, border: `1px solid ${client.color}25` }}>
+                                        <MsgSq className="w-3.5 h-3.5" />
+                                        Pedir ao Eduardo para divulgar
+                                      </button>
+                                      <button className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all"
+                                        style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                                        <FileEdit className="w-3.5 h-3.5" />
+                                        Editar especificações
+                                      </button>
+                                    </div>
+
+                                    {/* WhatsApp leads for this course */}
+                                    {(client.whatsappLeads ?? []).filter(l => l.courseId === course.id).length > 0 && (
+                                      <div>
+                                        <div className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "rgba(255,255,255,0.25)" }}>
+                                          Leads deste curso
+                                        </div>
+                                        {(client.whatsappLeads ?? []).filter(l => l.courseId === course.id).map(lead => (
+                                          <div key={lead.id} className="flex items-center gap-2 p-2 rounded-lg mb-1"
+                                            style={{ background: "rgba(255,255,255,0.04)" }}>
+                                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                                              style={{ background: "rgba(37,211,102,0.15)", color: "#25D366" }}>
+                                              {lead.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                              <div className="text-[11px] font-medium truncate" style={{ color: "rgba(255,255,255,0.75)" }}>{lead.name}</div>
+                                              <div className="text-[10px]" style={{ color: lead.addedToCrm ? "#34D399" : "rgba(255,255,255,0.25)" }}>
+                                                {lead.addedToCrm ? "✓ No CRM" : "Aguardando qualificação"}
+                                              </div>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Eduardo's WhatsApp leads panel */}
+                {(client.whatsappLeads ?? []).length > 0 && (
+                  <div>
+                    <div className="flex items-center gap-3 mb-4">
+                      <Smartphone className="w-3.5 h-3.5" style={{ color: "#F59E0B" }} />
+                      <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>
+                        Leads WhatsApp — Eduardo
+                      </h3>
+                      <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
+                      <span className="relative flex h-1.5 w-1.5">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#F59E0B" }} />
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: "#F59E0B" }} />
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {(client.whatsappLeads ?? []).map((lead) => {
+                        const course = (client.courses ?? []).find(c => c.id === lead.courseId);
+                        const STAGE_LABEL: Record<string, string> = { prospeccao: "Prospecção", qualificacao: "Qualificação", proposta: "Proposta", negociacao: "Negociação", ganho: "Ganho" };
+                        const STAGE_COLOR: Record<string, string> = { prospeccao: "#60A5FA", qualificacao: "#A78BFA", proposta: "#FBBF24", negociacao: "#F97316", ganho: "#34D399" };
+                        return (
+                          <motion.div key={lead.id}
+                            initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                            className="rounded-xl p-4"
+                            style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                                  style={{ background: "rgba(37,211,102,0.12)", color: "#25D366" }}>
+                                  {lead.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                                </div>
+                                <div>
+                                  <div className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>{lead.name}</div>
+                                  <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>{lead.number}</div>
+                                </div>
+                              </div>
+                              <span className="text-[9px] px-1.5 py-0.5 rounded-full font-medium"
+                                style={{ background: `${STAGE_COLOR[lead.stage]}15`, color: STAGE_COLOR[lead.stage] }}>
+                                {STAGE_LABEL[lead.stage]}
+                              </span>
+                            </div>
+
+                            {course && (
+                              <div className="mb-2 px-2 py-1 rounded-lg"
+                                style={{ background: `${client.color}10`, border: `1px solid ${client.color}20` }}>
+                                <span className="text-[10px] font-medium" style={{ color: client.color }}>{course.name}</span>
+                              </div>
+                            )}
+
+                            <p className="text-[11px] mb-3 leading-relaxed line-clamp-2"
+                              style={{ color: "rgba(255,255,255,0.45)" }}>
+                              "{lead.message}"
+                            </p>
+
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.2)" }}>{lead.time}</span>
+                              <div className="flex gap-1.5">
+                                {!lead.addedToCrm && (
+                                  <button className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium"
+                                    style={{ background: "rgba(52,211,153,0.1)", color: "#34D399", border: "1px solid rgba(52,211,153,0.2)" }}>
+                                    <UserCheck className="w-2.5 h-2.5" /> Adicionar ao CRM
+                                  </button>
+                                )}
+                                <button className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium"
+                                  style={{ background: "rgba(245,158,11,0.1)", color: "#F59E0B", border: "1px solid rgba(245,158,11,0.2)" }}>
+                                  <PhoneCall className="w-2.5 h-2.5" /> Responder
+                                </button>
+                              </div>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════════
                 INTEGRAÇÕES
             ══════════════════════════════════════════════════════ */}
             {activeTab === "integrations" && (
-              <div className="space-y-4">
+              <div className="space-y-6">
                 <div>
                   <h2 className="text-base font-semibold mb-0.5" style={{ color: "rgba(255,255,255,0.85)" }}>Integrações</h2>
                   <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>Conecte as redes sociais e plataformas deste cliente</p>
                 </div>
-                <div className="grid grid-cols-2 gap-5">
-                  {INTEGRATIONS_BASE.map((integ) => (
+
+                {/* Social media cards */}
+                <div className="grid grid-cols-3 gap-4">
+                  {INTEGRATIONS_BASE.filter((i) => i.id !== "whatsapp").map((integ) => (
                     <motion.div key={integ.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                       className="rounded-2xl p-5"
                       style={{ background: "rgba(255,255,255,0.025)", border: `1px solid ${integ.connected ? integ.border : "rgba(255,255,255,0.07)"}` }}>
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-11 h-11 rounded-xl flex items-center justify-center"
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
                             style={{ background: integ.bg, border: `1px solid ${integ.border}` }}>
                             <integ.Icon className="w-5 h-5" style={{ color: integ.color }} />
                           </div>
                           <div>
                             <div className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.9)" }}>{integ.name}</div>
-                            <div className="text-[11px]" style={{ color: "rgba(255,255,255,0.35)" }}>{integ.description}</div>
+                            <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>{integ.description}</div>
                           </div>
-                        </div>
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                          {integ.connected ? <Wifi className="w-3.5 h-3.5" style={{ color: "#34D399" }} /> : <WifiOff className="w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.2)" }} />}
-                          <span className="text-[10px] font-medium" style={{ color: integ.connected ? "#34D399" : "rgba(255,255,255,0.3)" }}>
-                            {integ.connected ? "Conectado" : "Desconectado"}
-                          </span>
                         </div>
                       </div>
                       {integ.connected && integ.account && (
-                        <div className="mb-4 px-3 py-2.5 rounded-xl" style={{ background: `${integ.color}10`, border: `1px solid ${integ.color}20` }}>
-                          <div className="text-xs font-medium" style={{ color: integ.color }}>{integ.account}</div>
-                          {integ.followers && <div className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>{integ.followers}</div>}
+                        <div className="mb-3 px-3 py-2 rounded-lg" style={{ background: `${integ.color}10`, border: `1px solid ${integ.color}20` }}>
+                          <div className="text-[11px] font-medium" style={{ color: integ.color }}>{integ.account}</div>
+                          {integ.followers && <div className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>{integ.followers}</div>}
                         </div>
                       )}
-                      <div className="mb-4 space-y-1.5">
-                        {integ.features.map((f) => (
+                      <div className="mb-3 space-y-1.5">
+                        {integ.features.slice(0, 3).map((f) => (
                           <div key={f} className="flex items-center gap-2">
-                            <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: integ.connected ? "#34D399" : "rgba(255,255,255,0.2)" }} />
-                            <span className="text-[11px]" style={{ color: integ.connected ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.25)" }}>{f}</span>
+                            <CheckCircle2 className="w-3 h-3 flex-shrink-0" style={{ color: integ.connected ? "#34D399" : "rgba(255,255,255,0.15)" }} />
+                            <span className="text-[10px]" style={{ color: integ.connected ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.2)" }}>{f}</span>
                           </div>
                         ))}
                       </div>
-                      <button className="w-full py-2.5 rounded-xl text-xs font-medium transition-all"
+                      <button className="w-full py-2 rounded-xl text-[11px] font-medium transition-all"
                         style={integ.connected
-                          ? { background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.1)" }
+                          ? { background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.08)" }
                           : { background: integ.bg, color: integ.color, border: `1px solid ${integ.border}` }}>
-                        {integ.connected ? "Gerenciar conexão" : `Conectar ${integ.name}`}
+                        {integ.connected ? "Gerenciar" : `Conectar`}
                       </button>
                     </motion.div>
                   ))}
                 </div>
+
+                {/* ── WhatsApp Z-API Panel ────────────────────────────── */}
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                  className="rounded-2xl overflow-hidden"
+                  style={{ border: wpStatus === "connected" ? "1px solid rgba(37,211,102,0.25)" : "1px solid rgba(255,255,255,0.08)" }}>
+
+                  {/* Panel header */}
+                  <div className="flex items-center justify-between px-6 py-4"
+                    style={{ background: "rgba(37,211,102,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                        style={{ background: "rgba(37,211,102,0.12)", border: "1px solid rgba(37,211,102,0.25)" }}>
+                        <MessageCircle className="w-5 h-5" style={{ color: "#25D366" }} />
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.9)" }}>WhatsApp Business <span className="text-[10px] font-normal ml-1 px-1.5 py-0.5 rounded" style={{ background: "rgba(37,211,102,0.12)", color: "#25D366" }}>via Z-API</span></div>
+                        <div className="text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                          {wpStatus === "connected" && wpPhone ? `Conectado: ${wpPhone}` : "Disparos em grupo, chatbot de vendas (Eduardo)"}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      {wpStatus === "connected" && (
+                        <div className="flex items-center gap-1.5">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+                          </span>
+                          <span className="text-xs font-medium" style={{ color: "#34D399" }}>Conectado</span>
+                        </div>
+                      )}
+                      {wpStatus === "disconnected" && (
+                        <span className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Desconectado</span>
+                      )}
+                      <button
+                        onClick={checkWpStatus}
+                        disabled={wpStatus === "loading"}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all disabled:opacity-50"
+                        style={{ background: "rgba(37,211,102,0.1)", color: "#25D366", border: "1px solid rgba(37,211,102,0.2)" }}>
+                        {wpStatus === "loading" ? (
+                          <><RefreshCw className="w-3 h-3 animate-spin" /> Verificando…</>
+                        ) : (
+                          <><Wifi className="w-3 h-3" /> Verificar conexão</>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-6 space-y-6">
+                    {/* Disconnected: show QR code flow */}
+                    {(wpStatus === "disconnected" || wpStatus === "idle") && (
+                      <div className="flex items-start gap-6">
+                        <div className="flex-1">
+                          <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "rgba(255,255,255,0.3)" }}>Como conectar</h3>
+                          <ol className="space-y-2">
+                            {["Clique em "Verificar conexão" para checar o status atual", "Se desconectado, gere o QR Code abaixo", "Abra WhatsApp → Dispositivos conectados → Conectar dispositivo", "Escaneie o QR Code com o celular do cliente"].map((step, i) => (
+                              <li key={i} className="flex items-start gap-2.5 text-[11px]" style={{ color: "rgba(255,255,255,0.45)" }}>
+                                <span className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 mt-0.5"
+                                  style={{ background: "rgba(37,211,102,0.12)", color: "#25D366" }}>{i + 1}</span>
+                                {step}
+                              </li>
+                            ))}
+                          </ol>
+                        </div>
+                        <div className="flex-shrink-0 flex flex-col items-center gap-3">
+                          <button onClick={fetchWpQr}
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all"
+                            style={{ background: "rgba(37,211,102,0.1)", color: "#25D366", border: "1px solid rgba(37,211,102,0.2)" }}>
+                            <QrCode className="w-3.5 h-3.5" /> Gerar QR Code
+                          </button>
+                          {wpQr && (
+                            <div className="p-3 rounded-xl" style={{ background: "white" }}>
+                              <img src={wpQr} alt="QR Code WhatsApp" className="w-40 h-40 object-contain" />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Connected: show groups + blast */}
+                    {wpStatus === "connected" && (
+                      <div className="space-y-5">
+                        {/* Groups selector */}
+                        <div>
+                          <div className="flex items-center justify-between mb-3">
+                            <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>
+                              Grupos disponíveis ({wpGroups.length})
+                            </h3>
+                            <button onClick={refreshWpGroups}
+                              className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg transition-all"
+                              style={{ color: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                              <RefreshCw className="w-3 h-3" /> Atualizar
+                            </button>
+                          </div>
+                          {wpGroups.length === 0 ? (
+                            <div className="py-6 text-center text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>
+                              Nenhum grupo encontrado. Clique em Atualizar.
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-2 gap-2">
+                              {wpGroups.map((g) => {
+                                const selected = wpSelectedGroups.includes(g.id);
+                                return (
+                                  <button key={g.id} onClick={() => toggleGroup(g.id)}
+                                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all"
+                                    style={{
+                                      background: selected ? "rgba(37,211,102,0.1)" : "rgba(255,255,255,0.03)",
+                                      border: selected ? "1px solid rgba(37,211,102,0.3)" : "1px solid rgba(255,255,255,0.07)",
+                                    }}>
+                                    <div className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0"
+                                      style={{ background: selected ? "#25D366" : "rgba(255,255,255,0.08)" }}>
+                                      {selected && <CheckCircle2 className="w-3 h-3 text-white" />}
+                                    </div>
+                                    <div className="min-w-0">
+                                      <div className="text-[11px] font-medium truncate" style={{ color: selected ? "#25D366" : "rgba(255,255,255,0.65)" }}>{g.name}</div>
+                                      <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>{g.participants} membros</div>
+                                    </div>
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Message composer */}
+                        <div>
+                          <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "rgba(255,255,255,0.3)" }}>
+                            Mensagem para disparar
+                          </h3>
+                          <textarea
+                            value={wpMessage}
+                            onChange={(e) => setWpMessage(e.target.value)}
+                            rows={4}
+                            placeholder="Digite a mensagem que será enviada para os grupos selecionados..."
+                            className="w-full px-4 py-3 rounded-xl text-sm resize-none"
+                            style={{
+                              background: "rgba(255,255,255,0.04)",
+                              border: "1px solid rgba(255,255,255,0.1)",
+                              color: "rgba(255,255,255,0.8)",
+                              outline: "none",
+                            }}
+                          />
+                        </div>
+
+                        {/* Blast button + result */}
+                        <div className="flex items-center gap-4">
+                          <button
+                            onClick={doWpBlast}
+                            disabled={wpBlasting || !wpSelectedGroups.length || !wpMessage.trim()}
+                            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
+                            style={{ background: "#25D366", color: "#fff", boxShadow: wpBlasting ? "none" : "0 0 20px -4px rgba(37,211,102,0.4)" }}>
+                            {wpBlasting ? (
+                              <><RefreshCw className="w-4 h-4 animate-spin" /> Enviando…</>
+                            ) : (
+                              <><Send className="w-4 h-4" /> Disparar para {wpSelectedGroups.length || "—"} grupo{wpSelectedGroups.length !== 1 ? "s" : ""}</>
+                            )}
+                          </button>
+                          {wpBlastResult && (
+                            <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg"
+                              style={{ background: "rgba(52,211,153,0.1)", color: "#34D399", border: "1px solid rgba(52,211,153,0.2)" }}>
+                              <CheckCircle2 className="w-3.5 h-3.5" /> {wpBlastResult}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Note about Z-API credentials */}
+                    {wpStatus === "idle" && (
+                      <div className="flex items-start gap-3 px-4 py-3 rounded-xl"
+                        style={{ background: "rgba(185,255,75,0.04)", border: "1px solid rgba(185,255,75,0.1)" }}>
+                        <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" style={{ color: "#B9FF4B" }} />
+                        <p className="text-[11px] leading-relaxed" style={{ color: "rgba(255,255,255,0.4)" }}>
+                          Configure os secrets <code className="font-mono text-[10px] px-1 py-0.5 rounded" style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B" }}>ZAPI_INSTANCE_ID</code> e <code className="font-mono text-[10px] px-1 py-0.5 rounded" style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B" }}>ZAPI_TOKEN</code> no Supabase para ativar o WhatsApp. Clique em "Verificar conexão" após configurar.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
               </div>
             )}
 

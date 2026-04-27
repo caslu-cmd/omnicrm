@@ -175,7 +175,10 @@ export const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
 
           {/* Tool nav */}
           <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-            {clientTools.map((tool) => {
+            {[
+              ...clientTools,
+              ...(client.courses?.length ? [{ tab: "courses", icon: GraduationCap, label: "Cursos" }] : []),
+            ].map((tool) => {
               const isActive = currentTab === tool.tab;
               const href = `/agency/clients/${client.id}${tool.tab ? `?tab=${tool.tab}` : ""}`;
               return (

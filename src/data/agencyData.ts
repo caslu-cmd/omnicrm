@@ -1,3 +1,33 @@
+export interface Course {
+  id: string;
+  name: string;
+  tagline: string;
+  modality: "Online Ao Vivo" | "Gravado" | "Presencial" | "Híbrido";
+  duration: string;
+  price: string;
+  installments: string;
+  targetAudience: string;
+  certificate: string;
+  nextDate: string;
+  spots: number;
+  enrolled: number;
+  instructor: string;
+  topics: string[];
+  includes: string[];
+  whatsappGroupId?: string;
+}
+
+export interface WhatsAppLead {
+  id: string;
+  name: string;
+  number: string;
+  courseId: string;
+  message: string;
+  time: string;
+  stage: "prospeccao" | "qualificacao" | "proposta" | "negociacao" | "ganho";
+  addedToCrm: boolean;
+}
+
 export interface Contact {
   id: string;
   name: string;
@@ -100,6 +130,8 @@ export interface Client {
   agentTasks: Record<string, AgentTask>;
   orchestratorStatus: string;
   orchestratorPlan: OrchestratorStep[];
+  courses?: Course[];
+  whatsappLeads?: WhatsAppLead[];
 }
 
 export const CLIENTS: Client[] = [
@@ -188,6 +220,12 @@ export const CLIENTS: Client[] = [
         recent: ["Análise de concorrentes Q2 concluída", "Repositório de brand voice atualizado"],
         progress: 0,
       },
+      sales: {
+        current: "Respondendo 3 leads no WhatsApp interessados no curso Nova Lei 14.133 — qualificando perfil",
+        status: "trabalhando",
+        recent: ["Converteu Ana Beatriz (curso Nova Lei) → adicionada ao CRM como Qualificada", "Enviou proposta de parcelamento para Grupo ABC"],
+        progress: 60,
+      },
       designer: {
         current: "Criando carrossel visual para o artigo 'Nova Lei de Licitações' — 6 slides no formato 1080×1080",
         status: "trabalhando",
@@ -214,6 +252,171 @@ export const CLIENTS: Client[] = [
       { id: "ct4", name: "Fernanda Lima", company: "Prefeitura de Jundiaí", role: "Coord. de Licitações", email: "fernanda.lima@jundiai.sp.gov.br", status: "Lead", lastContact: "há 1 sem", tags: ["público", "frio"] },
       { id: "ct5", name: "Carlos Eduardo Matos", company: "CE Tecnologia", role: "CEO", email: "ce@cetecnologia.com.br", status: "Qualificado", lastContact: "há 3 dias", tags: ["tech", "B2B"] },
       { id: "ct6", name: "Daniela Ramos", company: "Ramos & Associados", role: "Sócia", email: "daniela@ramosadv.com.br", status: "Cliente", lastContact: "há 1 sem", tags: ["jurídico", "recorrente"] },
+    ],
+    courses: [
+      {
+        id: "curso-lei-14133",
+        name: "Nova Lei de Licitações 14.133",
+        tagline: "Domine a legislação que mudou o jogo das compras públicas",
+        modality: "Online Ao Vivo",
+        duration: "8 horas (2 encontros de 4h)",
+        price: "R$ 497",
+        installments: "até 6× de R$ 82,83",
+        targetAudience: "Gestores públicos, fornecedores, advogados e equipes de compras",
+        certificate: "Certificado de conclusão (8h) + declaração de participação",
+        nextDate: "10/05/2025",
+        spots: 40,
+        enrolled: 27,
+        instructor: "Dr. Marcos Licita — 15 anos em licitações públicas",
+        topics: [
+          "Principais mudanças em relação à Lei 8.666",
+          "Novas modalidades: diálogo competitivo e credenciamento",
+          "Gestão de contratos e penalidades",
+          "Critérios de desempate e sustentabilidade",
+          "Prazos e fluxos do processo licitatório",
+          "Casos práticos e jurisprudência",
+        ],
+        includes: ["Material em PDF", "Gravação das aulas por 6 meses", "Grupo exclusivo de alunos", "Certificado digital"],
+        whatsappGroupId: "120363001@g.us",
+      },
+      {
+        id: "curso-gestao-contratos",
+        name: "Gestão de Contratos Públicos",
+        tagline: "Do contrato assinado à execução sem riscos",
+        modality: "Online Ao Vivo",
+        duration: "12 horas (3 encontros de 4h)",
+        price: "R$ 697",
+        installments: "até 6× de R$ 116,17",
+        targetAudience: "Fiscais de contrato, gestores e equipes jurídicas",
+        certificate: "Certificado de 12h reconhecido por órgãos públicos",
+        nextDate: "17/05/2025",
+        spots: 30,
+        enrolled: 18,
+        instructor: "Dra. Sandra Gestão — Especialista em contratos administrativos",
+        topics: [
+          "Formalização e apostilamento de contratos",
+          "Responsabilidades do fiscal de contrato",
+          "Reequilíbrio econômico-financeiro",
+          "Aditivos e prorrogações",
+          "Rescisão contratual e penalidades",
+          "Relatórios e prestação de contas",
+        ],
+        includes: ["Templates de documentos editáveis", "Checklist do fiscal de contratos", "Acesso vitalício ao material", "Certificado digital"],
+        whatsappGroupId: "120363002@g.us",
+      },
+      {
+        id: "curso-elaboracao-editais",
+        name: "Elaboração de Editais",
+        tagline: "Crie editais blindados contra recursos e impugnações",
+        modality: "Gravado",
+        duration: "6 horas (acesso imediato)",
+        price: "R$ 297",
+        installments: "até 3× de R$ 99",
+        targetAudience: "Agentes de contratação, pregoeiros e assessores jurídicos",
+        certificate: "Certificado de conclusão digital",
+        nextDate: "Disponível agora",
+        spots: 999,
+        enrolled: 143,
+        instructor: "Dr. Paulo Edital — Pregoeiro com 12 anos de experiência",
+        topics: [
+          "Estrutura obrigatória do edital pela Lei 14.133",
+          "Definição do objeto e especificações técnicas",
+          "Critérios de habilitação e qualificação",
+          "Impugnações e recursos: como blindar o edital",
+          "Condições de pagamento e garantias",
+          "Revisão de editais reais comentados",
+        ],
+        includes: ["Modelos de editais editáveis (Word)", "Checklist de elaboração", "Acesso vitalício", "Certificado digital"],
+      },
+      {
+        id: "curso-recursos-impugnacoes",
+        name: "Recursos e Impugnações",
+        tagline: "Defenda sua empresa e não perca mais licitações por tecnicidade",
+        modality: "Online Ao Vivo",
+        duration: "4 horas (1 encontro intensivo)",
+        price: "R$ 197",
+        installments: "à vista",
+        targetAudience: "Fornecedores, empresas participantes de licitações e advogados",
+        certificate: "Declaração de participação",
+        nextDate: "24/05/2025",
+        spots: 50,
+        enrolled: 31,
+        instructor: "Dr. Marcos Licita",
+        topics: [
+          "Quando e como impugnar um edital",
+          "Fundamentos jurídicos dos recursos",
+          "Prazos e formalidades obrigatórios",
+          "Recursos contra classificação e habilitação",
+          "Casos reais vencidos e perdidos",
+        ],
+        includes: ["Modelos de recursos e impugnações", "Gravação por 3 meses", "Declaração de participação"],
+        whatsappGroupId: "120363003@g.us",
+      },
+      {
+        id: "curso-me-epp",
+        name: "Licitações para ME e EPP",
+        tagline: "Use todos os benefícios da LC 123 para vencer mais licitações",
+        modality: "Gravado",
+        duration: "4 horas (acesso imediato)",
+        price: "R$ 197",
+        installments: "à vista",
+        targetAudience: "Micro e pequenas empresas que participam ou querem participar de licitações",
+        certificate: "Certificado de conclusão digital",
+        nextDate: "Disponível agora",
+        spots: 999,
+        enrolled: 89,
+        instructor: "Dra. Fernanda ME — Consultora de benefícios para PMEs",
+        topics: [
+          "Benefícios exclusivos da LC 123/06",
+          "Tratamento diferenciado nas licitações",
+          "Empate ficto e direito de cobertura",
+          "Subcontratação e cota reservada",
+          "Regularização fiscal para participar",
+        ],
+        includes: ["Material didático em PDF", "Acesso vitalício", "Certificado digital"],
+      },
+    ],
+    whatsappLeads: [
+      {
+        id: "wl1",
+        name: "Ana Beatriz Santos",
+        number: "+55 11 98765-4321",
+        courseId: "curso-lei-14133",
+        message: "Oi! Vi o post sobre o curso da nova lei. Quando começa a próxima turma e tem parcelamento?",
+        time: "há 5min",
+        stage: "qualificacao",
+        addedToCrm: true,
+      },
+      {
+        id: "wl2",
+        name: "Roberto Alves",
+        number: "+55 21 97654-3210",
+        courseId: "curso-gestao-contratos",
+        message: "Sou fiscal de contrato há 2 anos, esse curso serve pra mim? Tem certificado válido?",
+        time: "há 23min",
+        stage: "prospeccao",
+        addedToCrm: false,
+      },
+      {
+        id: "wl3",
+        name: "Construtora Pinheiro",
+        number: "+55 31 96543-2109",
+        courseId: "curso-recursos-impugnacoes",
+        message: "Perdemos uma licitação por recurso da concorrência. Preciso entender como defender. Quando é o próximo?",
+        time: "há 1h",
+        stage: "negociacao",
+        addedToCrm: true,
+      },
+      {
+        id: "wl4",
+        name: "Maria Fernanda Costa",
+        number: "+55 11 95432-1098",
+        courseId: "curso-me-epp",
+        message: "Tenho uma MEI e quero começar a licitar. Por onde começo? O curso de ME serve?",
+        time: "há 2h",
+        stage: "prospeccao",
+        addedToCrm: false,
+      },
     ],
     pipeline: [
       { id: "d1", title: "Assessoria Mensal Completa", contact: "Sandra Costa", value: "R$ 5.000/mês", stage: "ganho", probability: 100, dueDate: "01/05" },
@@ -307,6 +510,12 @@ export const CLIENTS: Client[] = [
         status: "trabalhando",
         recent: ["Mapeou jornada do novo associado (onboarding)", "Definiu posicionamento da ABCER para H2 2025"],
         progress: 30,
+      },
+      sales: {
+        current: "Aguardando setup do WhatsApp Business para iniciar captação de associados",
+        status: "aguardando",
+        recent: ["Roteiro de abordagem para novos associados via WhatsApp criado", "Script de follow-up pós-evento mapeado"],
+        progress: 0,
       },
       designer: {
         current: "Desenvolvendo kit visual completo do Encontro de Líderes: banner, stories e crachás",
@@ -425,6 +634,12 @@ export const CLIENTS: Client[] = [
         status: "aguardando",
         recent: ["Definiu linha editorial: autoridade em automação para negócios", "Repositório de provas sociais e cases atualizado"],
         progress: 0,
+      },
+      sales: {
+        current: "Qualificando leads de tech via LinkedIn DM — identificando budget e urgência",
+        status: "trabalhando",
+        recent: ["Adicionou Diego Santos ao pipeline (demo agendada)", "Enviou proposta de automação para Bruna Ferreira"],
+        progress: 45,
       },
       designer: {
         current: "Criando série de cards visuais para a campanha 'IA para PMEs' — estilo tech minimalista",
