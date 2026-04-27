@@ -6,8 +6,8 @@ const BLACK = "#080808";
 const OFF   = "#F0EFE8";
 const MUTED = "#666";
 const DIM   = "rgba(240,239,232,0.38)";
-const mono  = "'DM Mono', monospace";
-const syne  = "'Syne', 'Inter', sans-serif";
+const mono  = "'Courier New', monospace";
+const syne  = "'Inter', sans-serif";
 
 const SERVICES = [
   { n: "01", title: "Estratégia de Marca",     desc: "Posicionamento, pauta editorial e direção criativa alinhados ao seu negócio." },
