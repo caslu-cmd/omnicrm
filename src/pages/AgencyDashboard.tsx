@@ -94,6 +94,11 @@ export default function AgencyDashboard() {
                 {CLIENTS.filter((c) => c.agentActive).length} agentes online
               </span>
             </div>
+            <a href="/landing" target="_blank" rel="noreferrer"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-opacity hover:opacity-75"
+              style={{ background: LIME, color: "#07080A" }}>
+              🌐 Ver site
+            </a>
           </div>
         </motion.div>
 
