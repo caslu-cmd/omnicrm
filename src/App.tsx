@@ -68,8 +68,6 @@ const ProtectedRoutes = () => {
           <Route path="/agency" element={<AgencyDashboard />} />
           <Route path="/agency/clients/:id" element={<ClientWorkspace />} />
         </Route>
-        {/* Portal do cliente — sem sidebar, fullscreen */}
-        <Route path="/portal" element={<ClientPortal />} />
       </Routes>
       <AiAssistant />
     </>
@@ -82,6 +80,9 @@ const AppRoutes = () => {
   return (
     <Routes>
       <Route path="/auth" element={loading ? null : session ? <Navigate to="/" replace /> : <AuthPage />} />
+      {/* Portal do cliente — público, sem autenticação Supabase */}
+      <Route path="/portal/:clientId" element={<ClientPortal />} />
+      <Route path="/portal" element={<ClientPortal />} />
       <Route path="*" element={<ProtectedRoutes />} />
     </Routes>
   );

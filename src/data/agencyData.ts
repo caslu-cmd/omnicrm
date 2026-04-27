@@ -178,6 +178,7 @@ export interface Client {
   agentTasks: Record<string, AgentTask>;
   orchestratorStatus: string;
   orchestratorPlan: OrchestratorStep[];
+  portalPin: string;
   courses?: Course[];
   whatsappLeads?: WhatsAppLead[];
   outputs: GeneratedOutput[];
@@ -198,6 +199,7 @@ export const CLIENTS: Client[] = [
     campaigns: 2,
     lastActivity: "há 1h",
     revenue: "R$ 3.800",
+    portalPin: "GL2025",
     nextAction: "Publicar artigo sobre novas regras de licitação",
     followers: { instagram: "3,1k", facebook: "6,4k" },
     recentPosts: [
@@ -526,6 +528,7 @@ export const CLIENTS: Client[] = [
     campaigns: 2,
     lastActivity: "há 2h",
     revenue: "R$ 2.600",
+    portalPin: "AB2025",
     nextAction: "Divulgar evento de networking de maio",
     followers: { instagram: "5,8k", facebook: "9,3k" },
     recentPosts: [
@@ -705,6 +708,7 @@ export const CLIENTS: Client[] = [
     campaigns: 1,
     lastActivity: "ontem",
     revenue: "R$ 3.200",
+    portalPin: "GN2025",
     nextAction: "Criar série de conteúdo sobre automação e IA",
     followers: { instagram: "2,4k", facebook: "4,1k" },
     recentPosts: [
