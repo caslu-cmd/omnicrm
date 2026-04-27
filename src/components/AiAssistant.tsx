@@ -102,8 +102,8 @@ const AiAssistant = () => {
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full shadow-elevated hover:shadow-lg transition-all"
-            style={{ background: "#B9FF4B", color: "#07080A" }}
+            className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full transition-all"
+            style={{ background: "#B9FF4B", color: "#07080A", boxShadow: "0 0 24px -4px rgba(185,255,75,0.55), 0 4px 16px rgba(0,0,0,0.4)" }}
           >
             <Sparkles className="h-6 w-6" />
           </motion.button>

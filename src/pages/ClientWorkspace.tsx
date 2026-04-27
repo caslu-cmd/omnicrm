@@ -179,7 +179,7 @@ export default function ClientWorkspace() {
   return (
     <div
       className="min-h-full flex flex-col text-white"
-      style={{ fontFamily: "'DM Sans', sans-serif", background: "#080810" }}
+      style={{ background: "#080810" }}
     >
       {/* ── Top info bar ── */}
       <div
@@ -225,7 +225,7 @@ export default function ClientWorkspace() {
                       <div key={m.label} className="rounded-xl p-4"
                         style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
                         <div className="text-[10px] mb-2 uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.35)" }}>{m.label}</div>
-                        <div className="text-2xl mb-1" style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 300 }}>{m.value}</div>
+                        <div className="text-2xl mb-1 font-bold tracking-tight">{m.value}</div>
                         <div className="text-[11px] font-medium" style={{ color: m.positive ? "#34D399" : "#F87171" }}>{m.change}</div>
                       </div>
                     ))}

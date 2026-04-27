@@ -29,7 +29,7 @@ export default function ClientPortal() {
   return (
     <div
       className="min-h-screen"
-      style={{ fontFamily: "'DM Sans', sans-serif", background: "#F8F7F5" }}
+      style={{ background: "#F8F7F5" }}
     >
       {/* ── Header ── */}
       <div
@@ -69,8 +69,8 @@ export default function ClientPortal() {
           className="mb-10"
         >
           <h1
-            className="text-4xl mb-1"
-            style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, color: "#111" }}
+            className="text-4xl mb-1 font-bold tracking-tight"
+            style={{ color: "#111" }}
           >
             Olá, {client.name.split(" ")[0]} 👋
           </h1>
@@ -97,7 +97,7 @@ export default function ClientPortal() {
               </div>
               <div
                 className="text-3xl leading-none mb-1"
-                style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, color: "#111" }}
+                style={{ fontWeight: 700, letterSpacing: "-0.02em", color: "#111" }}
               >
                 {m.value}
               </div>

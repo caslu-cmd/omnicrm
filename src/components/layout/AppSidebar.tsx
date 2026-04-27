@@ -121,7 +121,7 @@ export const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
           exit={{ opacity: 0, x: -8 }}
           transition={{ duration: 0.22 }}
           className="flex flex-col h-full"
-          style={{ fontFamily: "'DM Sans', sans-serif" }}
+          style={{}}
         >
           {/* Back button */}
           <button

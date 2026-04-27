@@ -33,7 +33,7 @@ export default function AgencyDashboard() {
   return (
     <div
       className="min-h-full text-white"
-      style={{ fontFamily: "'DM Sans', sans-serif", background: "#07080A" }}
+      style={{ background: "#07080A" }}
     >
       {/* Ambient lime glow */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
@@ -55,7 +55,7 @@ export default function AgencyDashboard() {
           <div>
             <div className="flex items-center gap-2.5 mb-3">
               <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-                style={{ background: LIME }}>
+                style={{ background: LIME, boxShadow: "0 0 16px -2px rgba(185,255,75,0.6)" }}>
                 <Zap className="w-3.5 h-3.5" style={{ color: "#07080A" }} />
               </div>
               <span className="text-[11px] font-medium tracking-[0.22em] uppercase"
@@ -65,7 +65,7 @@ export default function AgencyDashboard() {
             </div>
             <h1
               className="text-5xl tracking-tight leading-none mb-2"
-              style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 300 }}
+              style={{ fontWeight: 700, letterSpacing: "-0.03em" }}
             >
               Agência{" "}
               <span style={{
@@ -84,7 +84,7 @@ export default function AgencyDashboard() {
 
           <div className="flex items-center gap-3 mt-2">
             <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full"
-              style={{ background: "rgba(185,255,75,0.08)", border: "1px solid rgba(185,255,75,0.18)" }}>
+              style={{ background: "rgba(185,255,75,0.08)", border: "1px solid rgba(185,255,75,0.22)", boxShadow: "0 0 20px -6px rgba(185,255,75,0.25)" }}>
               <span className="relative flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
                   style={{ background: LIME }} />
@@ -105,15 +105,28 @@ export default function AgencyDashboard() {
           className="grid grid-cols-4 gap-4 mb-12"
         >
           {stats.map((stat, i) => (
-            <div key={stat.label} className="rounded-2xl p-5"
-              style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
+            <div key={stat.label} className="rounded-2xl p-5 group transition-all duration-300"
+              style={{
+                background: "rgba(255,255,255,0.025)",
+                border: "1px solid rgba(255,255,255,0.07)",
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(185,255,75,0.22)";
+                (e.currentTarget as HTMLDivElement).style.boxShadow = "0 0 32px -8px rgba(185,255,75,0.18), inset 0 1px 0 rgba(185,255,75,0.08)";
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLDivElement).style.borderColor = "rgba(255,255,255,0.07)";
+                (e.currentTarget as HTMLDivElement).style.boxShadow = "none";
+              }}
+            >
               <div className="flex items-center justify-between mb-4">
                 <span className="text-[11px] font-medium tracking-wide uppercase"
                   style={{ color: "rgba(255,255,255,0.3)" }}>{stat.label}</span>
-                <stat.icon className="w-3.5 h-3.5" style={{ color: "rgba(185,255,75,0.3)" }} />
+                <stat.icon className="w-3.5 h-3.5 transition-all duration-300 group-hover:drop-shadow-[0_0_6px_rgba(185,255,75,0.6)]"
+                  style={{ color: "rgba(185,255,75,0.5)" }} />
               </div>
-              <div className="text-4xl leading-none"
-                style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 300, color: "#F0F0F0" }}>
+              <div className="text-4xl leading-none font-bold tracking-tight"
+                style={{ color: "#F0F0F0" }}>
                 {stat.value}
               </div>
             </div>
@@ -153,8 +166,10 @@ export default function AgencyDashboard() {
                 className="relative rounded-2xl overflow-hidden cursor-pointer"
                 style={{
                   background: "rgba(255,255,255,0.022)",
-                  border: `1px solid ${isHovered ? "rgba(185,255,75,0.22)" : "rgba(255,255,255,0.06)"}`,
-                  boxShadow: isHovered ? "0 12px 40px -8px rgba(185,255,75,0.12)" : "none",
+                  border: `1px solid ${isHovered ? "rgba(185,255,75,0.28)" : "rgba(255,255,255,0.06)"}`,
+                  boxShadow: isHovered
+                    ? "0 0 0 1px rgba(185,255,75,0.08), 0 16px 48px -8px rgba(185,255,75,0.2), inset 0 1px 0 rgba(185,255,75,0.06)"
+                    : "none",
                   transition: "border-color 0.3s, box-shadow 0.3s",
                 }}
               >
@@ -211,7 +226,7 @@ export default function AgencyDashboard() {
                     ].map((m) => (
                       <div key={m.label} className="text-center">
                         <div className="text-xl leading-none mb-1"
-                          style={{ fontFamily: "'Cormorant Garamond', serif", fontWeight: 400, color: "rgba(255,255,255,0.85)" }}>
+                          style={{ fontWeight: 600, color: "rgba(255,255,255,0.85)" }}>
                           {m.value}
                         </div>
                         <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>{m.label}</div>
@@ -227,9 +242,10 @@ export default function AgencyDashboard() {
                       onClick={() => navigate(`/agency/clients/${client.id}`)}
                       className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-medium transition-all"
                       style={{
-                        background: isHovered ? "rgba(185,255,75,0.12)" : "rgba(185,255,75,0.07)",
-                        border: `1px solid ${isHovered ? "rgba(185,255,75,0.3)" : "rgba(185,255,75,0.15)"}`,
+                        background: isHovered ? "rgba(185,255,75,0.14)" : "rgba(185,255,75,0.07)",
+                        border: `1px solid ${isHovered ? "rgba(185,255,75,0.4)" : "rgba(185,255,75,0.15)"}`,
                         color: LIME,
+                        boxShadow: isHovered ? "0 0 16px -4px rgba(185,255,75,0.3)" : "none",
                         transition: "all 0.2s",
                       }}
                     >

@@ -4,7 +4,7 @@
 
 /* ── Design System: Noir Volt ───────────────────────────────
    Paleta: Preto profundo + Verde Limão elétrico
-   Fontes: Cormorant Garamond (display) + DM Sans (UI)
+   Fontes: Cormorant Garamond (display) + Inter (UI)
    ─────────────────────────────────────────────────────────── */
 
 @layer base {
@@ -68,7 +68,9 @@
     /* ── Sombras ── */
     --shadow-card: 0 1px 4px 0 rgba(0,0,0,0.4);
     --shadow-elevated: 0 8px 32px -4px rgba(0,0,0,0.6), 0 2px 8px -2px rgba(0,0,0,0.3);
-    --shadow-lime: 0 0 24px -4px rgba(185,255,75,0.2);
+    --shadow-lime: 0 0 24px -4px rgba(185,255,75,0.25);
+    --shadow-lime-strong: 0 0 40px -6px rgba(185,255,75,0.45);
+    --shadow-lime-btn: 0 0 20px -4px rgba(185,255,75,0.5), 0 4px 12px -2px rgba(185,255,75,0.2);
   }
 
   /* Mantém dark equivalente ao root para compatibilidade */
@@ -116,12 +118,12 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'DM Sans', system-ui, sans-serif;
+    font-family: 'Inter', system-ui, sans-serif;
     font-size: 15px;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'DM Sans', system-ui, sans-serif;
+    font-family: 'Inter', system-ui, sans-serif;
     letter-spacing: -0.01em;
   }
 
@@ -154,7 +156,13 @@
 
   /* ── Verde limão utilitários ── */
   .lime-glow {
-    box-shadow: 0 0 20px -4px rgba(185, 255, 75, 0.3);
+    box-shadow: 0 0 20px -4px rgba(185, 255, 75, 0.35);
+  }
+  .lime-glow-strong {
+    box-shadow: 0 0 40px -6px rgba(185, 255, 75, 0.5), 0 0 80px -20px rgba(185, 255, 75, 0.2);
+  }
+  .lime-glow-text {
+    text-shadow: 0 0 20px rgba(185, 255, 75, 0.5), 0 0 40px rgba(185, 255, 75, 0.2);
   }
 
   .lime-border {
@@ -195,8 +203,8 @@
   }
 
   @keyframes pulse-lime {
-    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(185, 255, 75, 0.4); }
-    50% { opacity: 0.85; box-shadow: 0 0 0 6px rgba(185, 255, 75, 0); }
+    0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(185, 255, 75, 0.5); }
+    50% { opacity: 0.85; box-shadow: 0 0 0 8px rgba(185, 255, 75, 0); }
   }
 
   /* ── Hover lift ── */
@@ -207,6 +215,15 @@
     transform: translateY(-2px);
     box-shadow: 0 12px 32px -8px rgba(0,0,0,0.5);
   }
+
+  /* ── Card lime glow on hover ── */
+  .card-lime-hover {
+    transition: border-color 0.3s, box-shadow 0.3s;
+  }
+  .card-lime-hover:hover {
+    border-color: rgba(185, 255, 75, 0.28) !important;
+    box-shadow: 0 0 0 1px rgba(185,255,75,0.1), 0 12px 40px -8px rgba(185,255,75,0.15);
+  }
 }
 
 /* ── Botão primary com verde limão ── */
@@ -215,11 +232,11 @@
     @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all;
     background: #B9FF4B;
     color: #080A06;
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'Inter', sans-serif;
   }
   .btn-lime:hover {
     background: #CEFF72;
-    box-shadow: 0 0 20px -4px rgba(185, 255, 75, 0.4);
+    box-shadow: 0 0 24px -4px rgba(185, 255, 75, 0.55), 0 4px 12px -2px rgba(185, 255, 75, 0.25);
     transform: translateY(-1px);
   }
   .btn-lime:active {
@@ -235,6 +252,7 @@
   .btn-lime-ghost:hover {
     background: rgba(185, 255, 75, 0.14);
     border-color: rgba(185, 255, 75, 0.35);
+    box-shadow: 0 0 16px -4px rgba(185, 255, 75, 0.25);
   }
 }
 
