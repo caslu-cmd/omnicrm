@@ -88,6 +88,8 @@ const CSS = `
   .cl-social:hover{border-color:#B9FF4B !important}
   .cl-dot{animation:cl-pulse 2.2s ease-in-out infinite}
   .cl-bob{animation:cl-bob 1.7s ease-in-out infinite}
+  .cl-track{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .cl-track::-webkit-scrollbar{display:none}
 `;
 
 function fmt(n: number) { return n.toLocaleString("pt-BR"); }
@@ -141,9 +143,8 @@ function TeamCarousel() {
       </div>
 
       {/* Track */}
-      <div ref={trackRef} onScroll={onScroll}
-        style={{ display: "flex", gap: GAP, overflowX: "auto", scrollSnapType: "x mandatory", scrollbarWidth: "none", padding: "4px 64px 24px", WebkitOverflowScrolling: "touch" } as React.CSSProperties}>
-        <style>{`.cl-track::-webkit-scrollbar{display:none}`}</style>
+      <div ref={trackRef} onScroll={onScroll} className="cl-track"
+        style={{ display: "flex", gap: GAP, scrollSnapType: "x mandatory", padding: "4px 64px 24px" } as React.CSSProperties}>
         {TEAM.map((t, idx) => (
           <div key={t.i}
             style={{ flexShrink: 0, width: CARD_W, scrollSnapAlign: "start", borderRadius: 20, background: idx === active ? `${t.color}0C` : "rgba(255,255,255,.025)", border: `1px solid ${idx === active ? `${t.color}40` : "rgba(255,255,255,.07)"}`, padding: "36px 28px", display: "flex", flexDirection: "column" as const, transition: "background .3s, border-color .3s", minHeight: 460 }}>
