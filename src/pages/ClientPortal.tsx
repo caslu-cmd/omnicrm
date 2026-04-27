@@ -179,7 +179,6 @@ function PinScreen({ client, onUnlock }: { client: typeof CLIENTS[0]; onUnlock: 
           {/* Hidden input — captures keyboard/phone typing */}
           <input
             ref={inputRef}
-            autoFocus
             className="opacity-0 absolute pointer-events-none w-0 h-0"
             value={pin}
             onChange={(e) => setPin(e.target.value.replace(/[^a-zA-Z0-9]/g, "").slice(0, 6))}
