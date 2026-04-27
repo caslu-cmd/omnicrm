@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
@@ -286,7 +286,6 @@ export default function ClientWorkspace() {
   const [agentFileUrl, setAgentFileUrl] = useState<string | null>(null);
   const [agentFileText, setAgentFileText] = useState<string | null>(null);
   const agentFileRef = useRef<HTMLInputElement>(null);
-  const viewPanelRef = useRef<HTMLDivElement>(null);
   const [expandedFile, setExpandedFile] = useState<string | null>(null);
   const [editingPage, setEditingPage] = useState<string | null>(null);
   const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
@@ -431,12 +430,6 @@ export default function ClientWorkspace() {
       )}
     </div>
   );
-
-  useEffect(() => {
-    if (viewingAgentId && viewPanelRef.current) {
-      setTimeout(() => viewPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 80);
-    }
-  }, [viewingAgentId]);
 
   const toggleTask = (taskId: string) =>
     setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, done: !t.done } : t));
@@ -933,190 +926,6 @@ export default function ClientWorkspace() {
                     <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
                     <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.2)" }}>{MARKETING_TEAM.length} agentes</span>
                   </div>
-
-                  {/* ── Painel de visualização (acima dos cards) ── */}
-                  <AnimatePresence>
-                    {viewedAgent && (
-                        <motion.div ref={viewPanelRef} key={"view-" + viewedAgent.id}
-                          initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, y: -6 }} transition={{ duration: 0.18 }}
-                          className="mb-4 rounded-2xl overflow-hidden"
-                          style={{ border: `1px solid ${viewedAgent.color}35`, background: `${viewedAgent.color}06` }}>
-
-                          {/* View header */}
-                          <div className="flex items-center gap-3 px-5 py-4"
-                            style={{ borderBottom: `1px solid ${viewedAgent.color}15` }}>
-                            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
-                              style={{ background: `${viewedAgent.color}18`, border: `1px solid ${viewedAgent.color}35`, color: viewedAgent.color }}>
-                              {viewedAgent.initial}
-                            </div>
-                            <div className="flex-1">
-                              <div className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.9)" }}>{viewedAgent.name}</div>
-                              <div className="text-[10px]" style={{ color: viewedAgent.color }}>{viewedAgent.role} · {viewedAgent.skill}</div>
-                            </div>
-                            {vTask && (
-                              <span className="text-[10px] px-2.5 py-1 rounded-full font-medium flex-shrink-0"
-                                style={{
-                                  background: vTaskIsWorking ? `${viewedAgent.color}15` : "rgba(52,211,153,0.1)",
-                                  color: vTaskIsWorking ? viewedAgent.color : "#34D399",
-                                  border: `1px solid ${vTaskIsWorking ? `${viewedAgent.color}30` : "rgba(52,211,153,0.25)"}`,
-                                }}>
-                                {vTaskIsWorking ? "● Trabalhando" : "✓ Concluído"}
-                              </span>
-                            )}
-                            <button onClick={() => setViewingAgentId(null)}
-                              className="p-1 rounded-lg transition-colors flex-shrink-0"
-                              style={{ color: "rgba(255,255,255,0.25)" }}
-                              onMouseEnter={(e) => (e.currentTarget.style.color = "#F87171")}
-                              onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.25)")}>
-                              <X className="w-4 h-4" />
-                            </button>
-                          </div>
-
-                          <div className="px-5 py-4 space-y-4">
-                            {/* Current task (full) */}
-                            {vTask && (
-                              <div>
-                                <div className="text-[10px] uppercase tracking-widest font-semibold mb-2"
-                                  style={{ color: "rgba(255,255,255,0.3)" }}>Fazendo agora</div>
-                                <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.75)" }}>{vTask.current}</p>
-                                {vTaskIsWorking && vTask.progress > 0 && (
-                                  <div className="mt-3">
-                                    <div className="flex justify-between mb-1">
-                                      <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>Progresso</span>
-                                      <span className="text-[10px] font-semibold" style={{ color: viewedAgent.color }}>{vTask.progress}%</span>
-                                    </div>
-                                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
-                                      <motion.div className="h-full rounded-full"
-                                        style={{ background: viewedAgent.color }}
-                                        initial={{ width: 0 }} animate={{ width: `${vTask.progress}%` }}
-                                        transition={{ duration: 0.8, ease: "easeOut" }} />
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Recent work (all items) */}
-                            {vTask && vTask.recent.length > 0 && (
-                              <div>
-                                <div className="text-[10px] uppercase tracking-widest font-semibold mb-2"
-                                  style={{ color: "rgba(255,255,255,0.3)" }}>Trabalho recente</div>
-                                <div className="space-y-1.5">
-                                  {vTask.recent.map((r, j) => (
-                                    <div key={j} className="flex items-start gap-2 px-3 py-2 rounded-lg"
-                                      style={{ background: "rgba(255,255,255,0.03)" }}>
-                                      <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: `${viewedAgent.color}80` }} />
-                                      <span className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.55)" }}>{r}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Teo: site pages */}
-                            {vSitePages.length > 0 && (
-                              <div>
-                                <div className="text-[10px] uppercase tracking-widest font-semibold mb-2"
-                                  style={{ color: "rgba(255,255,255,0.3)" }}>Páginas do site</div>
-                                <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
-                                  {vSitePages.map((p, pi) => (
-                                    <div key={pi} className="flex items-center gap-3 px-4 py-2.5 text-xs"
-                                      style={{ borderBottom: pi < vSitePages.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", background: p.status === "editando" ? "rgba(6,182,212,0.04)" : "transparent" }}>
-                                      <Globe className="w-3 h-3 flex-shrink-0" style={{ color: "#06B6D4" }} />
-                                      <span className="flex-1 font-medium" style={{ color: "rgba(255,255,255,0.75)" }}>{p.page}</span>
-                                      <span style={{ color: "rgba(255,255,255,0.3)" }}>{p.url}</span>
-                                      <span className="text-[10px] px-1.5 py-0.5 rounded-full ml-2"
-                                        style={{ background: p.status === "editando" ? "rgba(6,182,212,0.15)" : p.status === "publicado" ? "rgba(52,211,153,0.1)" : "rgba(255,255,255,0.05)", color: p.status === "editando" ? "#06B6D4" : p.status === "publicado" ? "#34D399" : "rgba(255,255,255,0.3)" }}>
-                                        {p.status}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Vitória: revised files */}
-                            {vRevisedFiles.length > 0 && (
-                              <div>
-                                <div className="text-[10px] uppercase tracking-widest font-semibold mb-2"
-                                  style={{ color: "rgba(255,255,255,0.3)" }}>Arquivos revisados</div>
-                                <div className="space-y-2">
-                                  {vRevisedFiles.map((file) => (
-                                    <div key={file.id} className="rounded-xl overflow-hidden"
-                                      style={{ border: "1px solid rgba(236,72,153,0.2)", background: "rgba(236,72,153,0.04)" }}>
-                                      <button className="w-full flex items-center gap-3 px-4 py-3 text-left"
-                                        onClick={() => setExpandedFile(expandedFile === file.id ? null : file.id)}>
-                                        <FileText className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#EC4899" }} />
-                                        <span className="flex-1 text-xs font-medium" style={{ color: "rgba(255,255,255,0.8)" }}>{file.name}</span>
-                                        <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: "rgba(52,211,153,0.1)", color: "#34D399" }}>{file.fixed} correções</span>
-                                        <ChevronDown className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "rgba(255,255,255,0.3)", transform: expandedFile === file.id ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
-                                      </button>
-                                      {expandedFile === file.id && (
-                                        <div className="px-4 pb-3 space-y-2">
-                                          {file.diffs.map((d, di) => (
-                                            <div key={di} className="rounded-lg overflow-hidden text-[11px]">
-                                              <div className="px-3 py-1.5" style={{ background: "rgba(248,113,113,0.08)", color: "#F87171" }}>− {d.before}</div>
-                                              <div className="px-3 py-1.5" style={{ background: "rgba(52,211,153,0.08)", color: "#34D399" }}>+ {d.after}</div>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-
-                            {/* Instruction form at bottom of view */}
-                            <div style={{ borderTop: `1px solid ${viewedAgent.color}15`, paddingTop: 16 }}>
-                              <div className="text-[10px] uppercase tracking-widest font-semibold mb-2"
-                                style={{ color: `${viewedAgent.color}80` }}>Dar instrução a {viewedAgent.name}</div>
-                              <input ref={agentFileRef} type="file"
-                                accept=".pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg,.csv,.xlsx"
-                                className="hidden" onChange={handleAgentFileChange} />
-                              <textarea
-                                value={agentInstruction}
-                                onChange={(e) => setAgentInstruction(e.target.value)}
-                                placeholder={`O que você quer que ${viewedAgent.name} faça?`}
-                                rows={2}
-                                className="w-full rounded-xl px-4 py-3 text-sm resize-none mb-2"
-                                style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${viewedAgent.color}22`, color: "#F0F0F0", outline: "none" }}
-                              />
-                              {agentFile && renderFilePreview(agentFile, agentFileUrl, agentFileText, viewedAgent.color)}
-                              <div className="flex items-center gap-3 mt-2">
-                                {agentFile ? (
-                                  <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg flex-shrink-0"
-                                    style={{ background: `${viewedAgent.color}10`, border: `1px solid ${viewedAgent.color}25` }}>
-                                    {agentFile.type.startsWith("image/") ? <Image className="w-3 h-3" style={{ color: viewedAgent.color }} /> : <FileText className="w-3 h-3" style={{ color: viewedAgent.color }} />}
-                                    <span className="text-[11px] max-w-[140px] truncate" style={{ color: "rgba(255,255,255,0.7)" }}>{agentFile.name}</span>
-                                    <button onClick={clearAgentFile} style={{ color: "rgba(255,255,255,0.3)" }}
-                                      onMouseEnter={(e) => (e.currentTarget.style.color = "#F87171")}
-                                      onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}><X className="w-3 h-3" /></button>
-                                  </div>
-                                ) : (
-                                  <button onClick={() => agentFileRef.current?.click()}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all flex-shrink-0"
-                                    style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.35)", border: "1px dashed rgba(255,255,255,0.14)" }}
-                                    onMouseEnter={(e) => { e.currentTarget.style.borderColor = `${viewedAgent.color}50`; e.currentTarget.style.color = viewedAgent.color; }}
-                                    onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)"; e.currentTarget.style.color = "rgba(255,255,255,0.35)"; }}>
-                                    <Paperclip className="w-3 h-3" /> Anexar referência
-                                  </button>
-                                )}
-                                <div className="flex-1" />
-                                <button
-                                  onClick={() => { setAgentInstruction(""); clearAgentFile(); setViewingAgentId(null); }}
-                                  disabled={!agentInstruction.trim() && !agentFile}
-                                  className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
-                                  style={{ background: viewedAgent.color, color: "#07080A", boxShadow: (agentInstruction || agentFile) ? `0 0 16px -4px ${viewedAgent.color}60` : "none" }}>
-                                  <Send className="w-3.5 h-3.5" /> Enviar para {viewedAgent.name}
-                                </button>
-                              </div>
-                            </div>
-                          </div>
-                        </motion.div>
-                    )}
-                  </AnimatePresence>
 
                   <div className="grid grid-cols-4 gap-4">
                     {MARKETING_TEAM.map((agent, i) => {
@@ -2298,6 +2107,231 @@ export default function ClientWorkspace() {
           </motion.div>
         </AnimatePresence>
       </div>
+
+      {/* ══ Modal "Ver agente" ══════════════════════════════════ */}
+      <AnimatePresence>
+        {viewedAgent && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              key="agent-modal-backdrop"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => setViewingAgentId(null)}
+              style={{
+                position: "fixed", inset: 0, zIndex: 200,
+                background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)",
+              }}
+            />
+
+            {/* Panel */}
+            <motion.div
+              key={"agent-modal-" + viewedAgent.id}
+              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              transition={{ duration: 0.22, ease: [0.2, 0.8, 0.2, 1] }}
+              style={{
+                position: "fixed", inset: 0, zIndex: 201,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                pointerEvents: "none",
+              }}
+            >
+              <div
+                style={{
+                  width: "100%", maxWidth: 560, maxHeight: "85vh",
+                  background: "#0E0F13", border: `1px solid ${viewedAgent.color}35`,
+                  borderRadius: 20, overflow: "hidden", display: "flex",
+                  flexDirection: "column", pointerEvents: "auto",
+                  boxShadow: `0 32px 80px -12px rgba(0,0,0,0.8), 0 0 60px -20px ${viewedAgent.color}30`,
+                }}
+              >
+                {/* Modal header */}
+                <div className="flex items-center gap-3 px-5 py-4 flex-shrink-0"
+                  style={{ borderBottom: `1px solid ${viewedAgent.color}18`, background: `${viewedAgent.color}08` }}>
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
+                    style={{ background: `${viewedAgent.color}20`, border: `1px solid ${viewedAgent.color}40`, color: viewedAgent.color }}>
+                    {viewedAgent.initial}
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-sm font-bold" style={{ color: "#F0F0F0" }}>{viewedAgent.name}</div>
+                    <div className="text-[10px]" style={{ color: viewedAgent.color }}>{viewedAgent.role} · {viewedAgent.skill}</div>
+                  </div>
+                  {vTask && (
+                    <span className="text-[10px] px-2.5 py-1 rounded-full font-semibold flex-shrink-0"
+                      style={{
+                        background: vTaskIsWorking ? `${viewedAgent.color}18` : "rgba(52,211,153,0.12)",
+                        color: vTaskIsWorking ? viewedAgent.color : "#34D399",
+                        border: `1px solid ${vTaskIsWorking ? `${viewedAgent.color}35` : "rgba(52,211,153,0.3)"}`,
+                      }}>
+                      {vTaskIsWorking ? "● Trabalhando" : "✓ Concluído"}
+                    </span>
+                  )}
+                  <button onClick={() => setViewingAgentId(null)}
+                    className="p-1.5 rounded-lg flex-shrink-0 transition-colors"
+                    style={{ color: "rgba(255,255,255,0.3)" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = "#F87171")}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}>
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Scrollable body */}
+                <div className="flex-1 overflow-y-auto p-5 space-y-4">
+
+                  {/* Current task */}
+                  {vTask && (
+                    <div className="rounded-xl p-4"
+                      style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                      <div className="text-[10px] uppercase tracking-widest font-semibold mb-2"
+                        style={{ color: vTaskIsWorking ? viewedAgent.color : "rgba(255,255,255,0.3)" }}>
+                        {vTaskIsWorking ? "● Fazendo agora" : "✓ Concluído"}
+                      </div>
+                      <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.75)" }}>{vTask.current}</p>
+                      {vTaskIsWorking && vTask.progress > 0 && (
+                        <div className="mt-3">
+                          <div className="flex justify-between mb-1.5">
+                            <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>Progresso</span>
+                            <span className="text-[10px] font-bold" style={{ color: viewedAgent.color }}>{vTask.progress}%</span>
+                          </div>
+                          <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
+                            <motion.div className="h-full rounded-full"
+                              style={{ background: viewedAgent.color }}
+                              initial={{ width: 0 }} animate={{ width: `${vTask.progress}%` }}
+                              transition={{ duration: 0.8, ease: "easeOut" }} />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Recent work */}
+                  {vTask && vTask.recent.length > 0 && (
+                    <div>
+                      <div className="text-[10px] uppercase tracking-widest font-semibold mb-2"
+                        style={{ color: "rgba(255,255,255,0.3)" }}>Trabalho recente</div>
+                      <div className="space-y-1.5">
+                        {vTask.recent.map((r, j) => (
+                          <div key={j} className="flex items-start gap-2 px-3 py-2 rounded-lg"
+                            style={{ background: "rgba(255,255,255,0.03)" }}>
+                            <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: `${viewedAgent.color}80` }} />
+                            <span className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.55)" }}>{r}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Teo: site pages */}
+                  {vSitePages.length > 0 && (
+                    <div>
+                      <div className="text-[10px] uppercase tracking-widest font-semibold mb-2"
+                        style={{ color: "rgba(255,255,255,0.3)" }}>Páginas do site</div>
+                      <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.07)" }}>
+                        {vSitePages.map((p, pi) => (
+                          <div key={pi} className="flex items-center gap-3 px-4 py-2.5 text-xs"
+                            style={{ borderBottom: pi < vSitePages.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none", background: p.status === "editando" ? "rgba(6,182,212,0.04)" : "transparent" }}>
+                            <Globe className="w-3 h-3 flex-shrink-0" style={{ color: "#06B6D4" }} />
+                            <span className="flex-1 font-medium" style={{ color: "rgba(255,255,255,0.75)" }}>{p.page}</span>
+                            <span style={{ color: "rgba(255,255,255,0.3)" }}>{p.url}</span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded-full ml-2"
+                              style={{ background: p.status === "editando" ? "rgba(6,182,212,0.15)" : p.status === "publicado" ? "rgba(52,211,153,0.1)" : "rgba(255,255,255,0.05)", color: p.status === "editando" ? "#06B6D4" : p.status === "publicado" ? "#34D399" : "rgba(255,255,255,0.3)" }}>
+                              {p.status}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Vitória: revised files */}
+                  {vRevisedFiles.length > 0 && (
+                    <div>
+                      <div className="text-[10px] uppercase tracking-widest font-semibold mb-2"
+                        style={{ color: "rgba(255,255,255,0.3)" }}>Arquivos revisados</div>
+                      <div className="space-y-2">
+                        {vRevisedFiles.map((file) => (
+                          <div key={file.id} className="rounded-xl overflow-hidden"
+                            style={{ border: "1px solid rgba(236,72,153,0.2)", background: "rgba(236,72,153,0.04)" }}>
+                            <button className="w-full flex items-center gap-3 px-4 py-3 text-left"
+                              onClick={() => setExpandedFile(expandedFile === file.id ? null : file.id)}>
+                              <FileText className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#EC4899" }} />
+                              <span className="flex-1 text-xs font-medium" style={{ color: "rgba(255,255,255,0.8)" }}>{file.name}</span>
+                              <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: "rgba(52,211,153,0.1)", color: "#34D399" }}>{file.fixed} correções</span>
+                              <ChevronDown className="w-3.5 h-3.5 flex-shrink-0"
+                                style={{ color: "rgba(255,255,255,0.3)", transform: expandedFile === file.id ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+                            </button>
+                            {expandedFile === file.id && (
+                              <div className="px-4 pb-3 space-y-2">
+                                {file.diffs.map((d, di) => (
+                                  <div key={di} className="rounded-lg overflow-hidden text-[11px]">
+                                    <div className="px-3 py-1.5" style={{ background: "rgba(248,113,113,0.08)", color: "#F87171" }}>− {d.before}</div>
+                                    <div className="px-3 py-1.5" style={{ background: "rgba(52,211,153,0.08)", color: "#34D399" }}>+ {d.after}</div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Instruction form */}
+                  <div className="pt-4" style={{ borderTop: `1px solid ${viewedAgent.color}18` }}>
+                    <div className="text-[10px] uppercase tracking-widest font-semibold mb-3"
+                      style={{ color: `${viewedAgent.color}90` }}>Dar instrução a {viewedAgent.name}</div>
+                    <input ref={agentFileRef} type="file"
+                      accept=".pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg,.csv,.xlsx"
+                      className="hidden" onChange={handleAgentFileChange} />
+                    <textarea
+                      value={agentInstruction}
+                      onChange={(e) => setAgentInstruction(e.target.value)}
+                      placeholder={`O que você quer que ${viewedAgent.name} faça?`}
+                      rows={3}
+                      className="w-full rounded-xl px-4 py-3 text-sm resize-none"
+                      style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${viewedAgent.color}25`, color: "#F0F0F0", outline: "none" }}
+                    />
+                    {agentFile && <div className="mt-2">{renderFilePreview(agentFile, agentFileUrl, agentFileText, viewedAgent.color)}</div>}
+                    <div className="flex items-center gap-3 mt-3">
+                      {agentFile ? (
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg flex-shrink-0"
+                          style={{ background: `${viewedAgent.color}12`, border: `1px solid ${viewedAgent.color}28` }}>
+                          <FileText className="w-3 h-3 flex-shrink-0" style={{ color: viewedAgent.color }} />
+                          <span className="text-[11px] max-w-[160px] truncate" style={{ color: "rgba(255,255,255,0.7)" }}>{agentFile.name}</span>
+                          <button onClick={clearAgentFile} style={{ color: "rgba(255,255,255,0.3)" }}
+                            onMouseEnter={(e) => (e.currentTarget.style.color = "#F87171")}
+                            onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}>
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ) : (
+                        <button onClick={() => agentFileRef.current?.click()}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all"
+                          style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.35)", border: "1px dashed rgba(255,255,255,0.14)" }}
+                          onMouseEnter={(e) => { e.currentTarget.style.borderColor = `${viewedAgent.color}50`; e.currentTarget.style.color = viewedAgent.color; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)"; e.currentTarget.style.color = "rgba(255,255,255,0.35)"; }}>
+                          <Paperclip className="w-3 h-3" /> Anexar arquivo
+                        </button>
+                      )}
+                      <div className="flex-1" />
+                      <button
+                        onClick={() => { setAgentInstruction(""); clearAgentFile(); setViewingAgentId(null); }}
+                        disabled={!agentInstruction.trim() && !agentFile}
+                        className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40"
+                        style={{ background: viewedAgent.color, color: "#07080A", boxShadow: (agentInstruction || agentFile) ? `0 0 20px -4px ${viewedAgent.color}70` : "none" }}>
+                        <Send className="w-3.5 h-3.5" /> Enviar para {viewedAgent.name}
+                      </button>
+                    </div>
+                  </div>
+
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }
