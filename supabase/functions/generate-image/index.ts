@@ -13,19 +13,16 @@ async function scrapeSite(url: string): Promise<string> {
       signal: AbortSignal.timeout(6000),
     });
     const html = await res.text();
-
     const get = (pattern: RegExp) => pattern.exec(html)?.[1]?.trim() ?? "";
     const getAll = (pattern: RegExp, limit = 4) =>
       [...html.matchAll(pattern)].slice(0, limit).map(m => m[1]?.trim()).filter(Boolean).join(" | ");
-
-    const title       = get(/<title[^>]*>([^<]{1,120})<\/title>/i);
-    const metaDesc    = get(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']{1,250})["']/i)
-                     || get(/<meta[^>]*content=["']([^"']{1,250})["'][^>]*name=["']description["']/i);
-    const h1          = get(/<h1[^>]*>([^<]{1,120})<\/h1>/i);
-    const h2s         = getAll(/<h2[^>]*>([^<]{3,100})<\/h2>/gi);
-    const themeColor  = get(/<meta[^>]*name=["']theme-color["'][^>]*content=["']([^"']+)["']/i);
-    const ogDesc      = get(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']{1,250})["']/i);
-
+    const title      = get(/<title[^>]*>([^<]{1,120})<\/title>/i);
+    const metaDesc   = get(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']{1,250})["']/i)
+                    || get(/<meta[^>]*content=["']([^"']{1,250})["'][^>]*name=["']description["']/i);
+    const h1         = get(/<h1[^>]*>([^<]{1,120})<\/h1>/i);
+    const h2s        = getAll(/<h2[^>]*>([^<]{3,100})<\/h2>/gi);
+    const themeColor = get(/<meta[^>]*name=["']theme-color["'][^>]*content=["']([^"']+)["']/i);
+    const ogDesc     = get(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']{1,250})["']/i);
     const bodyText = html
       .replace(/<script[\s\S]*?<\/script>/gi, "")
       .replace(/<style[\s\S]*?<\/style>/gi, "")
@@ -35,16 +32,15 @@ async function scrapeSite(url: string): Promise<string> {
       .replace(/\s+/g, " ")
       .trim()
       .slice(0, 600);
-
     return [
       `REFERÊNCIA DO SITE: ${url}`,
-      title       ? `Título: ${title}` : "",
-      metaDesc    ? `Descrição: ${metaDesc}` : "",
-      ogDesc      ? `OG Desc: ${ogDesc}` : "",
-      h1          ? `H1: ${h1}` : "",
-      h2s         ? `H2s: ${h2s}` : "",
-      themeColor  ? `Cor tema: ${themeColor}` : "",
-      bodyText    ? `Conteúdo: ${bodyText}` : "",
+      title      ? `Título: ${title}` : "",
+      metaDesc   ? `Descrição: ${metaDesc}` : "",
+      ogDesc     ? `OG Desc: ${ogDesc}` : "",
+      h1         ? `H1: ${h1}` : "",
+      h2s        ? `H2s: ${h2s}` : "",
+      themeColor ? `Cor tema: ${themeColor}` : "",
+      bodyText   ? `Conteúdo: ${bodyText}` : "",
     ].filter(Boolean).join("\n");
   } catch {
     return `REFERÊNCIA DO SITE: ${url} (não foi possível acessar — use o domínio como contexto de marca)`;
@@ -54,7 +50,6 @@ async function scrapeSite(url: string): Promise<string> {
 // ─── ARIA: Senior Marketing Director ─────────────────────────────────────────
 async function orchestrate(demand: string, clientContext: Record<string, unknown>, anthropicKey: string, siteUrl?: string) {
   const ctx = clientContext ?? {};
-
   const siteContext = siteUrl ? await scrapeSite(siteUrl) : "";
 
   const systemPrompt = `Você é ARIA, Diretora Sênior de Marketing da agência Calu. Você tem 15 anos de experiência em marketing digital, branding e estratégia criativa para marcas brasileiras.
@@ -148,7 +143,7 @@ RETORNE APENAS um JSON válido com esta estrutura exata:
       "id": "msg_3",
       "from": "beatriz",
       "to": "aria",
-      "content": "entrega real do trabalho da Beatriz — copy completo, pronto para uso — pode incluir contra-proposta se identificar oportunidade melhor",
+      "content": "entrega real do trabalho da Beatriz — copy completo, pronto para uso",
       "action": "respond"
     }
   ]
@@ -167,11 +162,7 @@ Regras:
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: {
-      "x-api-key": anthropicKey,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
+    headers: { "x-api-key": anthropicKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
     body: JSON.stringify({
       model: "claude-sonnet-4-6",
       max_tokens: 4096,
@@ -180,14 +171,10 @@ Regras:
     }),
   });
 
-  if (!response.ok) {
-    const err = await response.text();
-    throw new Error(`Claude API error: ${err}`);
-  }
+  if (!response.ok) throw new Error(`Claude API error: ${await response.text()}`);
 
   const data = await response.json();
   const text = data.content?.[0]?.text ?? "{}";
-
   try {
     const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, text];
     return JSON.parse(jsonMatch[1].trim());
@@ -196,59 +183,83 @@ Regras:
   }
 }
 
-// ─── ISADORA: Senior Art Director + Image Generation ─────────────────────────
+// ─── ISADORA: Visual Strategist (Sonnet) + Imagen 4 ──────────────────────────
 function bestAspectRatio(description: string): string {
   const d = description.toLowerCase();
   if (d.includes("stories") || d.includes("reels") || d.includes("tiktok") || d.includes("vertical")) return "9:16";
-  if (d.includes("banner") || d.includes("capa") || d.includes("youtube") || d.includes("cover") || d.includes("16:9")) return "16:9";
+  if (d.includes("banner") || d.includes("capa") || d.includes("youtube") || d.includes("cover")) return "16:9";
   if (d.includes("slide") || d.includes("apresentação") || d.includes("presentation")) return "4:3";
   if (d.includes("retrato") || d.includes("portrait") || d.includes("pinterest")) return "3:4";
   if (d.includes("quadrado") || d.includes("square") || d.includes("1:1")) return "1:1";
-  return "4:5"; // default: Instagram feed portrait — melhor engajamento
+  return "4:5";
 }
 
-async function generateImage(prompt: string, aspectRatio: string, clientContext: Record<string, unknown>, googleKey: string, anthropicKey: string) {
+async function generateImage(
+  prompt: string,
+  aspectRatio: string,
+  clientContext: Record<string, unknown>,
+  googleKey: string,
+  anthropicKey: string,
+  beatrizCopy = "",
+  carolinaStrategy = "",
+) {
   const ctx = clientContext ?? {};
   const ratio = (!aspectRatio || aspectRatio === "auto") ? bestAspectRatio(prompt) : aspectRatio;
 
   const platformHint: Record<string, string> = {
     "4:5":  "Instagram feed portrait — 1080×1350px (máximo engajamento)",
     "1:1":  "Instagram/LinkedIn feed square — 1080×1080px",
-    "9:16": "Stories/Reels/TikTok — 1080×1920px — full vertical",
-    "16:9": "YouTube thumbnail/banner — 1920×1080px — wide horizontal",
-    "4:3":  "Slide/Facebook — 1080×810px — landscape",
-    "3:4":  "Pinterest/portrait — 1080×1440px — tall vertical",
+    "9:16": "Stories/Reels/TikTok — 1080×1920px",
+    "16:9": "YouTube/banner — 1920×1080px",
+    "4:3":  "Slide/Facebook — 1080×810px",
+    "3:4":  "Pinterest/portrait — 1080×1440px",
   };
 
-  // ── Claude faz a arte-direção e escreve o prompt do Imagen 4 ──
+  // ── Visual Strategist: Claude Sonnet lê o trabalho completo do time ──
+  const teamContext = [
+    beatrizCopy      ? `COPY DA BEATRIZ (copywriter sênior):\n${beatrizCopy.slice(0, 800)}` : "",
+    carolinaStrategy ? `ESTRATÉGIA DA CAROLINA (brand strategist):\n${carolinaStrategy.slice(0, 600)}` : "",
+  ].filter(Boolean).join("\n\n");
+
   const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: {
-      "x-api-key": anthropicKey,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
+    headers: { "x-api-key": anthropicKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
     body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 600,
-      system: `You are Isadora, a world-class Art Director specialized in Brazilian marketing and social media. You think visually and make precise creative decisions. Your only output is a single Imagen 4 prompt in English — nothing else, no explanations, no labels.`,
+      model: "claude-sonnet-4-6",
+      max_tokens: 800,
+      system: `You are Isadora, a world-class Senior Art Director specialized in Brazilian marketing and social media. You have access to the full team's work — the copywriter's text, the brand strategist's direction, and the creative brief. You synthesize everything into one precise, cinematographic Imagen prompt in English. Output ONLY the final prompt — no explanations, no labels, no preamble.`,
       messages: [{
         role: "user",
         content: `CLIENT: ${ctx.name ?? "unknown"}
 INDUSTRY: ${ctx.industry ?? "unknown"}
 BRAND COLOR: ${ctx.brandColor ?? "not specified"}
 FORMAT: ${ratio} (${platformHint[ratio] ?? "social media"})
-BRIEF: ${prompt}
 
-As Art Director, make these decisions in your head (do NOT write them out):
-1. What is the core emotional message? What must the viewer FEEL?
-2. Subject category: law/business → executive boardroom power | health → clinical warmth | food → hero dish desire | beauty → product elegance | tech → glowing screens near-future | education → bright learning | real estate → golden hour architecture | fitness → peak action energy | events → crowd storytelling | finance → confidence trust | motivation → dramatic landscape
-3. Visual style: photorealistic editorial / hero product shot / lifestyle candid / dramatic cinematic / minimalist abstract
-4. Exact composition: where is hero subject, where is clean zone for text overlay, depth of field
-5. Lighting: soft studio / golden hour / cool natural / dramatic side rim / neon ambient
-6. How does ${ctx.brandColor ?? "brand color"} appear as a subtle accent
+CREATIVE BRIEF FROM ARIA:
+${prompt}
+${teamContext ? `\n${teamContext}` : ""}
 
-Now output ONLY the final Imagen 4 prompt in one paragraph. End with: "no text, no logos, no watermarks, ultra high quality, 4K, sharp focus, award-winning editorial photography"`,
+As Senior Art Director, synthesize the full team context and decide internally:
+1. EMOTIONAL CORE — what must the viewer feel in 1 second? (aspiration / trust / desire / urgency / belonging)
+2. VISUAL METAPHOR — what single image perfectly embodies both the copy message AND brand strategy?
+3. SUBJECT by industry:
+   law/consulting → executive power, boardroom, sharp suits, authority
+   health/wellness → clinical warmth, clean light, human touch, vitality
+   food/beverage → hero dish, steam, texture, desire, close-up
+   beauty/fashion → product elegance, editorial, luxury
+   tech/SaaS → glowing screens, near-future, precision, blue light
+   real estate → golden hour architecture, aspirational lifestyle
+   fitness → peak action, sweat, raw energy, motion blur
+   finance → confidence, trust, premium environment, sharp attire
+   education → bright, open space, curious faces, books/screens
+   events → crowd energy, storytelling, emotion, vibrant colors
+   motivation → dramatic landscape, human triumph, epic scale
+4. COMPOSITION — exact placement: hero subject position, clean negative space for text overlay (bottom 40% or left third), shallow bokeh vs sharp environment
+5. LIGHTING — one choice: soft studio diffused / golden hour warm / cool clinical natural / dramatic side rim / neon ambient glow
+6. BRAND COLOR ACCENT — ${ctx.brandColor ?? "brand color"} appears subtly as: neon sign, fabric detail, object, light leak, or environmental element — never dominant
+7. PHOTOGRAPHY STYLE — photorealistic editorial / lifestyle candid / cinematic dramatic / minimalist product
+
+Output ONLY the final Imagen prompt in one rich, detailed paragraph. End with: "no text, no logos, no watermarks, ultra high quality, 4K, sharp focus, award-winning editorial photography"`,
       }],
     }),
   });
@@ -259,7 +270,7 @@ Now output ONLY the final Imagen 4 prompt in one paragraph. End with: "no text, 
     finalPrompt = claudeData.content?.[0]?.text?.trim() ?? prompt;
   }
 
-  // Imagen 4 generation
+  // ── Imagen 4 Fast ──
   const imgRes = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-fast-generate-001:predict?key=${googleKey}`,
     {
@@ -267,22 +278,16 @@ Now output ONLY the final Imagen 4 prompt in one paragraph. End with: "no text, 
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         instances: [{ prompt: finalPrompt }],
-        parameters: { sampleCount: 1, aspectRatio },
+        parameters: { sampleCount: 1, aspectRatio: ratio },
       }),
     }
   );
 
-  if (!imgRes.ok) {
-    const err = await imgRes.text();
-    throw new Error(`Imagen API error: ${err}`);
-  }
+  if (!imgRes.ok) throw new Error(`Imagen API error: ${await imgRes.text()}`);
 
   const imgData = await imgRes.json();
   const prediction = imgData.predictions?.[0];
-
-  if (!prediction?.bytesBase64Encoded) {
-    throw new Error("Imagem não gerada");
-  }
+  if (!prediction?.bytesBase64Encoded) throw new Error("Imagem não gerada");
 
   return {
     imageData: prediction.bytesBase64Encoded,
@@ -302,46 +307,33 @@ Deno.serve(async (req) => {
     // ── Mode: Aria orchestration ──
     if (body.mode === "orchestrate") {
       const { demand, clientContext, siteUrl } = body;
-      if (!demand) {
-        return new Response(JSON.stringify({ error: "demand is required" }), {
-          status: 400, headers: { ...cors, "Content-Type": "application/json" },
-        });
-      }
+      if (!demand) return new Response(JSON.stringify({ error: "demand is required" }), {
+        status: 400, headers: { ...cors, "Content-Type": "application/json" },
+      });
 
       const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-      if (!anthropicKey) {
-        return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }), {
-          status: 500, headers: { ...cors, "Content-Type": "application/json" },
-        });
-      }
+      if (!anthropicKey) return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }), {
+        status: 500, headers: { ...cors, "Content-Type": "application/json" },
+      });
 
       const result = await orchestrate(demand, clientContext ?? {}, anthropicKey, siteUrl);
-      return new Response(JSON.stringify(result), {
-        headers: { ...cors, "Content-Type": "application/json" },
-      });
+      return new Response(JSON.stringify(result), { headers: { ...cors, "Content-Type": "application/json" } });
     }
 
     // ── Mode: Isadora image generation ──
-    const { prompt, aspectRatio = "1:1", clientContext } = body;
-    if (!prompt) {
-      return new Response(JSON.stringify({ error: "prompt is required" }), {
-        status: 400, headers: { ...cors, "Content-Type": "application/json" },
-      });
-    }
+    const { prompt, aspectRatio = "4:5", clientContext, beatrizCopy = "", carolinaStrategy = "" } = body;
+    if (!prompt) return new Response(JSON.stringify({ error: "prompt is required" }), {
+      status: 400, headers: { ...cors, "Content-Type": "application/json" },
+    });
 
     const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
-    if (!googleKey) {
-      return new Response(JSON.stringify({ error: "GOOGLE_AI_API_KEY not configured" }), {
-        status: 500, headers: { ...cors, "Content-Type": "application/json" },
-      });
-    }
+    if (!googleKey) return new Response(JSON.stringify({ error: "GOOGLE_AI_API_KEY not configured" }), {
+      status: 500, headers: { ...cors, "Content-Type": "application/json" },
+    });
 
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
-
-    const result = await generateImage(prompt, aspectRatio, clientContext ?? {}, googleKey, anthropicKey);
-    return new Response(JSON.stringify(result), {
-      headers: { ...cors, "Content-Type": "application/json" },
-    });
+    const result = await generateImage(prompt, aspectRatio, clientContext ?? {}, googleKey, anthropicKey, beatrizCopy, carolinaStrategy);
+    return new Response(JSON.stringify(result), { headers: { ...cors, "Content-Type": "application/json" } });
 
   } catch (error) {
     return new Response(JSON.stringify({ error: String(error) }), {
