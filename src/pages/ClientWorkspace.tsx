@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { CLIENTS } from "@/data/agencyData";
+import { useClients } from "@/contexts/ClientsContext";
 import { supabase } from "@/integrations/supabase/client";
 
 // ── Marketing Team Definition ──────────────────────────────────
@@ -336,13 +337,11 @@ export default function ClientWorkspace() {
     name: string; industry: string; status: "Ativo" | "Onboarding" | "Em pausa";
     revenue: string; nextAction: string; followersIg: string; followersFb: string; portalPin: string;
   } | null>(null);
-  const [clientOverrides, setClientOverrides] = useState<Record<string, any>>(() => {
-    try { return JSON.parse(localStorage.getItem(`client-${id}`) ?? "{}"); } catch { return {}; }
-  });
+  const { clients, updateClient } = useClients();
 
-  const baseClient = CLIENTS.find((c) => c.id === id);
+  const client = clients.find((c) => c.id === id);
 
-  if (!baseClient) {
+  if (!client) {
     return (
       <div className="flex items-center justify-center min-h-full text-white" style={{ background: "#080810" }}>
         Cliente não encontrado.{" "}
@@ -350,12 +349,6 @@ export default function ClientWorkspace() {
       </div>
     );
   }
-
-  const client = {
-    ...baseClient,
-    ...clientOverrides,
-    followers: { ...baseClient.followers, ...(clientOverrides.followers ?? {}) },
-  };
 
   const checkWpStatus = async () => {
     setWpStatus("loading");
@@ -376,8 +369,8 @@ export default function ClientWorkspace() {
   };
 
   const handleSaveClient = () => {
-    if (!editForm) return;
-    const updates = {
+    if (!editForm || !id) return;
+    updateClient(id, {
       name: editForm.name,
       industry: editForm.industry,
       status: editForm.status,
@@ -385,10 +378,7 @@ export default function ClientWorkspace() {
       nextAction: editForm.nextAction,
       followers: { instagram: editForm.followersIg, facebook: editForm.followersFb },
       portalPin: editForm.portalPin,
-    };
-    const merged = { ...clientOverrides, ...updates };
-    setClientOverrides(merged);
-    localStorage.setItem(`client-${id}`, JSON.stringify(merged));
+    });
     setShowEditClient(false);
   };
 

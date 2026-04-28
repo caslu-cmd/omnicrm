@@ -5,7 +5,7 @@ import {
   Users, Megaphone, Calendar, TrendingUp,
   ArrowRight, MessageSquare, Plus, Zap
 } from "lucide-react";
-import { CLIENTS } from "@/data/agencyData";
+import { useClients } from "@/contexts/ClientsContext";
 
 const LIME = "#B9FF4B";
 
@@ -18,6 +18,7 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; border: string }
 export default function AgencyDashboard() {
   const navigate = useNavigate();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const { clients: CLIENTS } = useClients();
 
   const activeClients = CLIENTS.filter((c) => c.status === "Ativo").length;
   const totalCampaigns = CLIENTS.reduce((s, c) => s + c.campaigns, 0);
