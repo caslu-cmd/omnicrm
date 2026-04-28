@@ -67,6 +67,7 @@ const TICKER = [
 const CSS = `
   .cl * { box-sizing: border-box; margin: 0; padding: 0; }
   .cl a { text-decoration: none; color: inherit; }
+  .cl h1, .cl h2, .cl h3, .cl h4, .cl h5, .cl h6 { font-family: 'Syne', 'Inter', sans-serif; }
   @keyframes cl-in   { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
   @keyframes cl-tick { from { transform:translateX(0); } to { transform:translateX(-50%); } }
   @keyframes cl-bob  { 0%,100%{transform:translateY(0)} 50%{transform:translateY(6px)} }
