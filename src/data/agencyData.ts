@@ -183,6 +183,8 @@ export interface Client {
   whatsappLeads?: WhatsAppLead[];
   outputs: GeneratedOutput[];
   collabCampaigns?: CollabCampaign[];
+  siteUrl?: string;
+  teamInstructions?: string;
 }
 
 export const CLIENTS: Client[] = [

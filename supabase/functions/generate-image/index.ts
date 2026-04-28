@@ -113,6 +113,7 @@ Contexto do cliente:
 - Campanhas ativas: ${(ctx.campaigns as string[] ?? []).join(", ") || "nenhuma"}
 - Temas recentes: ${(ctx.recentThemes as string[] ?? []).join(" | ") || "nenhum"}
 - Próxima ação: ${ctx.nextAction ?? "não definida"}
+${ctx.teamInstructions ? `\nINSTRUÇÕES PERMANENTES DO TIME PARA ESTE CLIENTE (seguir sempre, sem exceção):\n${ctx.teamInstructions}` : ""}
 ${siteContext ? `\nSite do cliente:\n${siteContext}\nUse para calibrar tom de voz (Beatriz), estilo visual (Isadora) e estratégia (Carolina).` : ""}
 
 AUTONOMIA E COLABORAÇÃO:

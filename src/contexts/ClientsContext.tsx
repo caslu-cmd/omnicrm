@@ -9,6 +9,8 @@ type ClientEdit = {
   nextAction?: string;
   portalPin?: string;
   followers?: { instagram?: string; facebook?: string };
+  siteUrl?: string;
+  teamInstructions?: string;
 };
 
 type AllEdits = Record<string, ClientEdit>;

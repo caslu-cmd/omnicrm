@@ -409,16 +409,17 @@ export default function ClientWorkspace() {
     try { return JSON.parse(localStorage.getItem(`agent-conv-${id}`) ?? "[]"); } catch { return []; }
   });
   const [postCanvas, setPostCanvas] = useState<{ imageUrl: string; headline?: string; body?: string; cta?: string } | null>(null);
-  const [siteUrl, setSiteUrl] = useState("");
   const [showSiteInput, setShowSiteInput] = useState(false);
   const [showEditClient, setShowEditClient] = useState(false);
   const [editForm, setEditForm] = useState<{
     name: string; industry: string; status: "Ativo" | "Onboarding" | "Em pausa";
     revenue: string; nextAction: string; followersIg: string; followersFb: string; portalPin: string;
+    siteUrl: string; teamInstructions: string;
   } | null>(null);
   const { clients, updateClient } = useClients();
 
   const client = clients.find((c) => c.id === id);
+  const [siteUrl, setSiteUrl] = useState(client?.siteUrl ?? "");
 
   if (!client) {
     return (
@@ -457,7 +458,10 @@ export default function ClientWorkspace() {
       nextAction: editForm.nextAction,
       followers: { instagram: editForm.followersIg, facebook: editForm.followersFb },
       portalPin: editForm.portalPin,
+      siteUrl: editForm.siteUrl.trim() || undefined,
+      teamInstructions: editForm.teamInstructions.trim() || undefined,
     });
+    if (editForm.siteUrl.trim()) setSiteUrl(editForm.siteUrl.trim());
     setShowEditClient(false);
   };
 
@@ -493,6 +497,7 @@ export default function ClientWorkspace() {
       campaigns: client.activeCampaigns?.map((c) => c.name) ?? [],
       recentThemes: client.recentPosts?.map((p) => p.caption.slice(0, 80)) ?? [],
       nextAction: client.nextAction,
+      teamInstructions: client.teamInstructions ?? undefined,
     };
 
     try {
@@ -776,6 +781,8 @@ export default function ClientWorkspace() {
                 followersIg: client.followers.instagram,
                 followersFb: client.followers.facebook,
                 portalPin: client.portalPin,
+                siteUrl: client.siteUrl ?? "",
+                teamInstructions: client.teamInstructions ?? "",
               });
               setShowEditClient(true);
             }}
@@ -3304,6 +3311,24 @@ export default function ClientWorkspace() {
                 <input value={editForm.portalPin} onChange={(e) => setEditForm(f => f && { ...f, portalPin: e.target.value })}
                   placeholder="ex: GL2025"
                   className="w-full rounded-xl px-3 py-2 text-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }} />
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest font-semibold mb-1.5" style={{ color: "rgba(255,255,255,0.3)" }}>Site do cliente</label>
+                <input value={editForm.siteUrl} onChange={(e) => setEditForm(f => f && { ...f, siteUrl: e.target.value })}
+                  placeholder="https://site-do-cliente.com.br"
+                  type="url"
+                  className="w-full rounded-xl px-3 py-2 text-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }} />
+                <p className="text-[10px] mt-1" style={{ color: "rgba(255,255,255,0.2)" }}>A Aria faz scraping automático do site para calibrar o time</p>
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest font-semibold mb-1.5" style={{ color: "rgba(255,255,255,0.3)" }}>Instruções do time</label>
+                <textarea value={editForm.teamInstructions} onChange={(e) => setEditForm(f => f && { ...f, teamInstructions: e.target.value })}
+                  rows={3}
+                  placeholder="Ex: Beatriz nunca usa a palavra 'potencializar'. Isadora sempre usa fundo escuro. Tom B2B sério e direto."
+                  className="w-full rounded-xl px-3 py-2 text-sm resize-none" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }} />
+                <p className="text-[10px] mt-1" style={{ color: "rgba(255,255,255,0.2)" }}>Injetado automaticamente em todos os agentes. Escreva uma vez, vale para sempre.</p>
               </div>
             </div>
 
