@@ -471,11 +471,11 @@ export default function ClientWorkspace() {
     if (!prompt) return;
     setAgentInstruction("");
     setIsadoraLoading(true);
-    setIsadoraError(null);
     const ESTIMATED = 28;
     const startedAt = Date.now();
     const supabaseUrl = (supabase as any).supabaseUrl ?? (supabase as any).storageUrl ?? "desconhecida";
-    setDesignerTask({ prompt: `[${supabaseUrl}] ${prompt}`, progress: 0, startedAt, estimatedSeconds: ESTIMATED });
+    setIsadoraError(`🔍 URL: ${supabaseUrl}`);
+    setDesignerTask({ prompt, progress: 0, startedAt, estimatedSeconds: ESTIMATED });
     if (designerIntervalRef.current) clearInterval(designerIntervalRef.current);
     designerIntervalRef.current = setInterval(() => {
       setDesignerTask((prev) => {
