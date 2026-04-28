@@ -316,6 +316,9 @@ export default function ClientWorkspace() {
   const [wpMessage, setWpMessage] = useState("");
   const [wpBlasting, setWpBlasting] = useState(false);
   const [wpBlastResult, setWpBlastResult] = useState<string | null>(null);
+  const [generatedImages, setGeneratedImages] = useState<Array<{id: string, imageData: string, mimeType: string, prompt: string, createdAt: string}>>([]);
+  const [isadoraLoading, setIsadoraLoading] = useState(false);
+  const [designAspectRatio, setDesignAspectRatio] = useState<"1:1" | "9:16" | "16:9">("1:1");
 
   const client = CLIENTS.find((c) => c.id === id);
 
@@ -446,6 +449,32 @@ export default function ClientWorkspace() {
     if (agentFileUrl) URL.revokeObjectURL(agentFileUrl);
     setAgentFile(null); setAgentFileUrl(null); setAgentFileText(null);
     if (agentFileRef.current) agentFileRef.current.value = "";
+  };
+
+  const handleSendToDesigner = async () => {
+    if (!agentInstruction.trim()) return;
+    setIsadoraLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-image", {
+        body: { prompt: agentInstruction, aspectRatio: designAspectRatio },
+      });
+      if (error || !data?.imageData) throw new Error(error?.message ?? "Falha ao gerar imagem");
+      setGeneratedImages((prev) => [
+        {
+          id: Date.now().toString(),
+          imageData: data.imageData,
+          mimeType: data.mimeType ?? "image/png",
+          prompt: agentInstruction,
+          createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+        },
+        ...prev,
+      ]);
+      setAgentInstruction("");
+    } catch (err) {
+      console.error("Isadora error:", err);
+    } finally {
+      setIsadoraLoading(false);
+    }
   };
 
   const renderFilePreview = (file: File, url: string | null, text: string | null, accent: string) => (
@@ -2561,6 +2590,44 @@ export default function ClientWorkspace() {
                     </div>
                   )}
 
+                  {/* Designer generated images */}
+                  {viewedAgent.id === "designer" && generatedImages.length > 0 && (
+                    <div>
+                      <div className="flex items-center gap-2 mb-3">
+                        <div className="text-[10px] uppercase tracking-widest font-semibold"
+                          style={{ color: "rgba(255,255,255,0.3)" }}>Peças geradas</div>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold"
+                          style={{ background: `${viewedAgent.color}15`, color: viewedAgent.color }}>
+                          {generatedImages.length}
+                        </span>
+                      </div>
+                      <div className="space-y-2">
+                        {generatedImages.map((img) => (
+                          <div key={img.id} className="rounded-xl overflow-hidden"
+                            style={{ border: `1px solid ${viewedAgent.color}25`, background: "rgba(255,255,255,0.02)" }}>
+                            <img
+                              src={`data:${img.mimeType};base64,${img.imageData}`}
+                              alt={img.prompt}
+                              className="w-full object-cover rounded-t-xl"
+                              style={{ maxHeight: 280 }}
+                            />
+                            <div className="px-3 py-2 flex items-center justify-between gap-2">
+                              <p className="text-[10px] truncate flex-1" style={{ color: "rgba(255,255,255,0.4)" }}>{img.prompt}</p>
+                              <span className="text-[10px] flex-shrink-0" style={{ color: "rgba(255,255,255,0.25)" }}>{img.createdAt}</span>
+                              <a
+                                href={`data:${img.mimeType};base64,${img.imageData}`}
+                                download={`isadora-${img.id}.png`}
+                                className="text-[10px] font-bold px-2 py-0.5 rounded-lg flex-shrink-0"
+                                style={{ background: `${viewedAgent.color}20`, color: viewedAgent.color }}>
+                                Baixar
+                              </a>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Generated outputs */}
                   {vOutputs.length > 0 && (
                     <div>
@@ -2629,10 +2696,28 @@ export default function ClientWorkspace() {
                     <input ref={agentFileRef} type="file"
                       accept=".pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg,.csv,.xlsx"
                       className="hidden" onChange={handleAgentFileChange} />
+                    {viewedAgent.id === "designer" && (
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.3)" }}>Formato</span>
+                        {(["1:1", "9:16", "16:9"] as const).map((ratio) => (
+                          <button
+                            key={ratio}
+                            onClick={() => setDesignAspectRatio(ratio)}
+                            className="px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all"
+                            style={{
+                              background: designAspectRatio === ratio ? `${viewedAgent.color}20` : "rgba(255,255,255,0.05)",
+                              border: `1px solid ${designAspectRatio === ratio ? `${viewedAgent.color}50` : "rgba(255,255,255,0.1)"}`,
+                              color: designAspectRatio === ratio ? viewedAgent.color : "rgba(255,255,255,0.4)",
+                            }}>
+                            {ratio}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     <textarea
                       value={agentInstruction}
                       onChange={(e) => setAgentInstruction(e.target.value)}
-                      placeholder={`O que você quer que ${viewedAgent.name} faça?`}
+                      placeholder={viewedAgent.id === "designer" ? "Descreva a peça visual que a Isadora deve criar..." : `O que você quer que ${viewedAgent.name} faça?`}
                       rows={3}
                       className="w-full rounded-xl px-4 py-3 text-sm resize-none"
                       style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${viewedAgent.color}25`, color: "#F0F0F0", outline: "none" }}
@@ -2661,11 +2746,21 @@ export default function ClientWorkspace() {
                       )}
                       <div className="flex-1" />
                       <button
-                        onClick={() => { setAgentInstruction(""); clearAgentFile(); setViewingAgentId(null); }}
-                        disabled={!agentInstruction.trim() && !agentFile}
+                        onClick={() => {
+                          if (viewedAgent.id === "designer") {
+                            handleSendToDesigner();
+                          } else {
+                            setAgentInstruction(""); clearAgentFile(); setViewingAgentId(null);
+                          }
+                        }}
+                        disabled={(!agentInstruction.trim() && !agentFile) || isadoraLoading}
                         className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40"
                         style={{ background: viewedAgent.color, color: "#07080A", boxShadow: (agentInstruction || agentFile) ? `0 0 20px -4px ${viewedAgent.color}70` : "none" }}>
-                        <Send className="w-3.5 h-3.5" /> Enviar para {viewedAgent.name}
+                        {isadoraLoading && viewedAgent.id === "designer" ? (
+                          <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Gerando...</>
+                        ) : (
+                          <><Send className="w-3.5 h-3.5" /> Enviar para {viewedAgent.name}</>
+                        )}
                       </button>
                     </div>
                   </div>
