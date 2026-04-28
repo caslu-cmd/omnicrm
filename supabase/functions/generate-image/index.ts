@@ -189,9 +189,19 @@ function bestAspectRatio(description: string): string {
   if (d.includes("stories") || d.includes("reels") || d.includes("tiktok") || d.includes("vertical")) return "9:16";
   if (d.includes("banner") || d.includes("capa") || d.includes("youtube") || d.includes("cover")) return "16:9";
   if (d.includes("slide") || d.includes("apresentação") || d.includes("presentation")) return "4:3";
+  if (d.includes("feed") || d.includes("4:5") || d.includes("1080×1350") || d.includes("1080x1350")) return "3:4";
   if (d.includes("retrato") || d.includes("portrait") || d.includes("pinterest")) return "3:4";
   if (d.includes("quadrado") || d.includes("square") || d.includes("1:1")) return "1:1";
-  return "4:5";
+  return "3:4";
+}
+
+function normalizeAspectRatio(aspectRatio: string, prompt: string): string {
+  const requested = String(aspectRatio || "").trim();
+  const supported = new Set(["1:1", "9:16", "16:9", "4:3", "3:4"]);
+  if (!requested || requested === "auto") return bestAspectRatio(prompt);
+  if (supported.has(requested)) return requested;
+  if (requested === "4:5") return "3:4";
+  return bestAspectRatio(`${prompt} ${requested}`);
 }
 
 async function generateImage(
@@ -204,15 +214,14 @@ async function generateImage(
   carolinaStrategy = "",
 ) {
   const ctx = clientContext ?? {};
-  const ratio = (!aspectRatio || aspectRatio === "auto") ? bestAspectRatio(prompt) : aspectRatio;
+  const ratio = normalizeAspectRatio(aspectRatio, prompt);
 
   const platformHint: Record<string, string> = {
-    "4:5":  "Instagram feed portrait — 1080×1350px (máximo engajamento)",
+    "3:4":  "Instagram feed portrait/Pinterest — 1080×1440px",
     "1:1":  "Instagram/LinkedIn feed square — 1080×1080px",
     "9:16": "Stories/Reels/TikTok — 1080×1920px",
     "16:9": "YouTube/banner — 1920×1080px",
     "4:3":  "Slide/Facebook — 1080×810px",
-    "3:4":  "Pinterest/portrait — 1080×1440px",
   };
 
   // ── Visual Strategist: Claude Sonnet lê o trabalho completo do time ──
