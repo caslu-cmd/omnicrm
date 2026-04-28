@@ -70,12 +70,11 @@ Skills: copy de alta conversão, storytelling de marca, roteiros para vídeo/ree
 **isadora — Senior Art Director & Designer**
 Skills: identidade visual, composição editorial, hierarquia visual, paleta de cores, peças para feed/stories/reels/banners/thumbnails, espaço limpo para tipografia, lighting, mood board, criação de assets de campanha premium
 Dimensões exatas por plataforma (SEMPRE especifique no briefing para Isadora):
-- 3:4 → Instagram feed portrait — 1080×1440px — PADRÃO PARA FEED no gerador de imagem
+- 3:4 → Instagram feed portrait — 1080×1440px — PADRÃO PARA FEED (melhor alcance)
 - 1:1 → Instagram/LinkedIn feed square — 1080×1080px
 - 9:16 → Instagram Stories, Reels, TikTok — 1080×1920px
 - 16:9 → YouTube thumbnail, capa de Facebook, banner — 1920×1080px
 - 4:3 → slide de apresentação, post Facebook — 1080×810px
-- 3:4 → Pinterest, retrato, print — 1080×1440px
 Isadora é opinativa: se o briefing não especificar plataforma, ela decide o formato ideal e justifica.
 Isadora NÃO responde em texto — ela entrega a imagem diretamente.
 
@@ -183,48 +182,47 @@ Regras:
   }
 }
 
-// ─── ISADORA: Visual Strategist (Sonnet) + Imagen 4 ──────────────────────────
+// ─── ISADORA: Visual Strategist (Sonnet) + Imagen 4 Fast ─────────────────────
+const SUPPORTED_RATIOS = new Set(["1:1", "3:4", "4:3", "9:16", "16:9"]);
+
+function normalizeRatio(aspectRatio: string, prompt: string): string {
+  const r = String(aspectRatio || "").trim();
+  if (!r || r === "auto") return bestAspectRatio(prompt);
+  if (SUPPORTED_RATIOS.has(r)) return r;
+  if (r === "4:5") return "3:4";
+  return "3:4";
+}
+
 function bestAspectRatio(description: string): string {
   const d = description.toLowerCase();
   if (d.includes("stories") || d.includes("reels") || d.includes("tiktok") || d.includes("vertical")) return "9:16";
   if (d.includes("banner") || d.includes("capa") || d.includes("youtube") || d.includes("cover")) return "16:9";
   if (d.includes("slide") || d.includes("apresentação") || d.includes("presentation")) return "4:3";
-  if (d.includes("feed") || d.includes("4:5") || d.includes("1080×1350") || d.includes("1080x1350")) return "3:4";
-  if (d.includes("retrato") || d.includes("portrait") || d.includes("pinterest")) return "3:4";
   if (d.includes("quadrado") || d.includes("square") || d.includes("1:1")) return "1:1";
   return "3:4";
-}
-
-function normalizeAspectRatio(aspectRatio: string, prompt: string): string {
-  const requested = String(aspectRatio || "").trim();
-  const supported = new Set(["1:1", "9:16", "16:9", "4:3", "3:4"]);
-  if (!requested || requested === "auto") return bestAspectRatio(prompt);
-  if (supported.has(requested)) return requested;
-  if (requested === "4:5") return "3:4";
-  return bestAspectRatio(`${prompt} ${requested}`);
 }
 
 async function generateImage(
   prompt: string,
   aspectRatio: string,
   clientContext: Record<string, unknown>,
-  lovableKey: string,
+  googleKey: string,
   anthropicKey: string,
   beatrizCopy = "",
   carolinaStrategy = "",
 ) {
   const ctx = clientContext ?? {};
-  const ratio = normalizeAspectRatio(aspectRatio, prompt);
+  const ratio = normalizeRatio(aspectRatio, prompt);
 
   const platformHint: Record<string, string> = {
-    "3:4":  "Instagram feed portrait/Pinterest — 1080×1440px",
+    "3:4":  "Instagram feed portrait — 1080×1440px (melhor engajamento)",
     "1:1":  "Instagram/LinkedIn feed square — 1080×1080px",
     "9:16": "Stories/Reels/TikTok — 1080×1920px",
     "16:9": "YouTube/banner — 1920×1080px",
     "4:3":  "Slide/Facebook — 1080×810px",
   };
 
-  // ── Visual Strategist: Claude Sonnet lê o trabalho completo do time ──
+  // ── Visual Strategist: Claude Sonnet sintetiza o contexto completo do time ──
   const teamContext = [
     beatrizCopy      ? `COPY DA BEATRIZ (copywriter sênior):\n${beatrizCopy.slice(0, 800)}` : "",
     carolinaStrategy ? `ESTRATÉGIA DA CAROLINA (brand strategist):\n${carolinaStrategy.slice(0, 600)}` : "",
@@ -263,9 +261,9 @@ As Senior Art Director, synthesize the full team context and decide internally:
    education → bright, open space, curious faces, books/screens
    events → crowd energy, storytelling, emotion, vibrant colors
    motivation → dramatic landscape, human triumph, epic scale
-4. COMPOSITION — exact placement: hero subject position, clean negative space for text overlay (bottom 40% or left third), shallow bokeh vs sharp environment
+4. COMPOSITION — hero subject position, clean negative space for text overlay (bottom 40% or left third), depth of field
 5. LIGHTING — one choice: soft studio diffused / golden hour warm / cool clinical natural / dramatic side rim / neon ambient glow
-6. BRAND COLOR ACCENT — ${ctx.brandColor ?? "brand color"} appears subtly as: neon sign, fabric detail, object, light leak, or environmental element — never dominant
+6. BRAND COLOR ACCENT — ${ctx.brandColor ?? "brand color"} appears subtly as: neon sign, fabric detail, object, light leak — never dominant
 7. PHOTOGRAPHY STYLE — photorealistic editorial / lifestyle candid / cinematic dramatic / minimalist product
 
 Output ONLY the final Imagen prompt in one rich, detailed paragraph. End with: "no text, no logos, no watermarks, ultra high quality, 4K, sharp focus, award-winning editorial photography"`,
@@ -279,30 +277,28 @@ Output ONLY the final Imagen prompt in one rich, detailed paragraph. End with: "
     finalPrompt = claudeData.content?.[0]?.text?.trim() ?? prompt;
   }
 
-  // ── Lovable AI image gateway ──
-  const imgRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${lovableKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-3.1-flash-image-preview",
-      messages: [{ role: "user", content: `${finalPrompt}\n\nCreate the image in ${ratio} aspect ratio.` }],
-      modalities: ["image", "text"],
-    }),
-  });
+  // ── Imagen 4 Fast ──
+  const imgRes = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-fast-generate-001:predict?key=${googleKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        instances: [{ prompt: finalPrompt }],
+        parameters: { sampleCount: 1, aspectRatio: ratio },
+      }),
+    }
+  );
 
-  if (!imgRes.ok) throw new Error(`Lovable AI image error: ${await imgRes.text()}`);
+  if (!imgRes.ok) throw new Error(`Imagen API error: ${await imgRes.text()}`);
 
   const imgData = await imgRes.json();
-  const imageUrl = imgData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-  if (!imageUrl) throw new Error("Imagem não gerada");
-  const dataUrlMatch = String(imageUrl).match(/^data:(.+?);base64,(.*)$/);
+  const prediction = imgData.predictions?.[0];
+  if (!prediction?.bytesBase64Encoded) throw new Error("Imagem não gerada");
 
   return {
-    imageData: dataUrlMatch?.[2] ?? imageUrl,
-    mimeType: dataUrlMatch?.[1] ?? "image/png",
+    imageData: prediction.bytesBase64Encoded,
+    mimeType: prediction.mimeType ?? "image/png",
     enhancedPrompt: finalPrompt,
     aspectRatio: ratio,
   };
@@ -315,35 +311,31 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
 
-    // ── Mode: Aria orchestration ──
     if (body.mode === "orchestrate") {
       const { demand, clientContext, siteUrl } = body;
       if (!demand) return new Response(JSON.stringify({ error: "demand is required" }), {
         status: 400, headers: { ...cors, "Content-Type": "application/json" },
       });
-
       const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
       if (!anthropicKey) return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }), {
         status: 500, headers: { ...cors, "Content-Type": "application/json" },
       });
-
       const result = await orchestrate(demand, clientContext ?? {}, anthropicKey, siteUrl);
       return new Response(JSON.stringify(result), { headers: { ...cors, "Content-Type": "application/json" } });
     }
 
-    // ── Mode: Isadora image generation ──
     const { prompt, aspectRatio = "3:4", clientContext, beatrizCopy = "", carolinaStrategy = "" } = body;
     if (!prompt) return new Response(JSON.stringify({ error: "prompt is required" }), {
       status: 400, headers: { ...cors, "Content-Type": "application/json" },
     });
 
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!lovableKey) return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
+    const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
+    if (!googleKey) return new Response(JSON.stringify({ error: "GOOGLE_AI_API_KEY not configured" }), {
       status: 500, headers: { ...cors, "Content-Type": "application/json" },
     });
 
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
-    const result = await generateImage(prompt, aspectRatio, clientContext ?? {}, lovableKey, anthropicKey, beatrizCopy, carolinaStrategy);
+    const result = await generateImage(prompt, aspectRatio, clientContext ?? {}, googleKey, anthropicKey, beatrizCopy, carolinaStrategy);
     return new Response(JSON.stringify(result), { headers: { ...cors, "Content-Type": "application/json" } });
 
   } catch (error) {
