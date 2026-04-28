@@ -496,13 +496,10 @@ export default function ClientWorkspace() {
     };
 
     try {
-      const res = await fetch(`${ARIA_BASE}/generate-image`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${ARIA_ANON}` },
-        body: JSON.stringify({ mode: "orchestrate", demand, clientContext, siteUrl: siteUrl.trim() || undefined }),
+      const { data: parsed, error } = await supabase.functions.invoke("generate-image", {
+        body: { mode: "orchestrate", demand, clientContext, siteUrl: siteUrl.trim() || undefined },
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const parsed = await res.json();
+      if (error) throw error;
 
       const msgTs = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
       const newMsgs: AgentMsg[] = (parsed.messages ?? []).map((m: any) => ({
@@ -521,12 +518,10 @@ export default function ClientWorkspace() {
       for (const msg of newMsgs) {
         if (msg.action === "generate_image" && msg.to === "isadora") {
           try {
-            const imgRes = await fetch(`${ARIA_BASE}/generate-image`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${ARIA_ANON}` },
-              body: JSON.stringify({ prompt: msg.content, aspectRatio: msg.imageParams?.aspectRatio ?? "4:5", clientContext, beatrizCopy, carolinaStrategy }),
+            const { data: imgData, error: imgError } = await supabase.functions.invoke("generate-image", {
+              body: { prompt: msg.content, aspectRatio: normalizeImageAspectRatio(msg.imageParams?.aspectRatio), clientContext, beatrizCopy, carolinaStrategy },
             });
-            const imgData = await imgRes.json();
+            if (imgError) throw imgError;
             if (imgData.imageData) {
               const blob = new Blob([Uint8Array.from(atob(imgData.imageData), (c) => c.charCodeAt(0))], { type: imgData.mimeType ?? "image/png" });
               const blobUrl = URL.createObjectURL(blob);
