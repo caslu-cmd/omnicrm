@@ -1,17 +1,16 @@
 import { useRef, useEffect, useState, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Download, X, Layers } from "lucide-react";
+import { motion } from "framer-motion";
+import { Download, X, Layers, PackageCheck } from "lucide-react";
 
 const LIME = "#B9FF4B";
 
 type Template = "overlay" | "split" | "card";
-type Ratio = "4:5" | "1:1" | "9:16" | "16:9" | "4:3" | "3:4";
+type Ratio = "3:4" | "9:16" | "1:1" | "16:9" | "4:3";
 
 interface PostCanvasProps {
   imageUrl: string;
   brandColor: string;
   clientName?: string;
-  aspectRatio?: string;
   initialHeadline?: string;
   initialBody?: string;
   initialCta?: string;
@@ -19,27 +18,34 @@ interface PostCanvasProps {
 }
 
 const CANVAS_SIZES: Record<Ratio, [number, number]> = {
-  "4:5":  [1080, 1350],
-  "1:1":  [1080, 1080],
-  "9:16": [1080, 1920],
-  "16:9": [1920, 1080],
-  "4:3":  [1080, 810],
   "3:4":  [1080, 1440],
+  "9:16": [1080, 1920],
+  "1:1":  [1080, 1080],
+  "16:9": [1920, 1080],
+  "4:3":  [1080,  810],
 };
+
+const FORMATS: { ratio: Ratio; label: string; platform: string }[] = [
+  { ratio: "3:4",  label: "Feed Portrait",  platform: "Instagram Feed" },
+  { ratio: "9:16", label: "Stories / Reels", platform: "Instagram · TikTok" },
+  { ratio: "1:1",  label: "Feed Square",    platform: "Instagram · LinkedIn" },
+  { ratio: "16:9", label: "Landscape",      platform: "YouTube · Banner" },
+];
+
+function previewSize(ratio: Ratio): { w: number; h: number } {
+  const [cW, cH] = CANVAS_SIZES[ratio];
+  const maxH = 200, maxW = 240;
+  const s = Math.min(maxH / cH, maxW / cW);
+  return { w: Math.round(cW * s), h: Math.round(cH * s) };
+}
 
 function wrapText(
   ctx: CanvasRenderingContext2D,
-  text: string,
-  x: number,
-  y: number,
-  maxWidth: number,
-  lineHeight: number,
-  maxLines = 4,
+  text: string, x: number, y: number,
+  maxWidth: number, lineHeight: number, maxLines = 4,
 ): number {
   const words = text.split(" ");
-  let line = "";
-  let currentY = y;
-  let lineCount = 0;
+  let line = "", currentY = y, lineCount = 0;
   for (const word of words) {
     if (lineCount >= maxLines) break;
     const test = line + word + " ";
@@ -48,9 +54,7 @@ function wrapText(
       line = word + " ";
       currentY += lineHeight;
       lineCount++;
-    } else {
-      line = test;
-    }
+    } else { line = test; }
   }
   if (line.trim() && lineCount < maxLines) {
     ctx.fillText(line.trim(), x, currentY);
@@ -59,10 +63,7 @@ function wrapText(
   return currentY;
 }
 
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number, y: number, w: number, h: number, r: number,
-) {
+function roundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
   ctx.lineTo(x + w - r, y);
@@ -77,108 +78,92 @@ function roundRect(
   ctx.fill();
 }
 
-function hexToRgb(hex: string): [number, number, number] {
+function isLight(hex: string): boolean {
   const r = parseInt(hex.slice(1, 3), 16);
   const g = parseInt(hex.slice(3, 5), 16);
   const b = parseInt(hex.slice(5, 7), 16);
-  return [r, g, b];
-}
-
-function isLight(hex: string): boolean {
-  const [r, g, b] = hexToRgb(hex);
   return (r * 299 + g * 587 + b * 114) / 1000 > 140;
 }
 
 export default function PostCanvas({
-  imageUrl, brandColor, clientName, aspectRatio = "1:1",
-  initialHeadline = "Headline do post", initialBody = "Texto secundário aqui",
+  imageUrl, brandColor, clientName,
+  initialHeadline = "Headline do post",
+  initialBody = "Texto secundário aqui",
   initialCta = "Saiba mais →",
   onClose,
 }: PostCanvasProps) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
   const [template, setTemplate] = useState<Template>("overlay");
   const [headline, setHeadline] = useState(initialHeadline);
   const [body, setBody] = useState(initialBody);
   const [cta, setCta] = useState(initialCta);
   const [rendering, setRendering] = useState(false);
-
-  const ratio = (Object.keys(CANVAS_SIZES).includes(aspectRatio) ? aspectRatio : "4:5") as Ratio;
-  const [cW, cH] = CANVAS_SIZES[ratio];
-
-  const maxW = 420;
-  const maxH = 620;
-  const scale = Math.min(maxW / cW, maxH / cH);
-  const displayW = Math.round(cW * scale);
-  const displayH = Math.round(cH * scale);
+  const [loadedImg, setLoadedImg] = useState<HTMLImageElement | null>(null);
 
   const ctaTextColor = isLight(brandColor) ? "#000000" : "#FFFFFF";
 
-  const draw = useCallback(async () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-
-    canvas.width = cW;
-    canvas.height = cH;
-    setRendering(true);
-
+  // Pre-load image once
+  useEffect(() => {
     const img = new Image();
     img.crossOrigin = "anonymous";
-    await new Promise<void>((res) => {
-      img.onload = () => res();
-      img.onerror = () => res();
-      img.src = imageUrl;
-    });
+    img.onload = () => setLoadedImg(img);
+    img.onerror = () => setLoadedImg(null);
+    img.src = imageUrl;
+  }, [imageUrl]);
+
+  const drawToCanvas = useCallback((canvas: HTMLCanvasElement, cW: number, cH: number, img: HTMLImageElement | null) => {
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    canvas.width = cW;
+    canvas.height = cH;
 
     const pad = Math.round(cW * 0.074);
     const headlineSize = Math.round(cW * 0.062);
     const bodySize = Math.round(cW * 0.034);
     const ctaSize = Math.round(cW * 0.03);
 
-    // ── TEMPLATE: OVERLAY ────────────────────────────────────────
-    if (template === "overlay") {
-      // Background image full bleed
-      if (img.width) {
-        const scale = Math.max(cW / img.width, cH / img.height);
-        const sw = img.width * scale;
-        const sh = img.height * scale;
-        ctx.drawImage(img, (cW - sw) / 2, (cH - sh) / 2, sw, sh);
-      } else {
+    const drawImg = (clipX = 0, clipY = 0, clipW = cW, clipH = cH) => {
+      if (!img?.width) {
         ctx.fillStyle = "#1a1a2e";
-        ctx.fillRect(0, 0, cW, cH);
+        ctx.fillRect(clipX, clipY, clipW, clipH);
+        return;
       }
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(clipX, clipY, clipW, clipH);
+      ctx.clip();
+      const sc = Math.max(clipW / img.width, clipH / img.height);
+      ctx.drawImage(img,
+        clipX + (clipW - img.width * sc) / 2,
+        clipY + (clipH - img.height * sc) / 2,
+        img.width * sc, img.height * sc,
+      );
+      ctx.restore();
+    };
 
-      // Dark gradient overlay — bottom 55%
+    if (template === "overlay") {
+      drawImg();
       const grad = ctx.createLinearGradient(0, cH * 0.38, 0, cH);
       grad.addColorStop(0, "rgba(0,0,0,0)");
       grad.addColorStop(0.45, "rgba(0,0,0,0.72)");
       grad.addColorStop(1, "rgba(0,0,0,0.94)");
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, cW, cH);
-
-      // Brand accent bar top
       ctx.fillStyle = brandColor;
       ctx.fillRect(0, 0, cW, Math.round(cH * 0.007));
 
-      // Headline
       ctx.fillStyle = "#FFFFFF";
       ctx.font = `700 ${headlineSize}px Inter, sans-serif`;
       ctx.textBaseline = "top";
-      let y = wrapText(ctx, headline, pad, cH * 0.6, cW - pad * 2, headlineSize * 1.25, 3);
-
-      // Body
+      let y = wrapText(ctx, headline, pad, cH * 0.58, cW - pad * 2, headlineSize * 1.25, 3);
       y += headlineSize * 0.4;
       ctx.fillStyle = "rgba(255,255,255,0.7)";
       ctx.font = `400 ${bodySize}px Inter, sans-serif`;
       y = wrapText(ctx, body, pad, y, cW - pad * 2, bodySize * 1.5, 3);
-
-      // CTA pill
       if (cta.trim()) {
         const bW = Math.round(ctx.measureText(cta).width + cW * 0.1);
         const bH = Math.round(cH * 0.072);
-        const bX = pad;
-        const bY = Math.round(cH - bH - cH * 0.06);
+        const bX = pad, bY = Math.round(cH - bH - cH * 0.06);
         ctx.fillStyle = brandColor;
         roundRect(ctx, bX, bY, bW, bH, bH / 2);
         ctx.fillStyle = ctaTextColor;
@@ -188,35 +173,21 @@ export default function PostCanvas({
       }
     }
 
-    // ── TEMPLATE: SPLIT ──────────────────────────────────────────
     else if (template === "split") {
       ctx.fillStyle = "#07080A";
       ctx.fillRect(0, 0, cW, cH);
-
       const isPortrait = cH > cW;
 
       if (!isPortrait) {
-        // Landscape: image fills right half
-        if (img.width) {
-          const half = cW / 2;
-          ctx.save();
-          ctx.beginPath();
-          ctx.rect(half, 0, half, cH);
-          ctx.clip();
-          const sc = Math.max(half / img.width, cH / img.height);
-          ctx.drawImage(img, half + (half - img.width * sc) / 2, (cH - img.height * sc) / 2, img.width * sc, img.height * sc);
-          ctx.restore();
-          // Fade edge
-          const fade = ctx.createLinearGradient(half, 0, half + cW * 0.18, 0);
-          fade.addColorStop(0, "#07080A");
-          fade.addColorStop(1, "rgba(7,8,10,0)");
-          ctx.fillStyle = fade;
-          ctx.fillRect(half, 0, cW * 0.2, cH);
-        }
-        // Brand accent left bar
+        const half = cW / 2;
+        drawImg(half, 0, half, cH);
+        const fade = ctx.createLinearGradient(half, 0, half + cW * 0.18, 0);
+        fade.addColorStop(0, "#07080A");
+        fade.addColorStop(1, "rgba(7,8,10,0)");
+        ctx.fillStyle = fade;
+        ctx.fillRect(half, 0, cW * 0.2, cH);
         ctx.fillStyle = brandColor;
         ctx.fillRect(0, 0, Math.round(cW * 0.007), cH);
-        // Text
         ctx.fillStyle = "#FFFFFF";
         ctx.font = `700 ${headlineSize}px Inter, sans-serif`;
         ctx.textBaseline = "top";
@@ -228,8 +199,7 @@ export default function PostCanvas({
         if (cta.trim()) {
           const bW = Math.round(ctx.measureText(cta).width + cW * 0.07);
           const bH = Math.round(cH * 0.072);
-          const bX = Math.round(pad * 1.5);
-          const bY = Math.round(y + headlineSize * 0.7);
+          const bX = Math.round(pad * 1.5), bY = Math.round(y + headlineSize * 0.7);
           ctx.fillStyle = brandColor;
           roundRect(ctx, bX, bY, bW, bH, bH / 2);
           ctx.fillStyle = ctaTextColor;
@@ -238,27 +208,15 @@ export default function PostCanvas({
           ctx.fillText(cta, bX + bH * 0.5, bY + bH / 2);
         }
       } else {
-        // Portrait: image top 52%
         const imgZone = Math.round(cH * 0.52);
-        if (img.width) {
-          ctx.save();
-          ctx.beginPath();
-          ctx.rect(0, 0, cW, imgZone);
-          ctx.clip();
-          const sc = Math.max(cW / img.width, imgZone / img.height);
-          ctx.drawImage(img, (cW - img.width * sc) / 2, (imgZone - img.height * sc) / 2, img.width * sc, img.height * sc);
-          ctx.restore();
-        }
-        // Fade bottom of image
+        drawImg(0, 0, cW, imgZone);
         const fade = ctx.createLinearGradient(0, imgZone - cH * 0.1, 0, imgZone + cH * 0.02);
         fade.addColorStop(0, "rgba(7,8,10,0)");
         fade.addColorStop(1, "#07080A");
         ctx.fillStyle = fade;
         ctx.fillRect(0, imgZone - cH * 0.1, cW, cH * 0.12);
-        // Brand stripe
         ctx.fillStyle = brandColor;
         ctx.fillRect(0, imgZone, cW, Math.round(cH * 0.006));
-        // Text
         ctx.fillStyle = "#FFFFFF";
         ctx.font = `700 ${headlineSize * 1.1}px Inter, sans-serif`;
         ctx.textBaseline = "top";
@@ -270,8 +228,7 @@ export default function PostCanvas({
         if (cta.trim()) {
           const bW = Math.round(ctx.measureText(cta).width + cW * 0.1);
           const bH = Math.round(cH * 0.068);
-          const bX = pad;
-          const bY = Math.round(cH - bH - cH * 0.05);
+          const bX = pad, bY = Math.round(cH - bH - cH * 0.05);
           ctx.fillStyle = brandColor;
           roundRect(ctx, bX, bY, bW, bH, bH / 2);
           ctx.fillStyle = ctaTextColor;
@@ -282,38 +239,20 @@ export default function PostCanvas({
       }
     }
 
-    // ── TEMPLATE: CARD ───────────────────────────────────────────
     else if (template === "card") {
-      // White background
       ctx.fillStyle = "#FFFFFF";
       ctx.fillRect(0, 0, cW, cH);
-
-      // Brand color header
       const headerH = Math.round(cH * 0.055);
       ctx.fillStyle = brandColor;
       ctx.fillRect(0, 0, cW, headerH);
-
-      // Image zone
-      const imgTop = headerH;
       const imgH = Math.round(cH * 0.48);
-      if (img.width) {
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(0, imgTop, cW, imgH);
-        ctx.clip();
-        const sc = Math.max(cW / img.width, imgH / img.height);
-        ctx.drawImage(img, (cW - img.width * sc) / 2, imgTop + (imgH - img.height * sc) / 2, img.width * sc, img.height * sc);
-        ctx.restore();
-      }
-      // Bottom shadow on image
-      const imgFade = ctx.createLinearGradient(0, imgTop + imgH - imgH * 0.22, 0, imgTop + imgH);
+      drawImg(0, headerH, cW, imgH);
+      const imgFade = ctx.createLinearGradient(0, headerH + imgH - imgH * 0.22, 0, headerH + imgH);
       imgFade.addColorStop(0, "rgba(255,255,255,0)");
       imgFade.addColorStop(1, "rgba(255,255,255,0.9)");
       ctx.fillStyle = imgFade;
-      ctx.fillRect(0, imgTop + imgH - imgH * 0.22, cW, imgH * 0.22);
-
-      // Text area
-      const textTop = imgTop + imgH + Math.round(cH * 0.025);
+      ctx.fillRect(0, headerH + imgH - imgH * 0.22, cW, imgH * 0.22);
+      const textTop = headerH + imgH + Math.round(cH * 0.025);
       ctx.fillStyle = "#0F1117";
       ctx.font = `700 ${headlineSize}px Inter, sans-serif`;
       ctx.textBaseline = "top";
@@ -322,13 +261,10 @@ export default function PostCanvas({
       ctx.fillStyle = "#555555";
       ctx.font = `400 ${bodySize}px Inter, sans-serif`;
       y = wrapText(ctx, body, pad, y, cW - pad * 2, bodySize * 1.55, 3);
-
-      // CTA
       if (cta.trim()) {
         const bW = Math.round(ctx.measureText(cta).width + cW * 0.08);
         const bH = Math.round(cH * 0.065);
-        const bX = pad;
-        const bY = Math.round(cH - bH - cH * 0.05);
+        const bX = pad, bY = Math.round(cH - bH - cH * 0.05);
         ctx.fillStyle = brandColor;
         roundRect(ctx, bX, bY, bW, bH, Math.round(bH * 0.22));
         ctx.fillStyle = ctaTextColor;
@@ -336,8 +272,6 @@ export default function PostCanvas({
         ctx.textBaseline = "middle";
         ctx.fillText(cta, bX + bH * 0.45, bY + bH / 2);
       }
-
-      // Client name watermark
       if (clientName) {
         ctx.fillStyle = "rgba(0,0,0,0.18)";
         ctx.font = `500 ${Math.round(cW * 0.022)}px Inter, sans-serif`;
@@ -347,25 +281,38 @@ export default function PostCanvas({
         ctx.textAlign = "left";
       }
     }
+  }, [headline, body, cta, brandColor, template, clientName, ctaTextColor]);
 
+  // Redraw all canvases whenever content or image changes
+  useEffect(() => {
+    if (loadedImg === undefined) return; // still loading
+    setRendering(true);
+    FORMATS.forEach((fmt, i) => {
+      const canvas = canvasRefs.current[i];
+      if (!canvas) return;
+      const [cW, cH] = CANVAS_SIZES[fmt.ratio];
+      drawToCanvas(canvas, cW, cH, loadedImg);
+    });
     setRendering(false);
-  }, [imageUrl, headline, body, cta, brandColor, template, cW, cH, clientName, ctaTextColor]);
+  }, [drawToCanvas, loadedImg]);
 
-  useEffect(() => { draw(); }, [draw]);
-
-  const download = () => {
-    const canvas = canvasRef.current;
+  const downloadFormat = (index: number) => {
+    const canvas = canvasRefs.current[index];
     if (!canvas) return;
+    const fmt = FORMATS[index];
+    const [cW, cH] = CANVAS_SIZES[fmt.ratio];
     const a = document.createElement("a");
-    a.download = `post-${template}-${ratio.replace(":", "x")}-${Date.now()}.png`;
+    a.download = `${fmt.ratio.replace(":", "x")}-${template}-${Date.now()}.png`;
     a.href = canvas.toDataURL("image/png");
     a.click();
   };
 
-  const TEMPLATES: { id: Template; label: string; hint: string }[] = [
-    { id: "overlay", label: "Overlay",  hint: "Imagem full + texto sobre" },
-    { id: "split",   label: "Split",    hint: "Imagem + área de texto" },
-    { id: "card",    label: "Card",     hint: "Layout editorial limpo" },
+  const downloadAll = () => FORMATS.forEach((_, i) => downloadFormat(i));
+
+  const TEMPLATES: { id: Template; label: string }[] = [
+    { id: "overlay", label: "Overlay" },
+    { id: "split",   label: "Split"   },
+    { id: "card",    label: "Card"    },
   ];
 
   return (
@@ -374,8 +321,8 @@ export default function PostCanvas({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       onClick={onClose}
-      className="fixed inset-0 z-50 flex items-center justify-center p-6"
-      style={{ background: "rgba(0,0,0,0.88)", backdropFilter: "blur(10px)" }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.92)", backdropFilter: "blur(12px)" }}
     >
       <motion.div
         initial={{ scale: 0.94, y: 16 }}
@@ -383,40 +330,22 @@ export default function PostCanvas({
         exit={{ scale: 0.94, y: 16 }}
         transition={{ duration: 0.25, ease: [0.2, 0.8, 0.2, 1] }}
         onClick={(e) => e.stopPropagation()}
-        className="flex gap-6 w-full"
-        style={{ maxWidth: 860, maxHeight: "90vh" }}
+        className="flex gap-5 w-full"
+        style={{ maxWidth: 1100, maxHeight: "92vh" }}
       >
-        {/* Preview canvas */}
-        <div className="flex-shrink-0 flex flex-col items-center gap-3">
-          <div className="relative rounded-xl overflow-hidden"
-            style={{ width: displayW, height: displayH, boxShadow: "0 20px 60px rgba(0,0,0,0.6)" }}>
-            <canvas
-              ref={canvasRef}
-              style={{ width: displayW, height: displayH, display: "block" }}
-            />
-            {rendering && (
-              <div className="absolute inset-0 flex items-center justify-center"
-                style={{ background: "rgba(0,0,0,0.5)" }}>
-                <div className="w-6 h-6 border-2 border-t-transparent rounded-full animate-spin"
-                  style={{ borderColor: `${LIME} transparent transparent transparent` }} />
-              </div>
-            )}
-          </div>
-          <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.2)" }}>
-            {cW} × {cH}px · {ratio} · {TEMPLATES.find(t => t.id === template)?.label}
-          </div>
-        </div>
-
-        {/* Controls */}
-        <div className="flex-1 flex flex-col gap-5 overflow-y-auto min-w-0">
+        {/* ── Left: controls ── */}
+        <div
+          className="flex flex-col gap-4 flex-shrink-0 overflow-y-auto"
+          style={{ width: 260, paddingRight: 4 }}
+        >
           {/* Header */}
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <Layers className="w-4 h-4" style={{ color: LIME }} />
-              <span className="text-sm font-bold" style={{ color: "#F0F0F0" }}>Compositor de Post</span>
+              <span className="text-sm font-bold" style={{ color: "#F0F0F0" }}>Compositor</span>
             </div>
             <button onClick={onClose}
-              className="w-7 h-7 rounded-lg flex items-center justify-center transition-colors"
+              className="w-7 h-7 rounded-lg flex items-center justify-center"
               style={{ background: "rgba(255,255,255,0.06)" }}
               onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(248,113,113,0.15)")}
               onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.06)")}>
@@ -428,17 +357,16 @@ export default function PostCanvas({
           <div>
             <div className="text-[10px] uppercase tracking-widest font-semibold mb-2"
               style={{ color: "rgba(255,255,255,0.3)" }}>Template</div>
-            <div className="flex gap-2">
+            <div className="flex gap-1.5">
               {TEMPLATES.map((t) => (
                 <button key={t.id} onClick={() => setTemplate(t.id)}
-                  className="flex-1 py-2 px-2 rounded-xl text-[11px] font-semibold transition-all"
+                  className="flex-1 py-2 rounded-xl text-[11px] font-semibold transition-all"
                   style={{
-                    background: template === t.id ? `${brandColor}18` : "rgba(255,255,255,0.04)",
-                    border: `1px solid ${template === t.id ? `${brandColor}50` : "rgba(255,255,255,0.08)"}`,
+                    background: template === t.id ? `${brandColor}20` : "rgba(255,255,255,0.04)",
+                    border: `1px solid ${template === t.id ? `${brandColor}60` : "rgba(255,255,255,0.08)"}`,
                     color: template === t.id ? brandColor : "rgba(255,255,255,0.4)",
                   }}>
                   {t.label}
-                  <div className="text-[9px] font-normal mt-0.5" style={{ color: "rgba(255,255,255,0.25)" }}>{t.hint}</div>
                 </button>
               ))}
             </div>
@@ -446,43 +374,111 @@ export default function PostCanvas({
 
           {/* Text fields */}
           {[
-            { label: "Headline",     value: headline, set: setHeadline, rows: 2, hint: "Título principal, impactante" },
-            { label: "Corpo",        value: body,     set: setBody,     rows: 3, hint: "Texto de apoio" },
-            { label: "CTA (botão)",  value: cta,      set: setCta,      rows: 1, hint: "Ex: Saiba mais →" },
+            { label: "Headline",    value: headline, set: setHeadline, rows: 2 },
+            { label: "Corpo",       value: body,     set: setBody,     rows: 3 },
+            { label: "CTA",         value: cta,      set: setCta,      rows: 1 },
           ].map((f) => (
             <div key={f.label}>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[10px] uppercase tracking-widest font-semibold"
-                  style={{ color: "rgba(255,255,255,0.3)" }}>{f.label}</span>
-                <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.15)" }}>{f.hint}</span>
-              </div>
+              <div className="text-[10px] uppercase tracking-widest font-semibold mb-1.5"
+                style={{ color: "rgba(255,255,255,0.3)" }}>{f.label}</div>
               <textarea
                 value={f.value}
                 onChange={(e) => f.set(e.target.value)}
-                onBlur={draw}
                 rows={f.rows}
-                className="w-full rounded-xl px-3 py-2.5 text-sm resize-none transition-colors"
+                className="w-full rounded-xl px-3 py-2.5 text-sm resize-none"
                 style={{
                   background: "rgba(255,255,255,0.04)",
                   border: "1px solid rgba(255,255,255,0.09)",
-                  color: "#F0F0F0",
-                  outline: "none",
+                  color: "#F0F0F0", outline: "none",
                 }}
                 onFocus={(e) => (e.target.style.borderColor = `${brandColor}50`)}
+                onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.09)")}
               />
             </div>
           ))}
 
-          {/* Download */}
+          {/* Download all */}
           <button
-            onClick={download}
+            onClick={downloadAll}
             className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold mt-auto transition-all"
-            style={{ background: LIME, color: "#07080A", boxShadow: "0 0 24px -4px rgba(185,255,75,0.4)" }}
+            style={{ background: LIME, color: "#07080A", boxShadow: "0 0 24px -4px rgba(185,255,75,0.35)" }}
             onMouseEnter={(e) => (e.currentTarget.style.transform = "scale(1.02)")}
             onMouseLeave={(e) => (e.currentTarget.style.transform = "scale(1)")}>
-            <Download className="w-4 h-4" />
-            Baixar PNG — {cW}×{cH}
+            <PackageCheck className="w-4 h-4" />
+            Baixar Todos (4 formatos)
           </button>
+        </div>
+
+        {/* ── Right: format grid ── */}
+        <div className="flex-1 overflow-y-auto">
+          <div className="grid grid-cols-2 gap-4" style={{ minHeight: "100%" }}>
+            {FORMATS.map((fmt, i) => {
+              const { w, h } = previewSize(fmt.ratio);
+              const [cW, cH] = CANVAS_SIZES[fmt.ratio];
+              return (
+                <div key={fmt.ratio}
+                  className="flex flex-col rounded-2xl overflow-hidden"
+                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+
+                  {/* Format label */}
+                  <div className="flex items-center justify-between px-4 py-2.5">
+                    <div>
+                      <div className="text-xs font-bold" style={{ color: "#F0F0F0" }}>{fmt.label}</div>
+                      <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>
+                        {fmt.platform} · {cW}×{cH}px
+                      </div>
+                    </div>
+                    <div className="text-[10px] font-mono px-2 py-0.5 rounded-md"
+                      style={{ background: `${brandColor}18`, color: brandColor }}>
+                      {fmt.ratio}
+                    </div>
+                  </div>
+
+                  {/* Canvas preview */}
+                  <div className="flex flex-col items-center justify-center py-3 px-3 gap-3"
+                    style={{ background: "rgba(0,0,0,0.3)", flex: 1 }}>
+                    <div className="relative rounded-lg overflow-hidden"
+                      style={{ width: w, height: h, boxShadow: "0 8px 30px rgba(0,0,0,0.5)" }}>
+                      <canvas
+                        ref={(el) => { canvasRefs.current[i] = el; }}
+                        style={{ width: w, height: h, display: "block" }}
+                      />
+                      {rendering && (
+                        <div className="absolute inset-0 flex items-center justify-center"
+                          style={{ background: "rgba(0,0,0,0.45)" }}>
+                          <div className="w-5 h-5 border-2 border-t-transparent rounded-full animate-spin"
+                            style={{ borderColor: `${LIME} transparent transparent transparent` }} />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Per-format download */}
+                    <button
+                      onClick={() => downloadFormat(i)}
+                      className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
+                      style={{
+                        background: "rgba(255,255,255,0.07)",
+                        border: "1px solid rgba(255,255,255,0.12)",
+                        color: "rgba(255,255,255,0.7)",
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = `${brandColor}20`;
+                        e.currentTarget.style.borderColor = `${brandColor}50`;
+                        e.currentTarget.style.color = brandColor;
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "rgba(255,255,255,0.07)";
+                        e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
+                        e.currentTarget.style.color = "rgba(255,255,255,0.7)";
+                      }}>
+                      <Download className="w-3 h-3" />
+                      Baixar {cW}×{cH}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </motion.div>
     </motion.div>

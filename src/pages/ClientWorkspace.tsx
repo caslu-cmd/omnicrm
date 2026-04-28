@@ -408,7 +408,7 @@ export default function ClientWorkspace() {
   const [agentConversations, setAgentConversations] = useState<AgentMsg[]>(() => {
     try { return JSON.parse(localStorage.getItem(`agent-conv-${id}`) ?? "[]"); } catch { return []; }
   });
-  const [postCanvas, setPostCanvas] = useState<{ imageUrl: string; aspectRatio: string; headline?: string; body?: string; cta?: string } | null>(null);
+  const [postCanvas, setPostCanvas] = useState<{ imageUrl: string; headline?: string; body?: string; cta?: string } | null>(null);
   const [siteUrl, setSiteUrl] = useState("");
   const [showSiteInput, setShowSiteInput] = useState(false);
   const [showEditClient, setShowEditClient] = useState(false);
@@ -1587,7 +1587,6 @@ export default function ClientWorkspace() {
                                         const { headline, body, cta } = parseBeatrizCopy(beatrizMsg?.content ?? "");
                                         setPostCanvas({
                                           imageUrl: msg.imageUrl!,
-                                          aspectRatio: msg.imageParams?.aspectRatio ?? "1:1",
                                           headline,
                                           body,
                                           cta,
@@ -3221,7 +3220,6 @@ export default function ClientWorkspace() {
         {postCanvas && (
           <PostCanvas
             imageUrl={postCanvas.imageUrl}
-            aspectRatio={postCanvas.aspectRatio}
             brandColor={client.color}
             clientName={client.name}
             initialHeadline={postCanvas.headline}
