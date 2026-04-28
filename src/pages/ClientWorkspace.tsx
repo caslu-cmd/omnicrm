@@ -317,8 +317,11 @@ const AGENT_META: Record<string, { initial: string; color: string; name: string 
   user:     { initial: "V", color: "#94A3B8", name: "Você" },
 };
 
-const ARIA_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByb2xkZ2l5dGVycWh0aGx1ZGxwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNzQ4NjEsImV4cCI6MjA5Mjg1MDg2MX0.v8xcDbEbbyxv671SYhsWYHs9bbp9J-Q937SknjUiBIE";
-const ARIA_BASE = "https://proldgiyterqhthludlp.supabase.co/functions/v1";
+const normalizeImageAspectRatio = (ratio?: string) => {
+  const supported = new Set(["1:1", "9:16", "16:9", "4:3", "3:4"]);
+  if (!ratio || ratio === "4:5") return "3:4";
+  return supported.has(ratio) ? ratio : "3:4";
+};
 
 function parseBeatrizCopy(text: string): { headline: string; body: string; cta: string } {
   const clean = text.replace(/\*\*/g, "").replace(/^#+\s*/gm, "");
@@ -493,13 +496,10 @@ export default function ClientWorkspace() {
     };
 
     try {
-      const res = await fetch(`${ARIA_BASE}/generate-image`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${ARIA_ANON}` },
-        body: JSON.stringify({ mode: "orchestrate", demand, clientContext, siteUrl: siteUrl.trim() || undefined }),
+      const { data: parsed, error } = await supabase.functions.invoke("generate-image", {
+        body: { mode: "orchestrate", demand, clientContext, siteUrl: siteUrl.trim() || undefined },
       });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const parsed = await res.json();
+      if (error) throw error;
 
       const msgTs = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
       const newMsgs: AgentMsg[] = (parsed.messages ?? []).map((m: any) => ({
@@ -518,12 +518,10 @@ export default function ClientWorkspace() {
       for (const msg of newMsgs) {
         if (msg.action === "generate_image" && msg.to === "isadora") {
           try {
-            const imgRes = await fetch(`${ARIA_BASE}/generate-image`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${ARIA_ANON}` },
-              body: JSON.stringify({ prompt: msg.content, aspectRatio: msg.imageParams?.aspectRatio ?? "4:5", clientContext, beatrizCopy, carolinaStrategy }),
+            const { data: imgData, error: imgError } = await supabase.functions.invoke("generate-image", {
+              body: { prompt: msg.content, aspectRatio: normalizeImageAspectRatio(msg.imageParams?.aspectRatio), clientContext, beatrizCopy, carolinaStrategy },
             });
-            const imgData = await imgRes.json();
+            if (imgError) throw imgError;
             if (imgData.imageData) {
               const blob = new Blob([Uint8Array.from(atob(imgData.imageData), (c) => c.charCodeAt(0))], { type: imgData.mimeType ?? "image/png" });
               const blobUrl = URL.createObjectURL(blob);
@@ -690,20 +688,11 @@ export default function ClientWorkspace() {
     };
 
     try {
-      const res = await fetch(
-        "https://proldgiyterqhthludlp.supabase.co/functions/v1/generate-image",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByb2xkZ2l5dGVycWh0aGx1ZGxwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNzQ4NjEsImV4cCI6MjA5Mjg1MDg2MX0.v8xcDbEbbyxv671SYhsWYHs9bbp9J-Q937SknjUiBIE",
-          },
-          body: JSON.stringify({ prompt: direction, aspectRatio: designAspectRatio, clientContext }),
-        }
-      );
-      const data = await res.json();
+      const { data, error } = await supabase.functions.invoke("generate-image", {
+        body: { prompt: direction, aspectRatio: normalizeImageAspectRatio(designAspectRatio), clientContext },
+      });
       if (designerIntervalRef.current) clearInterval(designerIntervalRef.current);
-      if (!res.ok) throw new Error(data?.error ? String(data.error).slice(0, 200) : `HTTP ${res.status}`);
+      if (error) throw error;
       if (!data?.imageData) throw new Error(data?.error ? String(data.error).slice(0, 200) : "Sem imageData na resposta");
       const displayLabel = data.generatedPrompt || direction || "Peça autônoma";
       setDesignerTask((prev) => prev ? { ...prev, progress: 100 } : null);
