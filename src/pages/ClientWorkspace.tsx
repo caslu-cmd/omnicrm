@@ -453,28 +453,38 @@ export default function ClientWorkspace() {
   };
 
   const handleSendToDesigner = async () => {
-    if (!agentInstruction.trim()) return;
+    const prompt = agentInstruction.trim();
+    if (!prompt) return;
+    setAgentInstruction("");
     setIsadoraLoading(true);
     setIsadoraError(null);
     try {
+      const supabaseUrl = (supabase as any).supabaseUrl ?? "URL_DESCONHECIDA";
+      setIsadoraError(`DEBUG: chamando ${supabaseUrl}/functions/v1/generate-image...`);
       const { data, error } = await supabase.functions.invoke("generate-image", {
-        body: { prompt: agentInstruction, aspectRatio: designAspectRatio },
+        body: { prompt, aspectRatio: designAspectRatio },
       });
-      if (error) throw new Error(error.message ?? "Erro na edge function");
-      if (!data?.imageData) throw new Error(data?.error ?? "Imagem não gerada");
+      setIsadoraError(null);
+      if (error) throw new Error(`${error.message} (${error.name})`);
+      if (!data?.imageData) throw new Error(data?.error ? String(data.error).slice(0, 200) : "Sem imageData na resposta");
+      const blob = new Blob(
+        [Uint8Array.from(atob(data.imageData), (c) => c.charCodeAt(0))],
+        { type: data.mimeType ?? "image/png" }
+      );
+      const blobUrl = URL.createObjectURL(blob);
       setGeneratedImages((prev) => [
         {
           id: Date.now().toString(),
-          imageData: data.imageData,
+          imageData: blobUrl,
           mimeType: data.mimeType ?? "image/png",
-          prompt: agentInstruction,
+          prompt,
           createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
         },
         ...prev,
       ]);
-      setAgentInstruction("");
     } catch (err) {
-      setIsadoraError(err instanceof Error ? err.message : "Erro desconhecido");
+      const msg = err instanceof Error ? `${err.name}: ${err.message}` : JSON.stringify(err);
+      setIsadoraError(msg);
     } finally {
       setIsadoraLoading(false);
     }
@@ -2609,7 +2619,7 @@ export default function ClientWorkspace() {
                           <div key={img.id} className="rounded-xl overflow-hidden"
                             style={{ border: `1px solid ${viewedAgent.color}25`, background: "rgba(255,255,255,0.02)" }}>
                             <img
-                              src={`data:${img.mimeType};base64,${img.imageData}`}
+                              src={img.imageData}
                               alt={img.prompt}
                               className="w-full object-cover rounded-t-xl"
                               style={{ maxHeight: 280 }}
@@ -2618,7 +2628,7 @@ export default function ClientWorkspace() {
                               <p className="text-[10px] truncate flex-1" style={{ color: "rgba(255,255,255,0.4)" }}>{img.prompt}</p>
                               <span className="text-[10px] flex-shrink-0" style={{ color: "rgba(255,255,255,0.25)" }}>{img.createdAt}</span>
                               <a
-                                href={`data:${img.mimeType};base64,${img.imageData}`}
+                                href={img.imageData}
                                 download={`isadora-${img.id}.png`}
                                 className="text-[10px] font-bold px-2 py-0.5 rounded-lg flex-shrink-0"
                                 style={{ background: `${viewedAgent.color}20`, color: viewedAgent.color }}>
