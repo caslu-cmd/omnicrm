@@ -5,9 +5,57 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+// ─── SITE SCRAPER ─────────────────────────────────────────────────────────────
+async function scrapeSite(url: string): Promise<string> {
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; CaluBot/1.0)" },
+      signal: AbortSignal.timeout(6000),
+    });
+    const html = await res.text();
+
+    const get = (pattern: RegExp) => pattern.exec(html)?.[1]?.trim() ?? "";
+    const getAll = (pattern: RegExp, limit = 4) =>
+      [...html.matchAll(pattern)].slice(0, limit).map(m => m[1]?.trim()).filter(Boolean).join(" | ");
+
+    const title       = get(/<title[^>]*>([^<]{1,120})<\/title>/i);
+    const metaDesc    = get(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']{1,250})["']/i)
+                     || get(/<meta[^>]*content=["']([^"']{1,250})["'][^>]*name=["']description["']/i);
+    const h1          = get(/<h1[^>]*>([^<]{1,120})<\/h1>/i);
+    const h2s         = getAll(/<h2[^>]*>([^<]{3,100})<\/h2>/gi);
+    const themeColor  = get(/<meta[^>]*name=["']theme-color["'][^>]*content=["']([^"']+)["']/i);
+    const ogDesc      = get(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']{1,250})["']/i);
+
+    const bodyText = html
+      .replace(/<script[\s\S]*?<\/script>/gi, "")
+      .replace(/<style[\s\S]*?<\/style>/gi, "")
+      .replace(/<nav[\s\S]*?<\/nav>/gi, "")
+      .replace(/<footer[\s\S]*?<\/footer>/gi, "")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 600);
+
+    return [
+      `REFERÊNCIA DO SITE: ${url}`,
+      title       ? `Título: ${title}` : "",
+      metaDesc    ? `Descrição: ${metaDesc}` : "",
+      ogDesc      ? `OG Desc: ${ogDesc}` : "",
+      h1          ? `H1: ${h1}` : "",
+      h2s         ? `H2s: ${h2s}` : "",
+      themeColor  ? `Cor tema: ${themeColor}` : "",
+      bodyText    ? `Conteúdo: ${bodyText}` : "",
+    ].filter(Boolean).join("\n");
+  } catch {
+    return `REFERÊNCIA DO SITE: ${url} (não foi possível acessar — use o domínio como contexto de marca)`;
+  }
+}
+
 // ─── ARIA: Senior Marketing Director ─────────────────────────────────────────
-async function orchestrate(demand: string, clientContext: Record<string, unknown>, anthropicKey: string) {
+async function orchestrate(demand: string, clientContext: Record<string, unknown>, anthropicKey: string, siteUrl?: string) {
   const ctx = clientContext ?? {};
+
+  const siteContext = siteUrl ? await scrapeSite(siteUrl) : "";
 
   const systemPrompt = `Você é ARIA, Diretora Sênior de Marketing da agência Calu. Você tem 15 anos de experiência em marketing digital, branding e estratégia criativa para marcas brasileiras.
 
@@ -59,6 +107,7 @@ Contexto do cliente:
 - Campanhas ativas: ${(ctx.campaigns as string[] ?? []).join(", ") || "nenhuma"}
 - Temas recentes: ${(ctx.recentThemes as string[] ?? []).join(" | ") || "nenhum"}
 - Próxima ação: ${ctx.nextAction ?? "não definida"}
+${siteContext ? `\nReferência de site do cliente:\n${siteContext}\nUse o conteúdo do site para calibrar o tom de voz (Beatriz), o estilo visual (Isadora) e a estratégia (Carolina). O site é a voz real da marca.` : ""}
 
 Como diretora, você:
 1. Analisa a demanda com olhar estratégico
@@ -268,7 +317,7 @@ Deno.serve(async (req) => {
 
     // ── Mode: Aria orchestration ──
     if (body.mode === "orchestrate") {
-      const { demand, clientContext } = body;
+      const { demand, clientContext, siteUrl } = body;
       if (!demand) {
         return new Response(JSON.stringify({ error: "demand is required" }), {
           status: 400, headers: { ...cors, "Content-Type": "application/json" },
@@ -282,7 +331,7 @@ Deno.serve(async (req) => {
         });
       }
 
-      const result = await orchestrate(demand, clientContext ?? {}, anthropicKey);
+      const result = await orchestrate(demand, clientContext ?? {}, anthropicKey, siteUrl);
       return new Response(JSON.stringify(result), {
         headers: { ...cors, "Content-Type": "application/json" },
       });

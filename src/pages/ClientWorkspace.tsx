@@ -406,6 +406,8 @@ export default function ClientWorkspace() {
     try { return JSON.parse(localStorage.getItem(`agent-conv-${id}`) ?? "[]"); } catch { return []; }
   });
   const [postCanvas, setPostCanvas] = useState<{ imageUrl: string; aspectRatio: string; headline?: string; body?: string; cta?: string } | null>(null);
+  const [siteUrl, setSiteUrl] = useState("");
+  const [showSiteInput, setShowSiteInput] = useState(false);
   const [showEditClient, setShowEditClient] = useState(false);
   const [editForm, setEditForm] = useState<{
     name: string; industry: string; status: "Ativo" | "Onboarding" | "Em pausa";
@@ -494,7 +496,7 @@ export default function ClientWorkspace() {
       const res = await fetch(`${ARIA_BASE}/generate-image`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${ARIA_ANON}` },
-        body: JSON.stringify({ mode: "orchestrate", demand, clientContext }),
+        body: JSON.stringify({ mode: "orchestrate", demand, clientContext, siteUrl: siteUrl.trim() || undefined }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const parsed = await res.json();
@@ -1445,6 +1447,29 @@ export default function ClientWorkspace() {
                       style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(185,255,75,0.18)", color: "#F0F0F0", outline: "none" }}
                     />
 
+                    {/* Site URL reference */}
+                    {showSiteInput && (
+                      <div className="flex items-center gap-2 mb-3">
+                        <Globe className="w-3 h-3 flex-shrink-0" style={{ color: "rgba(185,255,75,0.5)" }} />
+                        <input
+                          type="url"
+                          value={siteUrl}
+                          onChange={(e) => setSiteUrl(e.target.value)}
+                          placeholder="https://site-do-cliente.com.br"
+                          className="flex-1 rounded-lg px-3 py-1.5 text-[12px]"
+                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(185,255,75,0.25)", color: "#F0F0F0", outline: "none" }}
+                          onFocus={(e) => (e.target.style.borderColor = "rgba(185,255,75,0.5)")}
+                          onBlur={(e) => (e.target.style.borderColor = "rgba(185,255,75,0.25)")}
+                        />
+                        <button onClick={() => { setSiteUrl(""); setShowSiteInput(false); }}
+                          style={{ color: "rgba(255,255,255,0.25)" }}
+                          onMouseEnter={(e) => (e.currentTarget.style.color = "#F87171")}
+                          onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.25)")}>
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+
                     {/* hidden file input for ARIA */}
                     <input ref={fileInputRef} type="file"
                       accept=".pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg,.csv,.xlsx"
@@ -1482,6 +1507,21 @@ export default function ClientWorkspace() {
                           onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(185,255,75,0.35)"; e.currentTarget.style.color = "rgba(185,255,75,0.75)"; }}
                           onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)"; e.currentTarget.style.color = "rgba(255,255,255,0.35)"; }}>
                           <Paperclip className="w-3 h-3" /> Anexar referência
+                        </button>
+                        <button
+                          onClick={() => setShowSiteInput(true)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all flex-shrink-0"
+                          style={{
+                            background: siteUrl ? "rgba(185,255,75,0.08)" : "rgba(255,255,255,0.04)",
+                            color: siteUrl ? "#B9FF4B" : "rgba(255,255,255,0.35)",
+                            border: siteUrl ? "1px solid rgba(185,255,75,0.3)" : "1px dashed rgba(255,255,255,0.14)",
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(185,255,75,0.35)"; e.currentTarget.style.color = "rgba(185,255,75,0.75)"; }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.borderColor = siteUrl ? "rgba(185,255,75,0.3)" : "rgba(255,255,255,0.14)";
+                            e.currentTarget.style.color = siteUrl ? "#B9FF4B" : "rgba(255,255,255,0.35)";
+                          }}>
+                          <Globe className="w-3 h-3" /> {siteUrl ? "Site anexado" : "Anexar site"}
                         </button>
                       )}
                       <div className="flex-1" />
