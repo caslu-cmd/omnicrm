@@ -316,11 +316,11 @@ Deno.serve(async (req) => {
       if (!demand) return new Response(JSON.stringify({ error: "demand is required" }), {
         status: 400, headers: { ...cors, "Content-Type": "application/json" },
       });
-      const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-      if (!anthropicKey) return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }), {
+      const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+      if (!lovableKey) return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
         status: 500, headers: { ...cors, "Content-Type": "application/json" },
       });
-      const result = await orchestrate(demand, clientContext ?? {}, anthropicKey, siteUrl);
+      const result = await orchestrate(demand, clientContext ?? {}, lovableKey, siteUrl);
       return new Response(JSON.stringify(result), { headers: { ...cors, "Content-Type": "application/json" } });
     }
 
@@ -329,13 +329,12 @@ Deno.serve(async (req) => {
       status: 400, headers: { ...cors, "Content-Type": "application/json" },
     });
 
-    const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
-    if (!googleKey) return new Response(JSON.stringify({ error: "GOOGLE_AI_API_KEY not configured" }), {
+    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+    if (!lovableKey) return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
       status: 500, headers: { ...cors, "Content-Type": "application/json" },
     });
 
-    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
-    const result = await generateImage(prompt, aspectRatio, clientContext ?? {}, googleKey, anthropicKey, beatrizCopy, carolinaStrategy);
+    const result = await generateImage(prompt, aspectRatio, clientContext ?? {}, lovableKey, beatrizCopy, carolinaStrategy);
     return new Response(JSON.stringify(result), { headers: { ...cors, "Content-Type": "application/json" } });
 
   } catch (error) {
