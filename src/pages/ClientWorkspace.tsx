@@ -318,6 +318,7 @@ export default function ClientWorkspace() {
   const [wpBlastResult, setWpBlastResult] = useState<string | null>(null);
   const [generatedImages, setGeneratedImages] = useState<Array<{id: string, imageData: string, mimeType: string, prompt: string, createdAt: string}>>([]);
   const [isadoraLoading, setIsadoraLoading] = useState(false);
+  const [isadoraError, setIsadoraError] = useState<string | null>(null);
   const [designAspectRatio, setDesignAspectRatio] = useState<"1:1" | "9:16" | "16:9">("1:1");
 
   const client = CLIENTS.find((c) => c.id === id);
@@ -454,11 +455,13 @@ export default function ClientWorkspace() {
   const handleSendToDesigner = async () => {
     if (!agentInstruction.trim()) return;
     setIsadoraLoading(true);
+    setIsadoraError(null);
     try {
       const { data, error } = await supabase.functions.invoke("generate-image", {
         body: { prompt: agentInstruction, aspectRatio: designAspectRatio },
       });
-      if (error || !data?.imageData) throw new Error(error?.message ?? "Falha ao gerar imagem");
+      if (error) throw new Error(error.message ?? "Erro na edge function");
+      if (!data?.imageData) throw new Error(data?.error ?? "Imagem não gerada");
       setGeneratedImages((prev) => [
         {
           id: Date.now().toString(),
@@ -471,7 +474,7 @@ export default function ClientWorkspace() {
       ]);
       setAgentInstruction("");
     } catch (err) {
-      console.error("Isadora error:", err);
+      setIsadoraError(err instanceof Error ? err.message : "Erro desconhecido");
     } finally {
       setIsadoraLoading(false);
     }
@@ -2723,6 +2726,11 @@ export default function ClientWorkspace() {
                       style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${viewedAgent.color}25`, color: "#F0F0F0", outline: "none" }}
                     />
                     {agentFile && <div className="mt-2">{renderFilePreview(agentFile, agentFileUrl, agentFileText, viewedAgent.color)}</div>}
+                    {isadoraError && viewedAgent.id === "designer" && (
+                      <div className="mt-2 px-3 py-2 rounded-xl text-xs" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#FCA5A5" }}>
+                        Erro: {isadoraError}
+                      </div>
+                    )}
                     <div className="flex items-center gap-3 mt-3">
                       {agentFile ? (
                         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg flex-shrink-0"
