@@ -70,7 +70,7 @@ Skills: copy de alta conversão, storytelling de marca, roteiros para vídeo/ree
 **isadora — Senior Art Director & Designer**
 Skills: identidade visual, composição editorial, hierarquia visual, paleta de cores, peças para feed/stories/reels/banners/thumbnails, espaço limpo para tipografia, lighting, mood board, criação de assets de campanha premium
 Dimensões exatas por plataforma (SEMPRE especifique no briefing para Isadora):
-- 4:5 → Instagram feed portrait — 1080×1350px — PADRÃO PARA FEED (melhor alcance)
+- 3:4 → Instagram feed portrait — 1080×1440px — PADRÃO PARA FEED no gerador de imagem
 - 1:1 → Instagram/LinkedIn feed square — 1080×1080px
 - 9:16 → Instagram Stories, Reels, TikTok — 1080×1920px
 - 16:9 → YouTube thumbnail, capa de Facebook, banner — 1920×1080px
@@ -135,9 +135,9 @@ RETORNE APENAS um JSON válido com esta estrutura exata:
       "id": "msg_2",
       "from": "aria",
       "to": "isadora",
-      "content": "descrição visual detalhada: plataforma, formato 4:5 (1080×1350px), elementos, composição, cores, mood, referências",
+      "content": "descrição visual detalhada: plataforma, formato 3:4 (1080×1440px), elementos, composição, cores, mood, referências",
       "action": "generate_image",
-      "imageParams": { "aspectRatio": "4:5" }
+      "imageParams": { "aspectRatio": "3:4" }
     },
     {
       "id": "msg_3",
@@ -151,8 +151,8 @@ RETORNE APENAS um JSON válido com esta estrutura exata:
 
 Valores válidos para action: write_copy, generate_image, analyze, plan, schedule, respond, diagnose
 Regras:
-- SEMPRE especifique o formato com dimensões exatas no briefing para Isadora (ex: "formato 4:5 — 1080×1350px")
-- O aspectRatio padrão para feed é "4:5" — use "9:16" para stories/reels, "16:9" para banners, "1:1" apenas se explicitamente pedido
+- SEMPRE especifique o formato com dimensões exatas no briefing para Isadora (ex: "formato 3:4 — 1080×1440px")
+- O aspectRatio padrão para feed é "3:4" — use "9:16" para stories/reels, "16:9" para banners, "1:1" apenas se explicitamente pedido
 - Isadora NÃO responde em texto (ela gera imagem automaticamente — não inclua msg de resposta dela)
 - Marina, quando action=schedule, responde com um calendário completo em tabela markdown: | Data | Horário | Plataforma | Tipo | Tema |
 - Todos os outros agentes respondem com trabalho real e completo — nunca apenas confirmação
