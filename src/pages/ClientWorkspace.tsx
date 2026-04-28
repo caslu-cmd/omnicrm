@@ -93,6 +93,15 @@ const MARKETING_TEAM = [
     description: "Acessa, edita e publica páginas do site do cliente",
   },
   {
+    id: "briefing",
+    name: "Lia",
+    role: "Agente de Diagnóstico",
+    initial: "L",
+    skill: "Briefing · Diagnóstico · Onboarding",
+    color: "#38BDF8",
+    description: "Primeiro contato com novos clientes — coleta briefing, analisa o cenário e entrega diagnóstico de marketing personalizado",
+  },
+  {
     id: "revisor",
     name: "Vitória",
     role: "Revisora",
@@ -303,6 +312,7 @@ const AGENT_META: Record<string, { initial: string; color: string; name: string 
   lucas:    { initial: "L", color: "#34D399", name: "Lucas" },
   marina:   { initial: "M", color: "#60A5FA", name: "Marina" },
   carolina: { initial: "C", color: "#FBBF24", name: "Carolina" },
+  lia:      { initial: "L", color: "#38BDF8", name: "Lia" },
   user:     { initial: "V", color: "#94A3B8", name: "Você" },
 };
 

@@ -241,6 +241,10 @@ export default function LandingPage() {
           {[["Serviços","#servicos"],["Soluções IA","#solucoes"],["Time","#time"],["Contato","#contato"]].map(([l,h]) => (
             <a key={l} href={h} className="cl-link" style={{ fontSize: 13, color: DIM, fontWeight: 500 }}>{l}</a>
           ))}
+          <a href="/briefing" className="cl-pill"
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, padding: "7px 16px", borderRadius: 100, background: LIME, color: BLACK, whiteSpace: "nowrap" }}>
+            <Zap size={11} /> Diagnóstico IA
+          </a>
           <a href="https://wa.me/5511999999999" target="_blank" rel="noreferrer" className="cl-pill"
             style={{ fontSize: 13, fontWeight: 700, color: BLACK, background: LIME, padding: "7px 18px", borderRadius: 100 }}>
             Começar agora
@@ -548,13 +552,13 @@ export default function LandingPage() {
             </h2>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 10, flexShrink: 0 }}>
-            <a href="https://wa.me/5511999999999" target="_blank" rel="noreferrer" className="cl-pill"
+            <a href="/briefing" className="cl-pill"
               style={{ display: "inline-flex", alignItems: "center", gap: 9, background: BLACK, color: LIME, fontWeight: 700, fontSize: 14, padding: "13px 26px", borderRadius: 100, whiteSpace: "nowrap" }}>
-              <MessageCircle size={15} /> Falar no WhatsApp
+              <Zap size={15} /> Diagnóstico gratuito com IA
             </a>
-            <a href="mailto:carolinielucas.cl@gmail.com" className="cl-pill"
-              style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", background: "rgba(8,8,8,.1)", color: BLACK, fontWeight: 600, fontSize: 13, padding: "11px 26px", borderRadius: 100 }}>
-              Enviar e-mail
+            <a href="https://wa.me/5511999999999" target="_blank" rel="noreferrer" className="cl-pill"
+              style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, background: "rgba(8,8,8,.1)", color: BLACK, fontWeight: 600, fontSize: 13, padding: "11px 26px", borderRadius: 100 }}>
+              <MessageCircle size={14} /> Falar no WhatsApp
             </a>
           </div>
         </div>
