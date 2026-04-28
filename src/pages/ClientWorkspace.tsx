@@ -320,6 +320,9 @@ export default function ClientWorkspace() {
   const [isadoraLoading, setIsadoraLoading] = useState(false);
   const [isadoraError, setIsadoraError] = useState<string | null>(null);
   const [designAspectRatio, setDesignAspectRatio] = useState<"1:1" | "9:16" | "16:9">("1:1");
+  const [designerTask, setDesignerTask] = useState<{prompt: string; progress: number; startedAt: number; estimatedSeconds: number} | null>(null);
+  const [designerRecentWork, setDesignerRecentWork] = useState<string[]>([]);
+  const designerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const client = CLIENTS.find((c) => c.id === id);
 
@@ -405,7 +408,18 @@ export default function ClientWorkspace() {
     website: "Visitantes do site", video: "Vídeo", lookalike: "Lookalike",
     email: "E-mail", custom: "Personalizado",
   };
-  const vTaskIsWorking = vTask?.status === "trabalhando";
+  const effectiveTask = viewedAgent?.id === "designer" && (designerTask || designerRecentWork.length > 0)
+    ? {
+        current: designerTask?.prompt ?? designerRecentWork[0] ?? "",
+        status: designerTask ? (designerTask.progress < 100 ? "trabalhando" : "concluído") : "concluído",
+        recent: designerRecentWork,
+        progress: designerTask?.progress ?? 100,
+      } as const
+    : vTask;
+  const effectiveTaskIsWorking = viewedAgent?.id === "designer"
+    ? (designerTask !== null && (designerTask?.progress ?? 0) < 100)
+    : vTask?.status === "trabalhando";
+  const vTaskIsWorking = effectiveTaskIsWorking;
   const vSitePages = viewedAgent?.id === "site" ? (SITE_PAGES[client.id] ?? []) : [];
   const vRevisedFiles = viewedAgent?.id === "revisor" ? (REVISED_FILES[client.id] ?? []) : [];
   const vOutputs = viewedAgent ? (client.outputs ?? []).filter((o) => o.agent === viewedAgent.id) : [];
@@ -458,31 +472,40 @@ export default function ClientWorkspace() {
     setAgentInstruction("");
     setIsadoraLoading(true);
     setIsadoraError(null);
+    const ESTIMATED = 28;
+    const startedAt = Date.now();
+    setDesignerTask({ prompt, progress: 0, startedAt, estimatedSeconds: ESTIMATED });
+    if (designerIntervalRef.current) clearInterval(designerIntervalRef.current);
+    designerIntervalRef.current = setInterval(() => {
+      setDesignerTask((prev) => {
+        if (!prev) return null;
+        const elapsed = (Date.now() - prev.startedAt) / 1000;
+        const p = Math.min(90, Math.round((elapsed / prev.estimatedSeconds) * 100));
+        return { ...prev, progress: p };
+      });
+    }, 600);
     try {
-      const supabaseUrl = (supabase as any).supabaseUrl ?? "URL_DESCONHECIDA";
-      setIsadoraError(`DEBUG: chamando ${supabaseUrl}/functions/v1/generate-image...`);
       const { data, error } = await supabase.functions.invoke("generate-image", {
         body: { prompt, aspectRatio: designAspectRatio },
       });
-      setIsadoraError(null);
+      if (designerIntervalRef.current) clearInterval(designerIntervalRef.current);
       if (error) throw new Error(`${error.message} (${error.name})`);
       if (!data?.imageData) throw new Error(data?.error ? String(data.error).slice(0, 200) : "Sem imageData na resposta");
+      setDesignerTask((prev) => prev ? { ...prev, progress: 100 } : null);
+      setDesignerRecentWork((prev) => [prompt, ...prev.slice(0, 4)]);
+      setTimeout(() => setDesignerTask(null), 2500);
       const blob = new Blob(
         [Uint8Array.from(atob(data.imageData), (c) => c.charCodeAt(0))],
         { type: data.mimeType ?? "image/png" }
       );
       const blobUrl = URL.createObjectURL(blob);
       setGeneratedImages((prev) => [
-        {
-          id: Date.now().toString(),
-          imageData: blobUrl,
-          mimeType: data.mimeType ?? "image/png",
-          prompt,
-          createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
-        },
+        { id: Date.now().toString(), imageData: blobUrl, mimeType: data.mimeType ?? "image/png", prompt, createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) },
         ...prev,
       ]);
     } catch (err) {
+      if (designerIntervalRef.current) clearInterval(designerIntervalRef.current);
+      setDesignerTask(null);
       const msg = err instanceof Error ? `${err.name}: ${err.message}` : JSON.stringify(err);
       setIsadoraError(msg);
     } finally {
@@ -2506,25 +2529,32 @@ export default function ClientWorkspace() {
                 <div className="flex-1 overflow-y-auto p-5 space-y-4">
 
                   {/* Current task */}
-                  {vTask && (
+                  {effectiveTask && (
                     <div className="rounded-xl p-4"
-                      style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                      style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${vTaskIsWorking ? `${viewedAgent.color}25` : "rgba(255,255,255,0.06)"}` }}>
                       <div className="text-[10px] uppercase tracking-widest font-semibold mb-2"
                         style={{ color: vTaskIsWorking ? viewedAgent.color : "rgba(255,255,255,0.3)" }}>
                         {vTaskIsWorking ? "● Fazendo agora" : "✓ Concluído"}
                       </div>
-                      <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.75)" }}>{vTask.current}</p>
-                      {vTaskIsWorking && vTask.progress > 0 && (
+                      <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.75)" }}>{effectiveTask.current}</p>
+                      {vTaskIsWorking && effectiveTask.progress > 0 && (
                         <div className="mt-3">
                           <div className="flex justify-between mb-1.5">
                             <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>Progresso</span>
-                            <span className="text-[10px] font-bold" style={{ color: viewedAgent.color }}>{vTask.progress}%</span>
+                            <div className="flex items-center gap-2">
+                              {designerTask && (
+                                <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                                  ~{Math.max(0, designerTask.estimatedSeconds - Math.floor((Date.now() - designerTask.startedAt) / 1000))}s restantes
+                                </span>
+                              )}
+                              <span className="text-[10px] font-bold" style={{ color: viewedAgent.color }}>{effectiveTask.progress}%</span>
+                            </div>
                           </div>
                           <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
                             <motion.div className="h-full rounded-full"
                               style={{ background: viewedAgent.color }}
-                              initial={{ width: 0 }} animate={{ width: `${vTask.progress}%` }}
-                              transition={{ duration: 0.8, ease: "easeOut" }} />
+                              initial={{ width: 0 }} animate={{ width: `${effectiveTask.progress}%` }}
+                              transition={{ duration: 0.6, ease: "easeOut" }} />
                           </div>
                         </div>
                       )}
@@ -2532,12 +2562,12 @@ export default function ClientWorkspace() {
                   )}
 
                   {/* Recent work */}
-                  {vTask && vTask.recent.length > 0 && (
+                  {effectiveTask && effectiveTask.recent.length > 0 && (
                     <div>
                       <div className="text-[10px] uppercase tracking-widest font-semibold mb-2"
                         style={{ color: "rgba(255,255,255,0.3)" }}>Trabalho recente</div>
                       <div className="space-y-1.5">
-                        {vTask.recent.map((r, j) => (
+                        {effectiveTask.recent.map((r, j) => (
                           <div key={j} className="flex items-start gap-2 px-3 py-2 rounded-lg"
                             style={{ background: "rgba(255,255,255,0.03)" }}>
                             <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: `${viewedAgent.color}80` }} />
