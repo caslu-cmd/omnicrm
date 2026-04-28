@@ -73,14 +73,15 @@ Seu time de especialistas:
 Skills: copy de alta conversão, storytelling de marca, roteiros para vídeo/reels, legendas que engajam, email marketing, CTAs irresistíveis, naming e taglines, adaptação de tom de voz por canal
 
 **isadora — Senior Art Director & Designer**
-Skills: identidade visual, composição editorial, hierarquia visual, paleta de cores, peças para feed/stories/reels/banners/thumbnails, espaço para tipografia, lighting, mood board, criação de assets de campanha
-Formatos e quando usar:
-- 1:1 → Instagram feed, LinkedIn post (padrão para posts)
-- 9:16 → Instagram Stories, Reels, TikTok (conteúdo vertical imersivo)
-- 16:9 → YouTube thumbnail, capa de Facebook, banner de site
-- 4:3 → slide de apresentação, post Facebook
-- 3:4 → Pinterest, retrato, print
-Isadora sempre escolhe o melhor formato para a plataforma. Quando Aria pedir uma peça, deve especificar plataforma para Isadora decidir o ratio correto.
+Skills: identidade visual, composição editorial, hierarquia visual, paleta de cores, peças para feed/stories/reels/banners/thumbnails, espaço limpo para tipografia, lighting, mood board, criação de assets de campanha premium
+Dimensões exatas por plataforma (SEMPRE especifique no briefing para Isadora):
+- 4:5 → Instagram feed portrait — 1080×1350px — PADRÃO PARA FEED (melhor alcance)
+- 1:1 → Instagram/LinkedIn feed square — 1080×1080px
+- 9:16 → Instagram Stories, Reels, TikTok — 1080×1920px
+- 16:9 → YouTube thumbnail, capa de Facebook, banner — 1920×1080px
+- 4:3 → slide de apresentação, post Facebook — 1080×810px
+- 3:4 → Pinterest, retrato, print — 1080×1440px
+Isadora é opinativa: se o briefing não especificar plataforma, ela decide o formato ideal e justifica.
 Isadora NÃO responde em texto — ela entrega a imagem diretamente.
 
 **rafaela — Especialista em Tráfego Pago**
@@ -110,15 +111,23 @@ Contexto do cliente:
 ${siteContext ? `\nReferência de site do cliente:\n${siteContext}\nUse o conteúdo do site para calibrar o tom de voz (Beatriz), o estilo visual (Isadora) e a estratégia (Carolina). O site é a voz real da marca.` : ""}
 
 Como diretora, você:
-1. Analisa a demanda com olhar estratégico
+1. Analisa a demanda com olhar estratégico — sempre define plataforma, formato e dimensões antes de briefar
 2. Decide quais agentes são necessários e em qual ordem
-3. Passa briefings específicos, contextualizados e acionáveis para cada agente
-4. Os agentes respondem com seu trabalho (simulado de forma realista e profissional)
-5. Agentes podem pedir colaboração entre si (ex: Beatriz pede imagem para Isadora)
+3. Passa briefings específicos, contextualizados e acionáveis — nunca genéricos
+4. Os agentes NÃO são executores passivos: são seniores com opinião própria que podem e devem questionar, contra-propor e colaborar
+5. Agentes podem discordar entre si e propor alternativas melhores — isso eleva a qualidade final
+
+AUTONOMIA E COLABORAÇÃO ENTRE AGENTES:
+- Beatriz pode sugerir carrossel em vez de post único se o assunto for complexo
+- Lucas pode alertar que o formato vídeo supera imagem neste segmento e recomendar ajuste
+- Carolina pode discordar do posicionamento e propor ângulo mais diferenciado com justificativa
+- Rafaela pode sugerir que o copy seja adaptado para anúncio pago e não só orgânico
+- Quando um agente discorda ou contra-propõe, ele entrega sua versão alternativa JUNTO com a explicação
+- A colaboração iterativa entre agentes é o que gera resultado de nível premium
 
 RETORNE APENAS um JSON válido com esta estrutura exata:
 {
-  "plan": "análise estratégica em 2-3 frases — por que essa abordagem, quais agentes e qual o objetivo",
+  "plan": "análise estratégica em 2-3 frases — por que essa abordagem, quais agentes, qual formato/dimensão e qual o objetivo",
   "messages": [
     {
       "id": "msg_1",
@@ -131,15 +140,15 @@ RETORNE APENAS um JSON válido com esta estrutura exata:
       "id": "msg_2",
       "from": "aria",
       "to": "isadora",
-      "content": "descrição visual detalhada: elementos, composição, cores, mood, referências",
+      "content": "descrição visual detalhada: plataforma, formato 4:5 (1080×1350px), elementos, composição, cores, mood, referências",
       "action": "generate_image",
-      "imageParams": { "aspectRatio": "1:1" }
+      "imageParams": { "aspectRatio": "4:5" }
     },
     {
       "id": "msg_3",
       "from": "beatriz",
       "to": "aria",
-      "content": "entrega real do trabalho da Beatriz — copy completo, pronto para uso",
+      "content": "entrega real do trabalho da Beatriz — copy completo, pronto para uso — pode incluir contra-proposta se identificar oportunidade melhor",
       "action": "respond"
     }
   ]
@@ -147,12 +156,14 @@ RETORNE APENAS um JSON válido com esta estrutura exata:
 
 Valores válidos para action: write_copy, generate_image, analyze, plan, schedule, respond, diagnose
 Regras:
+- SEMPRE especifique o formato com dimensões exatas no briefing para Isadora (ex: "formato 4:5 — 1080×1350px")
+- O aspectRatio padrão para feed é "4:5" — use "9:16" para stories/reels, "16:9" para banners, "1:1" apenas se explicitamente pedido
 - Isadora NÃO responde em texto (ela gera imagem automaticamente — não inclua msg de resposta dela)
 - Marina, quando action=schedule, responde com um calendário completo em tabela markdown: | Data | Horário | Plataforma | Tipo | Tema |
-- Todos os outros agentes respondem com trabalho real e completo, não apenas confirmação
-- Briefings da Aria devem ser específicos para o cliente, não genéricos
+- Todos os outros agentes respondem com trabalho real e completo — nunca apenas confirmação
+- Agentes seniores têm voz: se identificarem algo melhor, propõem com justificativa profissional
 - Escreva tudo em português brasileiro
-- Seja exigente: a entrega do agente deve ser profissional e usável imediatamente`;
+- Seja exigente: a entrega deve ser de nível agência premium, pronta para uso imediato`;
 
   const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -192,7 +203,8 @@ function bestAspectRatio(description: string): string {
   if (d.includes("banner") || d.includes("capa") || d.includes("youtube") || d.includes("cover") || d.includes("16:9")) return "16:9";
   if (d.includes("slide") || d.includes("apresentação") || d.includes("presentation")) return "4:3";
   if (d.includes("retrato") || d.includes("portrait") || d.includes("pinterest")) return "3:4";
-  return "1:1"; // default: Instagram/LinkedIn feed
+  if (d.includes("quadrado") || d.includes("square") || d.includes("1:1")) return "1:1";
+  return "4:5"; // default: Instagram feed portrait — melhor engajamento
 }
 
 async function generateImage(prompt: string, aspectRatio: string, clientContext: Record<string, unknown>, googleKey: string, anthropicKey: string) {
@@ -200,11 +212,12 @@ async function generateImage(prompt: string, aspectRatio: string, clientContext:
   const ratio = (!aspectRatio || aspectRatio === "auto") ? bestAspectRatio(prompt) : aspectRatio;
 
   const platformHint: Record<string, string> = {
-    "1:1":  "Instagram feed — square",
-    "9:16": "Stories/Reels/TikTok — full vertical",
-    "16:9": "YouTube/banner — wide horizontal",
-    "4:3":  "Slide/Facebook — landscape",
-    "3:4":  "Pinterest/portrait — tall vertical",
+    "4:5":  "Instagram feed portrait — 1080×1350px (máximo engajamento)",
+    "1:1":  "Instagram/LinkedIn feed square — 1080×1080px",
+    "9:16": "Stories/Reels/TikTok — 1080×1920px — full vertical",
+    "16:9": "YouTube thumbnail/banner — 1920×1080px — wide horizontal",
+    "4:3":  "Slide/Facebook — 1080×810px — landscape",
+    "3:4":  "Pinterest/portrait — 1080×1440px — tall vertical",
   };
 
   // ── Claude faz a arte-direção e escreve o prompt do Imagen 4 ──
@@ -248,7 +261,7 @@ Now output ONLY the final Imagen 4 prompt in one paragraph. End with: "no text, 
 
   // Imagen 4 generation
   const imgRes = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-fast-generate-001:predict?key=${googleKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${googleKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },

@@ -5,7 +5,7 @@ import { Download, X, Layers } from "lucide-react";
 const LIME = "#B9FF4B";
 
 type Template = "overlay" | "split" | "card";
-type Ratio = "1:1" | "9:16" | "16:9" | "4:3" | "3:4";
+type Ratio = "4:5" | "1:1" | "9:16" | "16:9" | "4:3" | "3:4";
 
 interface PostCanvasProps {
   imageUrl: string;
@@ -19,6 +19,7 @@ interface PostCanvasProps {
 }
 
 const CANVAS_SIZES: Record<Ratio, [number, number]> = {
+  "4:5":  [1080, 1350],
   "1:1":  [1080, 1080],
   "9:16": [1080, 1920],
   "16:9": [1920, 1080],
@@ -101,7 +102,7 @@ export default function PostCanvas({
   const [cta, setCta] = useState(initialCta);
   const [rendering, setRendering] = useState(false);
 
-  const ratio = (Object.keys(CANVAS_SIZES).includes(aspectRatio) ? aspectRatio : "1:1") as Ratio;
+  const ratio = (Object.keys(CANVAS_SIZES).includes(aspectRatio) ? aspectRatio : "4:5") as Ratio;
   const [cW, cH] = CANVAS_SIZES[ratio];
 
   const maxW = 420;
