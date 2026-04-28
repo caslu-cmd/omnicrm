@@ -17,6 +17,7 @@ import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tool
 import { CLIENTS } from "@/data/agencyData";
 import { useClients } from "@/contexts/ClientsContext";
 import { supabase } from "@/integrations/supabase/client";
+import PostCanvas from "@/components/PostCanvas";
 
 // ── Marketing Team Definition ──────────────────────────────────
 const MARKETING_TEAM = [
@@ -372,6 +373,7 @@ export default function ClientWorkspace() {
   const [agentConversations, setAgentConversations] = useState<AgentMsg[]>(() => {
     try { return JSON.parse(localStorage.getItem(`agent-conv-${id}`) ?? "[]"); } catch { return []; }
   });
+  const [postCanvas, setPostCanvas] = useState<{ imageUrl: string; aspectRatio: string } | null>(null);
   const [showEditClient, setShowEditClient] = useState(false);
   const [editForm, setEditForm] = useState<{
     name: string; industry: string; status: "Ativo" | "Onboarding" | "Em pausa";
@@ -1510,11 +1512,21 @@ export default function ClientWorkspace() {
                               {msg.imageUrl && (
                                 <div className="mt-2">
                                   <img src={msg.imageUrl} alt="gerado" className="rounded-lg max-h-48 object-cover" style={{ border: "1px solid rgba(255,255,255,0.1)" }} />
-                                  <a href={msg.imageUrl} download={`isadora-${msg.id}.png`}
-                                    className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-bold px-2 py-0.5 rounded-lg"
-                                    style={{ background: "rgba(244,114,182,0.15)", color: "#F472B6" }}>
-                                    Baixar
-                                  </a>
+                                  <div className="flex items-center gap-2 mt-2">
+                                    <button
+                                      onClick={() => setPostCanvas({ imageUrl: msg.imageUrl!, aspectRatio: msg.imageParams?.aspectRatio ?? "1:1" })}
+                                      className="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all"
+                                      style={{ background: "rgba(185,255,75,0.12)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.25)" }}
+                                      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(185,255,75,0.2)")}
+                                      onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(185,255,75,0.12)")}>
+                                      <Layout className="w-3 h-3" /> Montar Post
+                                    </button>
+                                    <a href={msg.imageUrl} download={`isadora-${msg.id}.png`}
+                                      className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1.5 rounded-lg"
+                                      style={{ background: "rgba(244,114,182,0.1)", color: "#F472B6", border: "1px solid rgba(244,114,182,0.2)" }}>
+                                      Baixar imagem
+                                    </a>
+                                  </div>
                                 </div>
                               )}
                             </div>
@@ -3123,6 +3135,19 @@ export default function ClientWorkspace() {
               </div>
             </motion.div>
           </>
+        )}
+      </AnimatePresence>
+
+      {/* ── Post Canvas Modal ── */}
+      <AnimatePresence>
+        {postCanvas && (
+          <PostCanvas
+            imageUrl={postCanvas.imageUrl}
+            aspectRatio={postCanvas.aspectRatio}
+            brandColor={client.color}
+            clientName={client.name}
+            onClose={() => setPostCanvas(null)}
+          />
         )}
       </AnimatePresence>
 
