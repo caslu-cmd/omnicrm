@@ -48,7 +48,7 @@ async function scrapeSite(url: string): Promise<string> {
 }
 
 // ─── ARIA: Senior Marketing Director ─────────────────────────────────────────
-async function orchestrate(demand: string, clientContext: Record<string, unknown>, anthropicKey: string, siteUrl?: string) {
+async function orchestrate(demand: string, clientContext: Record<string, unknown>, lovableKey: string, siteUrl?: string) {
   const ctx = clientContext ?? {};
   const siteContext = siteUrl ? await scrapeSite(siteUrl) : "";
 
@@ -159,21 +159,23 @@ Regras:
 - Escreva tudo em português brasileiro
 - Seja exigente: a entrega deve ser de nível agência premium, pronta para uso imediato`;
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
-    headers: { "x-api-key": anthropicKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    headers: { Authorization: `Bearer ${lovableKey}`, "content-type": "application/json" },
     body: JSON.stringify({
-      model: "claude-sonnet-4-6",
-      max_tokens: 4096,
-      system: systemPrompt,
-      messages: [{ role: "user", content: `Demanda do cliente: "${demand}"` }],
+      model: "google/gemini-3-flash-preview",
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Demanda do cliente: "${demand}"` },
+      ],
     }),
   });
 
-  if (!response.ok) throw new Error(`Claude API error: ${await response.text()}`);
+  if (!response.ok) throw new Error(`Lovable AI error: ${await response.text()}`);
 
   const data = await response.json();
-  const text = data.content?.[0]?.text ?? "{}";
+  const text = data.choices?.[0]?.message?.content ?? "{}";
   try {
     const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, text];
     return JSON.parse(jsonMatch[1].trim());
@@ -206,8 +208,7 @@ async function generateImage(
   prompt: string,
   aspectRatio: string,
   clientContext: Record<string, unknown>,
-  googleKey: string,
-  anthropicKey: string,
+  lovableKey: string,
   beatrizCopy = "",
   carolinaStrategy = "",
 ) {
@@ -222,22 +223,22 @@ async function generateImage(
     "4:3":  "Slide/Facebook — 1080×810px",
   };
 
-  // ── Visual Strategist: Claude Sonnet sintetiza o contexto completo do time ──
+  // ── Visual Strategist: Lovable AI sintetiza o contexto completo do time ──
   const teamContext = [
     beatrizCopy      ? `COPY DA BEATRIZ (copywriter sênior):\n${beatrizCopy.slice(0, 800)}` : "",
     carolinaStrategy ? `ESTRATÉGIA DA CAROLINA (brand strategist):\n${carolinaStrategy.slice(0, 600)}` : "",
   ].filter(Boolean).join("\n\n");
 
-  const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
+  const promptRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
-    headers: { "x-api-key": anthropicKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    headers: { Authorization: `Bearer ${lovableKey}`, "content-type": "application/json" },
     body: JSON.stringify({
-      model: "claude-sonnet-4-6",
-      max_tokens: 800,
-      system: `You are Isadora, a world-class Senior Art Director specialized in Brazilian marketing and social media. You have access to the full team's work — the copywriter's text, the brand strategist's direction, and the creative brief. You synthesize everything into one precise, cinematographic Imagen prompt in English. Output ONLY the final prompt — no explanations, no labels, no preamble.`,
-      messages: [{
-        role: "user",
-        content: `CLIENT: ${ctx.name ?? "unknown"}
+      model: "google/gemini-3-flash-preview",
+      messages: [
+        { role: "system", content: `You are Isadora, a world-class Senior Art Director specialized in Brazilian marketing and social media. You synthesize the team's work into one precise image-generation prompt in English. Output ONLY the final prompt — no explanations, no labels, no preamble.` },
+        {
+          role: "user",
+          content: `CLIENT: ${ctx.name ?? "unknown"}
 INDUSTRY: ${ctx.industry ?? "unknown"}
 BRAND COLOR: ${ctx.brandColor ?? "not specified"}
 FORMAT: ${ratio} (${platformHint[ratio] ?? "social media"})
@@ -266,39 +267,38 @@ As Senior Art Director, synthesize the full team context and decide internally:
 6. BRAND COLOR ACCENT — ${ctx.brandColor ?? "brand color"} appears subtly as: neon sign, fabric detail, object, light leak — never dominant
 7. PHOTOGRAPHY STYLE — photorealistic editorial / lifestyle candid / cinematic dramatic / minimalist product
 
-Output ONLY the final Imagen prompt in one rich, detailed paragraph. End with: "no text, no logos, no watermarks, ultra high quality, 4K, sharp focus, award-winning editorial photography"`,
-      }],
+Output ONLY the final image-generation prompt in one rich, detailed paragraph. End with: "no text, no logos, no watermarks, ultra high quality, 4K, sharp focus, award-winning editorial photography"`,
+        },
+      ],
     }),
   });
 
   let finalPrompt = prompt;
-  if (claudeRes.ok) {
-    const claudeData = await claudeRes.json();
-    finalPrompt = claudeData.content?.[0]?.text?.trim() ?? prompt;
+  if (promptRes.ok) {
+    const promptData = await promptRes.json();
+    finalPrompt = promptData.choices?.[0]?.message?.content?.trim() ?? prompt;
   }
 
-  // ── Imagen 4 Fast ──
-  const imgRes = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-fast-generate-001:predict?key=${googleKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        instances: [{ prompt: finalPrompt }],
-        parameters: { sampleCount: 1, aspectRatio: ratio },
-      }),
-    }
-  );
+  const imgRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "google/gemini-3.1-flash-image-preview",
+      messages: [{ role: "user", content: finalPrompt }],
+      modalities: ["image", "text"],
+    }),
+  });
 
-  if (!imgRes.ok) throw new Error(`Imagen API error: ${await imgRes.text()}`);
+  if (!imgRes.ok) throw new Error(`Lovable AI image error: ${await imgRes.text()}`);
 
   const imgData = await imgRes.json();
-  const prediction = imgData.predictions?.[0];
-  if (!prediction?.bytesBase64Encoded) throw new Error("Imagem não gerada");
+  const imageUrl = imgData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+  const dataUrlMatch = typeof imageUrl === "string" ? imageUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/) : null;
+  if (!dataUrlMatch) throw new Error("Imagem não gerada");
 
   return {
-    imageData: prediction.bytesBase64Encoded,
-    mimeType: prediction.mimeType ?? "image/png",
+    imageData: dataUrlMatch[2],
+    mimeType: dataUrlMatch[1] ?? "image/png",
     enhancedPrompt: finalPrompt,
     aspectRatio: ratio,
   };
@@ -316,11 +316,11 @@ Deno.serve(async (req) => {
       if (!demand) return new Response(JSON.stringify({ error: "demand is required" }), {
         status: 400, headers: { ...cors, "Content-Type": "application/json" },
       });
-      const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
-      if (!anthropicKey) return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }), {
+      const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+      if (!lovableKey) return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
         status: 500, headers: { ...cors, "Content-Type": "application/json" },
       });
-      const result = await orchestrate(demand, clientContext ?? {}, anthropicKey, siteUrl);
+      const result = await orchestrate(demand, clientContext ?? {}, lovableKey, siteUrl);
       return new Response(JSON.stringify(result), { headers: { ...cors, "Content-Type": "application/json" } });
     }
 
@@ -329,13 +329,12 @@ Deno.serve(async (req) => {
       status: 400, headers: { ...cors, "Content-Type": "application/json" },
     });
 
-    const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
-    if (!googleKey) return new Response(JSON.stringify({ error: "GOOGLE_AI_API_KEY not configured" }), {
+    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+    if (!lovableKey) return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
       status: 500, headers: { ...cors, "Content-Type": "application/json" },
     });
 
-    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
-    const result = await generateImage(prompt, aspectRatio, clientContext ?? {}, googleKey, anthropicKey, beatrizCopy, carolinaStrategy);
+    const result = await generateImage(prompt, aspectRatio, clientContext ?? {}, lovableKey, beatrizCopy, carolinaStrategy);
     return new Response(JSON.stringify(result), { headers: { ...cors, "Content-Type": "application/json" } });
 
   } catch (error) {
