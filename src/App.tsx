@@ -30,6 +30,8 @@ import ClientWorkspace from "@/pages/ClientWorkspace";
 import ClientPortal from "@/pages/ClientPortal";
 import LandingPage from "@/pages/LandingPage";
 import BriefingPage from "@/pages/BriefingPage";
+import PrivacyPage from "@/pages/PrivacyPage";
+import TermsPage from "@/pages/TermsPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -88,6 +90,8 @@ const AppRoutes = () => {
       <Route path="/portal" element={<ClientPortal />} />
       <Route path="/landing" element={<LandingPage />} />
       <Route path="/briefing" element={<BriefingPage />} />
+      <Route path="/privacy" element={<PrivacyPage />} />
+      <Route path="/terms" element={<TermsPage />} />
       <Route path="*" element={<ProtectedRoutes />} />
     </Routes>
   );
