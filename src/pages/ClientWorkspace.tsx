@@ -500,10 +500,9 @@ export default function ClientWorkspace() {
     if (!prompt) return;
     setAgentInstruction("");
     setIsadoraLoading(true);
+    setIsadoraError(null);
     const ESTIMATED = 28;
     const startedAt = Date.now();
-    const supabaseUrl = (supabase as any).supabaseUrl ?? (supabase as any).storageUrl ?? "desconhecida";
-    setIsadoraError(`🔍 URL: ${supabaseUrl}`);
     setDesignerTask({ prompt, progress: 0, startedAt, estimatedSeconds: ESTIMATED });
     if (designerIntervalRef.current) clearInterval(designerIntervalRef.current);
     designerIntervalRef.current = setInterval(() => {
@@ -515,11 +514,20 @@ export default function ClientWorkspace() {
       });
     }, 600);
     try {
-      const { data, error } = await supabase.functions.invoke("generate-image", {
-        body: { prompt, aspectRatio: designAspectRatio },
-      });
+      const res = await fetch(
+        "https://proldgiyterqhthludlp.supabase.co/functions/v1/generate-image",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByb2xkZ2l5dGVycWh0aGx1ZGxwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNzQ4NjEsImV4cCI6MjA5Mjg1MDg2MX0.v8xcDbEbbyxv671SYhsWYHs9bbp9J-Q937SknjUiBIE",
+          },
+          body: JSON.stringify({ prompt, aspectRatio: designAspectRatio }),
+        }
+      );
+      const data = await res.json();
       if (designerIntervalRef.current) clearInterval(designerIntervalRef.current);
-      if (error) throw new Error(`${error.message} (${error.name})`);
+      if (!res.ok) throw new Error(data?.error ? String(data.error).slice(0, 200) : `HTTP ${res.status}`);
       if (!data?.imageData) throw new Error(data?.error ? String(data.error).slice(0, 200) : "Sem imageData na resposta");
       setDesignerTask((prev) => prev ? { ...prev, progress: 100 } : null);
       setDesignerRecentWork((prev) => [prompt, ...prev.slice(0, 4)]);
