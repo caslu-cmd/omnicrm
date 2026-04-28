@@ -282,6 +282,14 @@ const INTEGRATIONS_BASE = [
   },
 ];
 
+const DESIGN_FORMATS = [
+  { ratio: "1:1",  label: "Feed",     hint: "Instagram · LinkedIn" },
+  { ratio: "9:16", label: "Stories",  hint: "Reels · TikTok · Stories" },
+  { ratio: "16:9", label: "Banner",   hint: "YouTube · Capa · Ads" },
+  { ratio: "4:3",  label: "Slide",    hint: "Apresentação · TV" },
+  { ratio: "3:4",  label: "Retrato",  hint: "Pinterest · Print" },
+] as const;
+
 // ── Component ─────────────────────────────────────────────────
 export default function ClientWorkspace() {
   const { id } = useParams<{ id: string }>();
@@ -319,7 +327,7 @@ export default function ClientWorkspace() {
   const [generatedImages, setGeneratedImages] = useState<Array<{id: string, imageData: string, mimeType: string, prompt: string, createdAt: string}>>([]);
   const [isadoraLoading, setIsadoraLoading] = useState(false);
   const [isadoraError, setIsadoraError] = useState<string | null>(null);
-  const [designAspectRatio, setDesignAspectRatio] = useState<"1:1" | "9:16" | "16:9">("1:1");
+  const [designAspectRatio, setDesignAspectRatio] = useState<"1:1" | "9:16" | "16:9" | "4:3" | "3:4">("1:1");
   const [designerTask, setDesignerTask] = useState<{prompt: string; progress: number; startedAt: number; estimatedSeconds: number} | null>(null);
   const [designerRecentWork, setDesignerRecentWork] = useState<string[]>([]);
   const designerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -1452,19 +1460,23 @@ export default function ClientWorkspace() {
 
                             {/* Formato (só Isadora) */}
                             {selectedAgent.id === "designer" && (
-                              <div className="flex items-center gap-2 mb-3">
-                                <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.3)" }}>Formato</span>
-                                {(["1:1", "9:16", "16:9"] as const).map((ratio) => (
-                                  <button key={ratio} onClick={() => setDesignAspectRatio(ratio)}
-                                    className="px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all"
-                                    style={{
-                                      background: designAspectRatio === ratio ? `${selectedAgent.color}20` : "rgba(255,255,255,0.05)",
-                                      border: `1px solid ${designAspectRatio === ratio ? `${selectedAgent.color}50` : "rgba(255,255,255,0.1)"}`,
-                                      color: designAspectRatio === ratio ? selectedAgent.color : "rgba(255,255,255,0.4)",
-                                    }}>
-                                    {ratio}
-                                  </button>
-                                ))}
+                              <div className="mb-3">
+                                <div className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>Formato</div>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {DESIGN_FORMATS.map(({ ratio, label, hint }) => (
+                                    <button key={ratio} onClick={() => setDesignAspectRatio(ratio as any)}
+                                      className="flex flex-col items-start px-3 py-1.5 rounded-xl text-left transition-all"
+                                      style={{
+                                        background: designAspectRatio === ratio ? `${selectedAgent.color}18` : "rgba(255,255,255,0.04)",
+                                        border: `1px solid ${designAspectRatio === ratio ? `${selectedAgent.color}50` : "rgba(255,255,255,0.08)"}`,
+                                      }}>
+                                      <span className="text-[11px] font-bold" style={{ color: designAspectRatio === ratio ? selectedAgent.color : "rgba(255,255,255,0.6)" }}>
+                                        {label} <span style={{ color: "rgba(255,255,255,0.3)", fontWeight: 400 }}>{ratio}</span>
+                                      </span>
+                                      <span className="text-[9px]" style={{ color: "rgba(255,255,255,0.25)" }}>{hint}</span>
+                                    </button>
+                                  ))}
+                                </div>
                               </div>
                             )}
 
@@ -2782,21 +2794,23 @@ export default function ClientWorkspace() {
                       accept=".pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg,.csv,.xlsx"
                       className="hidden" onChange={handleAgentFileChange} />
                     {viewedAgent.id === "designer" && (
-                      <div className="flex items-center gap-2 mb-3">
-                        <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.3)" }}>Formato</span>
-                        {(["1:1", "9:16", "16:9"] as const).map((ratio) => (
-                          <button
-                            key={ratio}
-                            onClick={() => setDesignAspectRatio(ratio)}
-                            className="px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all"
-                            style={{
-                              background: designAspectRatio === ratio ? `${viewedAgent.color}20` : "rgba(255,255,255,0.05)",
-                              border: `1px solid ${designAspectRatio === ratio ? `${viewedAgent.color}50` : "rgba(255,255,255,0.1)"}`,
-                              color: designAspectRatio === ratio ? viewedAgent.color : "rgba(255,255,255,0.4)",
-                            }}>
-                            {ratio}
-                          </button>
-                        ))}
+                      <div className="mb-3">
+                        <div className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>Formato</div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {DESIGN_FORMATS.map(({ ratio, label, hint }) => (
+                            <button key={ratio} onClick={() => setDesignAspectRatio(ratio as any)}
+                              className="flex flex-col items-start px-3 py-1.5 rounded-xl text-left transition-all"
+                              style={{
+                                background: designAspectRatio === ratio ? `${viewedAgent.color}18` : "rgba(255,255,255,0.04)",
+                                border: `1px solid ${designAspectRatio === ratio ? `${viewedAgent.color}50` : "rgba(255,255,255,0.08)"}`,
+                              }}>
+                              <span className="text-[11px] font-bold" style={{ color: designAspectRatio === ratio ? viewedAgent.color : "rgba(255,255,255,0.6)" }}>
+                                {label} <span style={{ color: "rgba(255,255,255,0.3)", fontWeight: 400 }}>{ratio}</span>
+                              </span>
+                              <span className="text-[9px]" style={{ color: "rgba(255,255,255,0.25)" }}>{hint}</span>
+                            </button>
+                          ))}
+                        </div>
                       </div>
                     )}
                     <textarea
