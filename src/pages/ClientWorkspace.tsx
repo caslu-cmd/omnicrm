@@ -688,20 +688,11 @@ export default function ClientWorkspace() {
     };
 
     try {
-      const res = await fetch(
-        "https://proldgiyterqhthludlp.supabase.co/functions/v1/generate-image",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByb2xkZ2l5dGVycWh0aGx1ZGxwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNzQ4NjEsImV4cCI6MjA5Mjg1MDg2MX0.v8xcDbEbbyxv671SYhsWYHs9bbp9J-Q937SknjUiBIE",
-          },
-          body: JSON.stringify({ prompt: direction, aspectRatio: designAspectRatio, clientContext }),
-        }
-      );
-      const data = await res.json();
+      const { data, error } = await supabase.functions.invoke("generate-image", {
+        body: { prompt: direction, aspectRatio: normalizeImageAspectRatio(designAspectRatio), clientContext },
+      });
       if (designerIntervalRef.current) clearInterval(designerIntervalRef.current);
-      if (!res.ok) throw new Error(data?.error ? String(data.error).slice(0, 200) : `HTTP ${res.status}`);
+      if (error) throw error;
       if (!data?.imageData) throw new Error(data?.error ? String(data.error).slice(0, 200) : "Sem imageData na resposta");
       const displayLabel = data.generatedPrompt || direction || "Peça autônoma";
       setDesignerTask((prev) => prev ? { ...prev, progress: 100 } : null);
