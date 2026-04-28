@@ -24,9 +24,16 @@ Seu time de especialistas:
 **beatriz — Copywriter Sênior**
 Skills: copy de alta conversão, storytelling de marca, roteiros para vídeo/reels, legendas que engajam, email marketing, CTAs irresistíveis, naming e taglines, adaptação de tom de voz por canal
 
-**isadora — Designer & Art Director**
-Skills: identidade visual, peças para feed/stories/reels/banners, composição, paleta de cores, tipografia, edição de imagem, criação de assets de campanha
-Formatos disponíveis: 1:1 (feed), 9:16 (stories/reels), 16:9 (banner/capa), 4:3 (slide), 3:4 (retrato)
+**isadora — Senior Art Director & Designer**
+Skills: identidade visual, composição editorial, hierarquia visual, paleta de cores, peças para feed/stories/reels/banners/thumbnails, espaço para tipografia, lighting, mood board, criação de assets de campanha
+Formatos e quando usar:
+- 1:1 → Instagram feed, LinkedIn post (padrão para posts)
+- 9:16 → Instagram Stories, Reels, TikTok (conteúdo vertical imersivo)
+- 16:9 → YouTube thumbnail, capa de Facebook, banner de site
+- 4:3 → slide de apresentação, post Facebook
+- 3:4 → Pinterest, retrato, print
+Isadora sempre escolhe o melhor formato para a plataforma. Quando Aria pedir uma peça, deve especificar plataforma para Isadora decidir o ratio correto.
+Isadora NÃO responde em texto — ela entrega a imagem diretamente.
 
 **rafaela — Especialista em Tráfego Pago**
 Skills: estratégia de mídia paga, Meta Ads (Facebook/Instagram), Google Ads, segmentação de público, otimização de CPC/CPA, remarketing, análise de ROAS, estrutura de campanhas e conjuntos de anúncios
@@ -129,11 +136,30 @@ Regras:
   }
 }
 
-// ─── ISADORA: Image Generation (Gemini Flash + Imagen 4) ─────────────────────
+// ─── ISADORA: Senior Art Director + Image Generation ─────────────────────────
+function bestAspectRatio(description: string): string {
+  const d = description.toLowerCase();
+  if (d.includes("stories") || d.includes("reels") || d.includes("tiktok") || d.includes("vertical")) return "9:16";
+  if (d.includes("banner") || d.includes("capa") || d.includes("youtube") || d.includes("cover") || d.includes("16:9")) return "16:9";
+  if (d.includes("slide") || d.includes("apresentação") || d.includes("presentation")) return "4:3";
+  if (d.includes("retrato") || d.includes("portrait") || d.includes("pinterest")) return "3:4";
+  return "1:1"; // default: Instagram/LinkedIn feed
+}
+
 async function generateImage(prompt: string, aspectRatio: string, clientContext: Record<string, unknown>, googleKey: string) {
   const ctx = clientContext ?? {};
 
-  // Gemini Flash enhances and translates the prompt to English for Imagen
+  // Auto-select best ratio if caller passed "auto" or empty
+  const ratio = (!aspectRatio || aspectRatio === "auto") ? bestAspectRatio(prompt) : aspectRatio;
+
+  const platformHint: Record<string, string> = {
+    "1:1":  "Instagram feed post or LinkedIn post — square format",
+    "9:16": "Instagram Stories or Reels or TikTok — full vertical screen",
+    "16:9": "YouTube thumbnail, Facebook cover, or banner ad — wide horizontal",
+    "4:3":  "Presentation slide or Facebook post — landscape",
+    "3:4":  "Pinterest pin or portrait format — tall vertical",
+  };
+
   const enhanceRes = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${googleKey}`,
     {
@@ -142,22 +168,33 @@ async function generateImage(prompt: string, aspectRatio: string, clientContext:
       body: JSON.stringify({
         contents: [{
           parts: [{
-            text: `You are an expert at writing prompts for Imagen 4, an AI image generator.
+            text: `You are Isadora, a senior art director and social media designer for Brazilian brands. You are writing a prompt for Google Imagen 4 — one of the most advanced AI image generators available, capable of photorealistic, editorial-quality images when given precise instructions.
 
-Client context:
+CLIENT:
 - Brand: ${ctx.name ?? "unknown"}
 - Industry: ${ctx.industry ?? "unknown"}
-- Brand color: ${ctx.brandColor ?? "unknown"}
+- Brand color (use as dominant accent): ${ctx.brandColor ?? "unknown"}
 
-Task: Transform the description below into an optimized English prompt for Imagen 4.
-- Be specific about composition, lighting, style, colors, mood
-- Include the brand color as an accent if relevant
-- Output ONLY the prompt, nothing else
+TARGET FORMAT: ${ratio} — ${platformHint[ratio] ?? "social media post"}
 
-Description: "${prompt}"`,
+Imagen 4 strengths to exploit: photorealism, accurate lighting, color fidelity, complex compositions, cinematic quality, clean backgrounds.
+
+SENIOR ART DIRECTOR RULES:
+1. SUBJECT: be hyper-specific — describe exactly what is shown, how it's positioned, expression, action
+2. COMPOSITION: specify placement (centered, left-third, top-anchored), depth of field, foreground/background balance
+3. LEAVE TEXT SPACE: always reserve a clean area for copy overlay — describe where (e.g. "clean minimal area at bottom third for text")
+4. LIGHTING: cinematic soft light, golden hour, studio key light — never "harsh" or "flat"
+5. COLOR: dominant brand color as background wash, accent, or key element — name the hex or describe precisely
+6. STYLE: choose one — photorealistic editorial / clean flat illustration / bold graphic / minimalist product — and commit
+7. AVOID: watermarks, logos, text in image, generic stock photo look, AI-artifact faces, cluttered backgrounds
+8. QUALITY BOOSTERS: always end with "ultra high quality, 4K, sharp focus, professional photography"
+
+Write ONLY the final Imagen 4 prompt in English. No explanations, no labels, just the prompt.
+
+BRIEF: "${prompt}"`,
           }],
         }],
-        generationConfig: { maxOutputTokens: 512, temperature: 0.7 },
+        generationConfig: { maxOutputTokens: 768, temperature: 0.6 },
       }),
     }
   );
@@ -197,6 +234,7 @@ Description: "${prompt}"`,
     imageData: prediction.bytesBase64Encoded,
     mimeType: prediction.mimeType ?? "image/png",
     enhancedPrompt: finalPrompt,
+    aspectRatio: ratio,
   };
 }
 
