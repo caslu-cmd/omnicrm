@@ -512,13 +512,16 @@ export default function ClientWorkspace() {
       addConvMsgs(newMsgs);
 
       // Auto-trigger image generation for Isadora tasks
+      const beatrizCopy = newMsgs.find(m => m.from === "beatriz" && m.action === "respond")?.content ?? "";
+      const carolinaStrategy = newMsgs.find(m => m.from === "carolina" && m.action === "respond")?.content ?? "";
+
       for (const msg of newMsgs) {
         if (msg.action === "generate_image" && msg.to === "isadora") {
           try {
             const imgRes = await fetch(`${ARIA_BASE}/generate-image`, {
               method: "POST",
               headers: { "Content-Type": "application/json", "Authorization": `Bearer ${ARIA_ANON}` },
-              body: JSON.stringify({ prompt: msg.content, aspectRatio: msg.imageParams?.aspectRatio ?? "1:1", clientContext }),
+              body: JSON.stringify({ prompt: msg.content, aspectRatio: msg.imageParams?.aspectRatio ?? "4:5", clientContext, beatrizCopy, carolinaStrategy }),
             });
             const imgData = await imgRes.json();
             if (imgData.imageData) {

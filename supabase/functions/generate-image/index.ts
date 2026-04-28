@@ -261,7 +261,7 @@ Now output ONLY the final Imagen 4 prompt in one paragraph. End with: "no text, 
 
   // Imagen 4 generation
   const imgRes = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${googleKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-fast-generate-001:predict?key=${googleKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
