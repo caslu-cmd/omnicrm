@@ -1501,28 +1501,30 @@ export default function ClientWorkspace() {
                           </button>
                         </div>
                       ) : (
-                        <button onClick={() => fileInputRef.current?.click()}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all flex-shrink-0"
-                          style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.35)", border: "1px dashed rgba(255,255,255,0.14)" }}
-                          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(185,255,75,0.35)"; e.currentTarget.style.color = "rgba(185,255,75,0.75)"; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)"; e.currentTarget.style.color = "rgba(255,255,255,0.35)"; }}>
-                          <Paperclip className="w-3 h-3" /> Anexar referência
-                        </button>
-                        <button
-                          onClick={() => setShowSiteInput(true)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all flex-shrink-0"
-                          style={{
-                            background: siteUrl ? "rgba(185,255,75,0.08)" : "rgba(255,255,255,0.04)",
-                            color: siteUrl ? "#B9FF4B" : "rgba(255,255,255,0.35)",
-                            border: siteUrl ? "1px solid rgba(185,255,75,0.3)" : "1px dashed rgba(255,255,255,0.14)",
-                          }}
-                          onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(185,255,75,0.35)"; e.currentTarget.style.color = "rgba(185,255,75,0.75)"; }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.borderColor = siteUrl ? "rgba(185,255,75,0.3)" : "rgba(255,255,255,0.14)";
-                            e.currentTarget.style.color = siteUrl ? "#B9FF4B" : "rgba(255,255,255,0.35)";
-                          }}>
-                          <Globe className="w-3 h-3" /> {siteUrl ? "Site anexado" : "Anexar site"}
-                        </button>
+                        <>
+                          <button onClick={() => fileInputRef.current?.click()}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all flex-shrink-0"
+                            style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.35)", border: "1px dashed rgba(255,255,255,0.14)" }}
+                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(185,255,75,0.35)"; e.currentTarget.style.color = "rgba(185,255,75,0.75)"; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)"; e.currentTarget.style.color = "rgba(255,255,255,0.35)"; }}>
+                            <Paperclip className="w-3 h-3" /> Anexar referência
+                          </button>
+                          <button
+                            onClick={() => setShowSiteInput(true)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all flex-shrink-0"
+                            style={{
+                              background: siteUrl ? "rgba(185,255,75,0.08)" : "rgba(255,255,255,0.04)",
+                              color: siteUrl ? "#B9FF4B" : "rgba(255,255,255,0.35)",
+                              border: siteUrl ? "1px solid rgba(185,255,75,0.3)" : "1px dashed rgba(255,255,255,0.14)",
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(185,255,75,0.35)"; e.currentTarget.style.color = "rgba(185,255,75,0.75)"; }}
+                            onMouseLeave={(e) => {
+                              e.currentTarget.style.borderColor = siteUrl ? "rgba(185,255,75,0.3)" : "rgba(255,255,255,0.14)";
+                              e.currentTarget.style.color = siteUrl ? "#B9FF4B" : "rgba(255,255,255,0.35)";
+                            }}>
+                            <Globe className="w-3 h-3" /> {siteUrl ? "Site anexado" : "Anexar site"}
+                          </button>
+                        </>
                       )}
                       <div className="flex-1" />
                       <button
