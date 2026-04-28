@@ -331,10 +331,18 @@ export default function ClientWorkspace() {
   const [designerTask, setDesignerTask] = useState<{prompt: string; progress: number; startedAt: number; estimatedSeconds: number} | null>(null);
   const [designerRecentWork, setDesignerRecentWork] = useState<string[]>([]);
   const designerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [showEditClient, setShowEditClient] = useState(false);
+  const [editForm, setEditForm] = useState<{
+    name: string; industry: string; status: "Ativo" | "Onboarding" | "Em pausa";
+    revenue: string; nextAction: string; followersIg: string; followersFb: string; portalPin: string;
+  } | null>(null);
+  const [clientOverrides, setClientOverrides] = useState<Record<string, any>>(() => {
+    try { return JSON.parse(localStorage.getItem(`client-${id}`) ?? "{}"); } catch { return {}; }
+  });
 
-  const client = CLIENTS.find((c) => c.id === id);
+  const baseClient = CLIENTS.find((c) => c.id === id);
 
-  if (!client) {
+  if (!baseClient) {
     return (
       <div className="flex items-center justify-center min-h-full text-white" style={{ background: "#080810" }}>
         Cliente não encontrado.{" "}
@@ -342,6 +350,12 @@ export default function ClientWorkspace() {
       </div>
     );
   }
+
+  const client = {
+    ...baseClient,
+    ...clientOverrides,
+    followers: { ...baseClient.followers, ...(clientOverrides.followers ?? {}) },
+  };
 
   const checkWpStatus = async () => {
     setWpStatus("loading");
@@ -359,6 +373,23 @@ export default function ClientWorkspace() {
     } catch {
       setWpStatus("disconnected");
     }
+  };
+
+  const handleSaveClient = () => {
+    if (!editForm) return;
+    const updates = {
+      name: editForm.name,
+      industry: editForm.industry,
+      status: editForm.status,
+      revenue: editForm.revenue,
+      nextAction: editForm.nextAction,
+      followers: { instagram: editForm.followersIg, facebook: editForm.followersFb },
+      portalPin: editForm.portalPin,
+    };
+    const merged = { ...clientOverrides, ...updates };
+    setClientOverrides(merged);
+    localStorage.setItem(`client-${id}`, JSON.stringify(merged));
+    setShowEditClient(false);
   };
 
   const fetchWpQr = async () => {
@@ -569,7 +600,27 @@ export default function ClientWorkspace() {
           <div className="flex items-center gap-1.5"><Instagram className="w-3.5 h-3.5" /> {client.followers.instagram}</div>
           <div className="flex items-center gap-1.5"><Facebook className="w-3.5 h-3.5" /> {client.followers.facebook}</div>
         </div>
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => {
+              setEditForm({
+                name: client.name,
+                industry: client.industry,
+                status: client.status,
+                revenue: client.revenue,
+                nextAction: client.nextAction,
+                followersIg: client.followers.instagram,
+                followersFb: client.followers.facebook,
+                portalPin: client.portalPin,
+              });
+              setShowEditClient(true);
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+            style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.09)" }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.45)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.09)"; }}>
+            <Pencil className="w-3 h-3" /> Editar cliente
+          </button>
           <button onClick={() => navigate("/portal")}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
             style={{ background: `${client.color}18`, color: client.color, border: `1px solid ${client.color}30` }}>
@@ -2875,6 +2926,99 @@ export default function ClientWorkspace() {
           </>
         )}
       </AnimatePresence>
+
+      {/* ── Edit Client Modal ── */}
+      {showEditClient && editForm && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)" }}>
+          <div className="w-full max-w-lg rounded-2xl p-6" style={{ background: "#0F0F1A", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}>
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-base font-bold" style={{ color: "#F0F0F0" }}>Editar cliente</h2>
+                <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>As alterações são salvas localmente</p>
+              </div>
+              <button onClick={() => setShowEditClient(false)} style={{ color: "rgba(255,255,255,0.35)" }}
+                onMouseEnter={(e) => (e.currentTarget.style.color = "#fff")}
+                onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest font-semibold mb-1.5" style={{ color: "rgba(255,255,255,0.3)" }}>Nome</label>
+                  <input value={editForm.name} onChange={(e) => setEditForm(f => f && { ...f, name: e.target.value })}
+                    className="w-full rounded-xl px-3 py-2 text-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }} />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest font-semibold mb-1.5" style={{ color: "rgba(255,255,255,0.3)" }}>Segmento</label>
+                  <input value={editForm.industry} onChange={(e) => setEditForm(f => f && { ...f, industry: e.target.value })}
+                    className="w-full rounded-xl px-3 py-2 text-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }} />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest font-semibold mb-1.5" style={{ color: "rgba(255,255,255,0.3)" }}>Status</label>
+                  <select value={editForm.status} onChange={(e) => setEditForm(f => f && { ...f, status: e.target.value as any })}
+                    className="w-full rounded-xl px-3 py-2 text-sm appearance-none" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }}>
+                    <option value="Ativo">Ativo</option>
+                    <option value="Onboarding">Onboarding</option>
+                    <option value="Em pausa">Em pausa</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest font-semibold mb-1.5" style={{ color: "rgba(255,255,255,0.3)" }}>Honorário mensal</label>
+                  <input value={editForm.revenue} onChange={(e) => setEditForm(f => f && { ...f, revenue: e.target.value })}
+                    placeholder="R$ 0.000"
+                    className="w-full rounded-xl px-3 py-2 text-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }} />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest font-semibold mb-1.5" style={{ color: "rgba(255,255,255,0.3)" }}>Próxima ação</label>
+                <input value={editForm.nextAction} onChange={(e) => setEditForm(f => f && { ...f, nextAction: e.target.value })}
+                  className="w-full rounded-xl px-3 py-2 text-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }} />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest font-semibold mb-1.5" style={{ color: "rgba(255,255,255,0.3)" }}>Seguidores Instagram</label>
+                  <input value={editForm.followersIg} onChange={(e) => setEditForm(f => f && { ...f, followersIg: e.target.value })}
+                    placeholder="ex: 3,1k"
+                    className="w-full rounded-xl px-3 py-2 text-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }} />
+                </div>
+                <div>
+                  <label className="block text-[10px] uppercase tracking-widest font-semibold mb-1.5" style={{ color: "rgba(255,255,255,0.3)" }}>Seguidores Facebook</label>
+                  <input value={editForm.followersFb} onChange={(e) => setEditForm(f => f && { ...f, followersFb: e.target.value })}
+                    placeholder="ex: 6,4k"
+                    className="w-full rounded-xl px-3 py-2 text-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }} />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase tracking-widest font-semibold mb-1.5" style={{ color: "rgba(255,255,255,0.3)" }}>PIN do Portal</label>
+                <input value={editForm.portalPin} onChange={(e) => setEditForm(f => f && { ...f, portalPin: e.target.value })}
+                  placeholder="ex: GL2025"
+                  className="w-full rounded-xl px-3 py-2 text-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }} />
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-5">
+              <button onClick={() => setShowEditClient(false)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all"
+                style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                Cancelar
+              </button>
+              <button onClick={handleSaveClient}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all"
+                style={{ background: client.color, color: "#07080A" }}>
+                Salvar alterações
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
