@@ -5,8 +5,6 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
 const LIME = "#B9FF4B";
-const ARIA_BASE = "https://proldgiyterqhthludlp.supabase.co/functions/v1";
-const ARIA_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByb2xkZ2l5dGVycWh0aGx1ZGxwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNzQ4NjEsImV4cCI6MjA5Mjg1MDg2MX0.v8xcDbEbbyxv671SYhsWYHs9bbp9J-Q937SknjUiBIE";
 
 const SYSTEM_PROMPT = `Você é Lia, consultora sênior de marketing digital da Calu Agência. Sua missão é conduzir um diagnóstico gratuito de marketing para potenciais clientes, coletando informações estratégicas e entregando uma análise personalizada ao final.
 
@@ -142,20 +140,14 @@ export default function BriefingPage() {
   }, [messages]);
 
   const callAI = async (history: Message[]) => {
-    const res = await fetch(`${ARIA_BASE}/chat-ai`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${ARIA_ANON}`,
-      },
-      body: JSON.stringify({
+    const { data, error } = await supabase.functions.invoke("chat-ai", {
+      body: {
         messages: history.map((m) => ({ role: m.role, content: m.content })),
         systemPrompt: SYSTEM_PROMPT,
         maxTokens: 2048,
-      }),
+      },
     });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    if (error) throw error;
     return data.content as string;
   };
 
