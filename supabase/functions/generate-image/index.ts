@@ -330,7 +330,7 @@ Deno.serve(async (req) => {
     }
 
     // ── Mode: Isadora image generation ──
-    const { prompt, aspectRatio = "4:5", clientContext, beatrizCopy = "", carolinaStrategy = "" } = body;
+    const { prompt, aspectRatio = "3:4", clientContext, beatrizCopy = "", carolinaStrategy = "" } = body;
     if (!prompt) return new Response(JSON.stringify({ error: "prompt is required" }), {
       status: 400, headers: { ...cors, "Content-Type": "application/json" },
     });
