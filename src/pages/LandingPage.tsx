@@ -22,7 +22,7 @@ const PRODUCTS = [
   {
     tag: "CRM",
     name: "OmniCRM",
-    sub: "Omnichannel",
+    sub: "Para agências e negócios locais",
     color: LIME,
     desc: "Todos os canais do seu cliente em um lugar — WhatsApp, Instagram, e-mail, site. Pipeline visual para fechar mais negócios com menos esforço.",
     items: ["Inbox unificado", "Pipeline de vendas", "Automações de follow-up", "Relatórios em tempo real"],
@@ -30,7 +30,7 @@ const PRODUCTS = [
   {
     tag: "SAÚDE",
     name: "Posture.AI",
-    sub: "Avaliação Postural Inteligente",
+    sub: "Para fisioterapeutas, personal trainers e estúdios",
     color: "#A78BFA",
     desc: "Tire uma foto e receba análise postural completa em segundos. IA treinada com 50 mil avaliações que identifica desalinhamentos, gera relatórios em PDF e acompanha a evolução de cada aluno.",
     items: ["Análise postural com IA", "Gestão completa de alunos", "Relatórios PDF profissionais", "Ficha de anamnese digital"],
@@ -38,7 +38,7 @@ const PRODUCTS = [
   {
     tag: "RH",
     name: "RH Inteligente",
-    sub: "Gestão de Pessoas com IA",
+    sub: "Para empresas em crescimento com time em expansão",
     color: "#34D399",
     desc: "Do recrutamento ao onboarding, a IA assume o operacional para seu RH focar no que mais importa: as pessoas.",
     items: ["Triagem automática de currículos", "Onboarding digital", "Avaliações de desempenho", "People analytics"],
@@ -98,6 +98,7 @@ function fmt(n: number) { return n.toLocaleString("pt-BR"); }
 function TeamCarousel() {
   const trackRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
+  const [paused, setPaused] = useState(false);
   const CARD_W = 340;
   const GAP = 16;
 
@@ -113,6 +114,20 @@ function TeamCarousel() {
     const idx = Math.round(trackRef.current.scrollLeft / (CARD_W + GAP));
     setActive(idx);
   };
+
+  useEffect(() => {
+    if (paused) return;
+    const timer = setInterval(() => {
+      setActive(prev => {
+        const next = (prev + 1) % TEAM.length;
+        if (trackRef.current) {
+          trackRef.current.scrollTo({ left: next * (CARD_W + GAP), behavior: "smooth" });
+        }
+        return next;
+      });
+    }, 3200);
+    return () => clearInterval(timer);
+  }, [paused]);
 
   return (
     <section id="time" style={{ padding: "100px 0", overflow: "hidden" }}>
@@ -145,6 +160,8 @@ function TeamCarousel() {
 
       {/* Track */}
       <div ref={trackRef} onScroll={onScroll} className="cl-track"
+        onMouseEnter={() => setPaused(true)}
+        onMouseLeave={() => setPaused(false)}
         style={{ display: "flex", gap: GAP, scrollSnapType: "x mandatory", padding: "4px 64px 24px" } as React.CSSProperties}>
         {TEAM.map((t, idx) => (
           <div key={t.i}
@@ -399,7 +416,7 @@ export default function LandingPage() {
               Tecnologia que<br />trabalha por você.
             </h2>
             <p style={{ fontSize: 15, color: DIM, lineHeight: 1.65, marginTop: 12, maxWidth: 520 }}>
-              Produtos proprietários desenvolvidos pela Calu para amplificar resultados — do CRM omnichannel ao RH automatizado.
+              Cada produto foi desenvolvido para um nicho específico — resolvendo problemas reais de segmentos que a tecnologia genérica não atende.
             </p>
           </div>
 
