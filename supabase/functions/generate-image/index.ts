@@ -178,9 +178,9 @@ Regras:
   const text = data.choices?.[0]?.message?.content ?? "{}";
   try {
     const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, text];
-    return JSON.parse(jsonMatch[1].trim());
+    return normalizeGeneratedMessages(JSON.parse(jsonMatch[1].trim()));
   } catch {
-    return { plan: text, messages: [] };
+    return { plan: normalizeRatioReferences(text), messages: [] };
   }
 }
 
@@ -193,6 +193,27 @@ function normalizeRatio(aspectRatio: string, prompt: string): string {
   if (SUPPORTED_RATIOS.has(r)) return r;
   if (r === "4:5") return "3:4";
   return "3:4";
+}
+
+function normalizeRatioReferences(text: string): string {
+  return String(text || "")
+    .replace(/\b4\s*:\s*5\b/g, "3:4")
+    .replace(/1080\s*[×xX]\s*1350/g, "1080×1440");
+}
+
+function normalizeGeneratedMessages(result: any) {
+  if (!Array.isArray(result?.messages)) return result;
+  return {
+    ...result,
+    plan: normalizeRatioReferences(result.plan ?? ""),
+    messages: result.messages.map((message: any) => ({
+      ...message,
+      content: normalizeRatioReferences(message?.content ?? ""),
+      imageParams: message?.imageParams
+        ? { ...message.imageParams, aspectRatio: normalizeRatio(message.imageParams.aspectRatio, message?.content ?? "") }
+        : message?.imageParams,
+    })),
+  };
 }
 
 function bestAspectRatio(description: string): string {
