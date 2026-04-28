@@ -5,12 +5,6 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const ASPECT_HINT: Record<string, string> = {
-  "1:1": "formato quadrado 1:1",
-  "9:16": "formato vertical 9:16 para stories ou reels",
-  "16:9": "formato horizontal 16:9 para YouTube ou banner",
-};
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -34,17 +28,17 @@ Deno.serve(async (req) => {
       });
     }
 
-    const hint = ASPECT_HINT[aspectRatio] ?? "formato quadrado";
-    const fullPrompt = `${prompt}, ${hint}, alta qualidade, design profissional`;
-
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-generate-001:predict?key=${apiKey}`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{ parts: [{ text: fullPrompt }] }],
-          generationConfig: { responseModalities: ["IMAGE"] },
+          instances: [{ prompt }],
+          parameters: {
+            sampleCount: 1,
+            aspectRatio,
+          },
         }),
       }
     );
@@ -58,11 +52,9 @@ Deno.serve(async (req) => {
     }
 
     const data = await response.json();
-    const part = data.candidates?.[0]?.content?.parts?.find(
-      (p: { inlineData?: unknown }) => p.inlineData
-    );
+    const prediction = data.predictions?.[0];
 
-    if (!part?.inlineData?.data) {
+    if (!prediction?.bytesBase64Encoded) {
       return new Response(JSON.stringify({ error: "Imagem não gerada", raw: data }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -71,8 +63,8 @@ Deno.serve(async (req) => {
 
     return new Response(
       JSON.stringify({
-        imageData: part.inlineData.data,
-        mimeType: part.inlineData.mimeType ?? "image/png",
+        imageData: prediction.bytesBase64Encoded,
+        mimeType: prediction.mimeType ?? "image/png",
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
