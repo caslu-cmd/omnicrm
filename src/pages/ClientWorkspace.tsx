@@ -521,7 +521,7 @@ export default function ClientWorkspace() {
             const imgRes = await fetch(`${ARIA_BASE}/generate-image`, {
               method: "POST",
               headers: { "Content-Type": "application/json", "Authorization": `Bearer ${ARIA_ANON}` },
-              body: JSON.stringify({ prompt: msg.content, aspectRatio: msg.imageParams?.aspectRatio ?? "4:5", clientContext, beatrizCopy, carolinaStrategy }),
+              body: JSON.stringify({ prompt: msg.content, aspectRatio: (msg.imageParams?.aspectRatio === "4:5" ? "3:4" : (msg.imageParams?.aspectRatio ?? "3:4")), clientContext, beatrizCopy, carolinaStrategy }),
             });
             const imgData = await imgRes.json();
             if (imgData.imageData) {
