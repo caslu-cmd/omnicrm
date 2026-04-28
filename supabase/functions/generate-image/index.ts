@@ -48,7 +48,7 @@ async function scrapeSite(url: string): Promise<string> {
 }
 
 // ─── ARIA: Senior Marketing Director ─────────────────────────────────────────
-async function orchestrate(demand: string, clientContext: Record<string, unknown>, anthropicKey: string, siteUrl?: string) {
+async function orchestrate(demand: string, clientContext: Record<string, unknown>, lovableKey: string, siteUrl?: string) {
   const ctx = clientContext ?? {};
   const siteContext = siteUrl ? await scrapeSite(siteUrl) : "";
 
@@ -159,21 +159,23 @@ Regras:
 - Escreva tudo em português brasileiro
 - Seja exigente: a entrega deve ser de nível agência premium, pronta para uso imediato`;
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
-    headers: { "x-api-key": anthropicKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+    headers: { Authorization: `Bearer ${lovableKey}`, "content-type": "application/json" },
     body: JSON.stringify({
-      model: "claude-sonnet-4-6",
-      max_tokens: 4096,
-      system: systemPrompt,
-      messages: [{ role: "user", content: `Demanda do cliente: "${demand}"` }],
+      model: "google/gemini-3-flash-preview",
+      response_format: { type: "json_object" },
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: `Demanda do cliente: "${demand}"` },
+      ],
     }),
   });
 
-  if (!response.ok) throw new Error(`Claude API error: ${await response.text()}`);
+  if (!response.ok) throw new Error(`Lovable AI error: ${await response.text()}`);
 
   const data = await response.json();
-  const text = data.content?.[0]?.text ?? "{}";
+  const text = data.choices?.[0]?.message?.content ?? "{}";
   try {
     const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, text];
     return JSON.parse(jsonMatch[1].trim());
