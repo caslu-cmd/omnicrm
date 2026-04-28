@@ -195,84 +195,55 @@ function bestAspectRatio(description: string): string {
   return "1:1"; // default: Instagram/LinkedIn feed
 }
 
-async function generateImage(prompt: string, aspectRatio: string, clientContext: Record<string, unknown>, googleKey: string) {
+async function generateImage(prompt: string, aspectRatio: string, clientContext: Record<string, unknown>, googleKey: string, anthropicKey: string) {
   const ctx = clientContext ?? {};
-
-  // Auto-select best ratio if caller passed "auto" or empty
   const ratio = (!aspectRatio || aspectRatio === "auto") ? bestAspectRatio(prompt) : aspectRatio;
 
   const platformHint: Record<string, string> = {
-    "1:1":  "Instagram feed post or LinkedIn post — square format",
-    "9:16": "Instagram Stories or Reels or TikTok — full vertical screen",
-    "16:9": "YouTube thumbnail, Facebook cover, or banner ad — wide horizontal",
-    "4:3":  "Presentation slide or Facebook post — landscape",
-    "3:4":  "Pinterest pin or portrait format — tall vertical",
+    "1:1":  "Instagram feed — square",
+    "9:16": "Stories/Reels/TikTok — full vertical",
+    "16:9": "YouTube/banner — wide horizontal",
+    "4:3":  "Slide/Facebook — landscape",
+    "3:4":  "Pinterest/portrait — tall vertical",
   };
 
-  const enhanceRes = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${googleKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{
-            text: `You are Isadora, Art Director at a top Brazilian marketing agency. You don't translate briefs — you make visual decisions like a creative director, then write precise Imagen 4 prompts.
+  // ── Claude faz a arte-direção e escreve o prompt do Imagen 4 ──
+  const claudeRes = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": anthropicKey,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 600,
+      system: `You are Isadora, a world-class Art Director specialized in Brazilian marketing and social media. You think visually and make precise creative decisions. Your only output is a single Imagen 4 prompt in English — nothing else, no explanations, no labels.`,
+      messages: [{
+        role: "user",
+        content: `CLIENT: ${ctx.name ?? "unknown"}
+INDUSTRY: ${ctx.industry ?? "unknown"}
+BRAND COLOR: ${ctx.brandColor ?? "not specified"}
+FORMAT: ${ratio} (${platformHint[ratio] ?? "social media"})
+BRIEF: ${prompt}
 
-CLIENT: ${ctx.name ?? "unknown"} | Industry: ${ctx.industry ?? "unknown"} | Brand color: ${ctx.brandColor ?? "unknown"}
-FORMAT: ${ratio} — ${platformHint[ratio] ?? "social media"}
+As Art Director, make these decisions in your head (do NOT write them out):
+1. What is the core emotional message? What must the viewer FEEL?
+2. Subject category: law/business → executive boardroom power | health → clinical warmth | food → hero dish desire | beauty → product elegance | tech → glowing screens near-future | education → bright learning | real estate → golden hour architecture | fitness → peak action energy | events → crowd storytelling | finance → confidence trust | motivation → dramatic landscape
+3. Visual style: photorealistic editorial / hero product shot / lifestyle candid / dramatic cinematic / minimalist abstract
+4. Exact composition: where is hero subject, where is clean zone for text overlay, depth of field
+5. Lighting: soft studio / golden hour / cool natural / dramatic side rim / neon ambient
+6. How does ${ctx.brandColor ?? "brand color"} appear as a subtle accent
 
-BRIEF: "${prompt}"
-
-YOUR PROCESS — think through each step, then write the final prompt:
-
-1. WHAT IS THIS REALLY ABOUT?
-   Read the brief deeply. What's the core message? What emotion must the image trigger?
-   Map the subject:
-   - Law/contracts/business → confident executive, modern boardroom, power & trust
-   - Health/medical → clean clinical warmth, real human care, trustworthy colors
-   - Food/restaurant → hero dish shot, steam, texture, warm ambient, desire
-   - Beauty/cosmetics → product elegance, skin texture, soft backlight, luxury
-   - Tech/software → person + glowing screen, blue-purple mood, near-future feel
-   - Education → bright open space, learning moment, curiosity and hope
-   - Real estate → architecture at golden hour, premium materials, aspirational
-   - Fashion/lifestyle → editorial model in motion, cinematic, real light
-   - Fitness/sport → peak action, energy, sweat, dramatic light
-   - Events/culture → crowd energy or intimate storytelling moment
-   - Finance/investment → confidence, charts, clean modern office, trust
-   - Abstract/motivation → dramatic landscape, metaphor, powerful sky
-
-2. VISUAL APPROACH — which serves the message best?
-   - Photorealistic editorial (most subjects)
-   - Hero product shot (cosmetics, food, objects)
-   - Lifestyle candid (services, people, community)
-   - Dramatic cinematic (events, launches, emotion)
-   - Minimalist abstract (tech, finance, innovation)
-
-3. COMPOSITION — be specific:
-   - Where is the hero subject? (centered, rule-of-thirds left/right, foreground close)
-   - Where is the clean zone for text overlay? (bottom third, left panel, top area)
-   - Depth of field? (shallow bokeh background OR sharp environmental context)
-
-4. LIGHTING — define the exact mood:
-   Soft studio diffused / Warm golden hour / Cool overcast natural / Dramatic side rim light / Neon ambient glow
-
-5. COLOR — integrate the brand:
-   Use ${ctx.brandColor ?? "brand color"} as: subtle accent in background / clothing detail / light gel / reflective surface
-
-NOW write the Imagen 4 prompt in English. One paragraph, no labels, no explanations.
-Mandatory ending: "no text, no logos, no watermarks, ultra high quality, 4K, sharp focus, professional editorial photography, award-winning composition"`,
-          }],
-        }],
-        generationConfig: { maxOutputTokens: 768, temperature: 0.6 },
-      }),
-    }
-  );
+Now output ONLY the final Imagen 4 prompt in one paragraph. End with: "no text, no logos, no watermarks, ultra high quality, 4K, sharp focus, award-winning editorial photography"`,
+      }],
+    }),
+  });
 
   let finalPrompt = prompt;
-  if (enhanceRes.ok) {
-    const enhanceData = await enhanceRes.json();
-    finalPrompt = enhanceData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() ?? prompt;
+  if (claudeRes.ok) {
+    const claudeData = await claudeRes.json();
+    finalPrompt = claudeData.content?.[0]?.text?.trim() ?? prompt;
   }
 
   // Imagen 4 generation
@@ -352,7 +323,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const result = await generateImage(prompt, aspectRatio, clientContext ?? {}, googleKey);
+    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
+
+    const result = await generateImage(prompt, aspectRatio, clientContext ?? {}, googleKey, anthropicKey);
     return new Response(JSON.stringify(result), {
       headers: { ...cors, "Content-Type": "application/json" },
     });
