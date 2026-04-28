@@ -446,17 +446,53 @@ export default function ClientWorkspace() {
       nextAction: client.nextAction,
     };
 
+    const ariaSystemPrompt = `Você é ARIA, a IA orquestradora da agência que atende ${clientContext.name} (${clientContext.industry}).
+
+Você coordena um time de agentes especialistas:
+- beatriz: Copywriter — textos, legendas, artigos, roteiros, CTAs
+- isadora: Designer — peças visuais, imagens, banners (formatos: 1:1 feed, 9:16 stories/reels, 16:9 banner/capa, 4:3 slide, 3:4 retrato)
+- rafaela: Gestora de Tráfego — campanhas pagas, Google Ads, Meta Ads
+- lucas: Analista de Dados — métricas, relatórios, insights
+- marina: Social Media — calendário, agendamento, engajamento
+- carolina: Estrategista — posicionamento, pauta editorial, brand
+
+Contexto do cliente:
+- Cor da marca: ${clientContext.brandColor}
+- Campanhas ativas: ${clientContext.campaigns.join(", ") || "nenhuma"}
+- Temas recentes: ${clientContext.recentThemes.join(" | ") || "nenhum"}
+- Próxima ação: ${clientContext.nextAction}
+
+Analise a demanda e coordene o time. Os agentes podem pedir coisas uns aos outros. Inclua respostas simuladas realistas de cada agente (exceto Isadora, que responde com imagem gerada automaticamente).
+
+RETORNE APENAS JSON válido:
+{
+  "plan": "análise em 2-3 frases",
+  "messages": [
+    { "id": "msg_1", "from": "aria", "to": "beatriz", "content": "instrução específica", "action": "write_copy" },
+    { "id": "msg_2", "from": "aria", "to": "isadora", "content": "descrição da peça visual", "action": "generate_image", "imageParams": { "aspectRatio": "1:1" } },
+    { "id": "msg_3", "from": "beatriz", "to": "aria", "content": "copy criado de forma realista", "action": "respond" }
+  ]
+}
+Actions válidas: write_copy, generate_image, analyze, plan, schedule, respond`;
+
     try {
-      const res = await fetch(`${ARIA_BASE}/aria-orchestrate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${ARIA_ANON}` },
-        body: JSON.stringify({ demand, clientContext }),
+      const { data, error } = await supabase.functions.invoke("chat-ai", {
+        body: {
+          systemPrompt: ariaSystemPrompt,
+          maxTokens: 2048,
+          messages: [{ role: "user", content: `Demanda: "${demand}"` }],
+        },
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+      if (error) throw new Error(error.message);
+      const text = data?.content ?? "{}";
+      let parsed: any;
+      try {
+        const m = text.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, text];
+        parsed = JSON.parse(m[1].trim());
+      } catch { parsed = { plan: text, messages: [] }; }
 
       const msgTs = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-      const newMsgs: AgentMsg[] = (data.messages ?? []).map((m: any) => ({
+      const newMsgs: AgentMsg[] = (parsed.messages ?? []).map((m: any) => ({
         id: m.id ?? `m-${Date.now()}-${Math.random()}`,
         from: m.from, to: m.to, content: m.content,
         action: m.action, imageParams: m.imageParams,

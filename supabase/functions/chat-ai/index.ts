@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { messages } = await req.json();
+    const { messages, systemPrompt, maxTokens } = await req.json();
 
     if (!messages || !Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "messages array required" }), {
@@ -56,8 +56,8 @@ Deno.serve(async (req) => {
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
-        max_tokens: 1024,
-        system: SYSTEM_PROMPT,
+        max_tokens: maxTokens ?? 1024,
+        system: systemPrompt ?? SYSTEM_PROMPT,
         messages,
       }),
     });
