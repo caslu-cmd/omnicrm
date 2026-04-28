@@ -236,6 +236,7 @@ async function generateImage(
   lovableKey: string,
   beatrizCopy = "",
   carolinaStrategy = "",
+  googleKey = "",
 ) {
   const ctx = clientContext ?? {};
   const ratio = normalizeRatio(aspectRatio, prompt);
@@ -304,36 +305,30 @@ Output ONLY the final image-generation prompt in one rich, detailed paragraph. E
     finalPrompt = promptData.choices?.[0]?.message?.content?.trim() ?? prompt;
   }
 
-  const ratioInstruction: Record<string, string> = {
-    "3:4":  "IMPORTANT: Generate this image in PORTRAIT orientation, 3:4 aspect ratio (taller than wide, vertical like a smartphone screen standing upright). DO NOT generate square or landscape. ",
-    "9:16": "IMPORTANT: Generate this image in VERTICAL STORY format, 9:16 aspect ratio (very tall and narrow, like Instagram Stories or TikTok). DO NOT generate square or landscape. ",
-    "1:1":  "IMPORTANT: Generate this image in SQUARE format, 1:1 aspect ratio (equal width and height). ",
-    "16:9": "IMPORTANT: Generate this image in LANDSCAPE HORIZONTAL format, 16:9 aspect ratio (wider than tall, like a YouTube thumbnail). DO NOT generate portrait or square. ",
-    "4:3":  "IMPORTANT: Generate this image in HORIZONTAL format, 4:3 aspect ratio (slightly wider than tall). ",
-  };
+  // ── Imagen 3 — geração fotorrealista via Google AI Studio ──
+  if (!googleKey) throw new Error("GOOGLE_AI_API_KEY não configurada");
 
-  const imagePrompt = `${ratioInstruction[ratio] ?? ratioInstruction["3:4"]}${finalPrompt}`;
+  const imgRes = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${googleKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        instances: [{ prompt: finalPrompt }],
+        parameters: { sampleCount: 1, aspectRatio: ratio },
+      }),
+    }
+  );
 
-  const imgRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "google/gemini-3.1-flash-image-preview",
-      messages: [{ role: "user", content: imagePrompt }],
-      modalities: ["image", "text"],
-    }),
-  });
-
-  if (!imgRes.ok) throw new Error(`Lovable AI image error: ${await imgRes.text()}`);
+  if (!imgRes.ok) throw new Error(`Imagen 3 error: ${await imgRes.text()}`);
 
   const imgData = await imgRes.json();
-  const imageUrl = imgData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-  const dataUrlMatch = typeof imageUrl === "string" ? imageUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/) : null;
-  if (!dataUrlMatch) throw new Error("Imagem não gerada");
+  const prediction = imgData.predictions?.[0];
+  if (!prediction?.bytesBase64Encoded) throw new Error("Imagen 3 não retornou imagem");
 
   return {
-    imageData: dataUrlMatch[2],
-    mimeType: dataUrlMatch[1] ?? "image/png",
+    imageData: prediction.bytesBase64Encoded,
+    mimeType: prediction.mimeType ?? "image/png",
     enhancedPrompt: finalPrompt,
     aspectRatio: ratio,
   };
@@ -368,8 +363,9 @@ Deno.serve(async (req) => {
     if (!lovableKey) return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
       status: 500, headers: { ...cors, "Content-Type": "application/json" },
     });
+    const googleKey = Deno.env.get("GOOGLE_AI_API_KEY") ?? "";
 
-    const result = await generateImage(prompt, aspectRatio, clientContext ?? {}, lovableKey, beatrizCopy, carolinaStrategy);
+    const result = await generateImage(prompt, aspectRatio, clientContext ?? {}, lovableKey, beatrizCopy, carolinaStrategy, googleKey);
     return new Response(JSON.stringify(result), { headers: { ...cors, "Content-Type": "application/json" } });
 
   } catch (error) {
