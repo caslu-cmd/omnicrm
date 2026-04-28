@@ -120,7 +120,7 @@ function TeamCarousel() {
       <div style={{ padding: "0 64px", maxWidth: 1200, margin: "0 auto 48px", display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
         <div>
           <span style={{ fontFamily: mono, fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" as const }}>Nosso time de IA</span>
-          <h2 style={{ fontSize: "clamp(30px, 4.5vw, 56px)", fontWeight: 800, lineHeight: 1.06, letterSpacing: "-0.04em", marginTop: 10 }}>
+          <h2 style={{ fontSize: "clamp(22px, 3.2vw, 42px)", fontWeight: 800, lineHeight: 1.06, letterSpacing: "-0.04em", marginTop: 10 }}>
             10 especialistas.<br />1 investimento.
           </h2>
         </div>
@@ -242,7 +242,7 @@ export default function LandingPage() {
               <span style={{ fontFamily: mono, fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" }}>Publicidade · Tecnologia · IA</span>
             </div>
 
-            <h1 className="cl-a2" style={{ fontSize: "clamp(48px, 7.5vw, 96px)", fontWeight: 800, lineHeight: 1.0, letterSpacing: "-0.045em", marginBottom: 24 }}>
+            <h1 className="cl-a2" style={{ fontSize: "clamp(34px, 5.2vw, 68px)", fontWeight: 800, lineHeight: 1.0, letterSpacing: "-0.045em", marginBottom: 24 }}>
               Criatividade<br />que vende.<br /><span style={{ color: LIME }}>IA que escala.</span>
             </h1>
 
@@ -310,7 +310,7 @@ export default function LandingPage() {
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 64 }}>
             <span style={{ fontFamily: mono, fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" }}>Como funciona</span>
-            <h2 style={{ fontSize: "clamp(30px, 4.5vw, 56px)", fontWeight: 800, lineHeight: 1.06, letterSpacing: "-0.04em", marginTop: 10 }}>
+            <h2 style={{ fontSize: "clamp(22px, 3.2vw, 42px)", fontWeight: 800, lineHeight: 1.06, letterSpacing: "-0.04em", marginTop: 10 }}>
               Marketing executado<br /><span style={{ color: LIME }}>por inteligência artificial.</span>
             </h2>
             <p style={{ fontSize: 16, color: DIM, lineHeight: 1.65, marginTop: 16, maxWidth: 540, margin: "16px auto 0" }}>
@@ -369,7 +369,7 @@ export default function LandingPage() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 56 }}>
             <div>
               <span style={{ fontFamily: mono, fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" }}>O que fazemos</span>
-              <h2 style={{ fontSize: "clamp(30px, 4.5vw, 56px)", fontWeight: 800, lineHeight: 1.06, letterSpacing: "-0.04em", marginTop: 10 }}>
+              <h2 style={{ fontSize: "clamp(22px, 3.2vw, 42px)", fontWeight: 800, lineHeight: 1.06, letterSpacing: "-0.04em", marginTop: 10 }}>
                 Tudo que sua marca<br />precisa, em um lugar.
               </h2>
             </div>
@@ -395,7 +395,7 @@ export default function LandingPage() {
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <div style={{ marginBottom: 60 }}>
             <span style={{ fontFamily: mono, fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" }}>Soluções com IA</span>
-            <h2 style={{ fontSize: "clamp(30px, 4.5vw, 56px)", fontWeight: 800, lineHeight: 1.06, letterSpacing: "-0.04em", marginTop: 10 }}>
+            <h2 style={{ fontSize: "clamp(22px, 3.2vw, 42px)", fontWeight: 800, lineHeight: 1.06, letterSpacing: "-0.04em", marginTop: 10 }}>
               Tecnologia que<br />trabalha por você.
             </h2>
             <p style={{ fontSize: 15, color: DIM, lineHeight: 1.65, marginTop: 12, maxWidth: 520 }}>
@@ -437,7 +437,7 @@ export default function LandingPage() {
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <div style={{ marginBottom: 56 }}>
             <span style={{ fontFamily: mono, fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" }}>Como funciona</span>
-            <h2 style={{ fontSize: "clamp(30px, 4.5vw, 56px)", fontWeight: 800, lineHeight: 1.06, letterSpacing: "-0.04em", marginTop: 10 }}>
+            <h2 style={{ fontSize: "clamp(22px, 3.2vw, 42px)", fontWeight: 800, lineHeight: 1.06, letterSpacing: "-0.04em", marginTop: 10 }}>
               Do briefing<br />aos resultados.
             </h2>
           </div>
@@ -465,7 +465,7 @@ export default function LandingPage() {
         <div style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 72, alignItems: "center" }}>
           <div>
             <span style={{ fontFamily: mono, fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" }}>Por que faz sentido</span>
-            <h2 style={{ fontSize: "clamp(28px, 4vw, 50px)", fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.04em", marginTop: 10, marginBottom: 16 }}>
+            <h2 style={{ fontSize: "clamp(20px, 3vw, 38px)", fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.04em", marginTop: 10, marginBottom: 16 }}>
               Economize<br /><span style={{ color: LIME }}>R$ {fmt(39500)}+</span><br />por mês.
             </h2>
             <p style={{ fontSize: 15, color: DIM, lineHeight: 1.65, marginBottom: 28 }}>
@@ -526,7 +526,7 @@ export default function LandingPage() {
         <div style={{ maxWidth: 1200, margin: "0 auto", background: LIME, borderRadius: 22, padding: "60px 52px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 36 }}>
           <div>
             <div style={{ fontFamily: mono, fontSize: 10, color: "rgba(8,8,8,.38)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>Pronto para escalar?</div>
-            <h2 style={{ fontFamily: syne, fontSize: "clamp(26px, 3.5vw, 46px)", fontWeight: 800, color: BLACK, lineHeight: 1.08, letterSpacing: "-0.04em" }}>
+            <h2 style={{ fontFamily: syne, fontSize: "clamp(18px, 2.5vw, 34px)", fontWeight: 800, color: BLACK, lineHeight: 1.08, letterSpacing: "-0.04em" }}>
               Seu time completo<br />começa hoje.
             </h2>
           </div>
