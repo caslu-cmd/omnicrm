@@ -208,7 +208,7 @@ async function generateImage(
   prompt: string,
   aspectRatio: string,
   clientContext: Record<string, unknown>,
-  googleKey: string,
+  lovableKey: string,
   anthropicKey: string,
   beatrizCopy = "",
   carolinaStrategy = "",
@@ -279,28 +279,30 @@ Output ONLY the final Imagen prompt in one rich, detailed paragraph. End with: "
     finalPrompt = claudeData.content?.[0]?.text?.trim() ?? prompt;
   }
 
-  // ── Imagen 4 Fast ──
-  const imgRes = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-fast-generate-001:predict?key=${googleKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        instances: [{ prompt: finalPrompt }],
-        parameters: { sampleCount: 1, aspectRatio: ratio },
-      }),
-    }
-  );
+  // ── Lovable AI image gateway ──
+  const imgRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${lovableKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-3.1-flash-image-preview",
+      messages: [{ role: "user", content: `${finalPrompt}\n\nCreate the image in ${ratio} aspect ratio.` }],
+      modalities: ["image", "text"],
+    }),
+  });
 
-  if (!imgRes.ok) throw new Error(`Imagen API error: ${await imgRes.text()}`);
+  if (!imgRes.ok) throw new Error(`Lovable AI image error: ${await imgRes.text()}`);
 
   const imgData = await imgRes.json();
-  const prediction = imgData.predictions?.[0];
-  if (!prediction?.bytesBase64Encoded) throw new Error("Imagem não gerada");
+  const imageUrl = imgData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+  if (!imageUrl) throw new Error("Imagem não gerada");
+  const dataUrlMatch = String(imageUrl).match(/^data:(.+?);base64,(.*)$/);
 
   return {
-    imageData: prediction.bytesBase64Encoded,
-    mimeType: prediction.mimeType ?? "image/png",
+    imageData: dataUrlMatch?.[2] ?? imageUrl,
+    mimeType: dataUrlMatch?.[1] ?? "image/png",
     enhancedPrompt: finalPrompt,
     aspectRatio: ratio,
   };
@@ -335,13 +337,13 @@ Deno.serve(async (req) => {
       status: 400, headers: { ...cors, "Content-Type": "application/json" },
     });
 
-    const googleKey = Deno.env.get("GOOGLE_AI_API_KEY");
-    if (!googleKey) return new Response(JSON.stringify({ error: "GOOGLE_AI_API_KEY not configured" }), {
+    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+    if (!lovableKey) return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
       status: 500, headers: { ...cors, "Content-Type": "application/json" },
     });
 
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
-    const result = await generateImage(prompt, aspectRatio, clientContext ?? {}, googleKey, anthropicKey, beatrizCopy, carolinaStrategy);
+    const result = await generateImage(prompt, aspectRatio, clientContext ?? {}, lovableKey, anthropicKey, beatrizCopy, carolinaStrategy);
     return new Response(JSON.stringify(result), { headers: { ...cors, "Content-Type": "application/json" } });
 
   } catch (error) {
