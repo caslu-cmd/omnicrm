@@ -28,12 +28,12 @@ const PRODUCTS = [
     items: ["Inbox unificado", "Pipeline de vendas", "Automações de follow-up", "Relatórios em tempo real"],
   },
   {
-    tag: "IA",
+    tag: "SAÚDE",
     name: "Posture.AI",
-    sub: "Análise de Posicionamento",
+    sub: "Avaliação Postural Inteligente",
     color: "#A78BFA",
-    desc: "IA que lê sua presença digital e diz o que está travando seu crescimento. Diagnóstico, plano de ação e score de autoridade em minutos.",
-    items: ["Diagnóstico completo de marca", "Análise de concorrência", "Score de autoridade digital", "Plano de ação priorizado"],
+    desc: "Tire uma foto e receba análise postural completa em segundos. IA treinada com 50 mil avaliações que identifica desalinhamentos, gera relatórios em PDF e acompanha a evolução de cada aluno.",
+    items: ["Análise postural com IA", "Gestão completa de alunos", "Relatórios PDF profissionais", "Ficha de anamnese digital"],
   },
   {
     tag: "RH",
