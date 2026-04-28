@@ -14,6 +14,7 @@ interface PostCanvasProps {
   aspectRatio?: string;
   initialHeadline?: string;
   initialBody?: string;
+  initialCta?: string;
   onClose: () => void;
 }
 
@@ -90,13 +91,14 @@ function isLight(hex: string): boolean {
 export default function PostCanvas({
   imageUrl, brandColor, clientName, aspectRatio = "1:1",
   initialHeadline = "Headline do post", initialBody = "Texto secundário aqui",
+  initialCta = "Saiba mais →",
   onClose,
 }: PostCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [template, setTemplate] = useState<Template>("overlay");
   const [headline, setHeadline] = useState(initialHeadline);
   const [body, setBody] = useState(initialBody);
-  const [cta, setCta] = useState("Saiba mais →");
+  const [cta, setCta] = useState(initialCta);
   const [rendering, setRendering] = useState(false);
 
   const ratio = (Object.keys(CANVAS_SIZES).includes(aspectRatio) ? aspectRatio : "1:1") as Ratio;

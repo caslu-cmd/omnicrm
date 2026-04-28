@@ -320,6 +320,38 @@ const AGENT_META: Record<string, { initial: string; color: string; name: string 
 const ARIA_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByb2xkZ2l5dGVycWh0aGx1ZGxwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNzQ4NjEsImV4cCI6MjA5Mjg1MDg2MX0.v8xcDbEbbyxv671SYhsWYHs9bbp9J-Q937SknjUiBIE";
 const ARIA_BASE = "https://proldgiyterqhthludlp.supabase.co/functions/v1";
 
+function parseBeatrizCopy(text: string): { headline: string; body: string; cta: string } {
+  const clean = text.replace(/\*\*/g, "").replace(/^#+\s*/gm, "");
+
+  // Try explicit CTA patterns
+  const ctaMatch = clean.match(/(?:CTA|Call to Action|Chamada)[:\s]+(.{5,60})(?:\n|$)/i)
+    ?? clean.match(/(?:➡️|👉|🔗|→)\s*(.{5,60})(?:\n|$)/);
+  const cta = ctaMatch?.[1]?.trim().slice(0, 60) ?? "Saiba mais →";
+
+  // Try explicit headline patterns
+  const headlineMatch = clean.match(/(?:título|headline|manchete|h1|cabeçalho)[:\s]+(.{10,100})(?:\n|$)/i)
+    ?? clean.match(/^(.{15,100})(?:\n)/);
+
+  let headline = headlineMatch?.[1]?.trim().slice(0, 100) ?? "";
+  let body = "";
+
+  if (headline) {
+    body = clean
+      .replace(headlineMatch![0], "")
+      .replace(ctaMatch?.[0] ?? "", "")
+      .replace(/(?:CTA|legenda|copy|texto)[:\s]+/gi, "")
+      .trim()
+      .slice(0, 280);
+  } else {
+    // Fallback: first non-empty line = headline, rest = body
+    const lines = clean.split("\n").map(l => l.trim()).filter(Boolean);
+    headline = lines[0]?.slice(0, 100) ?? "Post da campanha";
+    body = lines.slice(1, 4).join(" ").slice(0, 280);
+  }
+
+  return { headline, body, cta };
+}
+
 const DESIGN_FORMATS = [
   { ratio: "1:1",  label: "Feed",     hint: "Instagram · LinkedIn" },
   { ratio: "9:16", label: "Stories",  hint: "Reels · TikTok · Stories" },
@@ -373,7 +405,7 @@ export default function ClientWorkspace() {
   const [agentConversations, setAgentConversations] = useState<AgentMsg[]>(() => {
     try { return JSON.parse(localStorage.getItem(`agent-conv-${id}`) ?? "[]"); } catch { return []; }
   });
-  const [postCanvas, setPostCanvas] = useState<{ imageUrl: string; aspectRatio: string } | null>(null);
+  const [postCanvas, setPostCanvas] = useState<{ imageUrl: string; aspectRatio: string; headline?: string; body?: string; cta?: string } | null>(null);
   const [showEditClient, setShowEditClient] = useState(false);
   const [editForm, setEditForm] = useState<{
     name: string; industry: string; status: "Ativo" | "Onboarding" | "Em pausa";
@@ -1514,7 +1546,19 @@ export default function ClientWorkspace() {
                                   <img src={msg.imageUrl} alt="gerado" className="rounded-lg max-h-48 object-cover" style={{ border: "1px solid rgba(255,255,255,0.1)" }} />
                                   <div className="flex items-center gap-2 mt-2">
                                     <button
-                                      onClick={() => setPostCanvas({ imageUrl: msg.imageUrl!, aspectRatio: msg.imageParams?.aspectRatio ?? "1:1" })}
+                                      onClick={() => {
+                                        const beatrizMsg = [...agentConversations].reverse().find(
+                                          (m) => m.from === "beatriz" && m.action === "respond" && m.content.length > 20
+                                        );
+                                        const { headline, body, cta } = parseBeatrizCopy(beatrizMsg?.content ?? "");
+                                        setPostCanvas({
+                                          imageUrl: msg.imageUrl!,
+                                          aspectRatio: msg.imageParams?.aspectRatio ?? "1:1",
+                                          headline,
+                                          body,
+                                          cta,
+                                        });
+                                      }}
                                       className="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all"
                                       style={{ background: "rgba(185,255,75,0.12)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.25)" }}
                                       onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(185,255,75,0.2)")}
@@ -3146,6 +3190,9 @@ export default function ClientWorkspace() {
             aspectRatio={postCanvas.aspectRatio}
             brandColor={client.color}
             clientName={client.name}
+            initialHeadline={postCanvas.headline}
+            initialBody={postCanvas.body}
+            initialCta={postCanvas.cta}
             onClose={() => setPostCanvas(null)}
           />
         )}
