@@ -283,6 +283,32 @@ const INTEGRATIONS_BASE = [
   },
 ];
 
+type AgentMsg = {
+  id: string;
+  from: string;
+  to: string;
+  content: string;
+  action?: string;
+  imageUrl?: string;
+  imageParams?: { aspectRatio?: string };
+  timestamp: string;
+  status: "sent" | "processing" | "done" | "error";
+};
+
+const AGENT_META: Record<string, { initial: string; color: string; name: string }> = {
+  aria:     { initial: "A", color: "#B9FF4B", name: "ARIA" },
+  beatriz:  { initial: "B", color: "#A78BFA", name: "Beatriz" },
+  isadora:  { initial: "I", color: "#F472B6", name: "Isadora" },
+  rafaela:  { initial: "R", color: "#F97316", name: "Rafaela" },
+  lucas:    { initial: "L", color: "#34D399", name: "Lucas" },
+  marina:   { initial: "M", color: "#60A5FA", name: "Marina" },
+  carolina: { initial: "C", color: "#FBBF24", name: "Carolina" },
+  user:     { initial: "V", color: "#94A3B8", name: "Você" },
+};
+
+const ARIA_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByb2xkZ2l5dGVycWh0aGx1ZGxwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNzQ4NjEsImV4cCI6MjA5Mjg1MDg2MX0.v8xcDbEbbyxv671SYhsWYHs9bbp9J-Q937SknjUiBIE";
+const ARIA_BASE = "https://proldgiyterqhthludlp.supabase.co/functions/v1";
+
 const DESIGN_FORMATS = [
   { ratio: "1:1",  label: "Feed",     hint: "Instagram · LinkedIn" },
   { ratio: "9:16", label: "Stories",  hint: "Reels · TikTok · Stories" },
@@ -332,6 +358,10 @@ export default function ClientWorkspace() {
   const [designerTask, setDesignerTask] = useState<{prompt: string; progress: number; startedAt: number; estimatedSeconds: number} | null>(null);
   const [designerRecentWork, setDesignerRecentWork] = useState<string[]>([]);
   const designerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [ariaLoading, setAriaLoading] = useState(false);
+  const [agentConversations, setAgentConversations] = useState<AgentMsg[]>(() => {
+    try { return JSON.parse(localStorage.getItem(`agent-conv-${id}`) ?? "[]"); } catch { return []; }
+  });
   const [showEditClient, setShowEditClient] = useState(false);
   const [editForm, setEditForm] = useState<{
     name: string; industry: string; status: "Ativo" | "Onboarding" | "Em pausa";
@@ -380,6 +410,93 @@ export default function ClientWorkspace() {
       portalPin: editForm.portalPin,
     });
     setShowEditClient(false);
+  };
+
+  const addConvMsgs = (msgs: AgentMsg[]) => {
+    setAgentConversations((prev) => {
+      const updated = [...prev, ...msgs];
+      localStorage.setItem(`agent-conv-${id}`, JSON.stringify(updated.slice(-100)));
+      return updated;
+    });
+  };
+
+  const updateConvMsg = (msgId: string, patch: Partial<AgentMsg>) => {
+    setAgentConversations((prev) => {
+      const updated = prev.map((m) => m.id === msgId ? { ...m, ...patch } : m);
+      localStorage.setItem(`agent-conv-${id}`, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const handleSendToAria = async () => {
+    const demand = agentCommand.trim();
+    if (!demand && !attachedFile) return;
+    setAgentCommand("");
+    clearAriaFile();
+    setAriaLoading(true);
+
+    const ts = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    const userMsg: AgentMsg = { id: `u-${Date.now()}`, from: "user", to: "aria", content: demand || `[arquivo: ${attachedFile?.name}]`, timestamp: ts, status: "done" };
+    addConvMsgs([userMsg]);
+
+    const clientContext = {
+      name: client.name, industry: client.industry, brandColor: client.color,
+      campaigns: client.activeCampaigns?.map((c) => c.name) ?? [],
+      recentThemes: client.recentPosts?.map((p) => p.caption.slice(0, 80)) ?? [],
+      nextAction: client.nextAction,
+    };
+
+    try {
+      const res = await fetch(`${ARIA_BASE}/aria-orchestrate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${ARIA_ANON}` },
+        body: JSON.stringify({ demand, clientContext }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? `HTTP ${res.status}`);
+
+      const msgTs = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      const newMsgs: AgentMsg[] = (data.messages ?? []).map((m: any) => ({
+        id: m.id ?? `m-${Date.now()}-${Math.random()}`,
+        from: m.from, to: m.to, content: m.content,
+        action: m.action, imageParams: m.imageParams,
+        timestamp: msgTs,
+        status: m.action === "generate_image" ? "processing" : "done",
+      } as AgentMsg));
+      addConvMsgs(newMsgs);
+
+      // Auto-trigger image generation for Isadora tasks
+      for (const msg of newMsgs) {
+        if (msg.action === "generate_image" && msg.to === "isadora") {
+          try {
+            const imgRes = await fetch(`${ARIA_BASE}/generate-image`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "Authorization": `Bearer ${ARIA_ANON}` },
+              body: JSON.stringify({ prompt: msg.content, aspectRatio: msg.imageParams?.aspectRatio ?? "1:1", clientContext }),
+            });
+            const imgData = await imgRes.json();
+            if (imgData.imageData) {
+              const blob = new Blob([Uint8Array.from(atob(imgData.imageData), (c) => c.charCodeAt(0))], { type: imgData.mimeType ?? "image/png" });
+              const blobUrl = URL.createObjectURL(blob);
+              const label = imgData.generatedPrompt || msg.content;
+              updateConvMsg(msg.id, { status: "done" });
+              const replyTs = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+              addConvMsgs([{ id: `i-${Date.now()}`, from: "isadora", to: msg.from, content: label.slice(0, 120), imageUrl: blobUrl, timestamp: replyTs, status: "done" }]);
+              setGeneratedImages((prev) => [{ id: Date.now().toString(), imageData: blobUrl, mimeType: imgData.mimeType ?? "image/png", prompt: label, createdAt: replyTs }, ...prev]);
+            } else {
+              updateConvMsg(msg.id, { status: "error", content: `${msg.content} ⚠️ Falha ao gerar` });
+            }
+          } catch {
+            updateConvMsg(msg.id, { status: "error" });
+          }
+        }
+      }
+    } catch (err) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      addConvMsgs([{ id: `e-${Date.now()}`, from: "aria", to: "user", content: `Erro: ${errMsg}`, timestamp: ts, status: "error" }]);
+    } finally {
+      setAriaLoading(false);
+    }
   };
 
   const fetchWpQr = async () => {
@@ -1325,15 +1442,78 @@ export default function ClientWorkspace() {
                       )}
                       <div className="flex-1" />
                       <button
-                        onClick={() => { setAgentCommand(""); clearAriaFile(); }}
-                        disabled={!agentCommand.trim() && !attachedFile}
+                        onClick={handleSendToAria}
+                        disabled={(!agentCommand.trim() && !attachedFile) || ariaLoading}
                         className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
                         style={{ background: "#B9FF4B", color: "#07080A", boxShadow: (agentCommand || attachedFile) ? "0 0 20px -4px rgba(185,255,75,0.5)" : "none" }}>
-                        <Send className="w-3.5 h-3.5" /> Enviar para ARIA
+                        {ariaLoading ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Orquestrando...</> : <><Send className="w-3.5 h-3.5" /> Enviar para ARIA</>}
                       </button>
                     </div>
                   </div>
                 </motion.div>
+
+                {/* ── Comunicações do Time ── */}
+                {agentConversations.length > 0 && (
+                  <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                    <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                      <div className="flex items-center gap-2">
+                        <MessageCircle className="w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.3)" }} />
+                        <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>Comunicações do Time</span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B" }}>{agentConversations.length}</span>
+                      </div>
+                      <button onClick={() => { setAgentConversations([]); localStorage.removeItem(`agent-conv-${id}`); }}
+                        className="text-[10px] transition-colors" style={{ color: "rgba(255,255,255,0.2)" }}
+                        onMouseEnter={(e) => (e.currentTarget.style.color = "#F87171")}
+                        onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.2)")}>
+                        Limpar
+                      </button>
+                    </div>
+                    <div className="p-4 space-y-2 max-h-[480px] overflow-y-auto">
+                      {agentConversations.map((msg) => {
+                        const fromMeta = AGENT_META[msg.from] ?? { initial: msg.from[0]?.toUpperCase(), color: "#888", name: msg.from };
+                        const toMeta = AGENT_META[msg.to] ?? { initial: msg.to[0]?.toUpperCase(), color: "#888", name: msg.to };
+                        return (
+                          <div key={msg.id} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.025)" }}>
+                            {/* From avatar */}
+                            <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-[11px] font-bold"
+                              style={{ background: `${fromMeta.color}20`, border: `1px solid ${fromMeta.color}35`, color: fromMeta.color }}>
+                              {fromMeta.initial}
+                            </div>
+                            <ArrowRight className="w-3 h-3 flex-shrink-0 mt-2" style={{ color: "rgba(255,255,255,0.15)" }} />
+                            {/* To avatar */}
+                            <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-[11px] font-bold"
+                              style={{ background: `${toMeta.color}20`, border: `1px solid ${toMeta.color}35`, color: toMeta.color }}>
+                              {toMeta.initial}
+                            </div>
+                            {/* Content */}
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <span className="text-[10px] font-semibold" style={{ color: fromMeta.color }}>{fromMeta.name}</span>
+                                <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.2)" }}>→ {toMeta.name}</span>
+                                <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.15)" }}>{msg.timestamp}</span>
+                                {msg.status === "processing" && <RefreshCw className="w-3 h-3 animate-spin" style={{ color: "#FBBF24" }} />}
+                                {msg.status === "error" && <span className="text-[10px]" style={{ color: "#F87171" }}>erro</span>}
+                              </div>
+                              <p className="text-xs leading-relaxed" style={{ color: msg.status === "error" ? "#FCA5A5" : "rgba(255,255,255,0.6)" }}>
+                                {msg.content}
+                              </p>
+                              {msg.imageUrl && (
+                                <div className="mt-2">
+                                  <img src={msg.imageUrl} alt="gerado" className="rounded-lg max-h-48 object-cover" style={{ border: "1px solid rgba(255,255,255,0.1)" }} />
+                                  <a href={msg.imageUrl} download={`isadora-${msg.id}.png`}
+                                    className="inline-flex items-center gap-1 mt-1.5 text-[10px] font-bold px-2 py-0.5 rounded-lg"
+                                    style={{ background: "rgba(244,114,182,0.15)", color: "#F472B6" }}>
+                                    Baixar
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* ── Time de Especialistas ── */}
                 <div>
