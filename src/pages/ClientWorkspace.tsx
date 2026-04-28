@@ -496,14 +496,14 @@ export default function ClientWorkspace() {
   };
 
   const handleSendToDesigner = async () => {
-    const prompt = agentInstruction.trim();
-    if (!prompt) return;
+    const direction = agentInstruction.trim();
     setAgentInstruction("");
     setIsadoraLoading(true);
     setIsadoraError(null);
-    const ESTIMATED = 28;
+    const taskLabel = direction || "Isadora criando autonomamente...";
+    const ESTIMATED = 35;
     const startedAt = Date.now();
-    setDesignerTask({ prompt, progress: 0, startedAt, estimatedSeconds: ESTIMATED });
+    setDesignerTask({ prompt: taskLabel, progress: 0, startedAt, estimatedSeconds: ESTIMATED });
     if (designerIntervalRef.current) clearInterval(designerIntervalRef.current);
     designerIntervalRef.current = setInterval(() => {
       setDesignerTask((prev) => {
@@ -513,6 +513,16 @@ export default function ClientWorkspace() {
         return { ...prev, progress: p };
       });
     }, 600);
+
+    const clientContext = {
+      name: client.name,
+      industry: client.industry,
+      brandColor: client.color,
+      campaigns: client.activeCampaigns?.map((c) => c.name) ?? [],
+      recentThemes: client.recentPosts?.map((p) => p.caption.slice(0, 80)) ?? [],
+      nextAction: client.nextAction,
+    };
+
     try {
       const res = await fetch(
         "https://proldgiyterqhthludlp.supabase.co/functions/v1/generate-image",
@@ -522,15 +532,16 @@ export default function ClientWorkspace() {
             "Content-Type": "application/json",
             "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByb2xkZ2l5dGVycWh0aGx1ZGxwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNzQ4NjEsImV4cCI6MjA5Mjg1MDg2MX0.v8xcDbEbbyxv671SYhsWYHs9bbp9J-Q937SknjUiBIE",
           },
-          body: JSON.stringify({ prompt, aspectRatio: designAspectRatio }),
+          body: JSON.stringify({ prompt: direction, aspectRatio: designAspectRatio, clientContext }),
         }
       );
       const data = await res.json();
       if (designerIntervalRef.current) clearInterval(designerIntervalRef.current);
       if (!res.ok) throw new Error(data?.error ? String(data.error).slice(0, 200) : `HTTP ${res.status}`);
       if (!data?.imageData) throw new Error(data?.error ? String(data.error).slice(0, 200) : "Sem imageData na resposta");
+      const displayLabel = data.generatedPrompt || direction || "Peça autônoma";
       setDesignerTask((prev) => prev ? { ...prev, progress: 100 } : null);
-      setDesignerRecentWork((prev) => [prompt, ...prev.slice(0, 4)]);
+      setDesignerRecentWork((prev) => [displayLabel, ...prev.slice(0, 4)]);
       setTimeout(() => setDesignerTask(null), 2500);
       const blob = new Blob(
         [Uint8Array.from(atob(data.imageData), (c) => c.charCodeAt(0))],
@@ -538,7 +549,7 @@ export default function ClientWorkspace() {
       );
       const blobUrl = URL.createObjectURL(blob);
       setGeneratedImages((prev) => [
-        { id: Date.now().toString(), imageData: blobUrl, mimeType: data.mimeType ?? "image/png", prompt, createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) },
+        { id: Date.now().toString(), imageData: blobUrl, mimeType: data.mimeType ?? "image/png", prompt: displayLabel, createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) },
         ...prev,
       ]);
     } catch (err) {
@@ -1533,7 +1544,7 @@ export default function ClientWorkspace() {
                             <textarea
                               value={agentInstruction}
                               onChange={(e) => setAgentInstruction(e.target.value)}
-                              placeholder={selectedAgent.id === "designer" ? "Descreva a peça visual que a Isadora deve criar..." : `O que você quer que ${selectedAgent.name} faça? Seja específico...`}
+                              placeholder={selectedAgent.id === "designer" ? "Dê uma direção (opcional) — ou deixe em branco e a Isadora decide sozinha com base no cliente." : `O que você quer que ${selectedAgent.name} faça? Seja específico...`}
                               rows={3}
                               autoFocus
                               className="w-full rounded-xl px-4 py-3 text-sm resize-none mb-3"
@@ -1588,12 +1599,12 @@ export default function ClientWorkspace() {
                                     setAgentInstruction(""); clearAgentFile(); setSelectedAgentId(null);
                                   }
                                 }}
-                                disabled={(!agentInstruction.trim() && !agentFile) || isadoraLoading}
+                                disabled={(selectedAgent.id !== "designer" && !agentInstruction.trim() && !agentFile) || isadoraLoading}
                                 className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
-                                style={{ background: selectedAgent.color, color: "#07080A", boxShadow: (agentInstruction || agentFile) ? `0 0 20px -4px ${selectedAgent.color}60` : "none" }}>
+                                style={{ background: selectedAgent.color, color: "#07080A", boxShadow: (agentInstruction || agentFile || selectedAgent.id === "designer") ? `0 0 20px -4px ${selectedAgent.color}60` : "none" }}>
                                 {isadoraLoading && selectedAgent.id === "designer"
                                   ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Gerando...</>
-                                  : <><Send className="w-3.5 h-3.5" /> Enviar para {selectedAgent.name}</>}
+                                  : <><Send className="w-3.5 h-3.5" /> {selectedAgent.id === "designer" && !agentInstruction.trim() ? "Criar agora" : `Enviar para ${selectedAgent.name}`}</>}
                               </button>
                             </div>
 
@@ -2865,7 +2876,7 @@ export default function ClientWorkspace() {
                     <textarea
                       value={agentInstruction}
                       onChange={(e) => setAgentInstruction(e.target.value)}
-                      placeholder={viewedAgent.id === "designer" ? "Descreva a peça visual que a Isadora deve criar..." : `O que você quer que ${viewedAgent.name} faça?`}
+                      placeholder={viewedAgent.id === "designer" ? "Dê uma direção (opcional) — ou deixe em branco e a Isadora decide sozinha com base no cliente." : `O que você quer que ${viewedAgent.name} faça?`}
                       rows={3}
                       className="w-full rounded-xl px-4 py-3 text-sm resize-none"
                       style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${viewedAgent.color}25`, color: "#F0F0F0", outline: "none" }}
@@ -2906,13 +2917,13 @@ export default function ClientWorkspace() {
                             setAgentInstruction(""); clearAgentFile(); setViewingAgentId(null);
                           }
                         }}
-                        disabled={(!agentInstruction.trim() && !agentFile) || isadoraLoading}
+                        disabled={(viewedAgent.id !== "designer" && !agentInstruction.trim() && !agentFile) || isadoraLoading}
                         className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40"
-                        style={{ background: viewedAgent.color, color: "#07080A", boxShadow: (agentInstruction || agentFile) ? `0 0 20px -4px ${viewedAgent.color}70` : "none" }}>
+                        style={{ background: viewedAgent.color, color: "#07080A", boxShadow: (agentInstruction || agentFile || viewedAgent.id === "designer") ? `0 0 20px -4px ${viewedAgent.color}70` : "none" }}>
                         {isadoraLoading && viewedAgent.id === "designer" ? (
                           <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Gerando...</>
                         ) : (
-                          <><Send className="w-3.5 h-3.5" /> Enviar para {viewedAgent.name}</>
+                          <><Send className="w-3.5 h-3.5" /> {viewedAgent.id === "designer" && !agentInstruction.trim() ? "Criar agora" : `Enviar para ${viewedAgent.name}`}</>
                         )}
                       </button>
                     </div>
