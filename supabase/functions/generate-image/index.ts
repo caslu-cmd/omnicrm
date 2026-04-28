@@ -279,12 +279,22 @@ Output ONLY the final image-generation prompt in one rich, detailed paragraph. E
     finalPrompt = promptData.choices?.[0]?.message?.content?.trim() ?? prompt;
   }
 
+  const ratioInstruction: Record<string, string> = {
+    "3:4":  "IMPORTANT: Generate this image in PORTRAIT orientation, 3:4 aspect ratio (taller than wide, vertical like a smartphone screen standing upright). DO NOT generate square or landscape. ",
+    "9:16": "IMPORTANT: Generate this image in VERTICAL STORY format, 9:16 aspect ratio (very tall and narrow, like Instagram Stories or TikTok). DO NOT generate square or landscape. ",
+    "1:1":  "IMPORTANT: Generate this image in SQUARE format, 1:1 aspect ratio (equal width and height). ",
+    "16:9": "IMPORTANT: Generate this image in LANDSCAPE HORIZONTAL format, 16:9 aspect ratio (wider than tall, like a YouTube thumbnail). DO NOT generate portrait or square. ",
+    "4:3":  "IMPORTANT: Generate this image in HORIZONTAL format, 4:3 aspect ratio (slightly wider than tall). ",
+  };
+
+  const imagePrompt = `${ratioInstruction[ratio] ?? ratioInstruction["3:4"]}${finalPrompt}`;
+
   const imgRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model: "google/gemini-3.1-flash-image-preview",
-      messages: [{ role: "user", content: finalPrompt }],
+      messages: [{ role: "user", content: imagePrompt }],
       modalities: ["image", "text"],
     }),
   });
