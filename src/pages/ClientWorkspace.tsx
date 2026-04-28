@@ -317,8 +317,11 @@ const AGENT_META: Record<string, { initial: string; color: string; name: string 
   user:     { initial: "V", color: "#94A3B8", name: "Você" },
 };
 
-const ARIA_ANON = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByb2xkZ2l5dGVycWh0aGx1ZGxwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNzQ4NjEsImV4cCI6MjA5Mjg1MDg2MX0.v8xcDbEbbyxv671SYhsWYHs9bbp9J-Q937SknjUiBIE";
-const ARIA_BASE = "https://proldgiyterqhthludlp.supabase.co/functions/v1";
+const normalizeImageAspectRatio = (ratio?: string) => {
+  const supported = new Set(["1:1", "9:16", "16:9", "4:3", "3:4"]);
+  if (!ratio || ratio === "4:5") return "3:4";
+  return supported.has(ratio) ? ratio : "3:4";
+};
 
 function parseBeatrizCopy(text: string): { headline: string; body: string; cta: string } {
   const clean = text.replace(/\*\*/g, "").replace(/^#+\s*/gm, "");
