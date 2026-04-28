@@ -8,6 +8,7 @@ const MUTED = "#666";
 const DIM   = "rgba(240,239,232,0.38)";
 const mono  = "'DM Mono', monospace";
 const syne  = "'Syne', 'Inter', sans-serif";
+const cond  = "'Oswald', 'Inter', sans-serif";
 
 const SERVICES = [
   { n: "01", title: "Estratégia de Marca",     desc: "Posicionamento, pauta editorial e direção criativa alinhados ao seu negócio." },
@@ -264,7 +265,7 @@ export default function LandingPage() {
             <div className="cl-a5" style={{ display: "flex", gap: 0, paddingTop: 28, borderTop: "1px solid rgba(255,255,255,.06)" }}>
               {[{ n:"14", l:"clientes ativos" },{ n:"3.8×", l:"ROAS médio" },{ n:"R$ 2.4M", l:"em vendas geradas" }].map((s, i) => (
                 <div key={s.n} style={{ paddingRight: i < 2 ? 32 : 0, paddingLeft: i > 0 ? 32 : 0, borderRight: i < 2 ? "1px solid rgba(255,255,255,.06)" : "none" }}>
-                  <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1 }}>{s.n}</div>
+                  <div style={{ fontFamily: cond, fontSize: 28, fontWeight: 700, letterSpacing: "0.02em", lineHeight: 1 }}>{s.n}</div>
                   <div style={{ fontFamily: mono, fontSize: 11, color: MUTED, marginTop: 5 }}>{s.l}</div>
                 </div>
               ))}
@@ -514,7 +515,7 @@ export default function LandingPage() {
         <div style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0 }}>
           {[{ n:"14", l:"Clientes ativos" },{ n:"3.8×", l:"ROAS médio" },{ n:"94", l:"Posts/mês por cliente" },{ n:"30 dias", l:"Para ver resultados" }].map((s, i) => (
             <div key={i} style={{ padding: "8px 0", paddingRight: i<3?40:0, paddingLeft: i>0?40:0, borderRight: i<3?"1px solid rgba(8,8,8,.15)":"none" }}>
-              <div style={{ fontSize: "clamp(36px, 4vw, 58px)", fontWeight: 800, color: BLACK, letterSpacing: "-0.05em", lineHeight: 1 }}>{s.n}</div>
+              <div style={{ fontFamily: cond, fontSize: "clamp(40px, 4.5vw, 64px)", fontWeight: 700, color: BLACK, letterSpacing: "0.02em", lineHeight: 1 }}>{s.n}</div>
               <div style={{ fontFamily: mono, fontSize: 12, color: "rgba(8,8,8,.5)", marginTop: 8 }}>{s.l}</div>
             </div>
           ))}
