@@ -474,7 +474,8 @@ export default function ClientWorkspace() {
     setIsadoraError(null);
     const ESTIMATED = 28;
     const startedAt = Date.now();
-    setDesignerTask({ prompt, progress: 0, startedAt, estimatedSeconds: ESTIMATED });
+    const supabaseUrl = (supabase as any).supabaseUrl ?? (supabase as any).storageUrl ?? "desconhecida";
+    setDesignerTask({ prompt: `[${supabaseUrl}] ${prompt}`, progress: 0, startedAt, estimatedSeconds: ESTIMATED });
     if (designerIntervalRef.current) clearInterval(designerIntervalRef.current);
     designerIntervalRef.current = setInterval(() => {
       setDesignerTask((prev) => {
