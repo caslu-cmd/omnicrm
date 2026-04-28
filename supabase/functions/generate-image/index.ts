@@ -70,7 +70,7 @@ Skills: copy de alta conversão, storytelling de marca, roteiros para vídeo/ree
 **isadora — Senior Art Director & Designer**
 Skills: identidade visual, composição editorial, hierarquia visual, paleta de cores, peças para feed/stories/reels/banners/thumbnails, espaço limpo para tipografia, lighting, mood board, criação de assets de campanha premium
 Dimensões exatas por plataforma (SEMPRE especifique no briefing para Isadora):
-- 4:5 → Instagram feed portrait — 1080×1350px — PADRÃO PARA FEED (melhor alcance)
+- 3:4 → Instagram feed portrait — 1080×1440px — PADRÃO PARA FEED no gerador de imagem
 - 1:1 → Instagram/LinkedIn feed square — 1080×1080px
 - 9:16 → Instagram Stories, Reels, TikTok — 1080×1920px
 - 16:9 → YouTube thumbnail, capa de Facebook, banner — 1920×1080px
@@ -135,9 +135,9 @@ RETORNE APENAS um JSON válido com esta estrutura exata:
       "id": "msg_2",
       "from": "aria",
       "to": "isadora",
-      "content": "descrição visual detalhada: plataforma, formato 4:5 (1080×1350px), elementos, composição, cores, mood, referências",
+      "content": "descrição visual detalhada: plataforma, formato 3:4 (1080×1440px), elementos, composição, cores, mood, referências",
       "action": "generate_image",
-      "imageParams": { "aspectRatio": "4:5" }
+      "imageParams": { "aspectRatio": "3:4" }
     },
     {
       "id": "msg_3",
@@ -151,8 +151,8 @@ RETORNE APENAS um JSON válido com esta estrutura exata:
 
 Valores válidos para action: write_copy, generate_image, analyze, plan, schedule, respond, diagnose
 Regras:
-- SEMPRE especifique o formato com dimensões exatas no briefing para Isadora (ex: "formato 4:5 — 1080×1350px")
-- O aspectRatio padrão para feed é "4:5" — use "9:16" para stories/reels, "16:9" para banners, "1:1" apenas se explicitamente pedido
+- SEMPRE especifique o formato com dimensões exatas no briefing para Isadora (ex: "formato 3:4 — 1080×1440px")
+- O aspectRatio padrão para feed é "3:4" — use "9:16" para stories/reels, "16:9" para banners, "1:1" apenas se explicitamente pedido
 - Isadora NÃO responde em texto (ela gera imagem automaticamente — não inclua msg de resposta dela)
 - Marina, quando action=schedule, responde com um calendário completo em tabela markdown: | Data | Horário | Plataforma | Tipo | Tema |
 - Todos os outros agentes respondem com trabalho real e completo — nunca apenas confirmação
@@ -189,9 +189,19 @@ function bestAspectRatio(description: string): string {
   if (d.includes("stories") || d.includes("reels") || d.includes("tiktok") || d.includes("vertical")) return "9:16";
   if (d.includes("banner") || d.includes("capa") || d.includes("youtube") || d.includes("cover")) return "16:9";
   if (d.includes("slide") || d.includes("apresentação") || d.includes("presentation")) return "4:3";
+  if (d.includes("feed") || d.includes("4:5") || d.includes("1080×1350") || d.includes("1080x1350")) return "3:4";
   if (d.includes("retrato") || d.includes("portrait") || d.includes("pinterest")) return "3:4";
   if (d.includes("quadrado") || d.includes("square") || d.includes("1:1")) return "1:1";
-  return "4:5";
+  return "3:4";
+}
+
+function normalizeAspectRatio(aspectRatio: string, prompt: string): string {
+  const requested = String(aspectRatio || "").trim();
+  const supported = new Set(["1:1", "9:16", "16:9", "4:3", "3:4"]);
+  if (!requested || requested === "auto") return bestAspectRatio(prompt);
+  if (supported.has(requested)) return requested;
+  if (requested === "4:5") return "3:4";
+  return bestAspectRatio(`${prompt} ${requested}`);
 }
 
 async function generateImage(
@@ -204,15 +214,14 @@ async function generateImage(
   carolinaStrategy = "",
 ) {
   const ctx = clientContext ?? {};
-  const ratio = (!aspectRatio || aspectRatio === "auto") ? bestAspectRatio(prompt) : aspectRatio;
+  const ratio = normalizeAspectRatio(aspectRatio, prompt);
 
   const platformHint: Record<string, string> = {
-    "4:5":  "Instagram feed portrait — 1080×1350px (máximo engajamento)",
+    "3:4":  "Instagram feed portrait/Pinterest — 1080×1440px",
     "1:1":  "Instagram/LinkedIn feed square — 1080×1080px",
     "9:16": "Stories/Reels/TikTok — 1080×1920px",
     "16:9": "YouTube/banner — 1920×1080px",
     "4:3":  "Slide/Facebook — 1080×810px",
-    "3:4":  "Pinterest/portrait — 1080×1440px",
   };
 
   // ── Visual Strategist: Claude Sonnet lê o trabalho completo do time ──
@@ -321,7 +330,7 @@ Deno.serve(async (req) => {
     }
 
     // ── Mode: Isadora image generation ──
-    const { prompt, aspectRatio = "4:5", clientContext, beatrizCopy = "", carolinaStrategy = "" } = body;
+    const { prompt, aspectRatio = "3:4", clientContext, beatrizCopy = "", carolinaStrategy = "" } = body;
     if (!prompt) return new Response(JSON.stringify({ error: "prompt is required" }), {
       status: 400, headers: { ...cors, "Content-Type": "application/json" },
     });
