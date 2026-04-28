@@ -1324,30 +1324,39 @@ export default function ClientWorkspace() {
                           </div>
 
                           {/* Current task */}
-                          {task && (
+                          {(agent.id === "designer" ? (designerTask || designerRecentWork.length > 0) : task) && (
                             <>
                               <div className="mb-2.5">
                                 <div className="text-[9px] uppercase tracking-wider mb-1 font-medium"
-                                  style={{ color: isWorking ? agent.color : isDone ? "#34D399" : "rgba(255,255,255,0.2)" }}>
-                                  {isWorking ? "● Fazendo agora" : isDone ? "✓ Concluído" : "○ Aguardando"}
+                                  style={{ color: (agent.id === "designer" ? (designerTask && designerTask.progress < 100) : isWorking) ? agent.color : isDone || (agent.id === "designer" && designerRecentWork.length > 0) ? "#34D399" : "rgba(255,255,255,0.2)" }}>
+                                  {agent.id === "designer"
+                                    ? (designerTask && designerTask.progress < 100 ? "● Criando peça" : "✓ Concluído")
+                                    : (isWorking ? "● Fazendo agora" : isDone ? "✓ Concluído" : "○ Aguardando")}
                                 </div>
                                 <p className="text-[11px] leading-relaxed line-clamp-3" style={{ color: "rgba(255,255,255,0.6)" }}>
-                                  {task.current}
+                                  {agent.id === "designer"
+                                    ? (designerTask?.prompt ?? designerRecentWork[0] ?? "")
+                                    : task?.current}
                                 </p>
+                                {agent.id === "designer" && designerTask && designerTask.progress < 100 && (
+                                  <div className="text-[9px] mt-1" style={{ color: `${agent.color}80` }}>
+                                    ~{Math.max(0, designerTask.estimatedSeconds - Math.floor((Date.now() - designerTask.startedAt) / 1000))}s restantes
+                                  </div>
+                                )}
                               </div>
 
-                              {isWorking && task.progress > 0 && (
+                              {((agent.id === "designer" ? (designerTask && designerTask.progress < 100) : isWorking) && (agent.id === "designer" ? (designerTask?.progress ?? 0) : task?.progress ?? 0) > 0) && (
                                 <div className="mb-3">
                                   <div className="flex justify-between mb-1">
                                     <span className="text-[9px]" style={{ color: "rgba(255,255,255,0.2)" }}>Progresso</span>
-                                    <span className="text-[9px]" style={{ color: agent.color }}>{task.progress}%</span>
+                                    <span className="text-[9px]" style={{ color: agent.color }}>{agent.id === "designer" ? designerTask?.progress : task?.progress}%</span>
                                   </div>
                                   <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
                                     <motion.div className="h-full rounded-full"
                                       style={{ background: agent.color }}
                                       initial={{ width: 0 }}
-                                      animate={{ width: `${task.progress}%` }}
-                                      transition={{ duration: 1, ease: "easeOut", delay: 0.3 + i * 0.1 }}
+                                      animate={{ width: `${agent.id === "designer" ? (designerTask?.progress ?? 0) : (task?.progress ?? 0)}%` }}
+                                      transition={{ duration: 0.6, ease: "easeOut", delay: agent.id === "designer" ? 0 : 0.3 + i * 0.1 }}
                                     />
                                   </div>
                                 </div>
@@ -1441,16 +1450,39 @@ export default function ClientWorkspace() {
                               </button>
                             </div>
 
+                            {/* Formato (só Isadora) */}
+                            {selectedAgent.id === "designer" && (
+                              <div className="flex items-center gap-2 mb-3">
+                                <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.3)" }}>Formato</span>
+                                {(["1:1", "9:16", "16:9"] as const).map((ratio) => (
+                                  <button key={ratio} onClick={() => setDesignAspectRatio(ratio)}
+                                    className="px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all"
+                                    style={{
+                                      background: designAspectRatio === ratio ? `${selectedAgent.color}20` : "rgba(255,255,255,0.05)",
+                                      border: `1px solid ${designAspectRatio === ratio ? `${selectedAgent.color}50` : "rgba(255,255,255,0.1)"}`,
+                                      color: designAspectRatio === ratio ? selectedAgent.color : "rgba(255,255,255,0.4)",
+                                    }}>
+                                    {ratio}
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+
                             {/* Textarea */}
                             <textarea
                               value={agentInstruction}
                               onChange={(e) => setAgentInstruction(e.target.value)}
-                              placeholder={`O que você quer que ${selectedAgent.name} faça? Seja específico...`}
+                              placeholder={selectedAgent.id === "designer" ? "Descreva a peça visual que a Isadora deve criar..." : `O que você quer que ${selectedAgent.name} faça? Seja específico...`}
                               rows={3}
                               autoFocus
                               className="w-full rounded-xl px-4 py-3 text-sm resize-none mb-3"
                               style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${selectedAgent.color}28`, color: "#F0F0F0", outline: "none" }}
                             />
+                            {isadoraError && selectedAgent.id === "designer" && (
+                              <div className="mb-3 px-3 py-2 rounded-xl text-xs" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#FCA5A5" }}>
+                                {isadoraError}
+                              </div>
+                            )}
 
                             {/* Attach + Send row */}
                             <div className="flex items-center gap-3">
@@ -1487,11 +1519,20 @@ export default function ClientWorkspace() {
                               <div className="flex-1" />
 
                               <button
-                                onClick={() => { setAgentInstruction(""); clearAgentFile(); setSelectedAgentId(null); }}
-                                disabled={!agentInstruction.trim() && !agentFile}
+                                onClick={() => {
+                                  if (selectedAgent.id === "designer") {
+                                    setSelectedAgentId(null);
+                                    handleSendToDesigner();
+                                  } else {
+                                    setAgentInstruction(""); clearAgentFile(); setSelectedAgentId(null);
+                                  }
+                                }}
+                                disabled={(!agentInstruction.trim() && !agentFile) || isadoraLoading}
                                 className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
                                 style={{ background: selectedAgent.color, color: "#07080A", boxShadow: (agentInstruction || agentFile) ? `0 0 20px -4px ${selectedAgent.color}60` : "none" }}>
-                                <Send className="w-3.5 h-3.5" /> Enviar para {selectedAgent.name}
+                                {isadoraLoading && selectedAgent.id === "designer"
+                                  ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Gerando...</>
+                                  : <><Send className="w-3.5 h-3.5" /> Enviar para {selectedAgent.name}</>}
                               </button>
                             </div>
 
