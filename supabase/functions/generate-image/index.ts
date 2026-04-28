@@ -279,28 +279,26 @@ Output ONLY the final image-generation prompt in one rich, detailed paragraph. E
     finalPrompt = promptData.choices?.[0]?.message?.content?.trim() ?? prompt;
   }
 
-  // ── Imagen 4 Fast ──
-  const imgRes = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-fast-generate-001:predict?key=${googleKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        instances: [{ prompt: finalPrompt }],
-        parameters: { sampleCount: 1, aspectRatio: ratio },
-      }),
-    }
-  );
+  const imgRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "google/gemini-3.1-flash-image-preview",
+      messages: [{ role: "user", content: finalPrompt }],
+      modalities: ["image", "text"],
+    }),
+  });
 
-  if (!imgRes.ok) throw new Error(`Imagen API error: ${await imgRes.text()}`);
+  if (!imgRes.ok) throw new Error(`Lovable AI image error: ${await imgRes.text()}`);
 
   const imgData = await imgRes.json();
-  const prediction = imgData.predictions?.[0];
-  if (!prediction?.bytesBase64Encoded) throw new Error("Imagem não gerada");
+  const imageUrl = imgData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+  const dataUrlMatch = typeof imageUrl === "string" ? imageUrl.match(/^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/) : null;
+  if (!dataUrlMatch) throw new Error("Imagem não gerada");
 
   return {
-    imageData: prediction.bytesBase64Encoded,
-    mimeType: prediction.mimeType ?? "image/png",
+    imageData: dataUrlMatch[2],
+    mimeType: dataUrlMatch[1] ?? "image/png",
     enhancedPrompt: finalPrompt,
     aspectRatio: ratio,
   };
