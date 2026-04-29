@@ -1,10 +1,10 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Instagram, Facebook, Linkedin, Plus, Trash2, X,
   CheckCircle2, AlertCircle, Clock, Users, Eye,
   TrendingUp, RefreshCw, ExternalLink, Image as ImageIcon,
-  Calendar, Send, Wifi,
+  Calendar, Send, Wifi, Upload, Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -125,6 +125,8 @@ export default function SocialMediaTab({
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [composer, setComposer] = useState({
     platforms: [] as string[],
@@ -271,6 +273,24 @@ export default function SocialMediaTab({
       }
     } finally {
       setDisconnecting(null);
+    }
+  };
+
+  // ── Upload media ───────────────────────────────────────────
+  const handleFileUpload = async (file: File) => {
+    setUploading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { toast.error("Sessão expirada."); return; }
+      const ext = file.name.split(".").pop();
+      const path = `${session.user.id}/${Date.now()}.${ext}`;
+      const { error } = await supabase.storage.from("post-media").upload(path, file, { upsert: true });
+      if (error) { toast.error(`Erro no upload: ${error.message}`); return; }
+      const { data: { publicUrl } } = supabase.storage.from("post-media").getPublicUrl(path);
+      setComposer((p) => ({ ...p, media_url: publicUrl }));
+      toast.success("Imagem enviada!");
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -754,27 +774,48 @@ export default function SocialMediaTab({
                   <p className="text-[10px] mt-1 text-right" style={{ color: s(0.2) }}>{composer.caption.length}/2200</p>
                 </div>
 
-                {/* Image URL */}
+                {/* Media upload */}
                 <div>
-                  <label className="block text-xs font-medium mb-2" style={{ color: s(0.4) }}>URL da Imagem (opcional)</label>
-                  <div className="flex gap-2">
-                    <input
-                      value={composer.media_url}
-                      onChange={(e) => setComposer((p) => ({ ...p, media_url: e.target.value }))}
-                      placeholder="https://exemplo.com/imagem.jpg"
-                      className="flex-1 rounded-xl px-3 py-2 text-sm focus:outline-none"
-                      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: s(0.8) }}
-                    />
-                    {composer.media_url && (
+                  <label className="block text-xs font-medium mb-2" style={{ color: s(0.4) }}>Imagem / Vídeo (opcional)</label>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp,video/mp4,video/quicktime"
+                    className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFileUpload(f); }}
+                  />
+                  {composer.media_url ? (
+                    <div className="relative">
                       <img
                         src={composer.media_url}
                         alt=""
-                        className="w-10 h-10 rounded-lg object-cover"
+                        className="w-full max-h-48 rounded-xl object-cover"
                         onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                       />
-                    )}
-                  </div>
-                  <p className="text-[10px] mt-1" style={{ color: s(0.25) }}>A imagem deve ser publicamente acessível via URL.</p>
+                      <button
+                        onClick={() => { setComposer((p) => ({ ...p, media_url: "" })); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                        className="absolute top-2 right-2 rounded-full p-1"
+                        style={{ background: "rgba(0,0,0,0.6)" }}
+                      >
+                        <X className="w-3 h-3 text-white" />
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      className="w-full py-6 rounded-xl flex flex-col items-center gap-2 transition-all"
+                      style={{ background: "rgba(255,255,255,0.03)", border: "1px dashed rgba(255,255,255,0.12)" }}
+                    >
+                      {uploading
+                        ? <Loader2 className="w-5 h-5 animate-spin" style={{ color: s(0.4) }} />
+                        : <Upload className="w-5 h-5" style={{ color: s(0.3) }} />}
+                      <span className="text-xs" style={{ color: s(0.35) }}>
+                        {uploading ? "Enviando…" : "Clique para enviar arquivo"}
+                      </span>
+                      <span className="text-[10px]" style={{ color: s(0.2) }}>JPG, PNG, GIF, WEBP, MP4 — até 50 MB</span>
+                    </button>
+                  )}
                 </div>
 
                 {/* Schedule */}
