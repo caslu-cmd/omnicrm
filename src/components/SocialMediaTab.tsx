@@ -47,6 +47,18 @@ interface Metric {
   engagement: number;
 }
 
+// ── Meta OAuth ─────────────────────────────────────────────────
+const META_APP_ID = "1480117656994046";
+const META_REDIRECT_URI = "https://omnicrm.lovable.app/oauth/meta";
+const META_SCOPE = [
+  "pages_manage_posts",
+  "pages_read_engagement",
+  "pages_show_list",
+  "instagram_basic",
+  "instagram_content_publish",
+  "instagram_manage_insights",
+].join(",");
+
 // ── Config ─────────────────────────────────────────────────────
 const PLATFORM_CFG = {
   instagram: {
@@ -89,34 +101,13 @@ function fmtNum(n: number) {
 }
 
 async function callFn(body: Record<string, unknown>) {
-  // Try direct fetch first to get real error
-  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
-  const session = (await supabase.auth.getSession()).data.session;
-  const token = session?.access_token ?? "";
-
-  let res: Response;
-  try {
-    res = await fetch(`${supabaseUrl}/functions/v1/smm`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${token}`,
-        "apikey": anonKey,
-      },
-      body: JSON.stringify(body),
-    });
-  } catch (fetchErr: any) {
-    throw new Error(`Fetch falhou: ${fetchErr?.message ?? fetchErr} | URL: ${supabaseUrl}/functions/v1/smm`);
-  }
-
-  const text = await res.text();
-  let data: any;
-  try { data = JSON.parse(text); } catch { data = { raw: text }; }
-
-  if (!res.ok || data?.error) {
-    throw new Error(data?.error ?? `HTTP ${res.status}: ${text.slice(0, 120)}`);
-  }
+  const { data: { session } } = await supabase.auth.getSession();
+  const { data, error } = await supabase.functions.invoke("smm", {
+    body,
+    headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+  });
+  if (error) throw error;
+  if (data?.error) throw new Error(data.error);
   return data;
 }
 
@@ -151,15 +142,29 @@ export default function SocialMediaTab({
   // ── Load ───────────────────────────────────────────────────
   const loadConnections = useCallback(async () => {
     try {
-      const data = await callFn({ action: "connections", client_id: clientId });
-      if (Array.isArray(data)) setConnections(data);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const { data, error } = await supabase
+        .from("social_connections")
+        .select("id,platform,account_id,account_name,account_username,followers_count,connected,connected_at,token_expires_at")
+        .eq("user_id", session.user.id)
+        .eq("client_id", clientId);
+      if (!error && data) setConnections(data as SocialConnection[]);
     } catch { /* silently ignore */ }
   }, [clientId]);
 
   const loadPosts = useCallback(async () => {
     try {
-      const data = await callFn({ action: "posts", client_id: clientId });
-      if (Array.isArray(data)) setPosts(data);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const { data, error } = await supabase
+        .from("scheduled_posts")
+        .select("*")
+        .eq("user_id", session.user.id)
+        .eq("client_id", clientId)
+        .order("created_at", { ascending: false })
+        .limit(50);
+      if (!error && data) setPosts(data as ScheduledPost[]);
     } catch { /* silently ignore */ }
   }, [clientId]);
 
@@ -185,17 +190,19 @@ export default function SocialMediaTab({
   const handleConnect = async (platform: "instagram" | "facebook") => {
     setConnecting(platform);
     try {
-      const data = await callFn({ action: "oauth-url", client_id: clientId, platform });
-      if (data.error) {
-        if (data.error.includes("META_APP_ID")) {
-          toast.error("Configure META_APP_ID e META_APP_SECRET no Supabase primeiro.");
-        } else {
-          toast.error(data.error);
-        }
-        return;
-      }
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { toast.error("Sessão expirada. Faça login novamente."); return; }
 
-      const popup = window.open(data.url, "meta-oauth", "width=620,height=720,left=200,top=100");
+      const state = btoa(JSON.stringify({ userId: session.user.id, clientId, platform, ts: Date.now() }));
+      const oauthUrl =
+        `https://www.facebook.com/v22.0/dialog/oauth` +
+        `?client_id=${META_APP_ID}` +
+        `&redirect_uri=${encodeURIComponent(META_REDIRECT_URI)}` +
+        `&scope=${encodeURIComponent(META_SCOPE)}` +
+        `&state=${encodeURIComponent(state)}` +
+        `&response_type=code`;
+
+      const popup = window.open(oauthUrl, "meta-oauth", "width=620,height=720,left=200,top=100");
 
       const onMessage = (event: MessageEvent) => {
         if (event.data?.type === "meta-oauth-success") {
@@ -227,13 +234,20 @@ export default function SocialMediaTab({
     if (!confirm(`Desconectar ${PLATFORM_CFG[platform as keyof typeof PLATFORM_CFG]?.name ?? platform}?`)) return;
     setDisconnecting(platform);
     try {
-      const data = await callFn({ action: "disconnect", client_id: clientId, platform });
-      if (data.success) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { toast.error("Sessão expirada."); return; }
+      const { error } = await supabase
+        .from("social_connections")
+        .delete()
+        .eq("user_id", session.user.id)
+        .eq("client_id", clientId)
+        .eq("platform", platform);
+      if (!error) {
         toast.info("Conta desconectada.");
         setConnections((prev) => prev.filter((c) => c.platform !== platform));
         setMetrics((prev) => prev.filter((m) => m.platform !== platform));
       } else {
-        toast.error(data.error ?? "Erro ao desconectar.");
+        toast.error(error.message ?? "Erro ao desconectar.");
       }
     } finally {
       setDisconnecting(null);
@@ -274,12 +288,18 @@ export default function SocialMediaTab({
   const handleDeletePost = async (id: string) => {
     setDeletingId(id);
     try {
-      const data = await callFn({ action: "delete-post", id });
-      if (data.success) {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { toast.error("Sessão expirada."); return; }
+      const { error } = await supabase
+        .from("scheduled_posts")
+        .delete()
+        .eq("id", id)
+        .eq("user_id", session.user.id);
+      if (!error) {
         setPosts((prev) => prev.filter((p) => p.id !== id));
         toast.success("Post removido.");
       } else {
-        toast.error(data.error ?? "Erro ao remover.");
+        toast.error(error.message ?? "Erro ao remover.");
       }
     } finally {
       setDeletingId(null);
