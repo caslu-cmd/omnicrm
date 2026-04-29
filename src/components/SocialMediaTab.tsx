@@ -50,7 +50,7 @@ interface Metric {
 // ── Meta OAuth ─────────────────────────────────────────────────
 const META_APP_ID = "1480117656994046";
 const META_REDIRECT_URI = "https://omnicrm.lovable.app/oauth/meta";
-const META_SCOPE = "pages_show_list,pages_read_engagement,pages_manage_posts,public_profile";
+const META_SCOPE = "pages_show_list,pages_read_engagement,pages_manage_posts,instagram_basic,instagram_content_publish,instagram_manage_insights,public_profile";
 
 // ── Config ─────────────────────────────────────────────────────
 const PLATFORM_CFG = {
