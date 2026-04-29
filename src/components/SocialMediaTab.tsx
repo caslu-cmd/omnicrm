@@ -142,26 +142,32 @@ export default function SocialMediaTab({
 
   // ── Load ───────────────────────────────────────────────────
   const loadConnections = useCallback(async () => {
-    const data = await callFn(`?action=connections&client_id=${clientId}`, "GET");
-    if (Array.isArray(data)) setConnections(data);
+    try {
+      const data = await callFn(`?action=connections&client_id=${clientId}`, "GET");
+      if (Array.isArray(data)) setConnections(data);
+    } catch { /* silently ignore */ }
   }, [clientId]);
 
   const loadPosts = useCallback(async () => {
-    const data = await callFn(`?action=posts&client_id=${clientId}`, "GET");
-    if (Array.isArray(data)) setPosts(data);
+    try {
+      const data = await callFn(`?action=posts&client_id=${clientId}`, "GET");
+      if (Array.isArray(data)) setPosts(data);
+    } catch { /* silently ignore */ }
   }, [clientId]);
 
   const loadMetrics = useCallback(async () => {
     setMetricsLoading(true);
-    const data = await callFn(`?action=metrics&client_id=${clientId}`, "GET");
-    if (data?.metrics) setMetrics(data.metrics);
+    try {
+      const data = await callFn(`?action=metrics&client_id=${clientId}`, "GET");
+      if (data?.metrics) setMetrics(data.metrics);
+    } catch { /* silently ignore */ }
     setMetricsLoading(false);
   }, [clientId]);
 
   useEffect(() => {
     const init = async () => {
       setLoading(true);
-      await Promise.all([loadConnections(), loadPosts()]);
+      await Promise.allSettled([loadConnections(), loadPosts()]);
       setLoading(false);
     };
     init();
