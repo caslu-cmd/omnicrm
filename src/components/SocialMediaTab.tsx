@@ -76,7 +76,7 @@ const PLATFORM_CFG = {
     color: "#0A66C2",
     bg: "rgba(10,102,194,0.1)",
     border: "rgba(10,102,194,0.2)",
-    desc: "Página empresarial e conteúdo B2B",
+    desc: "Abre compose — escolha página ou perfil",
   },
 } as const;
 
@@ -265,12 +265,9 @@ export default function SocialMediaTab({
   };
 
   const handleConnectLinkedIn = async () => {
-    const match = linkedinOrgUrl.match(/linkedin\.com\/company\/([^/?#\s]+)/i);
-    if (!match) {
-      toast.error("URL inválida. Use: linkedin.com/company/nome-da-empresa");
-      return;
-    }
-    const vanityName = match[1].replace(/\/$/, "");
+    const vanityName = linkedinOrgUrl
+      ? (linkedinOrgUrl.match(/linkedin\.com\/company\/([^/?#\s]+)/i)?.[1]?.replace(/\/$/, "") ?? "")
+      : "";
     setLinkedinStep("oauth");
     setConnecting("linkedin");
 
@@ -403,6 +400,10 @@ export default function SocialMediaTab({
       });
 
       if (data.error) { toast.error(data.error); return; }
+      if (data.linkedin_intent_url) {
+        window.open(data.linkedin_intent_url, "_blank");
+        toast.success("LinkedIn aberto — escolha a Página de Empresa e publique!");
+      }
       if (data.error_message) toast.warning(`Publicado com aviso: ${data.error_message}`);
       else if (!composer.post_now) toast.success(composer.media_type === "story" ? "Story agendado!" : "Post agendado!");
       else toast.success(composer.media_type === "story" ? "Story publicado!" : "Post publicado!");
@@ -530,11 +531,11 @@ export default function SocialMediaTab({
                   </div>
                 )}
 
-                {/* LinkedIn step: enter org URL */}
+                {/* LinkedIn step: optional page URL */}
                 {isLinkedIn && !isConnected && linkedinStep === "enter-url" && (
                   <div className="mb-3 space-y-2">
                     <p className="text-[10px]" style={{ color: s(0.4) }}>
-                      Cole a URL da Página de Empresa:
+                      URL da Página (opcional):
                     </p>
                     <input
                       value={linkedinOrgUrl}
@@ -543,6 +544,7 @@ export default function SocialMediaTab({
                       className="w-full rounded-lg px-2.5 py-1.5 text-[11px] focus:outline-none"
                       style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(10,102,194,0.3)", color: s(0.8) }}
                     />
+                    <p className="text-[9px]" style={{ color: s(0.25) }}>Ao publicar, o LinkedIn abrirá para você escolher a Página de Empresa.</p>
                   </div>
                 )}
 

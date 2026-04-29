@@ -43,7 +43,7 @@ const META_SCOPE = [
   "instagram_manage_insights",
 ].join(",");
 
-const LINKEDIN_SCOPE = "w_organization_social r_organization_social";
+const LINKEDIN_SCOPE = "w_member_social r_liteprofile";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -215,24 +215,19 @@ Deno.serve(async (req) => {
       const accessToken = tokenData.access_token;
       const expiresIn = tokenData.expires_in ?? 5183999;
 
-      // Lookup org by vanity name to get numeric URN
-      let accountId = orgVanityName;
-      let accountName = orgVanityName;
-
-      if (orgVanityName) {
-        try {
-          const orgRes = await fetch(
-            `${LINKEDIN_API}/organizations?q=vanityName&vanityName=${encodeURIComponent(orgVanityName)}`,
-            { headers: { Authorization: `Bearer ${accessToken}`, "X-Restli-Protocol-Version": "2.0.0" } }
-          );
-          const orgData = await orgRes.json();
-          const org = orgData.elements?.[0];
-          if (org?.id) {
-            accountId = `urn:li:organization:${org.id}`;
-            accountName = org.localizedName ?? orgVanityName;
-          }
-        } catch { /* fallback to vanity name */ }
-      }
+      // Get member profile
+      let accountId = "linkedin_user";
+      let accountName = orgVanityName || "LinkedIn";
+      try {
+        const meRes = await fetch(`${LINKEDIN_API}/me`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+        });
+        const me = await meRes.json();
+        if (me.id) {
+          accountId = `urn:li:person:${me.id}`;
+          accountName = [me.localizedFirstName, me.localizedLastName].filter(Boolean).join(" ") || accountName;
+        }
+      } catch { /* fallback */ }
 
       const encryptedToken = obfuscate(accessToken, encKey);
       const { error: upsertError } = await supabase
@@ -240,7 +235,7 @@ Deno.serve(async (req) => {
         .upsert({
           user_id: userId, client_id: clientId, platform: "linkedin",
           account_id: accountId, account_name: accountName,
-          account_username: `@${orgVanityName}`,
+          account_username: orgVanityName ? `@${orgVanityName}` : null,
           followers_count: 0,
           access_token: encryptedToken,
           token_expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
@@ -248,7 +243,7 @@ Deno.serve(async (req) => {
         }, { onConflict: "user_id,client_id,platform" });
 
       if (upsertError) return respond({ error: upsertError.message }, 500);
-      return respond({ success: true, account_name: accountName, account_username: `@${orgVanityName}`, followers_count: 0 });
+      return respond({ success: true, account_name: accountName, account_username: orgVanityName ? `@${orgVanityName}` : null, followers_count: 0 });
     }
 
     // ── List connections ─────────────────────────────────────────
@@ -285,6 +280,7 @@ Deno.serve(async (req) => {
       let fbPostId: string | null = null;
       let igMediaId: string | null = null;
       let errorMessage: string | null = null;
+      let linkedinIntentUrl: string | null = null;
 
       for (const platform of platforms as string[]) {
         const { data: conn } = await supabase.from("social_connections")
@@ -335,45 +331,11 @@ Deno.serve(async (req) => {
             else { igMediaId = published.id; status = isScheduled ? "scheduled" : "publishing"; }
 
           } else if (platform === "linkedin") {
-            if (!conn.account_id.startsWith("urn:li:organization:")) {
-              errorMessage = "ID da organização inválido. Reconecte o LinkedIn.";
-              status = "failed";
-              continue;
-            }
-
-            // LinkedIn UGC Posts — text only (image URL appended to caption)
             const text = media_url
               ? `${caption ?? ""}\n\n${media_url}`.trim()
               : (caption ?? "");
-
-            const postBody = {
-              author: conn.account_id,
-              lifecycleState: "PUBLISHED",
-              specificContent: {
-                "com.linkedin.ugc.ShareContent": {
-                  shareCommentary: { text },
-                  shareMediaCategory: "NONE",
-                },
-              },
-              visibility: { "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC" },
-            };
-
-            const res = await fetch(`${LINKEDIN_API}/ugcPosts`, {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${accessToken}`,
-                "Content-Type": "application/json",
-                "X-Restli-Protocol-Version": "2.0.0",
-              },
-              body: JSON.stringify(postBody),
-            });
-            const result = await res.json();
-            if (!res.ok || result.serviceErrorCode || result.message) {
-              errorMessage = result.message ?? "Erro ao publicar no LinkedIn";
-              status = "failed";
-            } else {
-              status = "publishing";
-            }
+            linkedinIntentUrl = `https://www.linkedin.com/intent/post?text=${encodeURIComponent(text)}`;
+            status = "publishing";
           }
         } catch (e) { errorMessage = e instanceof Error ? e.message : "Erro ao publicar"; status = "failed"; }
       }
@@ -388,7 +350,7 @@ Deno.serve(async (req) => {
         status, fb_post_id: fbPostId, ig_media_id: igMediaId, error_message: errorMessage,
       }).select().single();
       if (insertError) return respond({ error: insertError.message }, 500);
-      return respond({ success: true, post, error_message: errorMessage });
+      return respond({ success: true, post, error_message: errorMessage, linkedin_intent_url: linkedinIntentUrl });
     }
 
     // ── List posts ───────────────────────────────────────────────
