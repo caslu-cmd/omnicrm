@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
+const db = supabase as any;
+
 // ── Types ────────────────────────────────────────────────────
 interface Contact {
   id: string;
@@ -104,12 +106,12 @@ export default function ContactActivityPanel({ contact, onClose }: Props) {
 
   const loadActivities = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    const { data, error } = await db
       .from("contact_activities")
       .select("*")
       .eq("contact_id", contact.id)
       .order("created_at", { ascending: false });
-    if (!error) setActivities((data as Activity[]) || []);
+    if (!error) setActivities((data as unknown as Activity[]) || []);
     setLoading(false);
   };
 
@@ -117,7 +119,7 @@ export default function ContactActivityPanel({ contact, onClose }: Props) {
     if (!content.trim() && type !== "call") { toast.error("Adicione um conteúdo."); return; }
     if (!user) return;
     setSaving(true);
-    const { error } = await supabase.from("contact_activities").insert({
+    const { error } = await db.from("contact_activities").insert({
       contact_id: contact.id,
       user_id: user.id,
       type,
@@ -134,7 +136,7 @@ export default function ContactActivityPanel({ contact, onClose }: Props) {
 
   const toggleTask = async (act: Activity) => {
     const done = !act.task_done;
-    const { error } = await supabase.from("contact_activities").update({
+    const { error } = await db.from("contact_activities").update({
       task_done: done,
       task_done_at: done ? new Date().toISOString() : null,
     }).eq("id", act.id);
