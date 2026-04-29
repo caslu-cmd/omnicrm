@@ -188,7 +188,8 @@ export default function SocialMediaTab({
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { toast.error("Sessão expirada. Faça login novamente."); return; }
 
-      const state = btoa(JSON.stringify({ userId: session.user.id, clientId, platform, ts: Date.now() }));
+      const state = btoa(JSON.stringify({ userId: session.user.id, clientId, platform, ts: Date.now() }))
+        .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
       const oauthUrl =
         `https://www.facebook.com/v22.0/dialog/oauth` +
         `?client_id=${META_APP_ID}` +
