@@ -26,7 +26,7 @@ export default function OAuthCallbackPage() {
 
     const exchange = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke("social-media", {
+        const { data, error } = await supabase.functions.invoke("smm", {
           body: { action: "oauth-callback", code, state },
         });
 

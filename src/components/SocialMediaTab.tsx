@@ -89,7 +89,7 @@ function fmtNum(n: number) {
 }
 
 async function callFn(body: Record<string, unknown>) {
-  const { data, error } = await supabase.functions.invoke("social-media", { body });
+  const { data, error } = await supabase.functions.invoke("smm", { body });
   if (error) {
     // Try to extract the actual error message from the response body
     const msg = (error as any)?.context?.error
