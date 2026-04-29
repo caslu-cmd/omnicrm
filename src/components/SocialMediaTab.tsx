@@ -109,7 +109,12 @@ async function callFn(
     },
     body: body ? JSON.stringify(body) : undefined,
   });
-  return res.json();
+  const text = await res.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error(`Resposta inválida (${res.status}): ${text.slice(0, 200)}`);
+  }
 }
 
 // ── Component ──────────────────────────────────────────────────
@@ -208,8 +213,8 @@ export default function SocialMediaTab({
           window.removeEventListener("message", onMessage);
         }
       }, 800);
-    } catch {
-      toast.error("Erro ao iniciar OAuth.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao iniciar OAuth.");
     } finally {
       setConnecting(null);
     }
