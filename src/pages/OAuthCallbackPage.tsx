@@ -14,10 +14,16 @@ export default function OAuthCallbackPage() {
     const code = searchParams.get("code");
     const state = searchParams.get("state");
     const error = searchParams.get("error");
+    const errorCode = searchParams.get("error_code");
+    const errorMessage = searchParams.get("error_message");
 
-    if (error) {
+    if (error || errorCode) {
       setStatus("error");
-      setMessage(searchParams.get("error_description") ?? "Autorização negada.");
+      setMessage(
+        searchParams.get("error_description") ??
+        errorMessage ??
+        "Autorização negada."
+      );
       return;
     }
 
