@@ -26,27 +26,15 @@ export default function OAuthCallbackPage() {
 
     const exchange = async () => {
       try {
-        const projectId =
-          import.meta.env.VITE_SUPABASE_URL?.replace("https://", "").replace(".supabase.co", "") ?? "";
-        const fnUrl = `https://${projectId}.supabase.co/functions/v1/social-media?action=oauth-callback`;
-        const session = (await supabase.auth.getSession()).data.session;
-
-        const res = await fetch(fnUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session?.access_token}`,
-            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-          },
-          body: JSON.stringify({ code, state }),
+        const { data, error } = await supabase.functions.invoke("social-media", {
+          body: { action: "oauth-callback", code, state },
         });
 
-        const data = await res.json();
-
-        if (!res.ok || data.error) {
+        if (error || data?.error) {
+          const msg = data?.error ?? error?.message ?? "Erro ao conectar conta.";
           setStatus("error");
-          setMessage(data.error ?? "Erro ao conectar conta.");
-          window.opener?.postMessage({ type: "meta-oauth-error", error: data.error }, "*");
+          setMessage(msg);
+          window.opener?.postMessage({ type: "meta-oauth-error", error: msg }, "*");
           return;
         }
 

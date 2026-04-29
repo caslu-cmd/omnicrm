@@ -88,33 +88,10 @@ function fmtNum(n: number) {
   return n.toString();
 }
 
-function apiUrl(path: string) {
-  const projectId =
-    import.meta.env.VITE_SUPABASE_URL?.replace("https://", "").replace(".supabase.co", "") ?? "";
-  return `https://${projectId}.supabase.co/functions/v1/social-media${path}`;
-}
-
-async function callFn(
-  path: string,
-  method: "GET" | "POST" | "DELETE",
-  body?: unknown
-) {
-  const session = (await supabase.auth.getSession()).data.session;
-  const res = await fetch(apiUrl(path), {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${session?.access_token}`,
-      apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
-    },
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  const text = await res.text();
-  try {
-    return JSON.parse(text);
-  } catch {
-    throw new Error(`Resposta inválida (${res.status}): ${text.slice(0, 200)}`);
-  }
+async function callFn(body: Record<string, unknown>) {
+  const { data, error } = await supabase.functions.invoke("social-media", { body });
+  if (error) throw new Error(error.message ?? "Erro na função");
+  return data;
 }
 
 // ── Component ──────────────────────────────────────────────────
@@ -148,14 +125,14 @@ export default function SocialMediaTab({
   // ── Load ───────────────────────────────────────────────────
   const loadConnections = useCallback(async () => {
     try {
-      const data = await callFn(`?action=connections&client_id=${clientId}`, "GET");
+      const data = await callFn({ action: "connections", client_id: clientId });
       if (Array.isArray(data)) setConnections(data);
     } catch { /* silently ignore */ }
   }, [clientId]);
 
   const loadPosts = useCallback(async () => {
     try {
-      const data = await callFn(`?action=posts&client_id=${clientId}`, "GET");
+      const data = await callFn({ action: "posts", client_id: clientId });
       if (Array.isArray(data)) setPosts(data);
     } catch { /* silently ignore */ }
   }, [clientId]);
@@ -163,7 +140,7 @@ export default function SocialMediaTab({
   const loadMetrics = useCallback(async () => {
     setMetricsLoading(true);
     try {
-      const data = await callFn(`?action=metrics&client_id=${clientId}`, "GET");
+      const data = await callFn({ action: "metrics", client_id: clientId });
       if (data?.metrics) setMetrics(data.metrics);
     } catch { /* silently ignore */ }
     setMetricsLoading(false);
@@ -182,7 +159,7 @@ export default function SocialMediaTab({
   const handleConnect = async (platform: "instagram" | "facebook") => {
     setConnecting(platform);
     try {
-      const data = await callFn(`?action=oauth-url&client_id=${clientId}&platform=${platform}`, "GET");
+      const data = await callFn({ action: "oauth-url", client_id: clientId, platform });
       if (data.error) {
         if (data.error.includes("META_APP_ID")) {
           toast.error("Configure META_APP_ID e META_APP_SECRET no Supabase primeiro.");
@@ -224,7 +201,7 @@ export default function SocialMediaTab({
     if (!confirm(`Desconectar ${PLATFORM_CFG[platform as keyof typeof PLATFORM_CFG]?.name ?? platform}?`)) return;
     setDisconnecting(platform);
     try {
-      const data = await callFn("?action=disconnect", "POST", { client_id: clientId, platform });
+      const data = await callFn({ action: "disconnect", client_id: clientId, platform });
       if (data.success) {
         toast.info("Conta desconectada.");
         setConnections((prev) => prev.filter((c) => c.platform !== platform));
@@ -245,7 +222,8 @@ export default function SocialMediaTab({
 
     setSubmitting(true);
     try {
-      const data = await callFn("?action=create-post", "POST", {
+      const data = await callFn({
+        action: "create-post",
         client_id: clientId,
         platforms: composer.platforms,
         caption: composer.caption || null,
@@ -270,7 +248,7 @@ export default function SocialMediaTab({
   const handleDeletePost = async (id: string) => {
     setDeletingId(id);
     try {
-      const data = await callFn(`?action=delete-post&id=${id}`, "DELETE");
+      const data = await callFn({ action: "delete-post", id });
       if (data.success) {
         setPosts((prev) => prev.filter((p) => p.id !== id));
         toast.success("Post removido.");
