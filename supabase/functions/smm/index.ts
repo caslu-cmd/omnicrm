@@ -43,7 +43,7 @@ const META_SCOPE = [
   "instagram_manage_insights",
 ].join(",");
 
-const LINKEDIN_SCOPE = "w_member_social r_liteprofile";
+const LINKEDIN_SCOPE = "w_member_social";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -215,19 +215,8 @@ Deno.serve(async (req) => {
       const accessToken = tokenData.access_token;
       const expiresIn = tokenData.expires_in ?? 5183999;
 
-      // Get member profile
-      let accountId = "linkedin_user";
-      let accountName = orgVanityName || "LinkedIn";
-      try {
-        const meRes = await fetch(`${LINKEDIN_API}/me`, {
-          headers: { Authorization: `Bearer ${accessToken}` },
-        });
-        const me = await meRes.json();
-        if (me.id) {
-          accountId = `urn:li:person:${me.id}`;
-          accountName = [me.localizedFirstName, me.localizedLastName].filter(Boolean).join(" ") || accountName;
-        }
-      } catch { /* fallback */ }
+      const accountId = "linkedin_connected";
+      const accountName = orgVanityName || "LinkedIn";
 
       const encryptedToken = obfuscate(accessToken, encKey);
       const { error: upsertError } = await supabase
