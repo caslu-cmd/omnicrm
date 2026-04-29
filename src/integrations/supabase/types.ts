@@ -337,6 +337,111 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduled_posts: {
+        Row: {
+          caption: string | null
+          client_id: string
+          created_at: string
+          error_message: string | null
+          fb_post_id: string | null
+          id: string
+          ig_media_id: string | null
+          media_type: string
+          media_url: string | null
+          platforms: string[]
+          published_at: string | null
+          scheduled_at: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          caption?: string | null
+          client_id: string
+          created_at?: string
+          error_message?: string | null
+          fb_post_id?: string | null
+          id?: string
+          ig_media_id?: string | null
+          media_type?: string
+          media_url?: string | null
+          platforms?: string[]
+          published_at?: string | null
+          scheduled_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          caption?: string | null
+          client_id?: string
+          created_at?: string
+          error_message?: string | null
+          fb_post_id?: string | null
+          id?: string
+          ig_media_id?: string | null
+          media_type?: string
+          media_url?: string | null
+          platforms?: string[]
+          published_at?: string | null
+          scheduled_at?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      social_connections: {
+        Row: {
+          access_token: string
+          account_id: string
+          account_name: string
+          account_username: string | null
+          client_id: string
+          connected: boolean
+          connected_at: string
+          created_at: string
+          followers_count: number
+          id: string
+          platform: string
+          token_expires_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          account_id: string
+          account_name: string
+          account_username?: string | null
+          client_id: string
+          connected?: boolean
+          connected_at?: string
+          created_at?: string
+          followers_count?: number
+          id?: string
+          platform: string
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          account_id?: string
+          account_name?: string
+          account_username?: string | null
+          client_id?: string
+          connected?: boolean
+          connected_at?: string
+          created_at?: string
+          followers_count?: number
+          id?: string
+          platform?: string
+          token_expires_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
