@@ -104,6 +104,8 @@ async function callFn(body: Record<string, unknown>) {
   return data;
 }
 
+const db = supabase as any;
+
 // ── Component ──────────────────────────────────────────────────
 export default function SocialMediaTab({
   clientId,
@@ -137,7 +139,7 @@ export default function SocialMediaTab({
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("social_connections")
         .select("id,platform,account_id,account_name,account_username,followers_count,connected,connected_at,token_expires_at")
         .eq("user_id", session.user.id)
@@ -150,7 +152,7 @@ export default function SocialMediaTab({
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
-      const { data, error } = await supabase
+      const { data, error } = await db
         .from("scheduled_posts")
         .select("*")
         .eq("user_id", session.user.id)
