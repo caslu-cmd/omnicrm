@@ -35,16 +35,24 @@ export default function OAuthCallbackPage() {
 
     const exchange = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke("smm", {
-          body: { action: "oauth-callback", code, state },
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+        const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+        const { data: { session } } = await supabase.auth.getSession();
+
+        const res = await fetch(`${supabaseUrl}/functions/v1/smm`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${session?.access_token ?? ""}`,
+            "apikey": anonKey,
+          },
+          body: JSON.stringify({ action: "oauth-callback", code, state }),
         });
 
-        if (error || data?.error) {
-          let msg = data?.error ?? error?.message ?? "Erro ao conectar conta.";
-          try {
-            const body = await (error as any)?.context?.json?.();
-            if (body?.error) msg = body.error;
-          } catch { /* ignore */ }
+        const data = await res.json();
+
+        if (!res.ok || data?.error) {
+          const msg = data?.error ?? `HTTP ${res.status}`;
           setStatus("error");
           setMessage(msg);
           window.opener?.postMessage({ type: "meta-oauth-error", error: msg }, "*");
