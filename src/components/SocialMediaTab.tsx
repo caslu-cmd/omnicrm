@@ -324,10 +324,8 @@ export default function SocialMediaTab({
         if (popup?.closed) {
           clearInterval(timer);
           window.removeEventListener("message", onMessage);
-          if (connecting === "linkedin") {
-            setConnecting(null);
-            setLinkedinStep("enter-url");
-          }
+          setConnecting(null);
+          setLinkedinStep("enter-url");
         }
       }, 800);
     } catch (e) {
@@ -578,8 +576,7 @@ export default function SocialMediaTab({
                       </button>
                       <button
                         onClick={handleConnectLinkedIn}
-                        disabled={!linkedinOrgUrl.trim()}
-                        className="flex-1 py-2 rounded-xl text-[11px] font-medium transition-all disabled:opacity-40"
+                        className="flex-1 py-2 rounded-xl text-[11px] font-medium transition-all"
                         style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}
                       >
                         Continuar
