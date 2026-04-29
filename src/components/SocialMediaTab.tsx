@@ -4,7 +4,7 @@ import {
   Instagram, Facebook, Linkedin, Plus, Trash2, X,
   CheckCircle2, AlertCircle, Clock, Users, Eye,
   TrendingUp, RefreshCw, ExternalLink, Image as ImageIcon,
-  Calendar, Send, Info, Wifi,
+  Calendar, Send, Wifi,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -311,18 +311,6 @@ export default function SocialMediaTab({
             <Plus className="w-4 h-4" /> Novo Post
           </button>
         )}
-      </div>
-
-      {/* ── Setup notice if no Meta credentials ─────────────── */}
-      <div
-        className="flex items-start gap-3 rounded-xl px-4 py-3"
-        style={{ background: "rgba(251,191,36,0.07)", border: "1px solid rgba(251,191,36,0.15)" }}
-      >
-        <Info className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: "#FBBF24" }} />
-        <div className="text-xs space-y-1" style={{ color: "rgba(255,255,255,0.55)" }}>
-          <p><span style={{ color: "#FBBF24" }} className="font-semibold">Configuração necessária:</span> No Supabase, adicione os secrets <code className="px-1 py-0.5 rounded text-[10px]" style={{ background: "rgba(255,255,255,0.07)" }}>META_APP_ID</code> e <code className="px-1 py-0.5 rounded text-[10px]" style={{ background: "rgba(255,255,255,0.07)" }}>META_APP_SECRET</code> na edge function <code className="px-1 py-0.5 rounded text-[10px]" style={{ background: "rgba(255,255,255,0.07)" }}>social-media</code>.</p>
-          <p>No Meta Developers, adicione <code className="px-1 py-0.5 rounded text-[10px]" style={{ background: "rgba(255,255,255,0.07)" }}>https://omnicrm.lovable.app/oauth/meta</code> como URL de redirecionamento válida.</p>
-        </div>
       </div>
 
       {/* ── Connections ─────────────────────────────────────── */}
