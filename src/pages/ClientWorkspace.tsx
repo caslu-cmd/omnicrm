@@ -18,6 +18,7 @@ import { CLIENTS } from "@/data/agencyData";
 import { useClients } from "@/contexts/ClientsContext";
 import { supabase } from "@/integrations/supabase/client";
 import PostCanvas from "@/components/PostCanvas";
+import SocialMediaTab from "@/components/SocialMediaTab";
 
 // ── Marketing Team Definition ──────────────────────────────────
 const MARKETING_TEAM = [
@@ -2618,6 +2619,13 @@ export default function ClientWorkspace() {
                   </div>
                 )}
               </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════════
+                REDES SOCIAIS
+            ══════════════════════════════════════════════════════ */}
+            {activeTab === "social" && (
+              <SocialMediaTab clientId={client.id} clientColor={client.color} />
             )}
 
             {/* ══════════════════════════════════════════════════════

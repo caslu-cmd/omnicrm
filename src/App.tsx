@@ -32,6 +32,7 @@ import LandingPage from "@/pages/LandingPage";
 import BriefingPage from "@/pages/BriefingPage";
 import PrivacyPage from "@/pages/PrivacyPage";
 import TermsPage from "@/pages/TermsPage";
+import OAuthCallbackPage from "@/pages/OAuthCallbackPage";
 import NotFound from "@/pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -92,6 +93,7 @@ const AppRoutes = () => {
       <Route path="/briefing" element={<BriefingPage />} />
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/terms" element={<TermsPage />} />
+      <Route path="/oauth/meta" element={<OAuthCallbackPage />} />
       <Route path="*" element={<ProtectedRoutes />} />
     </Routes>
   );

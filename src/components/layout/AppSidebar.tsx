@@ -6,7 +6,7 @@ import {
   HelpCircle, Shield, ChevronLeft, ChevronRight, Phone,
   Palette, Bell, Crown, ArrowLeftRight, Star,
   ArrowLeft, Megaphone, BarChart2, ExternalLink,
-  Bot, Activity, Link2, ListTodo
+  Bot, Activity, Link2, ListTodo, Share2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useIsAdmin } from "@/hooks/useAdmin";
@@ -56,6 +56,7 @@ const clientTools = [
   { tab: "agents",       icon: Bot,             label: "Agentes IA" },
   { tab: "activities",   icon: Activity,        label: "Atividades" },
   { tab: "tasks",        icon: ListTodo,        label: "O que fazer" },
+  { tab: "social",       icon: Share2,          label: "Redes Sociais" },
   { tab: "integrations", icon: Link2,           label: "Integrações" },
 ];
 
