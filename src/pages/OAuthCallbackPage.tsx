@@ -40,7 +40,11 @@ export default function OAuthCallbackPage() {
         });
 
         if (error || data?.error) {
-          const msg = data?.error ?? error?.message ?? "Erro ao conectar conta.";
+          let msg = data?.error ?? error?.message ?? "Erro ao conectar conta.";
+          try {
+            const body = await (error as any)?.context?.json?.();
+            if (body?.error) msg = body.error;
+          } catch { /* ignore */ }
           setStatus("error");
           setMessage(msg);
           window.opener?.postMessage({ type: "meta-oauth-error", error: msg }, "*");
