@@ -97,10 +97,12 @@ Deno.serve(async (req) => {
       if (!code || !state) return respond({ error: "code e state são obrigatórios" }, 400);
       if (!metaAppId || !metaAppSecret) return respond({ error: "Credenciais Meta não configuradas" }, 503);
 
-      let stateData: { userId: string; clientId: string; platform: string };
-      try { stateData = JSON.parse(atob(state)); }
+      const b64 = state.replace(/-/g, "+").replace(/_/g, "/");
+      const padded = b64 + "=".repeat((4 - b64.length % 4) % 4);
+      let sd: { userId: string; clientId: string; platform: string };
+      try { sd = JSON.parse(atob(padded)); }
       catch { return respond({ error: "State inválido" }, 400); }
-      const { clientId, platform } = stateData;
+      const { clientId, platform } = sd;
 
       const tokenRes = await fetch(`${GRAPH}/oauth/access_token?client_id=${metaAppId}&redirect_uri=${encodeURIComponent(redirectUri)}&client_secret=${metaAppSecret}&code=${code}`);
       const tokenData = await tokenRes.json();
