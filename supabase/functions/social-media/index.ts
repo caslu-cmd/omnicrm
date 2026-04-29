@@ -46,28 +46,29 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return respond({ error: "Method not allowed" }, 405);
 
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ")) return respond({ error: "Unauthorized" }, 401);
-
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-  const encKey = Deno.env.get("INTEGRATION_ENCRYPTION_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const metaAppId = Deno.env.get("META_APP_ID") ?? "";
-  const metaAppSecret = Deno.env.get("META_APP_SECRET") ?? "";
-  const redirectUri = Deno.env.get("META_REDIRECT_URI") ?? "https://omnicrm.lovable.app/oauth/meta";
-
-  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-    global: { headers: { Authorization: authHeader } },
-  });
-
-  const { data: { user }, error: userError } = await supabase.auth.getUser();
-  if (userError || !user) return respond({ error: "Unauthorized" }, 401);
-  const userId = user.id;
-
-  const body = await req.json();
-  const action: string = body.action ?? "";
-
   try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader?.startsWith("Bearer ")) return respond({ error: "Unauthorized" }, 401);
+    const token = authHeader.replace("Bearer ", "");
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const encKey = Deno.env.get("INTEGRATION_ENCRYPTION_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const metaAppId = Deno.env.get("META_APP_ID") ?? "";
+    const metaAppSecret = Deno.env.get("META_APP_SECRET") ?? "";
+    const redirectUri = Deno.env.get("META_REDIRECT_URI") ?? "https://omnicrm.lovable.app/oauth/meta";
+
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    if (userError || !user) return respond({ error: "Unauthorized" }, 401);
+    const userId = user.id;
+
+    const body = await req.json();
+    const action: string = body.action ?? "";
+
     // ── Get OAuth URL ────────────────────────────────────────────
     if (action === "oauth-url") {
       if (!metaAppId) return respond({ error: "META_APP_ID não configurado" }, 503);
