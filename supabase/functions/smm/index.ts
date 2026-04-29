@@ -140,7 +140,8 @@ Deno.serve(async (req) => {
         accountUsername = igDetails.username ? `@${igDetails.username}` : null;
         followersCount = igDetails.followers_count ?? 0;
       } else {
-        const pageDetailsRes = await fetch(`${GRAPH}/${page.id}?fields=fan_count,followers_count&access_token=${pageToken}`);
+        const pageDetailsRes = await
+          fetch(`${GRAPH}/${page.id}?fields=fan_count,followers_count&access_token=${pageToken}`);
         const pageDetails = await pageDetailsRes.json();
         followersCount = pageDetails.followers_count ?? pageDetails.fan_count ?? 0;
       }
