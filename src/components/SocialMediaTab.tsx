@@ -231,7 +231,7 @@ export default function SocialMediaTab({
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { toast.error("Sessão expirada."); return; }
-      const { error } = await supabase
+      const { error } = await db
         .from("social_connections")
         .delete()
         .eq("user_id", session.user.id)
@@ -285,7 +285,7 @@ export default function SocialMediaTab({
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { toast.error("Sessão expirada."); return; }
-      const { error } = await supabase
+      const { error } = await db
         .from("scheduled_posts")
         .delete()
         .eq("id", id)
