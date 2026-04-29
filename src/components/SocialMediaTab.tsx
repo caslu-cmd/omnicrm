@@ -89,16 +89,34 @@ function fmtNum(n: number) {
 }
 
 async function callFn(body: Record<string, unknown>) {
-  const { data, error } = await supabase.functions.invoke("smm", { body });
-  if (error) {
-    // Try to extract the actual error message from the response body
-    const msg = (error as any)?.context?.error
-      ?? (error as any)?.context?.message
-      ?? error.message
-      ?? "Erro na função";
-    throw new Error(msg);
+  // Try direct fetch first to get real error
+  const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+  const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+  const session = (await supabase.auth.getSession()).data.session;
+  const token = session?.access_token ?? "";
+
+  let res: Response;
+  try {
+    res = await fetch(`${supabaseUrl}/functions/v1/smm`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${token}`,
+        "apikey": anonKey,
+      },
+      body: JSON.stringify(body),
+    });
+  } catch (fetchErr: any) {
+    throw new Error(`Fetch falhou: ${fetchErr?.message ?? fetchErr} | URL: ${supabaseUrl}/functions/v1/smm`);
   }
-  if (data?.error) throw new Error(data.error);
+
+  const text = await res.text();
+  let data: any;
+  try { data = JSON.parse(text); } catch { data = { raw: text }; }
+
+  if (!res.ok || data?.error) {
+    throw new Error(data?.error ?? `HTTP ${res.status}: ${text.slice(0, 120)}`);
+  }
   return data;
 }
 
