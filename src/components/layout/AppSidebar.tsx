@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useIsAdmin } from "@/hooks/useAdmin";
-import { CLIENTS } from "@/data/agencyData";
+import { useClients } from "@/contexts/ClientsContext";
 
 interface AppSidebarProps {
   collapsed: boolean;
@@ -64,6 +64,7 @@ export const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAdmin } = useIsAdmin();
+  const { clients: CLIENTS } = useClients();
 
   // Detect context
   const clientMatch = location.pathname.match(/^\/agency\/clients\/([^/]+)/);
