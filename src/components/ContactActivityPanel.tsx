@@ -3,8 +3,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   X, Plus, StickyNote, Phone, Mail, Users, CheckSquare,
   Instagram, Facebook, MessageCircle, ArrowRight, Check,
-  Clock, Flame, Loader2,
+  Clock, Loader2, Sparkles,
 } from "lucide-react";
+import ContactAIStrategy from "@/components/ContactAIStrategy";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -95,6 +96,7 @@ export default function ContactActivityPanel({ contact, onClose }: Props) {
 
   const heat = getHeat(contact);
   const hcfg = HEAT[heat];
+  const [tab, setTab]               = useState<"timeline" | "strategy">("timeline");
 
   useEffect(() => {
     loadActivities();
@@ -187,8 +189,24 @@ export default function ContactActivityPanel({ contact, onClose }: Props) {
             <span className="text-xs font-semibold" style={{ color: hcfg.color }}>{contact.score ?? 0}</span>
           </div>
 
+          {/* Tabs */}
+          <div className="flex border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+            {([["timeline","Timeline",Clock],["strategy","Estratégia IA",Sparkles]] as const).map(([t, label, Icon]) => (
+              <button
+                key={t}
+                onClick={() => setTab(t)}
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-all"
+                style={tab === t
+                  ? { color: "#B9FF4B", borderBottom: "2px solid #B9FF4B" }
+                  : { color: "rgba(255,255,255,0.35)", borderBottom: "2px solid transparent" }}
+              >
+                <Icon className="h-3.5 w-3.5" />{label}
+              </button>
+            ))}
+          </div>
+
           {/* Add activity */}
-          <div className="p-4 border-b space-y-3" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+          {tab === "timeline" && <div className="p-4 border-b space-y-3" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
             {/* Type selector */}
             <div className="flex gap-1.5 flex-wrap">
               {QUICK_TYPES.map(t => {
@@ -240,10 +258,10 @@ export default function ContactActivityPanel({ contact, onClose }: Props) {
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
               {saving ? "Salvando…" : "Registrar"}
             </button>
-          </div>
+          </div>}
 
           {/* Timeline */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-2">
+          {tab === "timeline" && <div className="flex-1 overflow-y-auto p-4 space-y-2">
             {loading ? (
               <div className="flex justify-center pt-8"><Loader2 className="h-5 w-5 animate-spin" style={{ color: "rgba(255,255,255,0.3)" }} /></div>
             ) : activities.length === 0 ? (
@@ -300,7 +318,14 @@ export default function ContactActivityPanel({ contact, onClose }: Props) {
                 );
               })
             )}
-          </div>
+          </div>}
+
+          {/* AI Strategy tab */}
+          {tab === "strategy" && (
+            <div className="flex-1 overflow-y-auto p-4">
+              <ContactAIStrategy contactId={contact.id} contactName={contact.name} />
+            </div>
+          )}
         </motion.div>
       </motion.div>
     </AnimatePresence>
