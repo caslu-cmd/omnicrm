@@ -132,6 +132,8 @@ export default function SocialMediaTab({
     platforms: [] as string[],
     caption: "",
     media_url: "",
+    media_type: "post" as "post" | "story",
+    link_url: "",
     post_now: true,
     scheduled_at: "",
   });
@@ -297,7 +299,8 @@ export default function SocialMediaTab({
   // ── Create post ────────────────────────────────────────────
   const handleSubmitPost = async () => {
     if (!composer.platforms.length) { toast.error("Selecione ao menos uma plataforma."); return; }
-    if (!composer.caption.trim() && !composer.media_url.trim()) { toast.error("Adicione uma legenda ou imagem."); return; }
+    if (composer.media_type === "story" && !composer.media_url.trim()) { toast.error("Story requer imagem."); return; }
+    if (composer.media_type === "post" && !composer.caption.trim() && !composer.media_url.trim()) { toast.error("Adicione uma legenda ou imagem."); return; }
     if (!composer.post_now && !composer.scheduled_at) { toast.error("Selecione a data de agendamento."); return; }
 
     setSubmitting(true);
@@ -306,19 +309,20 @@ export default function SocialMediaTab({
         action: "create-post",
         client_id: clientId,
         platforms: composer.platforms,
-        caption: composer.caption || null,
+        caption: composer.media_type === "story" ? null : (composer.caption || null),
         media_url: composer.media_url || null,
-        media_type: composer.media_url ? "image" : "text",
+        media_type: composer.media_type === "story" ? "story" : (composer.media_url ? "image" : "text"),
+        link_url: composer.media_type === "story" ? (composer.link_url || null) : null,
         scheduled_at: composer.post_now ? null : composer.scheduled_at,
       });
 
       if (data.error) { toast.error(data.error); return; }
       if (data.error_message) toast.warning(`Publicado com aviso: ${data.error_message}`);
-      else if (!composer.post_now) toast.success("Post agendado!");
-      else toast.success("Post publicado!");
+      else if (!composer.post_now) toast.success(composer.media_type === "story" ? "Story agendado!" : "Post agendado!");
+      else toast.success(composer.media_type === "story" ? "Story publicado!" : "Post publicado!");
 
       setShowComposer(false);
-      setComposer({ platforms: [], caption: "", media_url: "", post_now: true, scheduled_at: "" });
+      setComposer({ platforms: [], caption: "", media_url: "", media_type: "post", link_url: "", post_now: true, scheduled_at: "" });
       loadPosts();
     } finally {
       setSubmitting(false);
@@ -760,8 +764,24 @@ export default function SocialMediaTab({
                   </div>
                 </div>
 
-                {/* Caption */}
-                <div>
+                {/* Post type */}
+                <div className="flex gap-2">
+                  {(["post", "story"] as const).map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setComposer((p) => ({ ...p, media_type: t }))}
+                      className="flex-1 py-2 rounded-xl text-xs font-semibold transition-all"
+                      style={composer.media_type === t
+                        ? { background: clientColor, color: "#07080A" }
+                        : { background: "rgba(255,255,255,0.05)", color: s(0.4), border: "1px solid rgba(255,255,255,0.09)" }}
+                    >
+                      {t === "post" ? "📝 Post" : "📱 Story"}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Caption — hidden for stories */}
+                {composer.media_type === "post" && <div>
                   <label className="block text-xs font-medium mb-2" style={{ color: s(0.4) }}>Legenda</label>
                   <textarea
                     value={composer.caption}
@@ -772,7 +792,7 @@ export default function SocialMediaTab({
                     style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: s(0.8) }}
                   />
                   <p className="text-[10px] mt-1 text-right" style={{ color: s(0.2) }}>{composer.caption.length}/2200</p>
-                </div>
+                </div>}
 
                 {/* Media upload */}
                 <div>
@@ -817,6 +837,21 @@ export default function SocialMediaTab({
                     </button>
                   )}
                 </div>
+
+                {/* Link URL — only for stories */}
+                {composer.media_type === "story" && (
+                  <div>
+                    <label className="block text-xs font-medium mb-2" style={{ color: s(0.4) }}>Link do Story (opcional)</label>
+                    <input
+                      value={composer.link_url}
+                      onChange={(e) => setComposer((p) => ({ ...p, link_url: e.target.value }))}
+                      placeholder="https://seusite.com.br/pagina"
+                      className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none"
+                      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: s(0.8) }}
+                    />
+                    <p className="text-[10px] mt-1" style={{ color: s(0.25) }}>Aparece como sticker de link no Story do Instagram.</p>
+                  </div>
+                )}
 
                 {/* Schedule */}
                 <div>

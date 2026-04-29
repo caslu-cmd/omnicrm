@@ -186,46 +186,69 @@ Deno.serve(async (req) => {
 
     // ── Create / schedule post ───────────────────────────────────
     if (action === "create-post") {
-      const { client_id, platforms, caption, media_url, media_type, scheduled_at } = body;
+      const { client_id, platforms, caption, media_url, media_type, scheduled_at, link_url } = body;
       if (!client_id || !platforms?.length) return respond({ error: "client_id e platforms obrigatórios" }, 400);
 
-      const isScheduled = scheduled_at && new Date(scheduled_at) > new Date();
-      let status = isScheduled ? "scheduled" : "publishing";
+      const scheduledDate = scheduled_at ? new Date(scheduled_at) : null;
+      const isScheduled   = scheduledDate && scheduledDate > new Date();
+      const isStory       = media_type === "story";
+      let status          = "publishing";
       let fbPostId: string | null = null;
       let igMediaId: string | null = null;
       let errorMessage: string | null = null;
 
-      if (!isScheduled) {
-        for (const platform of platforms as string[]) {
-          const { data: conn } = await supabase.from("social_connections")
-            .select("account_id,access_token").eq("user_id", userId)
-            .eq("client_id", client_id).eq("platform", platform).eq("connected", true).maybeSingle();
-          if (!conn) continue;
-          const accessToken = deobfuscate(conn.access_token, encKey);
-          try {
-            if (platform === "facebook") {
-              const endpoint = media_url ? `${GRAPH}/${conn.account_id}/photos` : `${GRAPH}/${conn.account_id}/feed`;
-              const postBody = media_url
-                ? { url: media_url, caption: caption ?? "", access_token: accessToken }
-                : { message: caption ?? "", access_token: accessToken };
-              const res = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(postBody) });
-              const result = await res.json();
-              if (result.error) { errorMessage = result.error.message; status = "failed"; }
-              else fbPostId = result.post_id ?? result.id;
-            } else if (platform === "instagram") {
-              if (!media_url) { errorMessage = "Instagram requer imagem"; status = "failed"; continue; }
-              const containerRes = await fetch(`${GRAPH}/${conn.account_id}/media`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image_url: media_url, caption: caption ?? "", access_token: accessToken }) });
-              const container = await containerRes.json();
-              if (container.error) { errorMessage = container.error.message; status = "failed"; continue; }
-              const publishRes = await fetch(`${GRAPH}/${conn.account_id}/media_publish`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ creation_id: container.id, access_token: accessToken }) });
-              const published = await publishRes.json();
-              if (published.error) { errorMessage = published.error.message; status = "failed"; }
-              else igMediaId = published.id;
+      for (const platform of platforms as string[]) {
+        const { data: conn } = await supabase.from("social_connections")
+          .select("account_id,access_token").eq("user_id", userId)
+          .eq("client_id", client_id).eq("platform", platform).eq("connected", true).maybeSingle();
+        if (!conn) continue;
+        const accessToken = deobfuscate(conn.access_token, encKey);
+
+        try {
+          if (platform === "facebook") {
+            const endpoint = media_url ? `${GRAPH}/${conn.account_id}/photos` : `${GRAPH}/${conn.account_id}/feed`;
+            const postBody: Record<string, unknown> = media_url
+              ? { url: media_url, caption: caption ?? "", access_token: accessToken }
+              : { message: caption ?? "", access_token: accessToken };
+            if (isScheduled) {
+              postBody.scheduled_publish_time = Math.floor(scheduledDate!.getTime() / 1000);
+              postBody.published = false;
             }
-          } catch (e) { errorMessage = e instanceof Error ? e.message : "Erro ao publicar"; status = "failed"; }
-        }
-        if (status === "publishing") status = "published";
+            const res = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(postBody) });
+            const result = await res.json();
+            if (result.error) { errorMessage = result.error.message; status = "failed"; }
+            else { fbPostId = result.post_id ?? result.id; status = isScheduled ? "scheduled" : "publishing"; }
+
+          } else if (platform === "instagram") {
+            if (!media_url) { errorMessage = "Instagram requer imagem"; status = "failed"; continue; }
+
+            const container: Record<string, unknown> = { image_url: media_url, access_token: accessToken };
+
+            if (isStory) {
+              container.media_type = "STORIES";
+              if (link_url) container.link_url = link_url;
+            } else {
+              container.caption = caption ?? "";
+            }
+
+            if (isScheduled) {
+              container.published  = false;
+              container.publish_at = scheduledDate!.toISOString();
+            }
+
+            const containerRes = await fetch(`${GRAPH}/${conn.account_id}/media`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(container) });
+            const containerData = await containerRes.json();
+            if (containerData.error) { errorMessage = containerData.error.message; status = "failed"; continue; }
+
+            const publishRes = await fetch(`${GRAPH}/${conn.account_id}/media_publish`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ creation_id: containerData.id, access_token: accessToken }) });
+            const published = await publishRes.json();
+            if (published.error) { errorMessage = published.error.message; status = "failed"; }
+            else { igMediaId = published.id; status = isScheduled ? "scheduled" : "publishing"; }
+          }
+        } catch (e) { errorMessage = e instanceof Error ? e.message : "Erro ao publicar"; status = "failed"; }
       }
+
+      if (status === "publishing") status = "published";
 
       const { data: post, error: insertError } = await supabase.from("scheduled_posts").insert({
         user_id: userId, client_id, platforms, caption,
