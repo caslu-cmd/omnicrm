@@ -43,7 +43,7 @@ const META_SCOPE = [
   "instagram_manage_insights",
 ].join(",");
 
-const LINKEDIN_SCOPE = "w_organization_social r_organization_social profile openid";
+const LINKEDIN_SCOPE = "w_organization_social r_organization_social";
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
