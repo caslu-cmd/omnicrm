@@ -200,15 +200,39 @@ export default function SocialMediaTab({
 
       const popup = window.open(oauthUrl, "meta-oauth", "width=620,height=720,left=200,top=100");
 
-      const onMessage = (event: MessageEvent) => {
-        if (event.data?.type === "meta-oauth-success") {
+      const onMessage = async (event: MessageEvent) => {
+        if (event.data?.type === "meta-oauth-exchange") {
           window.removeEventListener("message", onMessage);
-          toast.success(`${PLATFORM_CFG[platform].name} conectado!`);
-          loadConnections();
-          loadMetrics();
+          clearInterval(timer);
+          const { code, state: receivedState } = event.data as { code: string; state: string };
+          try {
+            const { data, error } = await supabase.functions.invoke("smm", {
+              body: { action: "oauth-callback", code, state: receivedState },
+            });
+            let msg = "Erro ao conectar.";
+            if (error) {
+              try { const b = await (error as any).context?.json?.(); msg = b?.error ?? error.message ?? msg; }
+              catch { msg = error.message ?? msg; }
+            } else if (data?.error) {
+              msg = data.error;
+            }
+            if (error || data?.error) {
+              toast.error(msg);
+            } else {
+              toast.success(`${PLATFORM_CFG[platform].name} conectado!`);
+              loadConnections();
+              loadMetrics();
+            }
+          } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Erro ao conectar.");
+          } finally {
+            setConnecting(null);
+          }
         } else if (event.data?.type === "meta-oauth-error") {
           window.removeEventListener("message", onMessage);
+          clearInterval(timer);
           toast.error(event.data.error ?? "Erro ao conectar.");
+          setConnecting(null);
         }
       };
       window.addEventListener("message", onMessage);
@@ -217,11 +241,11 @@ export default function SocialMediaTab({
         if (popup?.closed) {
           clearInterval(timer);
           window.removeEventListener("message", onMessage);
+          setConnecting(null);
         }
       }, 800);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao iniciar OAuth.");
-    } finally {
       setConnecting(null);
     }
   };

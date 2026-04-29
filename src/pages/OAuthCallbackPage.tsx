@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 
 export default function OAuthCallbackPage() {
   const [searchParams] = useSearchParams();
@@ -15,56 +14,26 @@ export default function OAuthCallbackPage() {
     const errorMessage = searchParams.get("error_message");
 
     if (error || errorCode) {
+      const msg = searchParams.get("error_description") ?? errorMessage ?? "Autorização negada.";
       setStatus("error");
-      setMessage(searchParams.get("error_description") ?? errorMessage ?? "Autorização negada.");
+      setMessage(msg);
+      window.opener?.postMessage({ type: "meta-oauth-error", error: msg }, "*");
       return;
     }
 
     if (!code || !state) {
+      const msg = "Parâmetros inválidos.";
       setStatus("error");
-      setMessage(`Parâmetros inválidos. code=${code ? "✓" : "null"} state=${state ? "✓" : "null"}`);
+      setMessage(msg);
+      window.opener?.postMessage({ type: "meta-oauth-error", error: msg }, "*");
       return;
     }
 
-    const exchange = async () => {
-      try {
-        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-        const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
-        const { data: { session } } = await supabase.auth.getSession();
-
-        const res = await fetch(`${supabaseUrl}/functions/v1/smm`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${session?.access_token ?? ""}`,
-            "apikey": anonKey,
-          },
-          body: JSON.stringify({ action: "oauth-callback", code, state }),
-        });
-
-        const data = await res.json();
-
-        if (!res.ok || data?.error) {
-          const msg = data?.error ?? `HTTP ${res.status}`;
-          setStatus("error");
-          setMessage(msg);
-          window.opener?.postMessage({ type: "meta-oauth-error", error: msg }, "*");
-          return;
-        }
-
-        setStatus("success");
-        setMessage(`${data.account_name ?? "Conta"} conectada com sucesso!`);
-        window.opener?.postMessage({ type: "meta-oauth-success" }, "*");
-        setTimeout(() => window.close(), 2000);
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : "Erro inesperado.";
-        setStatus("error");
-        setMessage(msg);
-        window.opener?.postMessage({ type: "meta-oauth-error", error: msg }, "*");
-      }
-    };
-
-    exchange();
+    // Forward code+state to main window — it has a valid session and will call the edge function
+    window.opener?.postMessage({ type: "meta-oauth-exchange", code, state }, "*");
+    setStatus("success");
+    setMessage("Conectando conta Meta…");
+    setTimeout(() => window.close(), 3000);
   }, []);
 
   return (
@@ -81,12 +50,14 @@ export default function OAuthCallbackPage() {
             <div className="mb-4 flex justify-center">
               <div className="h-10 w-10 rounded-full border-4 border-t-transparent animate-spin" style={{ borderColor: "#B9FF4B", borderTopColor: "transparent" }} />
             </div>
-            <p style={{ color: "rgba(255,255,255,0.7)" }} className="text-sm">Conectando conta Meta…</p>
+            <p style={{ color: "rgba(255,255,255,0.7)" }} className="text-sm">Aguardando…</p>
           </>
         )}
         {status === "success" && (
           <>
-            <div className="mb-4 text-4xl">✅</div>
+            <div className="mb-4 flex justify-center">
+              <div className="h-10 w-10 rounded-full border-4 border-t-transparent animate-spin" style={{ borderColor: "#B9FF4B", borderTopColor: "transparent" }} />
+            </div>
             <p className="text-base font-semibold mb-1" style={{ color: "#B9FF4B" }}>{message}</p>
             <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>Esta janela será fechada automaticamente.</p>
           </>
