@@ -6,8 +6,11 @@ export default function OAuthCallbackPage() {
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [message, setMessage] = useState("");
+  const [debugUrl, setDebugUrl] = useState("");
 
   useEffect(() => {
+    setDebugUrl(window.location.href);
+
     const code = searchParams.get("code");
     const state = searchParams.get("state");
     const error = searchParams.get("error");
@@ -20,7 +23,7 @@ export default function OAuthCallbackPage() {
 
     if (!code || !state) {
       setStatus("error");
-      setMessage("Parâmetros inválidos.");
+      setMessage(`Parâmetros inválidos. code=${code ? "✓" : "null"} state=${state ? "✓" : "null"} | URL: ${window.location.href}`);
       return;
     }
 
@@ -82,7 +85,7 @@ export default function OAuthCallbackPage() {
           <>
             <div className="mb-4 text-4xl">❌</div>
             <p className="text-base font-semibold mb-1" style={{ color: "#F87171" }}>Erro ao conectar</p>
-            <p className="text-xs mb-4" style={{ color: "rgba(255,255,255,0.5)" }}>{message}</p>
+            <p className="text-xs mb-4 break-all" style={{ color: "rgba(255,255,255,0.5)" }}>{message}</p>
             <button
               onClick={() => window.close()}
               className="px-4 py-2 rounded-lg text-sm font-medium"
