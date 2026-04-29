@@ -3,13 +3,14 @@ import { motion } from "framer-motion";
 import {
   Search, Filter, Download, Upload, Plus, MoreHorizontal,
   Mail, Phone, X, Pencil, Trash2, Instagram, Facebook,
-  Globe, Users, Linkedin, MessageCircle, Flame, Minus,
+  Globe, Users, Linkedin, MessageCircle, Minus,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import type { Tables } from "@/integrations/supabase/types";
+import ContactActivityPanel from "@/components/ContactActivityPanel";
 
 type Contact = Tables<"contacts">;
 
@@ -73,6 +74,7 @@ const ContactsPage = () => {
   const [filterSource, setFilterSource] = useState("Todos");
   const [filterHeat, setFilterHeat]     = useState("Todos");
   const [menuId, setMenuId]             = useState<string | null>(null);
+  const [activeContact, setActiveContact] = useState<Contact | null>(null);
 
   // New
   const [showNew, setShowNew]   = useState(false);
@@ -245,7 +247,7 @@ const ContactsPage = () => {
                           {c.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
                         </div>
                         <div>
-                          <p className="text-sm font-medium text-foreground">{c.name}</p>
+                          <button onClick={() => setActiveContact(c)} className="text-sm font-medium text-foreground hover:underline text-left">{c.name}</button>
                           <p className="text-xs text-muted-foreground">{c.email || "—"}</p>
                         </div>
                       </div>
@@ -315,6 +317,14 @@ const ContactsPage = () => {
           </Field>
           <ModalActions onCancel={() => setShowNew(false)} onConfirm={handleCreate} confirmLabel="Criar" />
         </Modal>
+      )}
+
+      {/* Activity Panel */}
+      {activeContact && (
+        <ContactActivityPanel
+          contact={activeContact}
+          onClose={() => setActiveContact(null)}
+        />
       )}
 
       {/* Edit Contact Modal */}
