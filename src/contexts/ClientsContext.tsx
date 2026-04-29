@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, ReactNode } from "react";
-import { CLIENTS, Client } from "@/data/agencyData";
+import { CLIENTS, Client, AgentTask } from "@/data/agencyData";
 
 type ClientEdit = {
   name?: string;
@@ -57,10 +57,21 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
 
   const addClient = (data: { name: string; industry: string; status: "Ativo" | "Onboarding" | "Em pausa"; revenue: string; color: string }): string => {
     const id = slugify(data.name) || `cliente-${Date.now()}`;
+
+    const agentTaskTemplate = (role: string): AgentTask => ({
+      current: `Aguardando briefing de ${data.name}`,
+      status: "aguardando",
+      recent: [`Workspace de ${data.name} criado`, `Aguardando instruções de ${role}`],
+      progress: 0,
+    });
+
+    const weekDays = ["Seg", "Ter", "Qua", "Qui", "Sex"];
+    const weekDates = ["01", "02", "03", "04", "05"];
+
     const newClient: Client = {
       id,
       name: data.name,
-      industry: data.industry,
+      industry: data.industry || "Não definido",
       color: data.color,
       initials: initials(data.name),
       status: data.status,
@@ -69,18 +80,48 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
       campaigns: 0,
       lastActivity: "agora",
       revenue: data.revenue || "R$ 0",
-      nextAction: "Definir estratégia inicial",
-      followers: { instagram: "0", facebook: "0" },
+      nextAction: "Coletar briefing e definir estratégia",
+      followers: { instagram: "—", facebook: "—" },
       recentPosts: [],
       activeCampaigns: [],
-      agentFeed: [],
-      weeklyContent: [],
-      metrics: [],
+      agentFeed: [
+        { id: "1", action: "Workspace criado", detail: `Conta de ${data.name} configurada na plataforma`, time: "agora", type: "report" },
+        { id: "2", action: "Time designado", detail: "Beatriz, Marina, Rafaela e Lucas prontos para começar", time: "agora", type: "content" },
+      ],
+      weeklyContent: weekDays.map((day, i) => ({
+        day,
+        date: weekDates[i],
+        posts: [],
+      })),
+      metrics: [
+        { label: "Alcance",      value: "—", change: "Conecte as redes", positive: true },
+        { label: "Engajamento",  value: "—", change: "Conecte as redes", positive: true },
+        { label: "Leads",        value: "0", change: "Nenhum ainda",      positive: true },
+        { label: "Conversão",    value: "—", change: "Sem campanhas",     positive: true },
+      ],
       contacts: [],
       pipeline: [],
-      agentTasks: {},
+      agentTasks: {
+        copywriter: agentTaskTemplate("Copywriter"),
+        traffic:    agentTaskTemplate("Tráfego"),
+        analyst:    agentTaskTemplate("Analista"),
+        social:     agentTaskTemplate("Social Media"),
+        strategist: agentTaskTemplate("Estrategista"),
+        sales:      agentTaskTemplate("Vendas"),
+        designer:   agentTaskTemplate("Designer"),
+        site:       agentTaskTemplate("Editor de Site"),
+        briefing:   agentTaskTemplate("Diagnóstico"),
+        revisor:    agentTaskTemplate("Revisora"),
+      },
       orchestratorStatus: "idle",
-      orchestratorPlan: [],
+      orchestratorPlan: [
+        { step: "Coletar briefing completo do cliente",    done: false, active: true },
+        { step: "Definir posicionamento e pauta editorial", done: false },
+        { step: "Criar primeiros conteúdos",               done: false },
+        { step: "Configurar campanhas de tráfego",         done: false },
+        { step: "Conectar redes sociais e automatizar",    done: false },
+        { step: "Entregar relatório do primeiro mês",      done: false },
+      ],
       portalPin: randomPin(data.name),
       outputs: [],
     };
