@@ -928,6 +928,15 @@ export default function SocialMediaTab({
                       >
                         <X className="w-3 h-3 text-white" />
                       </button>
+                      {composer.media_type === "story" && composer.link_url && (
+                        <div
+                          className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold whitespace-nowrap"
+                          style={{ background: "rgba(255,255,255,0.92)", color: "#000", boxShadow: "0 2px 10px rgba(0,0,0,0.35)" }}
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                          {(() => { try { return new URL(composer.link_url).hostname.replace("www.", ""); } catch { return "Ver link"; } })()}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     <button
