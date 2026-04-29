@@ -6,11 +6,8 @@ export default function OAuthCallbackPage() {
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [message, setMessage] = useState("");
-  const [debugUrl, setDebugUrl] = useState("");
 
   useEffect(() => {
-    setDebugUrl(window.location.href);
-
     const code = searchParams.get("code");
     const state = searchParams.get("state");
     const error = searchParams.get("error");
@@ -19,17 +16,13 @@ export default function OAuthCallbackPage() {
 
     if (error || errorCode) {
       setStatus("error");
-      setMessage(
-        searchParams.get("error_description") ??
-        errorMessage ??
-        "Autorização negada."
-      );
+      setMessage(searchParams.get("error_description") ?? errorMessage ?? "Autorização negada.");
       return;
     }
 
     if (!code || !state) {
       setStatus("error");
-      setMessage(`Parâmetros inválidos. code=${code ? "✓" : "null"} state=${state ? "✓" : "null"} | URL: ${window.location.href}`);
+      setMessage(`Parâmetros inválidos. code=${code ? "✓" : "null"} state=${state ? "✓" : "null"}`);
       return;
     }
 
@@ -62,7 +55,6 @@ export default function OAuthCallbackPage() {
         setStatus("success");
         setMessage(`${data.account_name ?? "Conta"} conectada com sucesso!`);
         window.opener?.postMessage({ type: "meta-oauth-success" }, "*");
-
         setTimeout(() => window.close(), 2000);
       } catch (e) {
         const msg = e instanceof Error ? e.message : "Erro inesperado.";
