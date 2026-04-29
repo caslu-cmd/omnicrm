@@ -13,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 // ── Types ──────────────────────────────────────────────────────
 interface SocialConnection {
   id: string;
-  platform: "instagram" | "facebook";
+  platform: "instagram" | "facebook" | "linkedin";
   account_id: string;
   account_name: string;
   account_username: string | null;
@@ -69,6 +69,14 @@ const PLATFORM_CFG = {
     bg: "rgba(24,119,242,0.1)",
     border: "rgba(24,119,242,0.2)",
     desc: "Página, Feed e Facebook Insights",
+  },
+  linkedin: {
+    name: "LinkedIn",
+    Icon: Linkedin,
+    color: "#0A66C2",
+    bg: "rgba(10,102,194,0.1)",
+    border: "rgba(10,102,194,0.2)",
+    desc: "Página empresarial e conteúdo B2B",
   },
 } as const;
 
@@ -127,6 +135,8 @@ export default function SocialMediaTab({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [linkedinStep, setLinkedinStep] = useState<null | "enter-url" | "oauth">(null);
+  const [linkedinOrgUrl, setLinkedinOrgUrl] = useState("");
 
   const [composer, setComposer] = useState({
     platforms: [] as string[],
@@ -251,6 +261,82 @@ export default function SocialMediaTab({
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao iniciar OAuth.");
       setConnecting(null);
+    }
+  };
+
+  const handleConnectLinkedIn = async () => {
+    const match = linkedinOrgUrl.match(/linkedin\.com\/company\/([^/?#\s]+)/i);
+    if (!match) {
+      toast.error("URL inválida. Use: linkedin.com/company/nome-da-empresa");
+      return;
+    }
+    const vanityName = match[1].replace(/\/$/, "");
+    setLinkedinStep("oauth");
+    setConnecting("linkedin");
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { toast.error("Sessão expirada."); setLinkedinStep("enter-url"); setConnecting(null); return; }
+
+      const { data: urlData, error: urlError } = await supabase.functions.invoke("smm", {
+        body: { action: "linkedin-oauth-url", client_id: clientId, org_vanity_name: vanityName },
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      if (urlError || urlData?.error) {
+        toast.error(urlData?.error ?? "Erro ao gerar URL OAuth.");
+        setLinkedinStep("enter-url");
+        setConnecting(null);
+        return;
+      }
+
+      const popup = window.open(urlData.url, "linkedin-oauth", "width=620,height=720,left=200,top=100");
+
+      const onMessage = async (event: MessageEvent) => {
+        if (event.data?.type === "linkedin-oauth-exchange") {
+          window.removeEventListener("message", onMessage);
+          clearInterval(timer);
+          try {
+            const { data, error } = await supabase.functions.invoke("smm", {
+              body: { action: "linkedin-oauth-callback", code: event.data.code, state: event.data.state },
+              headers: { Authorization: `Bearer ${session.access_token}` },
+            });
+            if (error || data?.error) {
+              toast.error(data?.error ?? "Erro ao conectar LinkedIn.");
+            } else {
+              toast.success("LinkedIn conectado!");
+              setLinkedinStep(null);
+              setLinkedinOrgUrl("");
+              loadConnections();
+            }
+          } catch (e) {
+            toast.error(e instanceof Error ? e.message : "Erro ao conectar.");
+          } finally {
+            setConnecting(null);
+          }
+        } else if (event.data?.type === "linkedin-oauth-error") {
+          window.removeEventListener("message", onMessage);
+          clearInterval(timer);
+          toast.error(event.data.error ?? "Erro ao conectar LinkedIn.");
+          setConnecting(null);
+          setLinkedinStep("enter-url");
+        }
+      };
+      window.addEventListener("message", onMessage);
+
+      const timer = setInterval(() => {
+        if (popup?.closed) {
+          clearInterval(timer);
+          window.removeEventListener("message", onMessage);
+          if (connecting === "linkedin") {
+            setConnecting(null);
+            setLinkedinStep("enter-url");
+          }
+        }
+      }, 800);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro.");
+      setConnecting(null);
+      setLinkedinStep("enter-url");
     }
   };
 
@@ -390,12 +476,13 @@ export default function SocialMediaTab({
       <div>
         <h3 className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: s(0.3) }}>Conexões</h3>
         <div className="grid grid-cols-3 gap-4">
-          {(["instagram", "facebook"] as const).map((platform) => {
+          {(["instagram", "facebook", "linkedin"] as const).map((platform) => {
             const cfg = PLATFORM_CFG[platform];
             const conn = connections.find((c) => c.platform === platform);
             const isConnected = conn?.connected ?? false;
             const isConnecting = connecting === platform;
             const isDisconnecting = disconnecting === platform;
+            const isLinkedIn = platform === "linkedin";
 
             return (
               <motion.div
@@ -404,7 +491,7 @@ export default function SocialMediaTab({
                 animate={{ opacity: 1, y: 0 }}
                 className="rounded-2xl p-5"
                 style={{
-                  background: isConnected ? `${cfg.bg}` : "rgba(255,255,255,0.025)",
+                  background: isConnected ? cfg.bg : "rgba(255,255,255,0.025)",
                   border: `1px solid ${isConnected ? cfg.border : "rgba(255,255,255,0.07)"}`,
                 }}
               >
@@ -422,12 +509,10 @@ export default function SocialMediaTab({
                     </div>
                   </div>
                   {isConnected && (
-                    <div className="flex items-center gap-1">
-                      <span className="relative flex h-1.5 w-1.5">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#34D399" }} />
-                        <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: "#34D399" }} />
-                      </span>
-                    </div>
+                    <span className="relative flex h-1.5 w-1.5">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#34D399" }} />
+                      <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: "#34D399" }} />
+                    </span>
                   )}
                 </div>
 
@@ -440,8 +525,24 @@ export default function SocialMediaTab({
                       {conn.account_username ?? conn.account_name}
                     </div>
                     <div className="text-[10px] mt-0.5" style={{ color: s(0.35) }}>
-                      {fmtNum(conn.followers_count)} seguidores
+                      {isLinkedIn ? conn.account_name : `${fmtNum(conn.followers_count)} seguidores`}
                     </div>
+                  </div>
+                )}
+
+                {/* LinkedIn step: enter org URL */}
+                {isLinkedIn && !isConnected && linkedinStep === "enter-url" && (
+                  <div className="mb-3 space-y-2">
+                    <p className="text-[10px]" style={{ color: s(0.4) }}>
+                      Cole a URL da Página de Empresa:
+                    </p>
+                    <input
+                      value={linkedinOrgUrl}
+                      onChange={(e) => setLinkedinOrgUrl(e.target.value)}
+                      placeholder="linkedin.com/company/sua-empresa"
+                      className="w-full rounded-lg px-2.5 py-1.5 text-[11px] focus:outline-none"
+                      style={{ background: "rgba(255,255,255,0.07)", border: "1px solid rgba(10,102,194,0.3)", color: s(0.8) }}
+                    />
                   </div>
                 )}
 
@@ -463,9 +564,42 @@ export default function SocialMediaTab({
                   >
                     {isDisconnecting ? "Desconectando…" : "Desconectar"}
                   </button>
+                ) : isLinkedIn ? (
+                  linkedinStep === "enter-url" ? (
+                    <div className="flex gap-1.5">
+                      <button
+                        onClick={() => { setLinkedinStep(null); setLinkedinOrgUrl(""); }}
+                        className="flex-1 py-2 rounded-xl text-[11px] font-medium transition-all"
+                        style={{ background: "rgba(255,255,255,0.04)", color: s(0.35), border: "1px solid rgba(255,255,255,0.08)" }}
+                      >
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={handleConnectLinkedIn}
+                        disabled={!linkedinOrgUrl.trim()}
+                        className="flex-1 py-2 rounded-xl text-[11px] font-medium transition-all disabled:opacity-40"
+                        style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}
+                      >
+                        Continuar
+                      </button>
+                    </div>
+                  ) : linkedinStep === "oauth" || isConnecting ? (
+                    <div className="w-full py-2 rounded-xl text-[11px] font-medium flex items-center justify-center gap-1.5"
+                      style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}>
+                      <RefreshCw className="w-3 h-3 animate-spin" /> Aguardando…
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setLinkedinStep("enter-url")}
+                      className="w-full py-2 rounded-xl text-[11px] font-medium transition-all"
+                      style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}
+                    >
+                      Conectar LinkedIn
+                    </button>
+                  )
                 ) : (
                   <button
-                    onClick={() => handleConnect(platform)}
+                    onClick={() => handleConnect(platform as "instagram" | "facebook")}
                     disabled={isConnecting}
                     className="w-full py-2 rounded-xl text-[11px] font-medium transition-all disabled:opacity-50"
                     style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}
@@ -480,30 +614,6 @@ export default function SocialMediaTab({
               </motion.div>
             );
           })}
-
-          {/* LinkedIn coming soon */}
-          <motion.div
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="rounded-2xl p-5 opacity-40"
-            style={{ background: "rgba(255,255,255,0.015)", border: "1px solid rgba(255,255,255,0.06)" }}
-          >
-            <div className="flex items-center gap-3 mb-4">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(10,102,194,0.1)", border: "1px solid rgba(10,102,194,0.2)" }}>
-                <Linkedin className="w-5 h-5" style={{ color: "#0A66C2" }} />
-              </div>
-              <div>
-                <div className="text-sm font-semibold" style={{ color: s(0.9) }}>LinkedIn</div>
-                <div className="text-[10px]" style={{ color: s(0.3) }}>Página empresarial e conteúdo B2B</div>
-              </div>
-            </div>
-            <div
-              className="w-full py-2 rounded-xl text-[11px] font-medium text-center"
-              style={{ background: "rgba(255,255,255,0.04)", color: s(0.3), border: "1px solid rgba(255,255,255,0.06)" }}
-            >
-              Em breve
-            </div>
-          </motion.div>
         </div>
       </div>
 

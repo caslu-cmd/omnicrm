@@ -32,6 +32,7 @@ function deobfuscate(encoded: string, key: string): string {
 }
 
 const GRAPH = "https://graph.facebook.com/v22.0";
+const LINKEDIN_API = "https://api.linkedin.com/v2";
 
 const META_SCOPE = [
   "pages_manage_posts",
@@ -42,6 +43,8 @@ const META_SCOPE = [
   "instagram_manage_insights",
 ].join(",");
 
+const LINKEDIN_SCOPE = "w_organization_social r_organization_social profile openid";
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return respond({ error: "Method not allowed" }, 405);
@@ -51,19 +54,21 @@ Deno.serve(async (req) => {
     if (!authHeader?.startsWith("Bearer ")) return respond({ error: "Unauthorized" }, 401);
     const token = authHeader.replace("Bearer ", "");
 
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const encKey = Deno.env.get("INTEGRATION_ENCRYPTION_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const metaAppId = Deno.env.get("META_APP_ID") ?? "";
-    const metaAppSecret = Deno.env.get("META_APP_SECRET") ?? "";
-    const redirectUri = Deno.env.get("META_REDIRECT_URI") ?? "https://omnicrm.lovable.app/oauth/meta";
+    const supabaseUrl        = Deno.env.get("SUPABASE_URL")!;
+    const supabaseAnonKey    = Deno.env.get("SUPABASE_ANON_KEY")!;
+    const encKey             = Deno.env.get("INTEGRATION_ENCRYPTION_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+    const metaAppId          = Deno.env.get("META_APP_ID") ?? "";
+    const metaAppSecret      = Deno.env.get("META_APP_SECRET") ?? "";
+    const redirectUri        = Deno.env.get("META_REDIRECT_URI") ?? "https://omnicrm.lovable.app/oauth/meta";
+    const linkedinClientId   = Deno.env.get("LINKEDIN_CLIENT_ID") ?? "";
+    const linkedinClientSecret = Deno.env.get("LINKEDIN_CLIENT_SECRET") ?? "";
+    const linkedinRedirectUri = Deno.env.get("LINKEDIN_REDIRECT_URI") ?? "https://omnicrm.lovable.app/oauth/linkedin";
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
     });
 
     let userId: string;
-
     try {
       const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
       if (!payload?.sub) return respond({ error: "Unauthorized" }, 401);
@@ -75,7 +80,7 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const action: string = body.action ?? "";
 
-    // ── Get OAuth URL ────────────────────────────────────────────
+    // ── Meta OAuth URL ───────────────────────────────────────────
     if (action === "oauth-url") {
       if (!metaAppId) return respond({ error: "META_APP_ID não configurado" }, 503);
       const clientId: string = body.client_id ?? "";
@@ -91,7 +96,7 @@ Deno.serve(async (req) => {
       return respond({ url: oauthUrl });
     }
 
-    // ── OAuth callback ───────────────────────────────────────────
+    // ── Meta OAuth callback ──────────────────────────────────────
     if (action === "oauth-callback") {
       const { code, state } = body;
       if (!code || !state) return respond({ error: "code e state são obrigatórios" }, 400);
@@ -140,8 +145,7 @@ Deno.serve(async (req) => {
         accountUsername = igDetails.username ? `@${igDetails.username}` : null;
         followersCount = igDetails.followers_count ?? 0;
       } else {
-        const pageDetailsRes = await
-          fetch(`${GRAPH}/${page.id}?fields=fan_count,followers_count&access_token=${pageToken}`);
+        const pageDetailsRes = await fetch(`${GRAPH}/${page.id}?fields=fan_count,followers_count&access_token=${pageToken}`);
         const pageDetails = await pageDetailsRes.json();
         followersCount = pageDetails.followers_count ?? pageDetails.fan_count ?? 0;
       }
@@ -160,6 +164,91 @@ Deno.serve(async (req) => {
 
       if (upsertError) return respond({ error: upsertError.message }, 500);
       return respond({ success: true, account_name: accountName, account_username: accountUsername, followers_count: followersCount });
+    }
+
+    // ── LinkedIn OAuth URL ───────────────────────────────────────
+    if (action === "linkedin-oauth-url") {
+      if (!linkedinClientId) return respond({ error: "LINKEDIN_CLIENT_ID não configurado" }, 503);
+      const { client_id, org_vanity_name } = body;
+      const state = btoa(JSON.stringify({
+        userId, clientId: client_id, platform: "linkedin",
+        orgVanityName: org_vanity_name ?? "", ts: Date.now(),
+      })).replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+      const url =
+        `https://www.linkedin.com/oauth/v2/authorization` +
+        `?response_type=code` +
+        `&client_id=${linkedinClientId}` +
+        `&redirect_uri=${encodeURIComponent(linkedinRedirectUri)}` +
+        `&scope=${encodeURIComponent(LINKEDIN_SCOPE)}` +
+        `&state=${state}`;
+      return respond({ url });
+    }
+
+    // ── LinkedIn OAuth callback ──────────────────────────────────
+    if (action === "linkedin-oauth-callback") {
+      const { code, state } = body;
+      if (!code || !state) return respond({ error: "code e state são obrigatórios" }, 400);
+      if (!linkedinClientId || !linkedinClientSecret) return respond({ error: "Credenciais LinkedIn não configuradas" }, 503);
+
+      const b64 = state.replace(/-/g, "+").replace(/_/g, "/");
+      const padded = b64 + "=".repeat((4 - b64.length % 4) % 4);
+      let sd: { userId: string; clientId: string; platform: string; orgVanityName: string };
+      try { sd = JSON.parse(atob(padded)); }
+      catch { return respond({ error: "State inválido" }, 400); }
+      const { clientId, orgVanityName } = sd;
+
+      // Exchange code for access token
+      const tokenRes = await fetch("https://www.linkedin.com/oauth/v2/accessToken", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          grant_type: "authorization_code",
+          code,
+          redirect_uri: linkedinRedirectUri,
+          client_id: linkedinClientId,
+          client_secret: linkedinClientSecret,
+        }).toString(),
+      });
+      const tokenData = await tokenRes.json();
+      if (tokenData.error) return respond({ error: tokenData.error_description ?? tokenData.error }, 400);
+
+      const accessToken = tokenData.access_token;
+      const expiresIn = tokenData.expires_in ?? 5183999;
+
+      // Lookup org by vanity name to get numeric URN
+      let accountId = orgVanityName;
+      let accountName = orgVanityName;
+
+      if (orgVanityName) {
+        try {
+          const orgRes = await fetch(
+            `${LINKEDIN_API}/organizations?q=vanityName&vanityName=${encodeURIComponent(orgVanityName)}`,
+            { headers: { Authorization: `Bearer ${accessToken}`, "X-Restli-Protocol-Version": "2.0.0" } }
+          );
+          const orgData = await orgRes.json();
+          const org = orgData.elements?.[0];
+          if (org?.id) {
+            accountId = `urn:li:organization:${org.id}`;
+            accountName = org.localizedName ?? orgVanityName;
+          }
+        } catch { /* fallback to vanity name */ }
+      }
+
+      const encryptedToken = obfuscate(accessToken, encKey);
+      const { error: upsertError } = await supabase
+        .from("social_connections")
+        .upsert({
+          user_id: userId, client_id: clientId, platform: "linkedin",
+          account_id: accountId, account_name: accountName,
+          account_username: `@${orgVanityName}`,
+          followers_count: 0,
+          access_token: encryptedToken,
+          token_expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
+          connected: true, connected_at: new Date().toISOString(),
+        }, { onConflict: "user_id,client_id,platform" });
+
+      if (upsertError) return respond({ error: upsertError.message }, 500);
+      return respond({ success: true, account_name: accountName, account_username: `@${orgVanityName}`, followers_count: 0 });
     }
 
     // ── List connections ─────────────────────────────────────────
@@ -244,6 +333,47 @@ Deno.serve(async (req) => {
             const published = await publishRes.json();
             if (published.error) { errorMessage = published.error.message; status = "failed"; }
             else { igMediaId = published.id; status = isScheduled ? "scheduled" : "publishing"; }
+
+          } else if (platform === "linkedin") {
+            if (!conn.account_id.startsWith("urn:li:organization:")) {
+              errorMessage = "ID da organização inválido. Reconecte o LinkedIn.";
+              status = "failed";
+              continue;
+            }
+
+            // LinkedIn UGC Posts — text only (image URL appended to caption)
+            const text = media_url
+              ? `${caption ?? ""}\n\n${media_url}`.trim()
+              : (caption ?? "");
+
+            const postBody = {
+              author: conn.account_id,
+              lifecycleState: "PUBLISHED",
+              specificContent: {
+                "com.linkedin.ugc.ShareContent": {
+                  shareCommentary: { text },
+                  shareMediaCategory: "NONE",
+                },
+              },
+              visibility: { "com.linkedin.ugc.MemberNetworkVisibility": "PUBLIC" },
+            };
+
+            const res = await fetch(`${LINKEDIN_API}/ugcPosts`, {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                "Content-Type": "application/json",
+                "X-Restli-Protocol-Version": "2.0.0",
+              },
+              body: JSON.stringify(postBody),
+            });
+            const result = await res.json();
+            if (!res.ok || result.serviceErrorCode || result.message) {
+              errorMessage = result.message ?? "Erro ao publicar no LinkedIn";
+              status = "failed";
+            } else {
+              status = "publishing";
+            }
           }
         } catch (e) { errorMessage = e instanceof Error ? e.message : "Erro ao publicar"; status = "failed"; }
       }
@@ -291,6 +421,25 @@ Deno.serve(async (req) => {
 
       const metrics = [];
       for (const conn of connections) {
+        if (conn.platform === "linkedin") {
+          // LinkedIn metrics via organizationalEntityFollowerStatistics
+          const accessToken = deobfuscate(conn.access_token, encKey);
+          try {
+            const statsRes = await fetch(
+              `${LINKEDIN_API}/organizationalEntityFollowerStatistics?q=organizationalEntity&organizationalEntity=${encodeURIComponent(conn.account_id)}`,
+              { headers: { Authorization: `Bearer ${accessToken}`, "X-Restli-Protocol-Version": "2.0.0" } }
+            );
+            const stats = await statsRes.json();
+            const total = stats.elements?.[0]?.followerCountsByAssociationType?.find(
+              (x: { associationType: string }) => x.associationType === "MEMBER"
+            )?.followerCounts?.organicFollowerCount ?? conn.followers_count ?? 0;
+            metrics.push({ platform: "linkedin", account_name: conn.account_name, followers: total, impressions: 0, reach: 0, engagement: 0 });
+          } catch {
+            metrics.push({ platform: "linkedin", account_name: conn.account_name, followers: conn.followers_count ?? 0, impressions: 0, reach: 0, engagement: 0 });
+          }
+          continue;
+        }
+
         const accessToken = deobfuscate(conn.access_token, encKey);
         try {
           let impressions = 0, reach = 0, engagement = 0;

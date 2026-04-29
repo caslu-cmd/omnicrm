@@ -94,6 +94,7 @@ const AppRoutes = () => {
       <Route path="/privacy" element={<PrivacyPage />} />
       <Route path="/terms" element={<TermsPage />} />
       <Route path="/oauth/meta" element={<OAuthCallbackPage />} />
+      <Route path="/oauth/linkedin" element={<OAuthCallbackPage />} />
       <Route path="*" element={<ProtectedRoutes />} />
     </Routes>
   );
