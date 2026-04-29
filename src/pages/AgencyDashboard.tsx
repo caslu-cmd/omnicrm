@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
   Users, Megaphone, Calendar, TrendingUp,
-  ArrowRight, MessageSquare, Plus, Zap
+  ArrowRight, MessageSquare, Plus, Zap, X
 } from "lucide-react";
 import { useClients } from "@/contexts/ClientsContext";
+import { toast } from "sonner";
 
 const LIME = "#B9FF4B";
 
@@ -15,10 +16,32 @@ const STATUS_STYLES: Record<string, { bg: string; text: string; border: string }
   "Em pausa":  { bg: "rgba(100,116,139,0.1)",  text: "#64748B", border: "rgba(100,116,139,0.22)" },
 };
 
+const COLOR_OPTIONS = [
+  "#B9FF4B", "#F97316", "#8B5CF6", "#E1306C", "#1877F2",
+  "#34D399", "#FBBF24", "#60A5FA", "#F87171", "#A78BFA",
+];
+
 export default function AgencyDashboard() {
   const navigate = useNavigate();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const { clients: CLIENTS } = useClients();
+  const { clients: CLIENTS, addClient } = useClients();
+  const [showNewClient, setShowNewClient] = useState(false);
+  const [form, setForm] = useState({
+    name: "", industry: "", status: "Onboarding" as "Ativo" | "Onboarding" | "Em pausa",
+    revenue: "", color: "#B9FF4B",
+  });
+  const [saving, setSaving] = useState(false);
+
+  const handleAddClient = async () => {
+    if (!form.name.trim()) { toast.error("Nome do cliente é obrigatório."); return; }
+    setSaving(true);
+    const id = addClient(form);
+    setSaving(false);
+    setShowNewClient(false);
+    setForm({ name: "", industry: "", status: "Onboarding", revenue: "", color: "#B9FF4B" });
+    toast.success(`${form.name} adicionado!`);
+    navigate(`/agency/clients/${id}`);
+  };
 
   const activeClients = CLIENTS.filter((c) => c.status === "Ativo").length;
   const totalCampaigns = CLIENTS.reduce((s, c) => s + c.campaigns, 0);
@@ -147,7 +170,9 @@ export default function AgencyDashboard() {
             <div className="h-px w-20" style={{ background: "rgba(185,255,75,0.15)" }} />
             <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.2)" }}>{CLIENTS.length} clientes</span>
           </div>
-          <button className="flex items-center gap-1.5 text-xs font-medium transition-colors"
+          <button
+            onClick={() => setShowNewClient(true)}
+            className="flex items-center gap-1.5 text-xs font-medium transition-colors"
             style={{ color: "rgba(185,255,75,0.5)" }}
             onMouseEnter={(e) => (e.currentTarget.style.color = LIME)}
             onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(185,255,75,0.5)")}>
@@ -269,6 +294,7 @@ export default function AgencyDashboard() {
 
           {/* Add new client */}
           <motion.div
+            onClick={() => setShowNewClient(true)}
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.18 + CLIENTS.length * 0.07 }}
@@ -293,6 +319,124 @@ export default function AgencyDashboard() {
           </motion.div>
         </div>
       </div>
+
+      {/* ── Modal Novo Cliente ── */}
+      <AnimatePresence>
+        {showNewClient && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
+            onClick={(e) => { if (e.target === e.currentTarget) setShowNewClient(false); }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.97, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.97, y: 12 }}
+              className="w-full max-w-md rounded-2xl overflow-hidden"
+              style={{ background: "#0D0D1A", border: "1px solid rgba(255,255,255,0.1)" }}
+            >
+              <div className="flex items-center justify-between px-6 py-4"
+                style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                <h2 className="text-sm font-semibold text-white">Novo Cliente</h2>
+                <button onClick={() => setShowNewClient(false)} className="p-1 rounded-lg text-white/40 hover:text-white/70">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-6 space-y-4">
+                <div>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: "rgba(255,255,255,0.4)" }}>Nome do cliente *</label>
+                  <input
+                    value={form.name}
+                    onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
+                    placeholder="Ex: Tech Solutions Ltda"
+                    autoFocus
+                    className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                    style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.85)" }}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium mb-1.5" style={{ color: "rgba(255,255,255,0.4)" }}>Segmento</label>
+                  <input
+                    value={form.industry}
+                    onChange={(e) => setForm((f) => ({ ...f, industry: e.target.value }))}
+                    placeholder="Ex: SaaS B2B, E-commerce, Educação…"
+                    className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                    style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.85)" }}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium mb-1.5" style={{ color: "rgba(255,255,255,0.4)" }}>Status</label>
+                    <select
+                      value={form.status}
+                      onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as typeof form.status }))}
+                      className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.85)", colorScheme: "dark" }}
+                    >
+                      <option value="Onboarding">Onboarding</option>
+                      <option value="Ativo">Ativo</option>
+                      <option value="Em pausa">Em pausa</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium mb-1.5" style={{ color: "rgba(255,255,255,0.4)" }}>Receita mensal</label>
+                    <input
+                      value={form.revenue}
+                      onChange={(e) => setForm((f) => ({ ...f, revenue: e.target.value }))}
+                      placeholder="Ex: R$ 3.500"
+                      className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.85)" }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium mb-2" style={{ color: "rgba(255,255,255,0.4)" }}>Cor do cliente</label>
+                  <div className="flex gap-2 flex-wrap">
+                    {COLOR_OPTIONS.map((c) => (
+                      <button
+                        key={c}
+                        onClick={() => setForm((f) => ({ ...f, color: c }))}
+                        className="w-7 h-7 rounded-lg transition-all"
+                        style={{
+                          background: c,
+                          outline: form.color === c ? `2px solid white` : "none",
+                          outlineOffset: "2px",
+                          boxShadow: form.color === c ? `0 0 10px ${c}80` : "none",
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 px-6 pb-6">
+                <button
+                  onClick={() => setShowNewClient(false)}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-medium"
+                  style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.08)" }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleAddClient}
+                  disabled={saving || !form.name.trim()}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 transition-all"
+                  style={{ background: LIME, color: "#07080A" }}
+                >
+                  {saving ? "Salvando…" : "Criar cliente"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
