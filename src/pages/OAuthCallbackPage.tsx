@@ -29,7 +29,6 @@ export default function OAuthCallbackPage() {
       return;
     }
 
-    // Forward code+state to main window — it has a valid session and will call the edge function
     window.opener?.postMessage({ type: "meta-oauth-exchange", code, state }, "*");
     setStatus("success");
     setMessage("Conectando conta Meta…");
@@ -37,45 +36,11 @@ export default function OAuthCallbackPage() {
   }, []);
 
   return (
-    <div
-      className="min-h-screen flex items-center justify-center"
-      style={{ background: "#080810", fontFamily: "system-ui, sans-serif" }}
-    >
-      <div
-        className="rounded-2xl p-8 text-center max-w-sm w-full mx-4"
-        style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}
-      >
-        {status === "loading" && (
-          <>
-            <div className="mb-4 flex justify-center">
-              <div className="h-10 w-10 rounded-full border-4 border-t-transparent animate-spin" style={{ borderColor: "#B9FF4B", borderTopColor: "transparent" }} />
-            </div>
-            <p style={{ color: "rgba(255,255,255,0.7)" }} className="text-sm">Aguardando…</p>
-          </>
-        )}
-        {status === "success" && (
-          <>
-            <div className="mb-4 flex justify-center">
-              <div className="h-10 w-10 rounded-full border-4 border-t-transparent animate-spin" style={{ borderColor: "#B9FF4B", borderTopColor: "transparent" }} />
-            </div>
-            <p className="text-base font-semibold mb-1" style={{ color: "#B9FF4B" }}>{message}</p>
-            <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>Esta janela será fechada automaticamente.</p>
-          </>
-        )}
-        {status === "error" && (
-          <>
-            <div className="mb-4 text-4xl">❌</div>
-            <p className="text-base font-semibold mb-1" style={{ color: "#F87171" }}>Erro ao conectar</p>
-            <p className="text-xs mb-4 break-all" style={{ color: "rgba(255,255,255,0.5)" }}>{message}</p>
-            <button
-              onClick={() => window.close()}
-              className="px-4 py-2 rounded-lg text-sm font-medium"
-              style={{ background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.6)" }}
-            >
-              Fechar
-            </button>
-          </>
-        )}
+    <div className="min-h-screen flex items-center justify-center" style={{ background: "#080810", fontFamily: "system-ui, sans-serif" }}>
+      <div className="rounded-2xl p-8 text-center max-w-sm w-full mx-4" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+        {status === "loading" && (<><div className="mb-4 flex justify-center"><div className="h-10 w-10 rounded-full border-4 border-t-transparent animate-spin" style={{ borderColor: "#B9FF4B", borderTopColor: "transparent" }} /></div><p style={{ color: "rgba(255,255,255,0.7)" }} className="text-sm">Aguardando…</p></>)}
+        {status === "success" && (<><div className="mb-4 flex justify-center"><div className="h-10 w-10 rounded-full border-4 border-t-transparent animate-spin" style={{ borderColor: "#B9FF4B", borderTopColor: "transparent" }} /></div><p className="text-base font-semibold mb-1" style={{ color: "#B9FF4B" }}>{message}</p><p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>Esta janela será fechada automaticamente.</p></>)}
+        {status === "error" && (<><div className="mb-4 text-4xl">❌</div><p className="text-base font-semibold mb-1" style={{ color: "#F87171" }}>Erro ao conectar</p><p className="text-xs mb-4 break-all" style={{ color: "rgba(255,255,255,0.5)" }}>{message}</p><button onClick={() => window.close()} className="px-4 py-2 rounded-lg text-sm font-medium" style={{ background: "rgba(255,255,255,0.07)", color: "rgba(255,255,255,0.6)" }}>Fechar</button></>)}
       </div>
     </div>
   );
