@@ -1,6 +1,10 @@
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Search, Filter, Download, Upload, Plus, MoreHorizontal, Mail, Phone, X, Pencil, Trash2 } from "lucide-react";
+import {
+  Search, Filter, Download, Upload, Plus, MoreHorizontal,
+  Mail, Phone, X, Pencil, Trash2, Instagram, Facebook,
+  Globe, Users, Linkedin, MessageCircle, Flame, Minus,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,49 +13,78 @@ import type { Tables } from "@/integrations/supabase/types";
 
 type Contact = Tables<"contacts">;
 
-const scoreColor = (score: number) => {
-  if (score >= 80) return "text-secondary bg-secondary/10";
-  if (score >= 50) return "text-accent-foreground bg-accent/20";
-  return "text-muted-foreground bg-muted";
+// ── Source config ───────────────────────────────────────────
+const SOURCES: Record<string, { label: string; Icon: React.ElementType; color: string; bg: string }> = {
+  instagram:  { label: "Instagram",  Icon: Instagram,      color: "#E1306C", bg: "rgba(225,48,108,0.1)" },
+  facebook:   { label: "Facebook",   Icon: Facebook,       color: "#1877F2", bg: "rgba(24,119,242,0.1)" },
+  whatsapp:   { label: "WhatsApp",   Icon: MessageCircle,  color: "#25D366", bg: "rgba(37,211,102,0.1)" },
+  website:    { label: "Website",    Icon: Globe,          color: "#8B5CF6", bg: "rgba(139,92,246,0.1)" },
+  indicacao:  { label: "Indicação",  Icon: Users,          color: "#F59E0B", bg: "rgba(245,158,11,0.1)" },
+  linkedin:   { label: "LinkedIn",   Icon: Linkedin,       color: "#0A66C2", bg: "rgba(10,102,194,0.1)" },
+  email:      { label: "E-mail",     Icon: Mail,           color: "#6B7280", bg: "rgba(107,114,128,0.1)" },
+  outro:      { label: "Outro",      Icon: Minus,          color: "#9CA3AF", bg: "rgba(156,163,175,0.1)" },
 };
 
-const statusColor = (status: string) => {
-  if (status === "Ativo") return "bg-secondary/10 text-secondary";
-  if (status === "Novo") return "bg-primary/10 text-primary";
+const SOURCE_OPTIONS = ["instagram", "facebook", "whatsapp", "website", "indicacao", "linkedin", "email", "outro"];
+
+// ── Heat calculation ────────────────────────────────────────
+function getHeat(c: Contact): "hot" | "warm" | "cold" {
+  const score = c.score ?? 0;
+  const last = c.last_interaction ? new Date(c.last_interaction) : null;
+  const days = last ? (Date.now() - last.getTime()) / 86_400_000 : 999;
+  if (score >= 70 || days <= 7)  return "hot";
+  if (score >= 40 || days <= 30) return "warm";
+  return "cold";
+}
+
+const HEAT_CFG = {
+  hot:  { label: "Quente", emoji: "🔥", color: "#F97316", bg: "rgba(249,115,22,0.1)",  border: "rgba(249,115,22,0.25)" },
+  warm: { label: "Morno",  emoji: "🟡", color: "#F59E0B", bg: "rgba(245,158,11,0.1)",  border: "rgba(245,158,11,0.25)" },
+  cold: { label: "Frio",   emoji: "🔵", color: "#60A5FA", bg: "rgba(96,165,250,0.1)",   border: "rgba(96,165,250,0.25)" },
+};
+
+// ── Helpers ─────────────────────────────────────────────────
+const statusColor = (s: string) => {
+  if (s === "Ativo")  return "bg-secondary/10 text-secondary";
+  if (s === "Novo")   return "bg-primary/10 text-primary";
   return "bg-muted text-muted-foreground";
 };
 
-const container = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.03 } } };
-const item = { hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } };
+const anim = { hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.03 } } };
+const row  = { hidden: { opacity: 0, y: 6 }, show: { opacity: 1, y: 0 } };
+
+// ── Reusable field ──────────────────────────────────────────
+const Field = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <div>
+    <label className="text-xs font-medium text-muted-foreground">{label}</label>
+    <div className="mt-1">{children}</div>
+  </div>
+);
+
+const inputCls = "w-full rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20";
 
 const ContactsPage = () => {
   const { user } = useAuth();
-  const [search, setSearch] = useState("");
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showFilter, setShowFilter] = useState(false);
+  const [contacts, setContacts]         = useState<Contact[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [search, setSearch]             = useState("");
+  const [showFilter, setShowFilter]     = useState(false);
   const [filterStatus, setFilterStatus] = useState("Todos");
-  const [showNewContact, setShowNewContact] = useState(false);
-  const [newName, setNewName] = useState("");
-  const [newEmail, setNewEmail] = useState("");
-  const [newCompany, setNewCompany] = useState("");
-  const [newPhone, setNewPhone] = useState("");
+  const [filterSource, setFilterSource] = useState("Todos");
+  const [filterHeat, setFilterHeat]     = useState("Todos");
+  const [menuId, setMenuId]             = useState<string | null>(null);
 
-  // Edit contact
-  const [editingContact, setEditingContact] = useState<Contact | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editEmail, setEditEmail] = useState("");
-  const [editCompany, setEditCompany] = useState("");
-  const [editPhone, setEditPhone] = useState("");
-  const [editStatus, setEditStatus] = useState("");
+  // New
+  const [showNew, setShowNew]   = useState(false);
+  const [newForm, setNewForm]   = useState({ name: "", email: "", phone: "", company: "", channel: "" });
 
-  const [menuContactId, setMenuContactId] = useState<string | null>(null);
+  // Edit
+  const [editing, setEditing]   = useState<Contact | null>(null);
+  const [editForm, setEditForm] = useState({ name: "", email: "", phone: "", company: "", channel: "", status: "" });
 
-  useEffect(() => {
-    if (user) fetchContacts();
-  }, [user]);
+  useEffect(() => { if (user) fetch(); }, [user]);
 
-  const fetchContacts = async () => {
+  const fetch = async () => {
     const { data, error } = await supabase.from("contacts").select("*").order("created_at", { ascending: false });
     if (error) { toast.error("Erro ao carregar contatos"); return; }
     setContacts(data || []);
@@ -59,91 +92,131 @@ const ContactsPage = () => {
   };
 
   const filtered = contacts.filter(c => {
-    const matchSearch = c.name.toLowerCase().includes(search.toLowerCase()) || (c.email || "").toLowerCase().includes(search.toLowerCase()) || (c.company || "").toLowerCase().includes(search.toLowerCase());
+    const q = search.toLowerCase();
+    const matchSearch = c.name.toLowerCase().includes(q) || (c.email || "").toLowerCase().includes(q) || (c.company || "").toLowerCase().includes(q);
     const matchStatus = filterStatus === "Todos" || c.status === filterStatus;
-    return matchSearch && matchStatus;
+    const matchSource = filterSource === "Todos" || c.channel === filterSource;
+    const matchHeat   = filterHeat === "Todos"   || getHeat(c) === filterHeat;
+    return matchSearch && matchStatus && matchSource && matchHeat;
   });
 
-  const activeCount = contacts.filter(c => c.status === "Ativo").length;
-
   const handleCreate = async () => {
-    if (!newName.trim()) { toast.error("Nome é obrigatório"); return; }
+    if (!newForm.name.trim()) { toast.error("Nome é obrigatório"); return; }
     if (!user) return;
-    const { error } = await supabase.from("contacts").insert({ user_id: user.id, name: newName, email: newEmail || null, company: newCompany || null, phone: newPhone || null });
+    const { error } = await supabase.from("contacts").insert({
+      user_id: user.id, name: newForm.name,
+      email: newForm.email || null, phone: newForm.phone || null,
+      company: newForm.company || null, channel: newForm.channel || null,
+    });
     if (error) { toast.error("Erro ao criar contato"); return; }
-    setShowNewContact(false);
-    setNewName(""); setNewEmail(""); setNewCompany(""); setNewPhone("");
-    toast.success(`Contato "${newName}" criado!`);
-    fetchContacts();
+    setShowNew(false);
+    setNewForm({ name: "", email: "", phone: "", company: "", channel: "" });
+    toast.success(`Contato "${newForm.name}" criado!`);
+    fetch();
   };
 
-  const handleEditContact = (c: Contact) => {
-    setEditingContact(c);
-    setEditName(c.name);
-    setEditEmail(c.email || "");
-    setEditCompany(c.company || "");
-    setEditPhone(c.phone || "");
-    setEditStatus(c.status || "Novo");
-    setMenuContactId(null);
+  const openEdit = (c: Contact) => {
+    setEditing(c);
+    setEditForm({ name: c.name, email: c.email || "", phone: c.phone || "", company: c.company || "", channel: c.channel || "", status: c.status || "Novo" });
+    setMenuId(null);
   };
 
-  const handleSaveEdit = async () => {
-    if (!editingContact) return;
+  const handleSave = async () => {
+    if (!editing) return;
     const { error } = await supabase.from("contacts").update({
-      name: editName, email: editEmail || null, company: editCompany || null,
-      phone: editPhone || null, status: editStatus,
-    }).eq("id", editingContact.id);
-    if (error) { toast.error("Erro ao editar contato"); return; }
-    setEditingContact(null);
+      name: editForm.name, email: editForm.email || null, phone: editForm.phone || null,
+      company: editForm.company || null, channel: editForm.channel || null, status: editForm.status,
+    }).eq("id", editing.id);
+    if (error) { toast.error("Erro ao salvar"); return; }
+    setEditing(null);
     toast.success("Contato atualizado!");
-    fetchContacts();
+    fetch();
   };
 
-  const handleDeleteContact = async (id: string) => {
-    if (!confirm("Tem certeza que deseja excluir este contato?")) return;
+  const handleDelete = async (id: string) => {
+    if (!confirm("Excluir este contato?")) return;
     const { error } = await supabase.from("contacts").delete().eq("id", id);
-    if (error) { toast.error("Erro ao excluir contato"); return; }
-    setMenuContactId(null);
+    if (error) { toast.error("Erro ao excluir"); return; }
+    setMenuId(null);
     toast.success("Contato excluído!");
-    fetchContacts();
+    fetch();
   };
 
-  if (loading) {
-    return <div className="flex items-center justify-center h-64"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>;
-  }
+  const activeCount = contacts.filter(c => c.status === "Ativo").length;
+  const hotCount    = contacts.filter(c => getHeat(c) === "hot").length;
+
+  if (loading) return (
+    <div className="flex items-center justify-center h-64">
+      <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+    </div>
+  );
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="p-6 space-y-6">
-      <motion.div variants={item} className="flex items-center justify-between">
+    <motion.div variants={anim} initial="hidden" animate="show" className="p-6 space-y-6">
+
+      {/* Header */}
+      <motion.div variants={row} className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold font-display text-foreground">Contatos</h1>
-          <p className="text-sm text-muted-foreground mt-1">{contacts.length} contatos · {activeCount} ativos</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            {contacts.length} contatos · {activeCount} ativos · <span style={{ color: HEAT_CFG.hot.color }}>{hotCount} quentes 🔥</span>
+          </p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-2" onClick={() => toast.info("Selecione um arquivo CSV para importar")}><Upload className="h-4 w-4" /> Importar</Button>
-          <Button variant="outline" size="sm" className="gap-2" onClick={() => toast.success("Exportando contatos para CSV...")}><Download className="h-4 w-4" /> Exportar</Button>
-          <Button variant="default" size="sm" className="gap-2" onClick={() => setShowNewContact(true)}><Plus className="h-4 w-4" /> Novo Contato</Button>
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => toast.info("Selecione um arquivo CSV")}><Upload className="h-4 w-4" /> Importar</Button>
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => toast.success("Exportando...")}><Download className="h-4 w-4" /> Exportar</Button>
+          <Button variant="default" size="sm" className="gap-2" onClick={() => setShowNew(true)}><Plus className="h-4 w-4" /> Novo Contato</Button>
         </div>
       </motion.div>
 
-      <motion.div variants={item} className="flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
+      {/* Search + Filters */}
+      <motion.div variants={row} className="flex items-center gap-3 flex-wrap">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar contatos..." className="w-full rounded-lg border border-input bg-card py-2 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20" />
         </div>
         <div className="relative">
-          <Button variant="outline" size="sm" className="gap-2" onClick={() => setShowFilter(!showFilter)}><Filter className="h-4 w-4" /> Filtros</Button>
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => setShowFilter(!showFilter)}>
+            <Filter className="h-4 w-4" /> Filtros
+            {(filterStatus !== "Todos" || filterSource !== "Todos" || filterHeat !== "Todos") && (
+              <span className="ml-1 h-2 w-2 rounded-full bg-primary" />
+            )}
+          </Button>
           {showFilter && (
-            <div className="absolute top-10 left-0 z-50 w-40 rounded-lg border border-border bg-card shadow-elevated p-2 space-y-1">
-              {["Todos", "Ativo", "Novo", "Inativo"].map(s => (
-                <button key={s} onClick={() => { setFilterStatus(s); setShowFilter(false); }} className={`w-full text-left px-3 py-1.5 rounded-md text-sm ${filterStatus === s ? "bg-primary/10 text-primary font-medium" : "text-foreground hover:bg-muted"}`}>{s}</button>
-              ))}
+            <div className="absolute top-10 left-0 z-50 w-56 rounded-xl border border-border bg-card shadow-elevated p-3 space-y-3">
+              <div>
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Status</p>
+                <div className="flex flex-wrap gap-1">
+                  {["Todos", "Ativo", "Novo", "Inativo"].map(s => (
+                    <button key={s} onClick={() => setFilterStatus(s)} className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${filterStatus === s ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>{s}</button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Temperatura</p>
+                <div className="flex flex-wrap gap-1">
+                  {[["Todos","Todos"],["hot","🔥 Quente"],["warm","🟡 Morno"],["cold","🔵 Frio"]].map(([v,l]) => (
+                    <button key={v} onClick={() => setFilterHeat(v)} className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${filterHeat === v ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>{l}</button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Origem</p>
+                <div className="flex flex-wrap gap-1">
+                  <button onClick={() => setFilterSource("Todos")} className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${filterSource === "Todos" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>Todos</button>
+                  {SOURCE_OPTIONS.map(s => (
+                    <button key={s} onClick={() => setFilterSource(s)} className={`px-2 py-1 rounded-md text-xs font-medium transition-colors ${filterSource === s ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground hover:bg-muted/80"}`}>{SOURCES[s].label}</button>
+                  ))}
+                </div>
+              </div>
+              <button onClick={() => { setFilterStatus("Todos"); setFilterSource("Todos"); setFilterHeat("Todos"); setShowFilter(false); }} className="w-full text-xs text-muted-foreground hover:text-foreground text-center pt-1">Limpar filtros</button>
             </div>
           )}
         </div>
       </motion.div>
 
-      <motion.div variants={item} className="rounded-xl border border-border bg-card shadow-card overflow-hidden">
+      {/* Table */}
+      <motion.div variants={row} className="rounded-xl border border-border bg-card shadow-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -151,54 +224,79 @@ const ContactsPage = () => {
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Nome</th>
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Empresa</th>
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Telefone</th>
-                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Canal</th>
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Origem</th>
+                <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Temperatura</th>
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Score</th>
                 <th className="text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider px-5 py-3">Status</th>
                 <th className="px-5 py-3"></th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((c) => (
-                <tr key={c.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                  <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                        {c.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+              {filtered.map((c) => {
+                const heat = getHeat(c);
+                const hcfg = HEAT_CFG[heat];
+                const src  = c.channel && SOURCES[c.channel] ? SOURCES[c.channel] : null;
+                const SrcIcon = src?.Icon;
+                return (
+                  <tr key={c.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-3">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary flex-shrink-0">
+                          {c.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{c.name}</p>
+                          <p className="text-xs text-muted-foreground">{c.email || "—"}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{c.name}</p>
-                        <p className="text-xs text-muted-foreground">{c.email}</p>
+                    </td>
+                    <td className="px-5 py-3.5 text-sm text-foreground">{c.company || "—"}</td>
+                    <td className="px-5 py-3.5 text-sm text-muted-foreground">{c.phone || "—"}</td>
+                    <td className="px-5 py-3.5">
+                      {src && SrcIcon ? (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-xs font-medium" style={{ background: src.bg, color: src.color }}>
+                          <SrcIcon className="h-3 w-3" />{src.label}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-semibold" style={{ background: hcfg.bg, color: hcfg.color, border: `1px solid ${hcfg.border}` }}>
+                        {hcfg.emoji} {hcfg.label}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-1.5">
+                        <div className="h-1.5 w-16 rounded-full bg-muted overflow-hidden">
+                          <div className="h-full rounded-full" style={{ width: `${c.score ?? 0}%`, background: heat === "hot" ? "#F97316" : heat === "warm" ? "#F59E0B" : "#60A5FA" }} />
+                        </div>
+                        <span className="text-xs font-medium text-muted-foreground">{c.score ?? 0}</span>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-5 py-3.5 text-sm text-foreground">{c.company || "—"}</td>
-                  <td className="px-5 py-3.5 text-sm text-muted-foreground">{c.phone || "—"}</td>
-                  <td className="px-5 py-3.5 text-sm text-muted-foreground">{c.channel}</td>
-                  <td className="px-5 py-3.5">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold ${scoreColor(c.score ?? 0)}`}>{c.score}</span>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${statusColor(c.status ?? "")}`}>{c.status}</span>
-                  </td>
-                  <td className="px-5 py-3.5">
-                    <div className="flex items-center gap-1 relative">
-                      <button onClick={() => toast.info(`Enviando e-mail para ${c.name}...`)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground"><Mail className="h-4 w-4" /></button>
-                      <button onClick={() => toast.info(`Ligando para ${c.name}...`)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground"><Phone className="h-4 w-4" /></button>
-                      <div className="relative">
-                        <button onClick={() => setMenuContactId(menuContactId === c.id ? null : c.id)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground"><MoreHorizontal className="h-4 w-4" /></button>
-                        {menuContactId === c.id && (
-                          <div className="absolute right-0 top-8 z-50 w-36 rounded-lg border border-border bg-card shadow-elevated p-1">
-                            <button onClick={() => handleEditContact(c)} className="w-full text-left px-3 py-1.5 rounded-md text-xs hover:bg-muted text-foreground flex items-center gap-1.5"><Pencil className="h-3 w-3" /> Editar</button>
-                            <button onClick={() => handleDeleteContact(c.id)} className="w-full text-left px-3 py-1.5 rounded-md text-xs hover:bg-destructive/10 text-destructive flex items-center gap-1.5"><Trash2 className="h-3 w-3" /> Excluir</button>
-                          </div>
-                        )}
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium ${statusColor(c.status ?? "")}`}>{c.status || "—"}</span>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-1 relative">
+                        <button onClick={() => toast.info(`Enviando e-mail para ${c.name}…`)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground"><Mail className="h-4 w-4" /></button>
+                        <button onClick={() => toast.info(`Ligando para ${c.name}…`)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground"><Phone className="h-4 w-4" /></button>
+                        <div className="relative">
+                          <button onClick={() => setMenuId(menuId === c.id ? null : c.id)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground"><MoreHorizontal className="h-4 w-4" /></button>
+                          {menuId === c.id && (
+                            <div className="absolute right-0 top-8 z-50 w-36 rounded-lg border border-border bg-card shadow-elevated p-1">
+                              <button onClick={() => openEdit(c)} className="w-full text-left px-3 py-1.5 rounded-md text-xs hover:bg-muted text-foreground flex items-center gap-1.5"><Pencil className="h-3 w-3" /> Editar</button>
+                              <button onClick={() => handleDelete(c.id)} className="w-full text-left px-3 py-1.5 rounded-md text-xs hover:bg-destructive/10 text-destructive flex items-center gap-1.5"><Trash2 className="h-3 w-3" /> Excluir</button>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                  </tr>
+                );
+              })}
               {filtered.length === 0 && (
-                <tr><td colSpan={7} className="text-center py-8 text-sm text-muted-foreground">Nenhum contato encontrado</td></tr>
+                <tr><td colSpan={8} className="text-center py-8 text-sm text-muted-foreground">Nenhum contato encontrado</td></tr>
               )}
             </tbody>
           </table>
@@ -206,51 +304,83 @@ const ContactsPage = () => {
       </motion.div>
 
       {/* New Contact Modal */}
-      {showNewContact && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-elevated space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold font-display text-foreground">Novo Contato</h2>
-              <button onClick={() => setShowNewContact(false)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"><X className="h-4 w-4" /></button>
-            </div>
-            <div><label className="text-xs font-medium text-muted-foreground">Nome *</label><input value={newName} onChange={e => setNewName(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
-            <div><label className="text-xs font-medium text-muted-foreground">E-mail</label><input value={newEmail} onChange={e => setNewEmail(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
-            <div><label className="text-xs font-medium text-muted-foreground">Telefone</label><input value={newPhone} onChange={e => setNewPhone(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
-            <div><label className="text-xs font-medium text-muted-foreground">Empresa</label><input value={newCompany} onChange={e => setNewCompany(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
-            <div className="flex gap-3 pt-2">
-              <button onClick={() => setShowNewContact(false)} className="flex-1 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground">Cancelar</button>
-              <button onClick={handleCreate} className="flex-1 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium">Criar</button>
-            </div>
-          </div>
-        </div>
+      {showNew && (
+        <Modal title="Novo Contato" onClose={() => setShowNew(false)}>
+          <Field label="Nome *"><input value={newForm.name} onChange={e => setNewForm(p => ({ ...p, name: e.target.value }))} className={inputCls} /></Field>
+          <Field label="E-mail"><input value={newForm.email} onChange={e => setNewForm(p => ({ ...p, email: e.target.value }))} className={inputCls} /></Field>
+          <Field label="Telefone"><input value={newForm.phone} onChange={e => setNewForm(p => ({ ...p, phone: e.target.value }))} className={inputCls} /></Field>
+          <Field label="Empresa"><input value={newForm.company} onChange={e => setNewForm(p => ({ ...p, company: e.target.value }))} className={inputCls} /></Field>
+          <Field label="Origem do lead">
+            <SourceSelect value={newForm.channel} onChange={v => setNewForm(p => ({ ...p, channel: v }))} />
+          </Field>
+          <ModalActions onCancel={() => setShowNew(false)} onConfirm={handleCreate} confirmLabel="Criar" />
+        </Modal>
       )}
 
       {/* Edit Contact Modal */}
-      {editingContact && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
-          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-elevated space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold font-display text-foreground">Editar Contato</h2>
-              <button onClick={() => setEditingContact(null)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"><X className="h-4 w-4" /></button>
-            </div>
-            <div><label className="text-xs font-medium text-muted-foreground">Nome *</label><input value={editName} onChange={e => setEditName(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
-            <div><label className="text-xs font-medium text-muted-foreground">E-mail</label><input value={editEmail} onChange={e => setEditEmail(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
-            <div><label className="text-xs font-medium text-muted-foreground">Telefone</label><input value={editPhone} onChange={e => setEditPhone(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
-            <div><label className="text-xs font-medium text-muted-foreground">Empresa</label><input value={editCompany} onChange={e => setEditCompany(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
-            <div><label className="text-xs font-medium text-muted-foreground">Status</label>
-              <select value={editStatus} onChange={e => setEditStatus(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm">
-                {["Novo", "Ativo", "Inativo"].map(s => <option key={s} value={s}>{s}</option>)}
-              </select>
-            </div>
-            <div className="flex gap-3 pt-2">
-              <button onClick={() => setEditingContact(null)} className="flex-1 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground">Cancelar</button>
-              <button onClick={handleSaveEdit} className="flex-1 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium">Salvar</button>
-            </div>
-          </div>
-        </div>
+      {editing && (
+        <Modal title="Editar Contato" onClose={() => setEditing(null)}>
+          <Field label="Nome *"><input value={editForm.name} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} className={inputCls} /></Field>
+          <Field label="E-mail"><input value={editForm.email} onChange={e => setEditForm(p => ({ ...p, email: e.target.value }))} className={inputCls} /></Field>
+          <Field label="Telefone"><input value={editForm.phone} onChange={e => setEditForm(p => ({ ...p, phone: e.target.value }))} className={inputCls} /></Field>
+          <Field label="Empresa"><input value={editForm.company} onChange={e => setEditForm(p => ({ ...p, company: e.target.value }))} className={inputCls} /></Field>
+          <Field label="Origem do lead">
+            <SourceSelect value={editForm.channel} onChange={v => setEditForm(p => ({ ...p, channel: v }))} />
+          </Field>
+          <Field label="Status">
+            <select value={editForm.status} onChange={e => setEditForm(p => ({ ...p, status: e.target.value }))} className={inputCls}>
+              {["Novo", "Ativo", "Inativo"].map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+          </Field>
+          <ModalActions onCancel={() => setEditing(null)} onConfirm={handleSave} confirmLabel="Salvar" />
+        </Modal>
       )}
     </motion.div>
   );
 };
+
+// ── Sub-components ──────────────────────────────────────────
+const Modal = ({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) => (
+  <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+    <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-elevated space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-bold font-display text-foreground">{title}</h2>
+        <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"><X className="h-4 w-4" /></button>
+      </div>
+      {children}
+    </div>
+  </div>
+);
+
+const ModalActions = ({ onCancel, onConfirm, confirmLabel }: { onCancel: () => void; onConfirm: () => void; confirmLabel: string }) => (
+  <div className="flex gap-3 pt-2">
+    <button onClick={onCancel} className="flex-1 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground">Cancelar</button>
+    <button onClick={onConfirm} className="flex-1 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium">{confirmLabel}</button>
+  </div>
+);
+
+const SourceSelect = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
+  <div className="grid grid-cols-4 gap-1.5">
+    {SOURCE_OPTIONS.map(s => {
+      const cfg = SOURCES[s];
+      const Icon = cfg.Icon;
+      const active = value === s;
+      return (
+        <button
+          key={s}
+          type="button"
+          onClick={() => onChange(active ? "" : s)}
+          className="flex flex-col items-center gap-1 py-2 px-1 rounded-lg text-[10px] font-medium transition-all border"
+          style={active
+            ? { background: cfg.bg, color: cfg.color, borderColor: cfg.color }
+            : { background: "transparent", color: "var(--muted-foreground)", borderColor: "var(--border)" }}
+        >
+          <Icon className="h-4 w-4" />
+          {cfg.label}
+        </button>
+      );
+    })}
+  </div>
+);
 
 export default ContactsPage;
