@@ -306,6 +306,7 @@ function HeroAgentCard() {
 // ── Process Timeline ───────────────────────────────────────────
 function ProcessTimeline() {
   const [activeStep, setActiveStep] = useState<number | null>(null);
+  const [hovStep, setHovStep] = useState<number | null>(null);
 
   return (
     <section id="processo" style={{ padding: "120px 64px", borderBottom: "1px solid rgba(255,255,255,.06)", position: "relative", overflow: "hidden" }}>
@@ -333,20 +334,25 @@ function ProcessTimeline() {
             const isLast = i === PROCESS.length - 1;
             const isRight = i % 2 === 0; // even → card on right
 
+            const isHov = hovStep === i && !isActive;
             const card = (
               <div
-                className="cl-tl-step"
                 onClick={() => setActiveStep(isActive ? null : i)}
+                onMouseEnter={() => setHovStep(i)}
+                onMouseLeave={() => setHovStep(null)}
                 style={{
                   padding: "30px 34px",
                   borderRadius: 24,
-                  background: isActive ? `${step.color}09` : "rgba(255,255,255,.028)",
-                  border: `1px solid ${isActive ? `${step.color}60` : "rgba(255,255,255,.08)"}`,
+                  cursor: "pointer",
+                  background: isActive ? `${step.color}09` : isHov ? `${step.color}06` : "rgba(255,255,255,.028)",
+                  border: `1px solid ${isActive ? `${step.color}60` : isHov ? `${step.color}50` : "rgba(185,255,75,.14)"}`,
                   boxShadow: isActive
                     ? `0 0 0 1px ${step.color}1A, 0 20px 64px -20px ${step.color}65, inset 0 1px 0 ${step.color}18`
+                    : isHov ? `0 0 0 1px ${step.color}14, 0 12px 44px -16px ${step.color}55, inset 0 1px 0 ${step.color}10`
                     : "inset 0 1px 0 rgba(255,255,255,.04)",
+                  transform: isActive ? "none" : isHov ? "translateY(-4px)" : "none",
                   position: "relative", overflow: "hidden",
-                  marginBottom: isLast ? 0 : 0,
+                  transition: "background .28s, border-color .28s, box-shadow .28s, transform .28s cubic-bezier(.22,.68,0,1.2)",
                 }}
               >
                 {/* Shine sweep — always present, very subtle */}
@@ -363,9 +369,9 @@ function ProcessTimeline() {
                   position: "absolute",
                   top: -90, [isRight ? "left" : "right"]: -90,
                   width: 300, height: 300, borderRadius: "50%",
-                  background: `radial-gradient(circle, ${step.color}${isActive ? "18" : "08"} 0%, transparent 68%)`,
+                  background: `radial-gradient(circle, ${step.color}${isActive ? "18" : isHov ? "12" : "07"} 0%, transparent 68%)`,
                   filter: "blur(40px)", pointerEvents: "none",
-                  transition: "background .5s",
+                  transition: "background .35s",
                 }} />
 
                 {/* Top: step label + agents */}
@@ -381,8 +387,8 @@ function ProcessTimeline() {
                         background: `${a.color}15`, border: `1.5px solid ${a.color}55`,
                         display: "flex", alignItems: "center", justifyContent: "center",
                         fontSize: 13, fontWeight: 800, color: a.color,
-                        boxShadow: isActive ? `0 0 20px -4px ${a.color}80` : "none",
-                        transition: "box-shadow .35s",
+                        boxShadow: isActive ? `0 0 20px -4px ${a.color}80` : isHov ? `0 0 14px -4px ${a.color}60` : "none",
+                        transition: "box-shadow .3s",
                       }}>{a.i}</div>
                     ))}
                   </div>
@@ -484,6 +490,7 @@ function TeamCarousel() {
   const trackRef = useRef<HTMLDivElement>(null);
   const [active, setActive] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [hov, setHov] = useState<number | null>(null);
   const CARD_W = 340;
   const GAP = 16;
 
@@ -555,63 +562,70 @@ function TeamCarousel() {
         style={{ display: "flex", gap: GAP, scrollSnapType: "x mandatory", padding: "4px 64px 36px", cursor: paused ? "pointer" : "default" } as React.CSSProperties}>
         {TEAM.map((t, idx) => {
           const on = idx === active;
+          const h = hov === idx && !on; // hovered but not the scroll-active card
+          const lit = on || h;
           return (
-            <div key={t.i} style={{
-              flexShrink: 0, width: CARD_W, scrollSnapAlign: "start",
-              borderRadius: 22, padding: "36px 28px",
-              display: "flex", flexDirection: "column" as const, minHeight: 460,
-              position: "relative", overflow: "hidden",
-              background: on ? `${t.color}0F` : "rgba(255,255,255,.022)",
-              border: `1px solid ${on ? `${t.color}65` : "rgba(255,255,255,.07)"}`,
-              boxShadow: on
-                ? `0 0 0 1px ${t.color}1A, 0 24px 72px -24px ${t.color}70, inset 0 1px 0 ${t.color}20`
-                : "inset 0 1px 0 rgba(255,255,255,.04)",
-              transform: on ? "translateY(-6px) scale(1.018)" : "translateY(0) scale(1)",
-              transition: "background .4s, border-color .4s, box-shadow .4s, transform .4s cubic-bezier(.22,.68,0,1.2)",
-              zIndex: on ? 2 : 1,
-            }}>
+            <div key={t.i}
+              onMouseEnter={() => setHov(idx)}
+              onMouseLeave={() => setHov(null)}
+              style={{
+                flexShrink: 0, width: CARD_W, scrollSnapAlign: "start",
+                borderRadius: 22, padding: "36px 28px",
+                display: "flex", flexDirection: "column" as const, minHeight: 460,
+                position: "relative", overflow: "hidden",
+                background: on ? `${t.color}0F` : h ? `${t.color}08` : "rgba(255,255,255,.022)",
+                border: `1px solid ${on ? `${t.color}65` : h ? `${t.color}45` : "rgba(255,255,255,.07)"}`,
+                boxShadow: on
+                  ? `0 0 0 1px ${t.color}1A, 0 24px 72px -24px ${t.color}70, inset 0 1px 0 ${t.color}20`
+                  : h ? `0 0 0 1px ${t.color}12, 0 16px 48px -20px ${t.color}50, inset 0 1px 0 ${t.color}14`
+                  : "inset 0 1px 0 rgba(255,255,255,.04)",
+                transform: on ? "translateY(-6px) scale(1.018)" : h ? "translateY(-3px) scale(1.008)" : "translateY(0) scale(1)",
+                transition: "background .3s, border-color .3s, box-shadow .3s, transform .3s cubic-bezier(.22,.68,0,1.2)",
+                zIndex: on ? 2 : h ? 2 : 1,
+              }}>
 
-              {/* Glow blob — visible only when active */}
+              {/* Glow blob */}
               <div style={{
                 position: "absolute", top: -80, right: -80,
                 width: 280, height: 280, borderRadius: "50%",
-                background: `radial-gradient(circle, ${t.color}${on ? "22" : "06"} 0%, transparent 68%)`,
+                background: `radial-gradient(circle, ${t.color}${on ? "22" : h ? "14" : "05"} 0%, transparent 68%)`,
                 filter: "blur(36px)", pointerEvents: "none",
-                transition: "background .5s",
+                transition: "background .35s",
               }} />
 
               {/* Avatar */}
               <div style={{
                 width: 72, height: 72, borderRadius: 18,
-                background: on ? `${t.color}28` : `${t.color}18`,
-                border: `2px solid ${on ? t.color : `${t.color}45`}`,
+                background: on ? `${t.color}28` : h ? `${t.color}22` : `${t.color}18`,
+                border: `2px solid ${on ? t.color : h ? `${t.color}80` : `${t.color}45`}`,
                 display: "flex", alignItems: "center", justifyContent: "center",
                 fontSize: 26, fontWeight: 800, color: t.color,
                 marginBottom: 24, flexShrink: 0, position: "relative",
-                boxShadow: on ? `0 0 32px -6px ${t.color}90, inset 0 1px 0 ${t.color}35` : "none",
-                transition: "background .4s, border-color .4s, box-shadow .4s",
+                boxShadow: on ? `0 0 32px -6px ${t.color}90, inset 0 1px 0 ${t.color}35`
+                  : h ? `0 0 22px -6px ${t.color}65` : "none",
+                transition: "background .3s, border-color .3s, box-shadow .3s",
               }}>{t.i}</div>
 
               {/* Identity */}
-              <div style={{ fontFamily: mono, fontSize: 10, color: t.color, letterSpacing: "0.08em", textTransform: "uppercase" as const, marginBottom: 6, opacity: on ? 1 : 0.65, transition: "opacity .4s" }}>Agente especialista</div>
-              <h3 style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.035em", lineHeight: 1, marginBottom: 4, color: on ? OFF : "rgba(240,239,232,.6)", transition: "color .4s" }}>{t.name}</h3>
-              <div style={{ fontFamily: mono, fontSize: 11, color: on ? t.color : MUTED, marginBottom: 20, transition: "color .4s" }}>{t.role}</div>
+              <div style={{ fontFamily: mono, fontSize: 10, color: t.color, letterSpacing: "0.08em", textTransform: "uppercase" as const, marginBottom: 6, opacity: lit ? 1 : 0.55, transition: "opacity .3s" }}>Agente especialista</div>
+              <h3 style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.035em", lineHeight: 1, marginBottom: 4, color: lit ? OFF : "rgba(240,239,232,.5)", transition: "color .3s" }}>{t.name}</h3>
+              <div style={{ fontFamily: mono, fontSize: 11, color: lit ? t.color : MUTED, marginBottom: 20, transition: "color .3s" }}>{t.role}</div>
 
               {/* Desc */}
-              <p style={{ fontSize: 14, color: on ? "rgba(240,239,232,.68)" : DIM, lineHeight: 1.7, marginBottom: 24, flexGrow: 1, transition: "color .4s" }}>{t.desc}</p>
+              <p style={{ fontSize: 14, color: lit ? "rgba(240,239,232,.68)" : "rgba(240,239,232,.28)", lineHeight: 1.7, marginBottom: 24, flexGrow: 1, transition: "color .3s" }}>{t.desc}</p>
 
               {/* Tasks */}
               <div style={{ display: "flex", flexDirection: "column" as const, gap: 8, marginBottom: 24 }}>
                 {t.tasks.map(task => (
                   <div key={task} style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                    <div style={{ width: 5, height: 5, borderRadius: "50%", background: on ? t.color : "rgba(255,255,255,.2)", flexShrink: 0, boxShadow: on ? `0 0 6px ${t.color}` : "none", transition: "background .4s, box-shadow .4s" }} />
-                    <span style={{ fontSize: 13, color: on ? "rgba(240,239,232,.65)" : "rgba(240,239,232,.3)", fontWeight: 500, transition: "color .4s" }}>{task}</span>
+                    <div style={{ width: 5, height: 5, borderRadius: "50%", background: lit ? t.color : "rgba(255,255,255,.15)", flexShrink: 0, boxShadow: lit ? `0 0 6px ${t.color}` : "none", transition: "background .3s, box-shadow .3s" }} />
+                    <span style={{ fontSize: 13, color: lit ? "rgba(240,239,232,.65)" : "rgba(240,239,232,.25)", fontWeight: 500, transition: "color .3s" }}>{task}</span>
                   </div>
                 ))}
               </div>
 
               {/* Status */}
-              <div style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 20, borderTop: `1px solid ${on ? `${t.color}25` : "rgba(255,255,255,.06)"}`, transition: "border-color .4s" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 20, borderTop: `1px solid ${on ? `${t.color}25` : h ? `${t.color}18` : "rgba(255,255,255,.06)"}`, transition: "border-color .3s" }}>
                 <div style={{ width: 7, height: 7, borderRadius: "50%", background: LIME, boxShadow: on ? `0 0 10px ${LIME}` : "none", transition: "box-shadow .4s" }} />
                 <span style={{ fontFamily: mono, fontSize: 10, color: LIME }}>trabalhando agora</span>
               </div>
