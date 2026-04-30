@@ -137,6 +137,15 @@ const MARKETING_TEAM = [
     color: "#EC4899",
     description: "Revisa e corrige todos os arquivos antes de publicar",
   },
+  {
+    id: "video",
+    name: "Bobby",
+    role: "Editor de Vídeo",
+    initial: "🎬",
+    skill: "Corte · Efeitos · Legendas · Color Grade",
+    color: "#B9FF4B",
+    description: "Edita vídeos com IA — cortes, efeitos cinematográficos, legendas animadas e color grade profissional",
+  },
 ];
 
 // ── CRM Pipeline Stages ────────────────────────────────────────
