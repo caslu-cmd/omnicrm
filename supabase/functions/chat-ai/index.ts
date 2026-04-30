@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { messages, systemPrompt, maxTokens } = await req.json();
+    const { messages, systemPrompt, maxTokens, model } = await req.json();
 
     if (!messages || !Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "messages array required" }), {
@@ -39,13 +39,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
+    const apiKey = Deno.env.get("ANTHROPIC_API_KEY") || Deno.env.get("LOVABLE_API_KEY");
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }), {
+      return new Response(JSON.stringify({ error: "API key not configured" }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    const selectedModel = model ?? "claude-sonnet-4-6";
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -55,7 +57,7 @@ Deno.serve(async (req) => {
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-6",
+        model: selectedModel,
         max_tokens: maxTokens ?? 1024,
         system: systemPrompt ?? SYSTEM_PROMPT,
         messages,

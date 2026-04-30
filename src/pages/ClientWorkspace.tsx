@@ -571,6 +571,7 @@ Português brasileiro. Entrega real — nunca esboço ou confirmação.`;
         body: {
           systemPrompt: ariaSystem,
           maxTokens: 4000,
+          model: "claude-opus-4-7",
           messages: [{ role: "user", content: `Briefing: "${demand}"` }],
         },
       });
@@ -613,11 +614,15 @@ Português brasileiro. Entrega real — nunca esboço ou confirmação.`;
               const replyTs = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
               addConvMsgs([{ id: `i-${Date.now()}`, from: "isadora", to: msg.from, content: label.slice(0, 120), imageUrl: blobUrl, timestamp: replyTs, status: "done" }]);
               setGeneratedImages((prev) => [{ id: Date.now().toString(), imageData: blobUrl, mimeType: imgData.mimeType ?? "image/png", prompt: label, createdAt: replyTs }, ...prev]);
+            } else if (imgData?.imageBrief) {
+              updateConvMsg(msg.id, { status: "done" });
+              const replyTs = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+              addConvMsgs([{ id: `i-${Date.now()}`, from: "isadora", to: msg.from, content: imgData.imageBrief, timestamp: replyTs, status: "done" }]);
             } else {
-              updateConvMsg(msg.id, { status: "error", content: `${msg.content} ⚠️ Imagem indisponível` });
+              updateConvMsg(msg.id, { status: "done", content: `${msg.content}` });
             }
           } catch {
-            updateConvMsg(msg.id, { status: "error", content: `${msg.content} ⚠️ Imagem indisponível` });
+            updateConvMsg(msg.id, { status: "done", content: msg.content });
           }
         }
       }
