@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
@@ -19,6 +19,31 @@ import { useClients } from "@/contexts/ClientsContext";
 import { supabase } from "@/integrations/supabase/client";
 import PostCanvas from "@/components/PostCanvas";
 import SocialMediaTab from "@/components/SocialMediaTab";
+import ContactActivityPanel from "@/components/ContactActivityPanel";
+
+const SOURCES: Record<string, { label: string; color: string; bg: string }> = {
+  instagram: { label: "Instagram", color: "#E1306C", bg: "rgba(225,48,108,0.1)" },
+  facebook:  { label: "Facebook",  color: "#1877F2", bg: "rgba(24,119,242,0.1)" },
+  whatsapp:  { label: "WhatsApp",  color: "#25D366", bg: "rgba(37,211,102,0.1)" },
+  website:   { label: "Website",   color: "#8B5CF6", bg: "rgba(139,92,246,0.1)" },
+  indicacao: { label: "Indicação", color: "#F59E0B", bg: "rgba(245,158,11,0.1)" },
+  linkedin:  { label: "LinkedIn",  color: "#0A66C2", bg: "rgba(10,102,194,0.1)" },
+  email:     { label: "E-mail",    color: "#6B7280", bg: "rgba(107,114,128,0.1)" },
+};
+
+function getHeat(score: number, lastInteraction: string | null): "hot" | "warm" | "cold" {
+  const last = lastInteraction ? new Date(lastInteraction) : null;
+  const days = last ? (Date.now() - last.getTime()) / 86_400_000 : 999;
+  if (score >= 70 || days <= 7)  return "hot";
+  if (score >= 40 || days <= 30) return "warm";
+  return "cold";
+}
+
+const HEAT_CFG = {
+  hot:  { emoji: "🔥", label: "Quente", color: "#F97316", bg: "rgba(249,115,22,0.1)"  },
+  warm: { emoji: "🟡", label: "Morno",  color: "#F59E0B", bg: "rgba(245,158,11,0.1)"  },
+  cold: { emoji: "🔵", label: "Frio",   color: "#60A5FA", bg: "rgba(96,165,250,0.1)"  },
+};
 
 // ── Marketing Team Definition ──────────────────────────────────
 const MARKETING_TEAM = [
@@ -373,6 +398,11 @@ export default function ClientWorkspace() {
   const [tasks, setTasks] = useState(MOCK_TASKS_TEMPLATE);
   const [crmView, setCrmView] = useState<"contacts" | "pipeline">("contacts");
   const [contactSearch, setContactSearch] = useState("");
+  const [dbContacts, setDbContacts] = useState<any[]>([]);
+  const [contactsLoading, setContactsLoading] = useState(false);
+  const [activeContact, setActiveContact] = useState<any | null>(null);
+  const [showNewContact, setShowNewContact] = useState(false);
+  const [newContactForm, setNewContactForm] = useState({ name: "", email: "", phone: "", company: "", channel: "", status: "Novo" });
   const [agentCommand, setAgentCommand] = useState("");
   const [showCompleted, setShowCompleted] = useState(false);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
@@ -750,6 +780,43 @@ export default function ClientWorkspace() {
     c.company.toLowerCase().includes(contactSearch.toLowerCase())
   );
 
+  const filteredDbContacts = dbContacts.filter((c) =>
+    c.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
+    (c.company || "").toLowerCase().includes(contactSearch.toLowerCase())
+  );
+
+  const loadDbContacts = async () => {
+    setContactsLoading(true);
+    const { data } = await supabase.from("contacts").select("*")
+      .eq("client_id", id ?? "")
+      .order("created_at", { ascending: false });
+    if (data) setDbContacts(data);
+    setContactsLoading(false);
+  };
+
+  const handleCreateContact = async () => {
+    if (!newContactForm.name.trim()) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    const { error } = await supabase.from("contacts").insert({
+      user_id: session.user.id,
+      client_id: id ?? "",
+      name: newContactForm.name,
+      email: newContactForm.email || null,
+      phone: newContactForm.phone || null,
+      company: newContactForm.company || null,
+      channel: newContactForm.channel || null,
+      status: newContactForm.status,
+    });
+    if (!error) {
+      setShowNewContact(false);
+      setNewContactForm({ name: "", email: "", phone: "", company: "", channel: "", status: "Novo" });
+      loadDbContacts();
+    }
+  };
+
+  useEffect(() => { if (id) loadDbContacts(); }, [id]);
+
   const pipelineValue = client.pipeline.reduce((sum, d) => {
     const n = parseFloat(d.value.replace(/[^\d,]/g, "").replace(",", ".")) || 0;
     return sum + n;
@@ -950,10 +1017,10 @@ export default function ClientWorkspace() {
                 {/* Quick stats */}
                 <div className="grid grid-cols-4 gap-4">
                   {[
-                    { label: "Contatos",       value: client.contacts.length,                                         icon: Users },
-                    { label: "Negócios ativos", value: client.pipeline.filter(d => d.stage !== "ganho").length,        icon: TrendingUp },
-                    { label: "Pipeline total",  value: `R$ ${(pipelineValue).toLocaleString("pt-BR")}`,               icon: DollarSign },
-                    { label: "Taxa de ganhos",  value: `${winRate}%`,                                                  icon: CheckCircle2 },
+                    { label: "Contatos",        value: dbContacts.length || client.contacts.length,                    icon: Users },
+                    { label: "Negócios ativos",  value: client.pipeline.filter(d => d.stage !== "ganho").length,       icon: TrendingUp },
+                    { label: "Pipeline total",   value: `R$ ${(pipelineValue).toLocaleString("pt-BR")}`,               icon: DollarSign },
+                    { label: "Taxa de ganhos",   value: `${winRate}%`,                                                  icon: CheckCircle2 },
                   ].map((s) => (
                     <div key={s.label} className="rounded-xl p-4 flex items-center gap-3"
                       style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
@@ -986,59 +1053,126 @@ export default function ClientWorkspace() {
                 {/* ── CONTATOS ── */}
                 {crmView === "contacts" && (
                   <div className="space-y-3">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.25)" }} />
-                      <input
-                        value={contactSearch}
-                        onChange={(e) => setContactSearch(e.target.value)}
-                        placeholder="Buscar por nome ou empresa..."
-                        className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm"
-                        style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#F0F0F0" }}
-                      />
+                    {/* Search + New */}
+                    <div className="flex gap-2">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.25)" }} />
+                        <input
+                          value={contactSearch}
+                          onChange={(e) => setContactSearch(e.target.value)}
+                          placeholder="Buscar por nome ou empresa..."
+                          className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm"
+                          style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#F0F0F0" }}
+                        />
+                      </div>
+                      <button
+                        onClick={() => setShowNewContact(true)}
+                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-semibold transition-all"
+                        style={{ background: client.color, color: "#07080A" }}>
+                        <Plus className="w-3.5 h-3.5" /> Novo Lead
+                      </button>
                     </div>
+
+                    {/* New contact form */}
+                    {showNewContact && (
+                      <div className="rounded-2xl p-4 space-y-3" style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${client.color}30` }}>
+                        <p className="text-xs font-semibold" style={{ color: client.color }}>Novo Lead</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { key: "name",    ph: "Nome *" },
+                            { key: "company", ph: "Empresa" },
+                            { key: "email",   ph: "E-mail" },
+                            { key: "phone",   ph: "Telefone" },
+                          ].map(({ key, ph }) => (
+                            <input key={key} placeholder={ph}
+                              value={(newContactForm as any)[key]}
+                              onChange={e => setNewContactForm(p => ({ ...p, [key]: e.target.value }))}
+                              className="rounded-lg px-3 py-2 text-xs focus:outline-none"
+                              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#F0F0F0" }} />
+                          ))}
+                          <select value={newContactForm.channel} onChange={e => setNewContactForm(p => ({ ...p, channel: e.target.value }))}
+                            className="rounded-lg px-3 py-2 text-xs focus:outline-none"
+                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#F0F0F0" }}>
+                            <option value="">Origem do lead</option>
+                            {Object.entries(SOURCES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                          </select>
+                          <select value={newContactForm.status} onChange={e => setNewContactForm(p => ({ ...p, status: e.target.value }))}
+                            className="rounded-lg px-3 py-2 text-xs focus:outline-none"
+                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#F0F0F0" }}>
+                            {["Novo", "Lead", "Qualificado", "Ativo", "Cliente", "Inativo"].map(s => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        </div>
+                        <div className="flex gap-2 justify-end">
+                          <button onClick={() => setShowNewContact(false)} className="px-3 py-1.5 rounded-lg text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>Cancelar</button>
+                          <button onClick={handleCreateContact} className="px-4 py-1.5 rounded-lg text-xs font-semibold" style={{ background: client.color, color: "#07080A" }}>Criar</button>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="rounded-2xl overflow-hidden"
                       style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
                       {/* Header */}
                       <div className="grid px-5 py-2.5 text-[10px] uppercase tracking-wider font-medium"
-                        style={{ gridTemplateColumns: "2fr 1.5fr 1.5fr 1fr 1fr 80px", color: "rgba(255,255,255,0.25)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                        <span>Contato</span><span>Empresa</span><span>E-mail</span>
-                        <span>Status</span><span>Último contato</span><span></span>
+                        style={{ gridTemplateColumns: "2fr 1.2fr 1fr 1fr 0.8fr 60px", color: "rgba(255,255,255,0.25)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                        <span>Lead</span><span>Empresa</span><span>Origem</span>
+                        <span>Temperatura</span><span>Score</span><span></span>
                       </div>
 
-                      {filteredContacts.map((contact, i) => {
-                        const st = STATUS_CONTACT_STYLE[contact.status];
+                      {contactsLoading && (
+                        <div className="flex justify-center py-8">
+                          <div className="h-5 w-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: client.color, borderTopColor: "transparent" }} />
+                        </div>
+                      )}
+
+                      {!contactsLoading && filteredDbContacts.length === 0 && (
+                        <div className="text-center py-10">
+                          <p className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>Nenhum lead cadastrado ainda.</p>
+                          <p className="text-[10px] mt-1" style={{ color: "rgba(255,255,255,0.15)" }}>Clique em "Novo Lead" para adicionar.</p>
+                        </div>
+                      )}
+
+                      {!contactsLoading && filteredDbContacts.map((contact, i) => {
+                        const heat = getHeat(contact.score ?? 0, contact.last_interaction);
+                        const hcfg = HEAT_CFG[heat];
+                        const src  = contact.channel ? SOURCES[contact.channel] : null;
                         return (
                           <motion.div key={contact.id}
                             initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: i * 0.04 }}
+                            transition={{ delay: i * 0.03 }}
                             className="grid px-5 py-3.5 items-center transition-colors cursor-pointer"
-                            style={{ gridTemplateColumns: "2fr 1.5fr 1.5fr 1fr 1fr 80px", borderBottom: i < filteredContacts.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}
+                            style={{ gridTemplateColumns: "2fr 1.2fr 1fr 1fr 0.8fr 60px", borderBottom: i < filteredDbContacts.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}
                             onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
-                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
+                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                            onClick={() => setActiveContact(contact)}>
                             <div className="flex items-center gap-3">
                               <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0"
                                 style={{ background: `${client.color}20`, color: client.color }}>
-                                {contact.name.split(" ").slice(0, 2).map(n => n[0]).join("")}
+                                {contact.name.split(" ").slice(0, 2).map((n: string) => n[0]).join("")}
                               </div>
-                              <span className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.85)" }}>{contact.name}</span>
+                              <div>
+                                <div className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.85)" }}>{contact.name}</div>
+                                <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>{contact.email || "—"}</div>
+                              </div>
+                            </div>
+                            <div className="text-xs" style={{ color: "rgba(255,255,255,0.55)" }}>{contact.company || "—"}</div>
+                            <div>
+                              {src ? (
+                                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ background: src.bg, color: src.color }}>{src.label}</span>
+                              ) : <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.2)" }}>—</span>}
                             </div>
                             <div>
-                              <div className="text-xs" style={{ color: "rgba(255,255,255,0.55)" }}>{contact.company}</div>
-                              <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>{contact.role}</div>
+                              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: hcfg.bg, color: hcfg.color }}>
+                                {hcfg.emoji} {hcfg.label}
+                              </span>
                             </div>
-                            <div className="flex items-center gap-1.5 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
-                              <Mail className="w-3 h-3 flex-shrink-0" />
-                              <span className="truncate">{contact.email}</span>
+                            <div className="flex items-center gap-1.5">
+                              <div className="h-1.5 w-12 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
+                                <div className="h-full rounded-full" style={{ width: `${contact.score ?? 0}%`, background: hcfg.color }} />
+                              </div>
+                              <span className="text-[10px] font-medium" style={{ color: "rgba(255,255,255,0.4)" }}>{contact.score ?? 0}</span>
                             </div>
-                            <span className="text-[10px] font-medium px-2 py-0.5 rounded-full w-fit"
-                              style={{ background: st.bg, color: st.color }}>{contact.status}</span>
-                            <span className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>{contact.lastContact}</span>
                             <div className="flex justify-end">
-                              <button className="p-1.5 rounded-lg transition-colors"
-                                style={{ color: "rgba(255,255,255,0.25)" }}
-                                onMouseEnter={(e) => (e.currentTarget.style.color = client.color)}
-                                onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.25)")}>
+                              <button className="p-1.5 rounded-lg" style={{ color: "rgba(255,255,255,0.25)" }}>
                                 <ChevronRight className="w-4 h-4" />
                               </button>
                             </div>
@@ -3357,5 +3491,13 @@ export default function ClientWorkspace() {
       )}
 
     </div>
+
+    {/* Activity Panel */}
+    {activeContact && (
+      <ContactActivityPanel
+        contact={activeContact}
+        onClose={() => setActiveContact(null)}
+      />
+    )}
   );
 }
