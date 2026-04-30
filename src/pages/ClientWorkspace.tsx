@@ -570,7 +570,7 @@ Português brasileiro. Entrega real — nunca esboço ou confirmação.`;
       const { data: chatData, error: chatError } = await supabase.functions.invoke("chat-ai", {
         body: {
           systemPrompt: ariaSystem,
-          maxTokens: 3000,
+          maxTokens: 4000,
           model: "claude-sonnet-4-6",
           messages: [{ role: "user", content: `Briefing: "${demand}"` }],
         },
@@ -580,10 +580,18 @@ Português brasileiro. Entrega real — nunca esboço ou confirmação.`;
       const rawText: string = chatData?.content ?? "{}";
       let parsed: { plan?: string; messages?: any[] };
       try {
-        const jsonMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)```/) ?? [null, rawText];
-        parsed = JSON.parse(jsonMatch[1].trim());
+        // tenta code block → JSON solto na resposta → texto completo
+        const fromBlock = rawText.match(/```(?:json)?\s*([\s\S]*?)```/)?.[1]?.trim();
+        const fromRaw   = rawText.match(/(\{[\s\S]*\})/)?.[1]?.trim();
+        parsed = JSON.parse(fromBlock ?? fromRaw ?? rawText);
       } catch {
-        parsed = { plan: rawText, messages: [] };
+        // fallback: mostra o texto bruto como mensagem da ARIA
+        parsed = {
+          plan: rawText,
+          messages: rawText.trim()
+            ? [{ id: "fallback", from: "aria", to: "user", content: rawText, action: "respond" }]
+            : [],
+        };
       }
 
       const msgTs = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
