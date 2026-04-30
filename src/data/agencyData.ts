@@ -298,6 +298,12 @@ export const CLIENTS: Client[] = [
         recent: ["Corrigiu 4 erros no copy do anúncio LinkedIn", "Reestruturou 2 legendas de baixo engajamento"],
         progress: 82,
       },
+      video: {
+        current: "Aguardando roteiro de Beatriz para editar vídeo case de licitação — formato Reels 9:16",
+        status: "aguardando",
+        recent: ["Editou depoimento de cliente com zoom punch e legendas animadas", "Reformatou apresentação para LinkedIn 16:9"],
+        progress: 0,
+      },
     },
     contacts: [
       { id: "ct1", name: "Marcos Almeida", company: "ABC Construções", role: "Gerente de Compras", email: "marcos@abcconstrucoes.com.br", status: "Lead", lastContact: "hoje", tags: ["quente", "licitação"] },
@@ -626,6 +632,12 @@ export const CLIENTS: Client[] = [
         recent: ["Corrigiu tom informal demais no e-mail de boas-vindas", "Padronizou uso de maiúsculas nos títulos de 6 posts"],
         progress: 60,
       },
+      video: {
+        current: "Editando vídeo de cobertura do encontro mensal — cortes ritmados com legenda animada estilo Karaoke",
+        status: "trabalhando",
+        recent: ["Criou Reels com destaques do evento de abril", "Formatou palestra do presidente para YouTube 16:9"],
+        progress: 68,
+      },
     },
     contacts: [
       { id: "ct1", name: "Ana Silva", company: "Silva & Associados", role: "Diretora", email: "ana@silvaassociados.com.br", status: "Cliente", lastContact: "hoje", tags: ["associada", "VIP"] },
@@ -803,6 +815,12 @@ export const CLIENTS: Client[] = [
         status: "trabalhando",
         recent: ["Detectou e corrigiu anglicismo no artigo 1 ('performance' → 'desempenho')", "Reestruturou introdução do artigo para melhor progressão lógica"],
         progress: 75,
+      },
+      video: {
+        current: "Criando vídeo demo de produto com color grade HDR e speed ramp nos momentos de destaque",
+        status: "trabalhando",
+        recent: ["Editou case de sucesso com cliente TechCorp — Reels 45s", "Adicionou legendas karaoke em inglês para campanha internacional"],
+        progress: 42,
       },
     },
     contacts: [

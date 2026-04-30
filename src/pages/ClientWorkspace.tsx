@@ -398,6 +398,16 @@ const DESIGN_FORMATS = [
   { ratio: "3:4",  label: "Retrato",  hint: "Pinterest · Print" },
 ] as const;
 
+const VIDEO_FORMATS = [
+  { id: "youtube",   label: "YouTube",    ratio: "16:9", res: "1920×1080", icon: "▶"  },
+  { id: "reels",     label: "Reels",      ratio: "9:16", res: "1080×1920", icon: "📱" },
+  { id: "tiktok",    label: "TikTok",     ratio: "9:16", res: "1080×1920", icon: "♪"  },
+  { id: "feed",      label: "Feed",       ratio: "1:1",  res: "1080×1080", icon: "⬛" },
+  { id: "stories",   label: "Stories",    ratio: "9:16", res: "1080×1920", icon: "◻"  },
+  { id: "linkedin",  label: "LinkedIn",   ratio: "16:9", res: "1280×720",  icon: "in" },
+  { id: "twitter",   label: "Twitter/X",  ratio: "16:9", res: "1280×720",  icon: "𝕏"  },
+] as const;
+
 // ── Component ─────────────────────────────────────────────────
 export default function ClientWorkspace() {
   const { id } = useParams<{ id: string }>();
@@ -453,6 +463,8 @@ export default function ClientWorkspace() {
   const [isadoraLoading, setIsadoraLoading] = useState(false);
   const [isadoraError, setIsadoraError] = useState<string | null>(null);
   const [designAspectRatio, setDesignAspectRatio] = useState<"1:1" | "9:16" | "16:9" | "4:3" | "3:4">("1:1");
+  const [videoPlatform, setVideoPlatform] = useState<string>("reels");
+  const [videoScript, setVideoScript] = useState("");
   const [designerTask, setDesignerTask] = useState<{prompt: string; progress: number; startedAt: number; estimatedSeconds: number} | null>(null);
   const [designerRecentWork, setDesignerRecentWork] = useState<string[]>([]);
   const designerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -649,6 +661,7 @@ export default function ClientWorkspace() {
     strategist: "#FBBF24", copywriter: "#A78BFA", designer: "#D946EF",
     traffic: "#F97316", social: "#60A5FA", sales: "#F59E0B",
     analyst: "#34D399", site: "#06B6D4", revisor: "#EC4899",
+    video: "#B9FF4B",
   };
   const REMARK_TYPE_ICON: Record<string, typeof Target> = {
     website: MousePointerClick, video: Film, lookalike: Users,
@@ -2234,6 +2247,59 @@ export default function ClientWorkspace() {
                             </div>
 
                             {/* Formato (só Isadora) */}
+                            {/* Bobby: painel completo de plataforma + roteiro */}
+                            {selectedAgent.id === "video" && (
+                              <div className="space-y-4 mb-2">
+                                <div>
+                                  <div className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>Plataforma destino</div>
+                                  <div className="grid grid-cols-4 gap-1.5">
+                                    {VIDEO_FORMATS.map(f => (
+                                      <button key={f.id} onClick={() => setVideoPlatform(f.id)}
+                                        className="flex flex-col items-center gap-1 py-2 px-1 rounded-xl border text-center transition-all"
+                                        style={{
+                                          background: videoPlatform === f.id ? "#B9FF4B18" : "rgba(255,255,255,0.03)",
+                                          border: `1px solid ${videoPlatform === f.id ? "#B9FF4B50" : "rgba(255,255,255,0.07)"}`,
+                                        }}>
+                                        <span className="text-base leading-none">{f.icon}</span>
+                                        <span className="text-[10px] font-bold leading-tight" style={{ color: videoPlatform === f.id ? "#B9FF4B" : "rgba(255,255,255,0.55)" }}>{f.label}</span>
+                                        <span className="text-[9px]" style={{ color: "rgba(255,255,255,0.2)" }}>{f.ratio}</span>
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <div className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>Roteiro (opcional)</div>
+                                  <textarea
+                                    value={videoScript}
+                                    onChange={e => setVideoScript(e.target.value)}
+                                    placeholder={"Cole aqui o roteiro ou briefing do vídeo.\nBobby vai usar como referência para sugerir edições."}
+                                    rows={4}
+                                    className="w-full rounded-xl px-4 py-3 text-sm resize-none"
+                                    style={{ background: "rgba(255,255,255,0.05)", border: "1px solid #B9FF4B28", color: "#F0F0F0", outline: "none" }}
+                                  />
+                                  <p className="text-[10px] mt-1.5" style={{ color: "rgba(255,255,255,0.2)" }}>
+                                    Gerado por Beatriz ou Carolina? Cole aqui e Bobby edita em cima.
+                                  </p>
+                                </div>
+
+                                <button
+                                  onClick={() => {
+                                    const params = new URLSearchParams();
+                                    params.set("clientName", client.name);
+                                    params.set("platform", videoPlatform);
+                                    if (videoScript.trim()) params.set("script", videoScript.trim());
+                                    setSelectedAgentId(null);
+                                    window.open(`/video-editor?${params.toString()}`, "_blank");
+                                  }}
+                                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all"
+                                  style={{ background: "#B9FF4B", color: "#07080A", boxShadow: "0 0 20px -4px #B9FF4B60" }}
+                                >
+                                  <span>🎬</span> Abrir Editor Bobby
+                                </button>
+                              </div>
+                            )}
+
                             {selectedAgent.id === "designer" && (
                               <div className="mb-3">
                                 <div className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>Formato</div>
@@ -2255,7 +2321,8 @@ export default function ClientWorkspace() {
                               </div>
                             )}
 
-                            {/* Textarea */}
+                            {/* Textarea — oculto para Bobby (tem painel próprio) */}
+                            {selectedAgent.id !== "video" && (
                             <textarea
                               value={agentInstruction}
                               onChange={(e) => setAgentInstruction(e.target.value)}
@@ -2265,14 +2332,15 @@ export default function ClientWorkspace() {
                               className="w-full rounded-xl px-4 py-3 text-sm resize-none mb-3"
                               style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${selectedAgent.color}28`, color: "#F0F0F0", outline: "none" }}
                             />
+                            )}
                             {isadoraError && selectedAgent.id === "designer" && (
                               <div className="mb-3 px-3 py-2 rounded-xl text-xs" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#FCA5A5" }}>
                                 {isadoraError}
                               </div>
                             )}
 
-                            {/* Attach + Send row */}
-                            <div className="flex items-center gap-3">
+                            {/* Attach + Send row — oculto para Bobby */}
+                            {selectedAgent.id !== "video" && <div className="flex items-center gap-3">
                               {agentFile ? (
                                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg flex-shrink-0"
                                   style={{ background: `${selectedAgent.color}12`, border: `1px solid ${selectedAgent.color}28` }}>
@@ -2321,9 +2389,9 @@ export default function ClientWorkspace() {
                                   ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Gerando...</>
                                   : <><Send className="w-3.5 h-3.5" /> {selectedAgent.id === "designer" && !agentInstruction.trim() ? "Criar agora" : `Enviar para ${selectedAgent.name}`}</>}
                               </button>
-                            </div>
+                            </div>}
 
-                            {agentFile && renderFilePreview(agentFile, agentFileUrl, agentFileText, selectedAgent.color)}
+                            {selectedAgent.id !== "video" && agentFile && renderFilePreview(agentFile, agentFileUrl, agentFileText, selectedAgent.color)}
                           </div>
                         </motion.div>
                       )}

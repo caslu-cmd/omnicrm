@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Upload, Download, Scissors, Zap, Volume2, Subtitles,
@@ -13,6 +14,20 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 const API = "http://localhost:8600";
+
+// ── Platforms ──────────────────────────────────────────────────────────────────
+const PLATFORMS = [
+  { id: "youtube",   label: "YouTube",      ratio: "16:9",  res: "1920×1080", icon: "▶",  color: "#FF0000" },
+  { id: "reels",     label: "Reels",        ratio: "9:16",  res: "1080×1920", icon: "📱", color: "#E1306C" },
+  { id: "tiktok",    label: "TikTok",       ratio: "9:16",  res: "1080×1920", icon: "♪",  color: "#69C9D0" },
+  { id: "feed",      label: "Feed",         ratio: "1:1",   res: "1080×1080", icon: "⬛", color: "#833AB4" },
+  { id: "stories",   label: "Stories",      ratio: "9:16",  res: "1080×1920", icon: "◻",  color: "#FCAF45" },
+  { id: "linkedin",  label: "LinkedIn",     ratio: "16:9",  res: "1280×720",  icon: "in", color: "#0A66C2" },
+  { id: "twitter",   label: "Twitter/X",    ratio: "16:9",  res: "1280×720",  icon: "𝕏",  color: "#1DA1F2" },
+  { id: "pinterest", label: "Pinterest",    ratio: "2:3",   res: "1000×1500", icon: "P",  color: "#E60023" },
+] as const;
+
+type PlatformId = typeof PLATFORMS[number]["id"];
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface VideoInfo {
@@ -298,6 +313,11 @@ function TabBtn({ id, label, icon, active, onClick }: {
 
 // ══════════════════════════════════════════════════════════════════════════════
 export default function VideoEditorPage() {
+  const [searchParams] = useSearchParams();
+  const clientName = searchParams.get("clientName") ?? null;
+  const incomingScript = searchParams.get("script") ?? null;
+  const incomingPlatform = (searchParams.get("platform") ?? null) as PlatformId | null;
+
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -348,6 +368,9 @@ export default function VideoEditorPage() {
   // Premium (Efeitos tab)
   const [grainIntensity, setGrainIntensity] = useState(15);
 
+  // Plataforma alvo
+  const [selectedPlatform, setSelectedPlatform] = useState<PlatformId | null>(incomingPlatform);
+
   // Assets tab
   const [logoPath, setLogoPath] = useState<string | null>(null);
   const [musicPath, setMusicPath] = useState<string | null>(null);
@@ -390,6 +413,21 @@ export default function VideoEditorPage() {
       fetchThumbnails(sid);
       setGreeted(false);
       toast.success("Vídeo carregado!");
+
+      // Se Bobby foi chamado do workspace com contexto, envia automaticamente
+      if (clientName || incomingScript) {
+        setActiveTab("bobby");
+        const ctx: string[] = [];
+        if (clientName) ctx.push(`Cliente: ${clientName}`);
+        if (selectedPlatform) {
+          const p = PLATFORMS.find(x => x.id === selectedPlatform);
+          ctx.push(`Plataforma alvo: ${p?.label ?? selectedPlatform} (${p?.ratio})`);
+        }
+        if (incomingScript) ctx.push(`Roteiro recebido:\n${incomingScript}`);
+        setTimeout(() => sendToBobby(
+          ctx.join("\n\n") + "\n\nAnalise o vídeo e me diga o que você recomenda editar para essa entrega."
+        ), 800);
+      }
     } catch (e: any) {
       toast.error("Erro ao carregar: " + e.message);
     } finally {
@@ -592,6 +630,34 @@ export default function VideoEditorPage() {
             <p className="text-sm text-[#444] mt-4">Carregue um vídeo e eu cuido da edição</p>
           </div>
 
+          {/* Platform selector */}
+          <div className="rounded-xl border border-[#1a1a1a] bg-[#0d0d0d] p-4 mb-4">
+            <p className="text-[10px] uppercase tracking-widest text-[#333] mb-3">Para qual plataforma?</p>
+            <div className="grid grid-cols-4 gap-1.5">
+              {PLATFORMS.map(p => (
+                <button
+                  key={p.id}
+                  onClick={() => setSelectedPlatform(selectedPlatform === p.id ? null : p.id)}
+                  className={cn(
+                    "flex flex-col items-center gap-1 py-2.5 px-1 rounded-lg border text-center transition-all",
+                    selectedPlatform === p.id
+                      ? "border-[#B9FF4B]/40 bg-[#B9FF4B]/8"
+                      : "border-[#1a1a1a] bg-[#0a0a0a] hover:border-[#2a2a2a]"
+                  )}
+                >
+                  <span className="text-base leading-none">{p.icon}</span>
+                  <span className={cn("text-[10px] font-semibold leading-tight", selectedPlatform === p.id ? "text-[#B9FF4B]" : "text-[#666]")}>{p.label}</span>
+                  <span className="text-[9px] text-[#333]">{p.ratio}</span>
+                </button>
+              ))}
+            </div>
+            {selectedPlatform && (
+              <p className="text-[10px] text-[#B9FF4B]/60 mt-2 text-center">
+                Bobby vai formatar para {PLATFORMS.find(p => p.id === selectedPlatform)?.res}
+              </p>
+            )}
+          </div>
+
           <div
             onClick={() => fileRef.current?.click()}
             onDragOver={e => e.preventDefault()}
@@ -632,8 +698,39 @@ export default function VideoEditorPage() {
       <div className="border-b border-[#111] px-6 py-3 flex items-center gap-3 flex-shrink-0">
         <span className="text-lg">🎬</span>
         <span className="text-sm font-semibold text-white">Bobby</span>
+        {clientName && (
+          <>
+            <span className="text-[#222] mx-1">·</span>
+            <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: "#B9FF4B18", color: "#B9FF4B", border: "1px solid #B9FF4B30" }}>
+              {clientName}
+            </span>
+          </>
+        )}
         <span className="text-[#222] mx-1">|</span>
-        <span className="text-xs text-[#444] truncate max-w-xs">{filename}</span>
+        <span className="text-xs text-[#444] truncate max-w-[120px]">{filename}</span>
+
+        {/* Platform quick-select */}
+        <div className="flex items-center gap-1 ml-2">
+          {PLATFORMS.map(p => (
+            <button
+              key={p.id}
+              onClick={() => {
+                setSelectedPlatform(p.id);
+                applyEdit("reframe_video", { format: p.id });
+              }}
+              title={`${p.label} ${p.ratio} · ${p.res}`}
+              className={cn(
+                "h-7 px-2 rounded-md border text-[10px] font-semibold transition-all",
+                selectedPlatform === p.id
+                  ? "border-[#B9FF4B]/40 bg-[#B9FF4B]/12 text-[#B9FF4B]"
+                  : "border-[#1a1a1a] text-[#3a3a3a] hover:border-[#333] hover:text-[#666]"
+              )}
+            >
+              {p.icon}
+            </button>
+          ))}
+        </div>
+
         <div className="ml-auto flex items-center gap-2 text-xs">
           <span className="px-2 py-0.5 rounded bg-[#111] border border-[#1a1a1a] font-mono text-[#444]">
             {videoInfo.width}×{videoInfo.height}
