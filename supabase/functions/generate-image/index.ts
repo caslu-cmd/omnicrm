@@ -308,30 +308,41 @@ Output ONLY the final image-generation prompt in one rich, detailed paragraph. E
     finalPrompt = promptData.choices?.[0]?.message?.content?.trim() ?? prompt;
   }
 
-  // ── Imagen 3 — geração fotorrealista via Google AI Studio ──
-  if (!googleKey) throw new Error("GOOGLE_AI_API_KEY não configurada");
+  // ── Nano Banana Pro via Lovable AI Gateway ──
+  const ratioInstruction: Record<string, string> = {
+    "3:4":  "vertical portrait 3:4 aspect ratio (1080x1440)",
+    "1:1":  "square 1:1 aspect ratio (1080x1080)",
+    "9:16": "vertical 9:16 aspect ratio (1080x1920)",
+    "16:9": "horizontal 16:9 aspect ratio (1920x1080)",
+    "4:3":  "horizontal 4:3 aspect ratio (1080x810)",
+  };
 
-  const imgRes = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${googleKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        instances: [{ prompt: finalPrompt }],
-        parameters: { sampleCount: 1, aspectRatio: ratio },
-      }),
-    }
-  );
+  const imgRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: "google/gemini-3-pro-image-preview",
+      messages: [
+        { role: "user", content: `Generate an image in ${ratioInstruction[ratio] ?? ratio}. ${finalPrompt}` },
+      ],
+      modalities: ["image", "text"],
+    }),
+  });
 
-  if (!imgRes.ok) throw new Error(`Imagen 3 error: ${await imgRes.text()}`);
+  if (!imgRes.ok) throw new Error(`Image gen error: ${await imgRes.text()}`);
 
   const imgData = await imgRes.json();
-  const prediction = imgData.predictions?.[0];
-  if (!prediction?.bytesBase64Encoded) throw new Error("Imagen 3 não retornou imagem");
+  const imageUrl = imgData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+  if (!imageUrl) throw new Error("Modelo não retornou imagem");
+
+  // Strip data URL prefix to return raw base64 (matches existing client contract)
+  const match = /^data:([^;]+);base64,(.+)$/.exec(imageUrl);
+  const mimeType = match?.[1] ?? "image/png";
+  const imageData = match?.[2] ?? imageUrl;
 
   return {
-    imageData: prediction.bytesBase64Encoded,
-    mimeType: prediction.mimeType ?? "image/png",
+    imageData,
+    mimeType,
     enhancedPrompt: finalPrompt,
     aspectRatio: ratio,
   };
