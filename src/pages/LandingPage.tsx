@@ -288,106 +288,136 @@ function ProcessTimeline() {
   const [activeStep, setActiveStep] = useState<number | null>(null);
 
   return (
-    <section id="processo" style={{ padding: "100px 64px", borderBottom: "1px solid rgba(255,255,255,.06)" }}>
-      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+    <section id="processo" style={{ padding: "120px 64px", borderBottom: "1px solid rgba(255,255,255,.06)", position: "relative", overflow: "hidden" }}>
+      {/* ambient glow */}
+      <div style={{ position: "absolute", top: "20%", left: "50%", transform: "translateX(-50%)", width: 800, height: 600, borderRadius: "50%", background: "radial-gradient(circle, rgba(185,255,75,.04) 0%, transparent 65%)", filter: "blur(60px)", pointerEvents: "none" }} />
+
+      <div style={{ maxWidth: 860, margin: "0 auto", position: "relative" }}>
 
         {/* Header */}
-        <div style={{ textAlign: "center", marginBottom: 72 }}>
-          <span style={{ fontFamily: mono, fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" as const }}>Do briefing à publicação</span>
-          <h2 style={{ fontSize: "clamp(22px, 3.2vw, 42px)", fontWeight: 800, lineHeight: 1.06, letterSpacing: "-0.04em", marginTop: 10 }}>
+        <div style={{ marginBottom: 80 }}>
+          <span style={{ fontFamily: mono, fontSize: 12, color: LIME, letterSpacing: "0.14em", textTransform: "uppercase" as const, display: "block", marginBottom: 16 }}>Do briefing à publicação</span>
+          <h2 style={{ fontSize: "clamp(34px, 4.5vw, 60px)", fontWeight: 800, lineHeight: 1.0, letterSpacing: "-0.045em" }}>
             Como a Calu trabalha<br /><span style={{ color: LIME }}>do início ao resultado.</span>
           </h2>
-          <p style={{ fontSize: 15, color: DIM, lineHeight: 1.65, marginTop: 14, maxWidth: 480, margin: "14px auto 0" }}>
-            Clique em cada etapa para ver o que acontece nos bastidores.
+          <p style={{ fontSize: 18, color: DIM, lineHeight: 1.7, marginTop: 20, maxWidth: 500 }}>
+            Clique em cada etapa para ver o que acontece nos bastidores — agentes, entregáveis e duração.
           </p>
         </div>
 
-        {/* Timeline grid */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 2, position: "relative" }}>
-          {/* Connecting line */}
-          <div style={{
-            position: "absolute", top: 28, left: "6.25%", right: "6.25%",
-            height: 1, background: "rgba(255,255,255,.06)", zIndex: 0,
-          }} />
-          <div style={{
-            position: "absolute", top: 28, left: "6.25%",
-            height: 1, zIndex: 1,
-            width: activeStep !== null ? `${(activeStep / (PROCESS.length - 1)) * 87.5}%` : "0%",
-            background: `linear-gradient(to right, #B9FF4B, ${activeStep !== null ? PROCESS[activeStep].color : "#B9FF4B"})`,
-            transition: "width .5s ease, background .5s",
-          }} />
-
+        {/* Vertical steps */}
+        <div>
           {PROCESS.map((step, i) => {
             const isActive = activeStep === i;
-            const isPassed = activeStep !== null && i < activeStep;
+            const isPassed = activeStep !== null && i <= activeStep;
+            const isLast = i === PROCESS.length - 1;
+
             return (
-              <div key={i} style={{ position: "relative", zIndex: 2 }}>
-                {/* Node */}
-                <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "88px 1fr", alignItems: "start" }}>
+
+                {/* ── Spine column ── */}
+                <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", paddingTop: 4 }}>
+                  {/* Node */}
                   <div
                     className="cl-tl-node"
                     onClick={() => setActiveStep(isActive ? null : i)}
                     style={{
-                      width: 56, height: 56, borderRadius: "50%",
-                      background: isActive ? `${step.color}22` : isPassed ? "rgba(185,255,75,.08)" : "rgba(255,255,255,.04)",
-                      border: `2px solid ${isActive ? step.color : isPassed ? "#B9FF4B60" : "rgba(255,255,255,.1)"}`,
+                      width: 60, height: 60, borderRadius: "50%", flexShrink: 0, zIndex: 2, position: "relative",
+                      background: isActive ? `${step.color}18` : isPassed ? `${LIME}0C` : "rgba(255,255,255,.04)",
+                      border: `2px solid ${isActive ? step.color : isPassed ? `${LIME}90` : "rgba(255,255,255,.12)"}`,
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      fontFamily: mono, fontSize: 13, fontWeight: 800,
-                      color: isActive ? step.color : isPassed ? "#B9FF4B" : MUTED,
+                      fontFamily: mono, fontSize: 15, fontWeight: 800,
+                      color: isActive ? step.color : isPassed ? LIME : MUTED,
                       cursor: "pointer",
-                      boxShadow: isActive ? `0 0 28px -6px ${step.color}70, 0 0 0 6px ${step.color}10` : "none",
+                      boxShadow: isActive
+                        ? `0 0 0 8px ${step.color}12, 0 0 48px -8px ${step.color}90`
+                        : isPassed ? `0 0 18px -4px ${LIME}55` : "none",
+                      transition: "all .4s cubic-bezier(.22,.68,0,1.2)",
                     }}
                   >{step.n}</div>
+
+                  {/* Line segment */}
+                  {!isLast && (
+                    <div style={{ width: 2, flexGrow: 1, minHeight: 48, position: "relative", margin: "6px 0" }}>
+                      <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,.06)", borderRadius: 2 }} />
+                      <div style={{
+                        position: "absolute", top: 0, left: 0, right: 0,
+                        height: isPassed ? "100%" : "0%",
+                        background: `linear-gradient(to bottom, ${LIME}, ${LIME}50)`,
+                        borderRadius: 2,
+                        boxShadow: isPassed ? `0 0 10px ${LIME}70` : "none",
+                        transition: "height .55s ease",
+                      }} />
+                    </div>
+                  )}
                 </div>
 
-                {/* Card */}
+                {/* ── Card column ── */}
                 <div
                   className="cl-tl-step"
                   onClick={() => setActiveStep(isActive ? null : i)}
                   style={{
-                    margin: "0 4px",
-                    padding: "18px 16px",
-                    borderRadius: 16,
-                    background: isActive ? `${step.color}0C` : "rgba(255,255,255,.025)",
-                    border: `1px solid ${isActive ? `${step.color}40` : "rgba(255,255,255,.07)"}`,
-                    boxShadow: isActive ? `0 8px 32px -8px ${step.color}35` : "none",
+                    marginLeft: 24,
+                    marginBottom: isLast ? 0 : 20,
+                    padding: "28px 32px",
+                    borderRadius: 22,
+                    background: isActive ? `${step.color}09` : "rgba(255,255,255,.025)",
+                    border: `1px solid ${isActive ? `${step.color}55` : "rgba(255,255,255,.07)"}`,
+                    boxShadow: isActive ? `0 0 0 1px ${step.color}18, 0 16px 56px -20px ${step.color}55, inset 0 1px 0 ${step.color}12` : "none",
+                    position: "relative", overflow: "hidden",
                   }}
                 >
-                  <div style={{ fontFamily: mono, fontSize: 10, color: step.color, marginBottom: 6, letterSpacing: "0.06em" }}>{step.title}</div>
+                  {/* active glow blob inside card */}
+                  {isActive && (
+                    <div style={{
+                      position: "absolute", top: -80, right: -80, width: 280, height: 280,
+                      borderRadius: "50%", background: `radial-gradient(circle, ${step.color}14 0%, transparent 70%)`,
+                      filter: "blur(30px)", pointerEvents: "none",
+                    }} />
+                  )}
 
-                  {/* Agents */}
-                  <div style={{ display: "flex", gap: 5, marginBottom: 10 }}>
-                    {step.agents.map(a => (
-                      <div key={a.i} style={{
-                        width: 24, height: 24, borderRadius: 7,
-                        background: `${a.color}20`, border: `1px solid ${a.color}40`,
-                        display: "flex", alignItems: "center", justifyContent: "center",
-                        fontSize: 9, fontWeight: 800, color: a.color,
-                      }} title={a.name}>{a.i}</div>
-                    ))}
-                    <span style={{ fontFamily: mono, fontSize: 9, color: MUTED, alignSelf: "center", marginLeft: 4 }}>{step.duration}</span>
+                  {/* Top row: title + duration + agents */}
+                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 14, position: "relative" }}>
+                    <div>
+                      <div style={{ fontFamily: mono, fontSize: 11, color: step.color, letterSpacing: "0.1em", textTransform: "uppercase" as const, marginBottom: 6 }}>{step.n} · {step.duration}</div>
+                      <h3 style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.035em", lineHeight: 1.1, color: isActive ? OFF : "rgba(240,239,232,.78)" }}>{step.title}</h3>
+                    </div>
+                    {/* Agent badges */}
+                    <div style={{ display: "flex", gap: 7, flexShrink: 0, paddingTop: 4 }}>
+                      {step.agents.map(a => (
+                        <div key={a.i} title={a.name} style={{
+                          width: 36, height: 36, borderRadius: 11,
+                          background: `${a.color}16`, border: `1.5px solid ${a.color}55`,
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                          fontSize: 12, fontWeight: 800, color: a.color,
+                          boxShadow: isActive ? `0 0 16px -4px ${a.color}70` : "none",
+                          transition: "box-shadow .35s",
+                        }} title={a.name}>{a.i}</div>
+                      ))}
+                    </div>
                   </div>
 
-                  <p style={{ fontSize: 12, color: DIM, lineHeight: 1.55, marginBottom: isActive ? 14 : 0 }}>
-                    {isActive ? step.desc : step.desc.slice(0, 60) + "…"}
-                  </p>
+                  {/* Description */}
+                  <p style={{ fontSize: 16, color: DIM, lineHeight: 1.7, position: "relative" }}>{step.desc}</p>
 
                   {/* Expanded details */}
                   {isActive && (
-                    <div style={{ marginTop: 2 }}>
-                      <div style={{ height: 1, background: `${step.color}20`, marginBottom: 12 }} />
-                      <div style={{ fontFamily: mono, fontSize: 9, color: step.color, marginBottom: 8, letterSpacing: "0.06em", textTransform: "uppercase" as const }}>Entregáveis</div>
-                      <div style={{ display: "flex", flexDirection: "column" as const, gap: 6 }}>
+                    <div style={{ marginTop: 24, position: "relative" }}>
+                      <div style={{ height: 1, background: `linear-gradient(to right, ${step.color}30, transparent)`, marginBottom: 20 }} />
+                      <div style={{ fontFamily: mono, fontSize: 11, color: step.color, marginBottom: 14, letterSpacing: "0.1em", textTransform: "uppercase" as const }}>Entregáveis</div>
+                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 32px", marginBottom: 20 }}>
                         {step.details.map((d, j) => (
-                          <div key={j} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
-                            <div style={{ width: 4, height: 4, borderRadius: "50%", background: step.color, flexShrink: 0, marginTop: 5 }} />
-                            <span style={{ fontSize: 11, color: "rgba(240,239,232,.5)", lineHeight: 1.55 }}>{d}</span>
+                          <div key={j} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                            <div style={{ width: 6, height: 6, borderRadius: "50%", background: step.color, flexShrink: 0, marginTop: 8, boxShadow: `0 0 8px ${step.color}` }} />
+                            <span style={{ fontSize: 15, color: "rgba(240,239,232,.55)", lineHeight: 1.65 }}>{d}</span>
                           </div>
                         ))}
                       </div>
-                      <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: 9, background: `${step.color}10`, border: `1px solid ${step.color}25` }}>
-                        <span style={{ fontFamily: mono, fontSize: 10, color: step.color }}>Output → </span>
-                        <span style={{ fontSize: 12, color: OFF }}>{step.output}</span>
+                      {/* Output badge */}
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 12, padding: "13px 20px", borderRadius: 14, background: `${step.color}0D`, border: `1px solid ${step.color}35`, boxShadow: `0 0 24px -8px ${step.color}40` }}>
+                        <div style={{ width: 7, height: 7, borderRadius: "50%", background: step.color, boxShadow: `0 0 10px ${step.color}` }} />
+                        <span style={{ fontFamily: mono, fontSize: 12, color: step.color, letterSpacing: "0.04em" }}>Output →</span>
+                        <span style={{ fontSize: 16, fontWeight: 700, color: OFF }}>{step.output}</span>
                       </div>
                     </div>
                   )}
@@ -397,14 +427,11 @@ function ProcessTimeline() {
           })}
         </div>
 
-        {/* Second row: steps 5-8 */}
-        {/* (already in the grid above — 4 cols × 2 rows = 8 steps) */}
-
         {/* Bottom CTA */}
-        <div style={{ textAlign: "center", marginTop: 52 }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 10, padding: "12px 24px", borderRadius: 100, background: "rgba(185,255,75,.06)", border: "1px solid rgba(185,255,75,.18)" }}>
-            <div className="cl-dot" style={{ width: 7, height: 7, borderRadius: "50%", background: LIME }} />
-            <span style={{ fontSize: 14, color: OFF }}>Todo esse processo acontece <strong style={{ color: LIME }}>em paralelo</strong>, sem esperar uma etapa acabar pra começar a outra.</span>
+        <div style={{ textAlign: "center", marginTop: 72 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 14, padding: "16px 30px", borderRadius: 100, background: "rgba(185,255,75,.06)", border: "1px solid rgba(185,255,75,.22)", boxShadow: "0 0 40px -12px rgba(185,255,75,.25)" }}>
+            <div className="cl-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: LIME, boxShadow: `0 0 12px ${LIME}` }} />
+            <span style={{ fontSize: 16, color: OFF }}>Todo esse processo acontece <strong style={{ color: LIME }}>em paralelo</strong>, sem esperar uma etapa acabar pra começar a outra.</span>
           </div>
         </div>
 
