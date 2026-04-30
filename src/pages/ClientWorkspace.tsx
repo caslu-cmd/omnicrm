@@ -2419,9 +2419,22 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
                           </div>
 
                           {/* Skill */}
-                          <div className="text-[10px] mb-3 leading-relaxed" style={{ color: "rgba(255,255,255,0.22)" }}>
+                          <div className="text-[10px] mb-2 leading-relaxed" style={{ color: "rgba(255,255,255,0.22)" }}>
                             {agent.skill}
                           </div>
+
+                          {/* Deadline badge */}
+                          {agentDeadlines[agent.id] && !isDone && (
+                            <div
+                              className="inline-flex items-center gap-1 mb-3 px-2 py-0.5 rounded-md text-[9px] font-semibold w-fit"
+                              style={{
+                                background: `${agent.color}14`,
+                                color: agent.color,
+                                border: `1px solid ${agent.color}30`,
+                              }}>
+                              ⏱ Entrega até {agentDeadlines[agent.id]}
+                            </div>
+                          )}
 
                           {/* Current task */}
                           {(agent.id === "designer" ? (designerTask || designerRecentWork.length > 0) : task) && (
