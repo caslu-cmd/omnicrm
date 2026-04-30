@@ -446,6 +446,13 @@ const AGENT_META: Record<string, { initial: string; color: string; name: string 
   social:     { initial: "M", color: "#60A5FA", name: "Marina" },
   site:       { initial: "V", color: "#E879F9", name: "Valentina" },
   designer:   { initial: "I", color: "#F472B6", name: "Isadora" },
+  sales:      { initial: "E", color: "#F59E0B", name: "Eduardo" },
+  briefing:   { initial: "L", color: "#38BDF8", name: "Lia" },
+  revisor:    { initial: "V", color: "#EC4899", name: "Vitória" },
+  video:      { initial: "🎬", color: "#B9FF4B", name: "Bobby" },
+  eduardo:    { initial: "E", color: "#F59E0B", name: "Eduardo" },
+  vitoria:    { initial: "V", color: "#EC4899", name: "Vitória" },
+  bobby:      { initial: "🎬", color: "#B9FF4B", name: "Bobby" },
 };
 
 const normalizeImageAspectRatio = (ratio?: string) => {
