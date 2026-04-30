@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Upload, Download, Scissors, Zap, Volume2, Subtitles,
@@ -314,9 +314,11 @@ function TabBtn({ id, label, icon, active, onClick }: {
 // ══════════════════════════════════════════════════════════════════════════════
 export default function VideoEditorPage() {
   const [searchParams] = useSearchParams();
+  const location = useLocation();
   const clientName = searchParams.get("clientName") ?? null;
   const incomingScript = searchParams.get("script") ?? null;
   const incomingPlatform = (searchParams.get("platform") ?? null) as PlatformId | null;
+  const incomingFile: File | undefined = (location.state as any)?.file;
 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [videoInfo, setVideoInfo] = useState<VideoInfo | null>(null);
@@ -385,6 +387,11 @@ export default function VideoEditorPage() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Auto-load file passed from workspace (no Supabase upload, instant)
+  useEffect(() => {
+    if (incomingFile) handleUpload(incomingFile);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Session ────────────────────────────────────────────────────────────────
   async function ensureSession(): Promise<string> {

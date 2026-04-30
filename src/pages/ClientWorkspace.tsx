@@ -467,7 +467,6 @@ export default function ClientWorkspace() {
   const [videoScript, setVideoScript] = useState("");
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [videoFileUrl, setVideoFileUrl] = useState<string | null>(null);
-  const [videoUploading, setVideoUploading] = useState(false);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const [designerTask, setDesignerTask] = useState<{prompt: string; progress: number; startedAt: number; estimatedSeconds: number} | null>(null);
   const [designerRecentWork, setDesignerRecentWork] = useState<string[]>([]);
@@ -2335,38 +2334,20 @@ export default function ClientWorkspace() {
                                 </div>
 
                                 <button
-                                  disabled={videoUploading}
-                                  onClick={async () => {
+                                  onClick={() => {
                                     const params = new URLSearchParams();
                                     params.set("clientName", client.name);
                                     params.set("platform", videoPlatform);
                                     if (videoScript.trim()) params.set("script", videoScript.trim());
-
-                                    if (videoFile) {
-                                      setVideoUploading(true);
-                                      try {
-                                        const ext = videoFile.name.split(".").pop() ?? "mp4";
-                                        const path = `bobby/${Date.now()}_${videoFile.name.replace(/\s+/g, "_")}`;
-                                        const { error } = await supabase.storage.from("post-media").upload(path, videoFile, { upsert: true });
-                                        if (!error) {
-                                          const { data: { publicUrl } } = supabase.storage.from("post-media").getPublicUrl(path);
-                                          params.set("videoUrl", publicUrl);
-                                        }
-                                      } catch (_) {}
-                                      setVideoUploading(false);
-                                    }
-
                                     setSelectedAgentId(null);
-                                    window.open(`/video-editor?${params.toString()}`, "_blank");
+                                    navigate(`/video-editor?${params.toString()}`, {
+                                      state: { file: videoFile ?? undefined },
+                                    });
                                   }}
                                   className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all"
-                                  style={{ background: videoUploading ? "rgba(185,255,75,0.5)" : "#B9FF4B", color: "#07080A", boxShadow: videoUploading ? "none" : "0 0 20px -4px #B9FF4B60", cursor: videoUploading ? "wait" : "pointer" }}
+                                  style={{ background: "#B9FF4B", color: "#07080A", boxShadow: "0 0 20px -4px #B9FF4B60" }}
                                 >
-                                  {videoUploading ? (
-                                    <><span className="animate-spin">⏳</span> Subindo vídeo...</>
-                                  ) : (
-                                    <><span>🎬</span> Abrir Editor Bobby</>
-                                  )}
+                                  <span>🎬</span> Abrir Editor Bobby
                                 </button>
                               </div>
                             )}
