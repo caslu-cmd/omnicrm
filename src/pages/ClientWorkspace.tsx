@@ -465,6 +465,10 @@ export default function ClientWorkspace() {
   const [designAspectRatio, setDesignAspectRatio] = useState<"1:1" | "9:16" | "16:9" | "4:3" | "3:4">("1:1");
   const [videoPlatform, setVideoPlatform] = useState<string>("reels");
   const [videoScript, setVideoScript] = useState("");
+  const [videoFile, setVideoFile] = useState<File | null>(null);
+  const [videoFileUrl, setVideoFileUrl] = useState<string | null>(null);
+  const [videoUploading, setVideoUploading] = useState(false);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   const [designerTask, setDesignerTask] = useState<{prompt: string; progress: number; startedAt: number; estimatedSeconds: number} | null>(null);
   const [designerRecentWork, setDesignerRecentWork] = useState<string[]>([]);
   const designerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -2268,13 +2272,60 @@ export default function ClientWorkspace() {
                                   </div>
                                 </div>
 
+                                {/* Upload de vídeo */}
+                                <div>
+                                  <div className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>Arquivo de vídeo</div>
+                                  <input
+                                    ref={videoInputRef}
+                                    type="file"
+                                    accept="video/*"
+                                    className="hidden"
+                                    onChange={e => {
+                                      const f = e.target.files?.[0];
+                                      if (!f) return;
+                                      setVideoFile(f);
+                                      setVideoFileUrl(URL.createObjectURL(f));
+                                    }}
+                                  />
+                                  {videoFile ? (
+                                    <div className="rounded-xl p-3 flex items-center gap-3" style={{ background: "#B9FF4B10", border: "1px solid #B9FF4B35" }}>
+                                      <span className="text-xl">🎬</span>
+                                      <div className="flex-1 min-w-0">
+                                        <div className="text-xs font-semibold truncate" style={{ color: "#F0F0F0" }}>{videoFile.name}</div>
+                                        <div className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>
+                                          {(videoFile.size / 1024 / 1024).toFixed(1)} MB · {videoFile.type.split("/")[1]?.toUpperCase()}
+                                        </div>
+                                      </div>
+                                      <button
+                                        onClick={() => { setVideoFile(null); setVideoFileUrl(null); if (videoInputRef.current) videoInputRef.current.value = ""; }}
+                                        className="flex-shrink-0 w-6 h-6 flex items-center justify-center rounded-lg transition-colors"
+                                        style={{ color: "rgba(255,255,255,0.35)", background: "rgba(255,255,255,0.06)" }}
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => videoInputRef.current?.click()}
+                                      className="w-full flex flex-col items-center gap-2 py-5 rounded-xl transition-all"
+                                      style={{ border: "1.5px dashed rgba(185,255,75,0.2)", background: "rgba(185,255,75,0.03)", color: "rgba(255,255,255,0.4)" }}
+                                      onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(185,255,75,0.45)"; (e.currentTarget as HTMLButtonElement).style.background = "rgba(185,255,75,0.06)"; }}
+                                      onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(185,255,75,0.2)"; (e.currentTarget as HTMLButtonElement).style.background = "rgba(185,255,75,0.03)"; }}
+                                    >
+                                      <span className="text-2xl">📁</span>
+                                      <span className="text-xs font-medium">Clique para subir o vídeo</span>
+                                      <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>MP4, MOV, AVI, WebM</span>
+                                    </button>
+                                  )}
+                                </div>
+
                                 <div>
                                   <div className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>Roteiro (opcional)</div>
                                   <textarea
                                     value={videoScript}
                                     onChange={e => setVideoScript(e.target.value)}
                                     placeholder={"Cole aqui o roteiro ou briefing do vídeo.\nBobby vai usar como referência para sugerir edições."}
-                                    rows={4}
+                                    rows={3}
                                     className="w-full rounded-xl px-4 py-3 text-sm resize-none"
                                     style={{ background: "rgba(255,255,255,0.05)", border: "1px solid #B9FF4B28", color: "#F0F0F0", outline: "none" }}
                                   />
@@ -2284,18 +2335,38 @@ export default function ClientWorkspace() {
                                 </div>
 
                                 <button
-                                  onClick={() => {
+                                  disabled={videoUploading}
+                                  onClick={async () => {
                                     const params = new URLSearchParams();
                                     params.set("clientName", client.name);
                                     params.set("platform", videoPlatform);
                                     if (videoScript.trim()) params.set("script", videoScript.trim());
+
+                                    if (videoFile) {
+                                      setVideoUploading(true);
+                                      try {
+                                        const ext = videoFile.name.split(".").pop() ?? "mp4";
+                                        const path = `bobby/${Date.now()}_${videoFile.name.replace(/\s+/g, "_")}`;
+                                        const { error } = await supabase.storage.from("post-media").upload(path, videoFile, { upsert: true });
+                                        if (!error) {
+                                          const { data: { publicUrl } } = supabase.storage.from("post-media").getPublicUrl(path);
+                                          params.set("videoUrl", publicUrl);
+                                        }
+                                      } catch (_) {}
+                                      setVideoUploading(false);
+                                    }
+
                                     setSelectedAgentId(null);
                                     window.open(`/video-editor?${params.toString()}`, "_blank");
                                   }}
                                   className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all"
-                                  style={{ background: "#B9FF4B", color: "#07080A", boxShadow: "0 0 20px -4px #B9FF4B60" }}
+                                  style={{ background: videoUploading ? "rgba(185,255,75,0.5)" : "#B9FF4B", color: "#07080A", boxShadow: videoUploading ? "none" : "0 0 20px -4px #B9FF4B60", cursor: videoUploading ? "wait" : "pointer" }}
                                 >
-                                  <span>🎬</span> Abrir Editor Bobby
+                                  {videoUploading ? (
+                                    <><span className="animate-spin">⏳</span> Subindo vídeo...</>
+                                  ) : (
+                                    <><span>🎬</span> Abrir Editor Bobby</>
+                                  )}
                                 </button>
                               </div>
                             )}
