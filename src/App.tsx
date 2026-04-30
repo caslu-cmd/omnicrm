@@ -51,9 +51,10 @@ const ProtectedRoutes = () => {
     );
   }
 
+  // Raiz sempre mostra a LandingPage (logados e não logados)
+  if (location.pathname === "/") return <LandingPage />;
+
   if (!session) {
-    // Raiz: mostra a landing page diretamente
-    if (location.pathname === "/") return <LandingPage />;
     // Outras rotas protegidas: redireciona para landing
     return <Navigate to="/" replace />;
   }
@@ -62,7 +63,7 @@ const ProtectedRoutes = () => {
     <>
       <Routes>
         <Route element={<AppLayout />}>
-          <Route path="/" element={<Dashboard />} />
+          <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/inbox" element={<InboxPage />} />
           <Route path="/contacts" element={<ContactsPage />} />
           <Route path="/pipelines" element={<PipelinesPage />} />
@@ -94,7 +95,7 @@ const AppRoutes = () => {
 
   return (
     <Routes>
-      <Route path="/auth" element={loading ? null : session ? <Navigate to="/" replace /> : <AuthPage />} />
+      <Route path="/auth" element={loading ? null : session ? <Navigate to="/dashboard" replace /> : <AuthPage />} />
       {/* Páginas públicas */}
       <Route path="/portal/:clientId" element={<ClientPortal />} />
       <Route path="/portal" element={<ClientPortal />} />
