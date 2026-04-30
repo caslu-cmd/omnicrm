@@ -532,6 +532,7 @@ export default function ClientWorkspace() {
     try { return JSON.parse(localStorage.getItem(`agent-conv-${id}`) ?? "[]"); } catch { return []; }
   });
   const [agentOutputs, setAgentOutputs] = useState<Record<string, string>>({});
+  const [agentDeadlines, setAgentDeadlines] = useState<Record<string, string>>({});
   const [expandedMsg, setExpandedMsg] = useState<string | null>(null);
   const [expandedAgentOutput, setExpandedAgentOutput] = useState<string | null>(null);
   const [postCanvas, setPostCanvas] = useState<{ imageUrl: string; headline?: string; body?: string; cta?: string } | null>(null);
