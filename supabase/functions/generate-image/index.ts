@@ -256,20 +256,9 @@ async function generateImage(
     carolinaStrategy ? `ESTRATÉGIA DA CAROLINA (brand strategist):\n${carolinaStrategy.slice(0, 600)}` : "",
   ].filter(Boolean).join("\n\n");
 
-  const promptRes = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": anthropicKey,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 600,
-      system: "You are Isadora, a world-class Senior Art Director specialized in Brazilian marketing and social media. You synthesize the team's work into one precise image-generation prompt in English. Output ONLY the final prompt — no explanations, no labels, no preamble.",
-      messages: [{
-        role: "user",
-        content: `CLIENT: ${ctx.name ?? "unknown"}
+  const artDirectorSystem = "You are Isadora, a world-class Senior Art Director specialized in Brazilian marketing and social media. You synthesize the team's work into one precise image-generation prompt in English. Output ONLY the final prompt — no explanations, no labels, no preamble.";
+
+  const artDirectorUser = `CLIENT: ${ctx.name ?? "unknown"}
 INDUSTRY: ${ctx.industry ?? "unknown"}
 BRAND COLOR: ${ctx.brandColor ?? "not specified"}
 FORMAT: ${ratio} (${platformHint[ratio] ?? "social media"})
@@ -281,32 +270,20 @@ ${teamContext ? `\n${teamContext}` : ""}
 As Senior Art Director, synthesize the full team context and decide internally:
 1. EMOTIONAL CORE — what must the viewer feel in 1 second? (aspiration / trust / desire / urgency / belonging)
 2. VISUAL METAPHOR — what single image perfectly embodies both the copy message AND brand strategy?
-3. SUBJECT by industry:
-   law/consulting → executive power, boardroom, sharp suits, authority
-   health/wellness → clinical warmth, clean light, human touch, vitality
-   food/beverage → hero dish, steam, texture, desire, close-up
-   beauty/fashion → product elegance, editorial, luxury
-   tech/SaaS → glowing screens, near-future, precision, blue light
-   real estate → golden hour architecture, aspirational lifestyle
-   fitness → peak action, sweat, raw energy, motion blur
-   finance → confidence, trust, premium environment, sharp attire
-   education → bright, open space, curious faces, books/screens
-   events → crowd energy, storytelling, emotion, vibrant colors
-   motivation → dramatic landscape, human triumph, epic scale
+3. SUBJECT by industry (law, health, food, beauty, tech, real estate, fitness, finance, education, events, motivation)
 4. COMPOSITION — hero subject position, clean negative space for text overlay (bottom 40% or left third), depth of field
-5. LIGHTING — one choice: soft studio diffused / golden hour warm / cool clinical natural / dramatic side rim / neon ambient glow
-6. BRAND COLOR ACCENT — ${ctx.brandColor ?? "brand color"} appears subtly as: neon sign, fabric detail, object, light leak — never dominant
+5. LIGHTING — soft studio / golden hour / cool clinical / dramatic side rim / neon ambient
+6. BRAND COLOR ACCENT — ${ctx.brandColor ?? "brand color"} appears subtly (neon, fabric, object, light leak — never dominant)
 7. PHOTOGRAPHY STYLE — photorealistic editorial / lifestyle candid / cinematic dramatic / minimalist product
 
-Output ONLY the final image-generation prompt in one rich, detailed paragraph. End with: "no text, no logos, no watermarks, ultra high quality, 4K, sharp focus, award-winning editorial photography"`,
-      }],
-    }),
-  });
+Output ONLY the final image-generation prompt in one rich, detailed paragraph. End with: "no text, no logos, no watermarks, ultra high quality, 4K, sharp focus, award-winning editorial photography"`;
 
   let finalPrompt = prompt;
-  if (promptRes.ok) {
-    const promptData = await promptRes.json();
-    finalPrompt = promptData.content?.[0]?.text?.trim() ?? prompt;
+  try {
+    const synthesized = await callLovableAI(artDirectorSystem, artDirectorUser, lovableKey, "google/gemini-2.5-flash");
+    if (synthesized?.trim()) finalPrompt = synthesized.trim();
+  } catch (_) {
+    // fallback to original prompt
   }
 
   // ── Nano Banana Pro via Lovable AI Gateway ──
