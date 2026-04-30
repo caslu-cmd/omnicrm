@@ -580,6 +580,10 @@ export default function ClientWorkspace() {
   });
   const [agentOutputs, setAgentOutputs] = useState<Record<string, string>>({});
   const [agentDeadlines, setAgentDeadlines] = useState<Record<string, string>>({});
+  // Onda de orquestração ARIA: 0 = ocioso; 1+ = onda ativa
+  const [currentWave, setCurrentWave] = useState<number>(0);
+  const [totalWaves, setTotalWaves] = useState<number>(0);
+  const [agentWaves, setAgentWaves] = useState<Record<string, number>>({});
   const [expandedMsg, setExpandedMsg] = useState<string | null>(null);
   const [expandedAgentOutput, setExpandedAgentOutput] = useState<string | null>(null);
   const [postCanvas, setPostCanvas] = useState<{ imageUrl: string; headline?: string; body?: string; cta?: string } | null>(null);
@@ -663,6 +667,10 @@ export default function ClientWorkspace() {
     setAgentCommand("");
     clearAriaFile();
     setAriaLoading(true);
+    // reset estado de ondas
+    setAgentWaves({});
+    setCurrentWave(1);
+    setTotalWaves(1);
 
     const ts = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
     const userMsg: AgentMsg = { id: `u-${Date.now()}`, from: "user", to: "aria", content: demand || `[arquivo: ${attachedFile?.name}]`, timestamp: ts, status: "done" };
@@ -741,6 +749,14 @@ Responda APENAS JSON válido, sem markdown, sem texto extra:
       const agents = (plan.agents ?? []).filter((a) => validIds.has(a));
       if (agents.length === 0) agents.push("strategist", "copywriter");
 
+      // Divisor visual: Onda 1
+      addConvMsgs([{
+        id: `wave-divider-1-${Date.now()}`,
+        from: "system", to: "system",
+        content: `Onda 1 • Planejamento e primeira leva (${agents.length} agente${agents.length > 1 ? "s" : ""})`,
+        action: "wave-divider", timestamp: nowTs(), status: "done",
+      }]);
+
       // ARIA mostra o plano na conversa
       addConvMsgs([{
         id: `aria-plan-${Date.now()}`,
@@ -748,6 +764,13 @@ Responda APENAS JSON válido, sem markdown, sem texto extra:
         content: plan.plan || "Vou acionar o time.",
         action: "plan", timestamp: nowTs(), status: "done",
       }]);
+
+      // marca cada agente da onda 1
+      setAgentWaves((prev) => {
+        const next = { ...prev };
+        agents.forEach((a) => { next[a] = 1; });
+        return next;
+      });
 
       // ━━━━━━━━━━ PASSO 2 — Delegação ━━━━━━━━━━
       const delegationMsgs: AgentMsg[] = agents.map((agentId, i) => ({
@@ -902,6 +925,24 @@ Responda APENAS JSON:
 
         if (!handoff.continue || nextAgents.length === 0) break;
 
+        // ─── Atualiza estado de ondas (onda real = waveIndex + 1) ───
+        const realWaveNum = waveIndex + 1;
+        setCurrentWave(realWaveNum);
+        setTotalWaves((prev) => Math.max(prev, realWaveNum));
+        setAgentWaves((prev) => {
+          const next = { ...prev };
+          nextAgents.forEach((a) => { next[a] = realWaveNum; });
+          return next;
+        });
+
+        // Divisor visual da nova onda
+        addConvMsgs([{
+          id: `wave-divider-${realWaveNum}-${Date.now()}`,
+          from: "system", to: "system",
+          content: `Onda ${realWaveNum} • ${handoff.reason || "Continuidade"} (${nextAgents.length} agente${nextAgents.length > 1 ? "s" : ""})`,
+          action: "wave-divider", timestamp: nowTs(), status: "done",
+        }]);
+
         // ARIA anuncia a continuidade
         addConvMsgs([{
           id: `aria-handoff-${Date.now()}`,
@@ -997,6 +1038,7 @@ ${priorBlock}`;
       addConvMsgs([{ id: `e-${Date.now()}`, from: "aria", to: "user", content: `Erro: ${errMsg}`, timestamp: ts, status: "error" }]);
     } finally {
       setAriaLoading(false);
+      setCurrentWave(0);
     }
   };
 
@@ -2466,6 +2508,27 @@ ${priorBlock}`;
                     </div>
                     <div className="p-4 space-y-3 max-h-[600px] overflow-y-auto">
                       {agentConversations.map((msg) => {
+                        // Divisor visual de Onda
+                        if (msg.action === "wave-divider") {
+                          return (
+                            <motion.div key={msg.id}
+                              initial={{ opacity: 0, scaleX: 0.85 }} animate={{ opacity: 1, scaleX: 1 }}
+                              className="flex items-center gap-3 py-2 px-1 my-1">
+                              <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(185,255,75,0.35))" }} />
+                              <div
+                                className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                                style={{
+                                  background: "rgba(185,255,75,0.1)",
+                                  border: "1px solid rgba(185,255,75,0.3)",
+                                  color: "#B9FF4B",
+                                }}>
+                                🌊 {msg.content}
+                              </div>
+                              <div className="h-px flex-1" style={{ background: "linear-gradient(to left, transparent, rgba(185,255,75,0.35))" }} />
+                            </motion.div>
+                          );
+                        }
+
                         const fromMeta = AGENT_META[msg.from] ?? { initial: msg.from[0]?.toUpperCase(), color: "#888", name: msg.from };
                         const toMeta   = AGENT_META[msg.to]   ?? { initial: msg.to[0]?.toUpperCase(),   color: "#888", name: msg.to };
                         const isExpanded = expandedMsg === msg.id;
@@ -2561,6 +2624,46 @@ ${priorBlock}`;
                   </div>
                 )}
 
+                {/* ── Barra global de Ondas (visível enquanto ARIA orquestra) ── */}
+                {currentWave > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+                    className="rounded-2xl px-5 py-3 flex items-center gap-4"
+                    style={{
+                      background: "linear-gradient(90deg, rgba(185,255,75,0.08), rgba(185,255,75,0.02))",
+                      border: "1px solid rgba(185,255,75,0.25)",
+                      boxShadow: "0 0 28px -10px rgba(185,255,75,0.4)",
+                    }}>
+                    <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#B9FF4B" }} />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5" style={{ background: "#B9FF4B" }} />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "#B9FF4B" }}>
+                          🌊 Onda {currentWave} de {Math.max(totalWaves, currentWave)}
+                        </span>
+                        <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.4)" }}>•</span>
+                        <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.55)" }}>
+                          {Object.entries(agentWaves).filter(([aId, w]) => w === currentWave && client.agentTasks[aId]?.status !== "concluído").length} agente(s) ativo(s) nesta onda
+                        </span>
+                      </div>
+                      <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+                        <motion.div
+                          className="h-full rounded-full"
+                          style={{ background: "#B9FF4B" }}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${(currentWave / Math.max(totalWaves, currentWave, 3)) * 100}%` }}
+                          transition={{ duration: 0.6, ease: "easeOut" }}
+                        />
+                      </div>
+                    </div>
+                    <span className="text-[10px] flex-shrink-0" style={{ color: "rgba(255,255,255,0.4)" }}>
+                      Máx 3 ondas
+                    </span>
+                  </motion.div>
+                )}
+
                 {/* ── Time de Especialistas ── */}
                 <div>
                   <div className="flex items-center gap-3 mb-4">
@@ -2617,18 +2720,31 @@ ${priorBlock}`;
                             {agent.skill}
                           </div>
 
-                          {/* Deadline badge */}
-                          {agentDeadlines[agent.id] && !isDone && (
-                            <div
-                              className="inline-flex items-center gap-1 mb-3 px-2 py-0.5 rounded-md text-[9px] font-semibold w-fit"
-                              style={{
-                                background: `${agent.color}14`,
-                                color: agent.color,
-                                border: `1px solid ${agent.color}30`,
-                              }}>
-                              ⏱ Entrega até {agentDeadlines[agent.id]}
-                            </div>
-                          )}
+                          {/* Wave + Deadline badges */}
+                          <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                            {agentWaves[agent.id] && (
+                              <div
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider"
+                                style={{
+                                  background: "rgba(185,255,75,0.12)",
+                                  color: "#B9FF4B",
+                                  border: "1px solid rgba(185,255,75,0.3)",
+                                }}>
+                                🌊 Onda {agentWaves[agent.id]}
+                              </div>
+                            )}
+                            {agentDeadlines[agent.id] && !isDone && (
+                              <div
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-semibold"
+                                style={{
+                                  background: `${agent.color}14`,
+                                  color: agent.color,
+                                  border: `1px solid ${agent.color}30`,
+                                }}>
+                                ⏱ Entrega até {agentDeadlines[agent.id]}
+                              </div>
+                            )}
+                          </div>
 
                           {/* Current task */}
                           {(agent.id === "designer" ? (designerTask || designerRecentWork.length > 0) : task) && (
