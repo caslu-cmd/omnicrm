@@ -570,8 +570,8 @@ Português brasileiro. Entrega real — nunca esboço ou confirmação.`;
       const { data: chatData, error: chatError } = await supabase.functions.invoke("chat-ai", {
         body: {
           systemPrompt: ariaSystem,
-          maxTokens: 4000,
-          model: "claude-opus-4-7",
+          maxTokens: 3000,
+          model: "claude-sonnet-4-6",
           messages: [{ role: "user", content: `Briefing: "${demand}"` }],
         },
       });
