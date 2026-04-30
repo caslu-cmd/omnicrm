@@ -39,7 +39,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    const apiKey = Deno.env.get("ANTHROPIC_API_KEY") || Deno.env.get("LOVABLE_API_KEY");
+    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
+    const apiKey = anthropicKey || lovableKey;
+
     if (!apiKey) {
       return new Response(JSON.stringify({ error: "API key not configured" }), {
         status: 500,
@@ -47,7 +50,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    const selectedModel = model ?? "claude-sonnet-4-6";
+    // LOVABLE_API_KEY só suporta modelos que Lovable liberou — usar sonnet como fallback seguro
+    const selectedModel = anthropicKey
+      ? (model ?? "claude-sonnet-4-6")
+      : "claude-sonnet-4-6";
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
