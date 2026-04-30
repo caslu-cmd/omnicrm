@@ -95,7 +95,7 @@ const AppRoutes = () => {
 
   return (
     <Routes>
-      <Route path="/auth" element={loading ? null : session ? <Navigate to="/" replace /> : <AuthPage />} />
+      <Route path="/auth" element={loading ? null : session ? <Navigate to="/dashboard" replace /> : <AuthPage />} />
       {/* Páginas públicas */}
       <Route path="/portal/:clientId" element={<ClientPortal />} />
       <Route path="/portal" element={<ClientPortal />} />
