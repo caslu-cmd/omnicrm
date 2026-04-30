@@ -448,6 +448,9 @@ export default function ClientWorkspace() {
   const [agentConversations, setAgentConversations] = useState<AgentMsg[]>(() => {
     try { return JSON.parse(localStorage.getItem(`agent-conv-${id}`) ?? "[]"); } catch { return []; }
   });
+  const [agentOutputs, setAgentOutputs] = useState<Record<string, string>>({});
+  const [expandedMsg, setExpandedMsg] = useState<string | null>(null);
+  const [expandedAgentOutput, setExpandedAgentOutput] = useState<string | null>(null);
   const [postCanvas, setPostCanvas] = useState<{ imageUrl: string; headline?: string; body?: string; cta?: string } | null>(null);
   const [showSiteInput, setShowSiteInput] = useState(false);
   const [showEditClient, setShowEditClient] = useState(false);
@@ -629,6 +632,15 @@ Português brasileiro. Entrega real e completa — nunca esboço ou confirmaçã
         status: m.action === "generate_image" ? "processing" : "done",
       } as AgentMsg));
       addConvMsgs(newMsgs);
+
+      // salva output de cada agente para exibir nos cards
+      const newOutputs: Record<string, string> = {};
+      for (const m of newMsgs) {
+        if ((m.action === "respond" || m.action === "write_copy") && m.from !== "aria" && m.from !== "user" && m.content) {
+          newOutputs[m.from] = m.content;
+        }
+      }
+      if (Object.keys(newOutputs).length > 0) setAgentOutputs(prev => ({ ...prev, ...newOutputs }));
 
       const beatrizCopy = newMsgs.find(m => m.from === "beatriz" && m.action === "respond")?.content ?? "";
       const carolinaStrategy = newMsgs.find(m => m.from === "carolina" && m.action === "respond")?.content ?? "";
@@ -2116,84 +2128,113 @@ Português brasileiro. Entrega real e completa — nunca esboço ou confirmaçã
                   </div>
                 </motion.div>
 
-                {/* ── Comunicações do Time ── */}
+                {/* ── Conversa do Time ── */}
                 {agentConversations.length > 0 && (
                   <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)" }}>
                     <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                       <div className="flex items-center gap-2">
                         <MessageCircle className="w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.3)" }} />
-                        <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>Comunicações do Time</span>
+                        <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>Conversa do Time</span>
                         <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B" }}>{agentConversations.length}</span>
                       </div>
-                      <button onClick={() => { setAgentConversations([]); localStorage.removeItem(`agent-conv-${id}`); }}
+                      <button onClick={() => { setAgentConversations([]); setAgentOutputs({}); localStorage.removeItem(`agent-conv-${id}`); }}
                         className="text-[10px] transition-colors" style={{ color: "rgba(255,255,255,0.2)" }}
                         onMouseEnter={(e) => (e.currentTarget.style.color = "#F87171")}
                         onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.2)")}>
                         Limpar
                       </button>
                     </div>
-                    <div className="p-4 space-y-2 max-h-[480px] overflow-y-auto">
+                    <div className="p-4 space-y-3 max-h-[600px] overflow-y-auto">
                       {agentConversations.map((msg) => {
                         const fromMeta = AGENT_META[msg.from] ?? { initial: msg.from[0]?.toUpperCase(), color: "#888", name: msg.from };
-                        const toMeta = AGENT_META[msg.to] ?? { initial: msg.to[0]?.toUpperCase(), color: "#888", name: msg.to };
+                        const toMeta   = AGENT_META[msg.to]   ?? { initial: msg.to[0]?.toUpperCase(),   color: "#888", name: msg.to };
+                        const isExpanded = expandedMsg === msg.id;
+                        const isLong = msg.content.length > 400;
+                        const isUserMsg = msg.from === "user";
+                        const isAriaMsg = msg.from === "aria" && msg.to !== "user";
+
                         return (
-                          <div key={msg.id} className="flex items-start gap-3 p-3 rounded-xl" style={{ background: "rgba(255,255,255,0.025)" }}>
-                            {/* From avatar */}
-                            <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-[11px] font-bold"
-                              style={{ background: `${fromMeta.color}20`, border: `1px solid ${fromMeta.color}35`, color: fromMeta.color }}>
-                              {fromMeta.initial}
-                            </div>
-                            <ArrowRight className="w-3 h-3 flex-shrink-0 mt-2" style={{ color: "rgba(255,255,255,0.15)" }} />
-                            {/* To avatar */}
-                            <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 text-[11px] font-bold"
-                              style={{ background: `${toMeta.color}20`, border: `1px solid ${toMeta.color}35`, color: toMeta.color }}>
-                              {toMeta.initial}
-                            </div>
-                            {/* Content */}
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-[10px] font-semibold" style={{ color: fromMeta.color }}>{fromMeta.name}</span>
-                                <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.2)" }}>→ {toMeta.name}</span>
-                                <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.15)" }}>{msg.timestamp}</span>
-                                {msg.status === "processing" && <RefreshCw className="w-3 h-3 animate-spin" style={{ color: "#FBBF24" }} />}
-                                {msg.status === "error" && <span className="text-[10px]" style={{ color: "#F87171" }}>erro</span>}
+                          <motion.div key={msg.id}
+                            initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                            className="rounded-xl overflow-hidden"
+                            style={{
+                              background: isUserMsg ? "rgba(148,163,184,0.06)" : `${fromMeta.color}08`,
+                              border: `1px solid ${isUserMsg ? "rgba(255,255,255,0.07)" : `${fromMeta.color}20`}`,
+                            }}>
+
+                            {/* Header: quem fala com quem */}
+                            <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: `1px solid ${fromMeta.color}15` }}>
+                              <div className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+                                style={{ background: `${fromMeta.color}20`, border: `1px solid ${fromMeta.color}40`, color: fromMeta.color }}>
+                                {fromMeta.initial}
                               </div>
-                              <p className="text-xs leading-relaxed" style={{ color: msg.status === "error" ? "#FCA5A5" : "rgba(255,255,255,0.6)" }}>
-                                {msg.content}
-                              </p>
+                              <span className="text-[11px] font-bold" style={{ color: fromMeta.color }}>{fromMeta.name}</span>
+                              <ArrowRight className="w-3 h-3 flex-shrink-0" style={{ color: "rgba(255,255,255,0.2)" }} />
+                              <div className="w-6 h-6 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+                                style={{ background: `${toMeta.color}15`, border: `1px solid ${toMeta.color}30`, color: toMeta.color }}>
+                                {toMeta.initial}
+                              </div>
+                              <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.35)" }}>{toMeta.name}</span>
+                              <div className="flex-1" />
+                              {msg.status === "processing" && <RefreshCw className="w-3 h-3 animate-spin" style={{ color: "#FBBF24" }} />}
+                              <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.2)" }}>{msg.timestamp}</span>
+                            </div>
+
+                            {/* Conteúdo da mensagem */}
+                            <div className="px-4 py-3">
+                              {isAriaMsg ? (
+                                /* Mensagens da ARIA para agentes: briefing curto */
+                                <p className="text-[11px] leading-relaxed italic" style={{ color: "rgba(255,255,255,0.4)" }}>
+                                  {msg.content}
+                                </p>
+                              ) : (
+                                /* Resposta dos agentes: conteúdo completo com markdown simples */
+                                <div>
+                                  <div
+                                    className="text-xs leading-relaxed whitespace-pre-wrap"
+                                    style={{
+                                      color: msg.status === "error" ? "#FCA5A5" : "rgba(255,255,255,0.75)",
+                                      maxHeight: isExpanded ? "none" : isLong ? "160px" : "none",
+                                      overflow: isExpanded ? "visible" : "hidden",
+                                    }}>
+                                    {msg.content}
+                                  </div>
+                                  {isLong && (
+                                    <button
+                                      onClick={() => setExpandedMsg(isExpanded ? null : msg.id)}
+                                      className="mt-2 text-[11px] font-semibold transition-colors"
+                                      style={{ color: fromMeta.color }}>
+                                      {isExpanded ? "↑ Recolher" : `↓ Ver entrega completa (${Math.ceil(msg.content.length / 5)} palavras)`}
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Imagem da Isadora */}
                               {msg.imageUrl && (
-                                <div className="mt-2">
-                                  <img src={msg.imageUrl} alt="gerado" className="rounded-lg max-h-48 object-cover" style={{ border: "1px solid rgba(255,255,255,0.1)" }} />
+                                <div className="mt-3">
+                                  <img src={msg.imageUrl} alt="gerado" className="rounded-lg max-h-56 object-cover w-full" style={{ border: "1px solid rgba(255,255,255,0.1)" }} />
                                   <div className="flex items-center gap-2 mt-2">
                                     <button
                                       onClick={() => {
-                                        const beatrizMsg = [...agentConversations].reverse().find(
-                                          (m) => m.from === "beatriz" && m.action === "respond" && m.content.length > 20
-                                        );
+                                        const beatrizMsg = [...agentConversations].reverse().find(m => m.from === "beatriz" && m.action === "respond" && m.content.length > 20);
                                         const { headline, body, cta } = parseBeatrizCopy(beatrizMsg?.content ?? "");
-                                        setPostCanvas({
-                                          imageUrl: msg.imageUrl!,
-                                          headline,
-                                          body,
-                                          cta,
-                                        });
+                                        setPostCanvas({ imageUrl: msg.imageUrl!, headline, body, cta });
                                       }}
-                                      className="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg transition-all"
-                                      style={{ background: "rgba(185,255,75,0.12)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.25)" }}
-                                      onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(185,255,75,0.2)")}
-                                      onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(185,255,75,0.12)")}>
+                                      className="inline-flex items-center gap-1.5 text-[11px] font-bold px-3 py-1.5 rounded-lg"
+                                      style={{ background: "rgba(185,255,75,0.12)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.25)" }}>
                                       <Layout className="w-3 h-3" /> Montar Post
                                     </button>
                                     <a href={msg.imageUrl} download={`isadora-${msg.id}.png`}
                                       className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1.5 rounded-lg"
                                       style={{ background: "rgba(244,114,182,0.1)", color: "#F472B6", border: "1px solid rgba(244,114,182,0.2)" }}>
-                                      Baixar imagem
+                                      Baixar
                                     </a>
                                   </div>
                                 </div>
                               )}
                             </div>
-                          </div>
+                          </motion.div>
                         );
                       })}
                     </div>
@@ -2306,6 +2347,24 @@ Português brasileiro. Entrega real e completa — nunca esboço ou confirmaçã
                                 </div>
                               )}
                             </>
+                          )}
+
+                          {/* Última entrega do agente (vinda da conversa com ARIA) */}
+                          {agentOutputs[agent.id] && (
+                            <div className="mb-3 rounded-lg p-2.5" style={{ background: `${agent.color}08`, border: `1px solid ${agent.color}18` }}>
+                              <div className="text-[9px] uppercase tracking-widest font-semibold mb-1.5" style={{ color: `${agent.color}80` }}>
+                                Última entrega
+                              </div>
+                              <p className="text-[10px] leading-relaxed line-clamp-3" style={{ color: "rgba(255,255,255,0.55)" }}>
+                                {agentOutputs[agent.id].replace(/#{1,3}\s/g, "").replace(/\*\*/g, "").slice(0, 180)}…
+                              </p>
+                              <button
+                                onClick={() => setExpandedAgentOutput(expandedAgentOutput === agent.id ? null : agent.id)}
+                                className="mt-1.5 text-[10px] font-semibold"
+                                style={{ color: agent.color }}>
+                                Ver entrega completa ↓
+                              </button>
+                            </div>
                           )}
 
                           <div className="mt-auto flex flex-col gap-1.5">
@@ -3922,6 +3981,45 @@ Português brasileiro. Entrega real e completa — nunca esboço ou confirmaçã
             </motion.div>
           </>
         )}
+      </AnimatePresence>
+
+      {/* ── Modal entrega completa do agente ── */}
+      <AnimatePresence>
+        {expandedAgentOutput && agentOutputs[expandedAgentOutput] && (() => {
+          const agMeta = AGENT_META[expandedAgentOutput] ?? { initial: expandedAgentOutput[0]?.toUpperCase(), color: "#888", name: expandedAgentOutput };
+          return (
+            <motion.div
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              style={{ background: "rgba(0,0,0,0.85)" }}
+              onClick={() => setExpandedAgentOutput(null)}>
+              <motion.div
+                initial={{ scale: 0.95, y: 16 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 16 }}
+                className="rounded-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
+                style={{ background: "#0e0f1a", border: `1px solid ${agMeta.color}30`, boxShadow: `0 0 60px -10px ${agMeta.color}30` }}
+                onClick={(e) => e.stopPropagation()}>
+                <div className="flex items-center gap-3 px-6 py-4" style={{ borderBottom: `1px solid ${agMeta.color}18` }}>
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold"
+                    style={{ background: `${agMeta.color}20`, border: `1px solid ${agMeta.color}40`, color: agMeta.color }}>
+                    {agMeta.initial}
+                  </div>
+                  <div>
+                    <div className="text-sm font-bold" style={{ color: "rgba(255,255,255,0.9)" }}>{agMeta.name}</div>
+                    <div className="text-[11px]" style={{ color: agMeta.color }}>Última entrega</div>
+                  </div>
+                  <button onClick={() => setExpandedAgentOutput(null)} className="ml-auto p-1.5 rounded-lg" style={{ color: "rgba(255,255,255,0.3)" }}>
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="overflow-y-auto px-6 py-5">
+                  <pre className="text-xs leading-relaxed whitespace-pre-wrap font-sans" style={{ color: "rgba(255,255,255,0.78)" }}>
+                    {agentOutputs[expandedAgentOutput]}
+                  </pre>
+                </div>
+              </motion.div>
+            </motion.div>
+          );
+        })()}
       </AnimatePresence>
 
       {/* ── Post Canvas Modal ── */}
