@@ -667,6 +667,10 @@ export default function ClientWorkspace() {
     setAgentCommand("");
     clearAriaFile();
     setAriaLoading(true);
+    // reset estado de ondas
+    setAgentWaves({});
+    setCurrentWave(1);
+    setTotalWaves(1);
 
     const ts = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
     const userMsg: AgentMsg = { id: `u-${Date.now()}`, from: "user", to: "aria", content: demand || `[arquivo: ${attachedFile?.name}]`, timestamp: ts, status: "done" };
