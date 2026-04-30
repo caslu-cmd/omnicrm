@@ -3,7 +3,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ClientsProvider } from "@/contexts/ClientsContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import AiAssistant from "@/components/AiAssistant";
@@ -41,7 +41,8 @@ const queryClient = new QueryClient();
 
 const ProtectedRoutes = () => {
   const { session, loading } = useAuth();
-  
+  const location = useLocation();
+
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
@@ -49,8 +50,13 @@ const ProtectedRoutes = () => {
       </div>
     );
   }
-  
-  if (!session) return <Navigate to="/auth" replace />;
+
+  if (!session) {
+    // Raiz: mostra a landing page diretamente
+    if (location.pathname === "/") return <LandingPage />;
+    // Outras rotas protegidas: redireciona para landing
+    return <Navigate to="/" replace />;
+  }
   
   return (
     <>
