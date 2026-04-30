@@ -24,6 +24,7 @@ type ClientEdit = {
   weeklyContent?: Client["weeklyContent"];
   orchestratorPlan?: Client["orchestratorPlan"];
   orchestratorStatus?: string;
+  agentTasks?: Client["agentTasks"];
 };
 
 type AllEdits = Record<string, ClientEdit>;
