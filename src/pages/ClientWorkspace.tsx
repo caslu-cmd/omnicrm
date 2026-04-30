@@ -925,6 +925,24 @@ Responda APENAS JSON:
 
         if (!handoff.continue || nextAgents.length === 0) break;
 
+        // ─── Atualiza estado de ondas (onda real = waveIndex + 1) ───
+        const realWaveNum = waveIndex + 1;
+        setCurrentWave(realWaveNum);
+        setTotalWaves((prev) => Math.max(prev, realWaveNum));
+        setAgentWaves((prev) => {
+          const next = { ...prev };
+          nextAgents.forEach((a) => { next[a] = realWaveNum; });
+          return next;
+        });
+
+        // Divisor visual da nova onda
+        addConvMsgs([{
+          id: `wave-divider-${realWaveNum}-${Date.now()}`,
+          from: "system", to: "system",
+          content: `Onda ${realWaveNum} • ${handoff.reason || "Continuidade"} (${nextAgents.length} agente${nextAgents.length > 1 ? "s" : ""})`,
+          action: "wave-divider", timestamp: nowTs(), status: "done",
+        }]);
+
         // ARIA anuncia a continuidade
         addConvMsgs([{
           id: `aria-handoff-${Date.now()}`,
