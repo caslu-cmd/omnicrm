@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { motion } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Mail, Lock, User, ArrowRight, Zap } from "lucide-react";
@@ -36,90 +35,133 @@ const AuthPage = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md"
-      >
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium mb-4">
-            <Zap className="h-4 w-4" /> OmniCRM
+    <div style={{
+      minHeight: "100vh",
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      background: "#080808",
+      padding: "24px",
+      fontFamily: "'Inter', sans-serif",
+    }}>
+      <div style={{ width: "100%", maxWidth: 400 }}>
+
+        {/* Logo */}
+        <div style={{ textAlign: "center", marginBottom: 36 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 9, background: "#B9FF4B", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              <Zap size={16} color="#080808" strokeWidth={2.5} />
+            </div>
+            <span style={{ fontSize: 16, fontWeight: 700, color: "#F0EFE8", letterSpacing: "-0.02em" }}>Calu Agência</span>
           </div>
-          <h1 className="text-3xl font-bold font-display text-foreground">
-            {isLogin ? "Bem-vindo de volta" : "Crie sua conta"}
+          <h1 style={{ fontSize: 28, fontWeight: 800, color: "#F0EFE8", letterSpacing: "-0.04em", marginBottom: 8 }}>
+            {isLogin ? "Bem-vinda de volta" : "Criar conta"}
           </h1>
-          <p className="text-muted-foreground mt-2 text-sm">
-            {isLogin ? "Entre para acessar seu CRM" : "Comece a gerenciar seus contatos"}
+          <p style={{ fontSize: 14, color: "rgba(240,239,232,.45)", lineHeight: 1.6 }}>
+            {isLogin ? "Entre para acessar a plataforma" : "Comece a usar a Calu Agência"}
           </p>
         </div>
 
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-elevated space-y-5">
-          <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Card */}
+        <div style={{
+          background: "rgba(255,255,255,.04)",
+          border: "1px solid rgba(255,255,255,.09)",
+          borderRadius: 20,
+          padding: "32px 28px",
+          boxShadow: "0 24px 64px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.06)",
+        }}>
+          <form onSubmit={handleSubmit}>
+
             {!isLogin && (
-              <div>
-                <label className="text-xs font-medium text-muted-foreground">Nome completo</label>
-                <div className="relative mt-1">
-                  <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <div style={{ marginBottom: 16 }}>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(240,239,232,.5)", marginBottom: 6, letterSpacing: "0.02em" }}>Nome completo</label>
+                <div style={{ position: "relative" }}>
+                  <User size={15} color="rgba(240,239,232,.3)" style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }} />
                   <input
                     value={name}
-                    onChange={(e) => setName(e.target.value)}
+                    onChange={e => setName(e.target.value)}
                     placeholder="Seu nome"
-                    className="w-full rounded-lg border border-input bg-background py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20"
+                    style={{
+                      width: "100%", boxSizing: "border-box",
+                      background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)",
+                      borderRadius: 10, padding: "12px 14px 12px 42px",
+                      fontSize: 14, color: "#F0EFE8", outline: "none",
+                    }}
                   />
                 </div>
               </div>
             )}
-            <div>
-              <label className="text-xs font-medium text-muted-foreground">E-mail</label>
-              <div className="relative mt-1">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(240,239,232,.5)", marginBottom: 6, letterSpacing: "0.02em" }}>E-mail</label>
+              <div style={{ position: "relative" }}>
+                <Mail size={15} color="rgba(240,239,232,.3)" style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }} />
                 <input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={e => setEmail(e.target.value)}
                   placeholder="seu@email.com"
                   required
-                  className="w-full rounded-lg border border-input bg-background py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20"
+                  style={{
+                    width: "100%", boxSizing: "border-box",
+                    background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)",
+                    borderRadius: 10, padding: "12px 14px 12px 42px",
+                    fontSize: 14, color: "#F0EFE8", outline: "none",
+                  }}
                 />
               </div>
             </div>
-            <div>
-              <label className="text-xs font-medium text-muted-foreground">Senha</label>
-              <div className="relative mt-1">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+
+            <div style={{ marginBottom: 24 }}>
+              <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(240,239,232,.5)", marginBottom: 6, letterSpacing: "0.02em" }}>Senha</label>
+              <div style={{ position: "relative" }}>
+                <Lock size={15} color="rgba(240,239,232,.3)" style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }} />
                 <input
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={e => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
                   minLength={6}
-                  className="w-full rounded-lg border border-input bg-background py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20"
+                  style={{
+                    width: "100%", boxSizing: "border-box",
+                    background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)",
+                    borderRadius: 10, padding: "12px 14px 12px 42px",
+                    fontSize: 14, color: "#F0EFE8", outline: "none",
+                  }}
                 />
               </div>
             </div>
+
             <button
               type="submit"
               disabled={loading}
-              className="w-full flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground py-2.5 text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              style={{
+                width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                background: loading ? "rgba(185,255,75,.6)" : "#B9FF4B",
+                color: "#080808", border: "none", borderRadius: 10,
+                padding: "13px", fontSize: 14, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer",
+                boxShadow: loading ? "none" : "0 0 24px rgba(185,255,75,.25)",
+                transition: "opacity .2s, box-shadow .2s",
+              }}
             >
-              {loading ? "Carregando..." : isLogin ? "Entrar" : "Criar conta"}
-              <ArrowRight className="h-4 w-4" />
+              {loading ? "Entrando..." : isLogin ? "Entrar" : "Criar conta"}
+              {!loading && <ArrowRight size={15} />}
             </button>
           </form>
 
-          <div className="text-center">
+          <div style={{ textAlign: "center", marginTop: 20 }}>
             <button
               onClick={() => setIsLogin(!isLogin)}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              style={{ fontSize: 13, color: "rgba(240,239,232,.4)", background: "none", border: "none", cursor: "pointer" }}
             >
               {isLogin ? "Não tem conta? " : "Já tem conta? "}
-              <span className="text-primary font-medium">{isLogin ? "Criar conta" : "Entrar"}</span>
+              <span style={{ color: "#B9FF4B", fontWeight: 600 }}>{isLogin ? "Criar conta" : "Entrar"}</span>
             </button>
           </div>
         </div>
-      </motion.div>
+
+      </div>
     </div>
   );
 };
