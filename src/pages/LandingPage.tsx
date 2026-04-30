@@ -529,6 +529,12 @@ function TeamCarousel() {
             <div className="cl-dot" style={{ width: 7, height: 7, borderRadius: "50%", background: LIME }} />
             <span style={{ fontFamily: mono, fontSize: 11, color: LIME }}>Todos online agora</span>
           </div>
+          <button
+            onClick={() => setPaused(p => !p)}
+            style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 16px", borderRadius: 100, border: `1px solid ${paused ? "rgba(185,255,75,.35)" : "rgba(255,255,255,.1)"}`, background: paused ? "rgba(185,255,75,.08)" : "transparent", cursor: "pointer", transition: "all .2s" }}>
+            <span style={{ fontSize: 13 }}>{paused ? "▶" : "⏸"}</span>
+            <span style={{ fontFamily: mono, fontSize: 11, color: paused ? LIME : MUTED }}>{paused ? "retomar" : "pausar"}</span>
+          </button>
           {/* Arrows */}
           <div style={{ display: "flex", gap: 8 }}>
             {["←", "→"].map((arrow, dir) => (
@@ -545,9 +551,8 @@ function TeamCarousel() {
 
       {/* Track */}
       <div ref={trackRef} onScroll={onScroll} className="cl-track"
-        onMouseEnter={() => setPaused(true)}
-        onMouseLeave={() => setPaused(false)}
-        style={{ display: "flex", gap: GAP, scrollSnapType: "x mandatory", padding: "4px 64px 36px" } as React.CSSProperties}>
+        onClick={() => setPaused(p => !p)}
+        style={{ display: "flex", gap: GAP, scrollSnapType: "x mandatory", padding: "4px 64px 36px", cursor: paused ? "pointer" : "default" } as React.CSSProperties}>
         {TEAM.map((t, idx) => {
           const on = idx === active;
           return (
