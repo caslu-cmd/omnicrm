@@ -749,6 +749,14 @@ Responda APENAS JSON válido, sem markdown, sem texto extra:
       const agents = (plan.agents ?? []).filter((a) => validIds.has(a));
       if (agents.length === 0) agents.push("strategist", "copywriter");
 
+      // Divisor visual: Onda 1
+      addConvMsgs([{
+        id: `wave-divider-1-${Date.now()}`,
+        from: "system", to: "system",
+        content: `Onda 1 • Planejamento e primeira leva (${agents.length} agente${agents.length > 1 ? "s" : ""})`,
+        action: "wave-divider", timestamp: nowTs(), status: "done",
+      }]);
+
       // ARIA mostra o plano na conversa
       addConvMsgs([{
         id: `aria-plan-${Date.now()}`,
@@ -756,6 +764,13 @@ Responda APENAS JSON válido, sem markdown, sem texto extra:
         content: plan.plan || "Vou acionar o time.",
         action: "plan", timestamp: nowTs(), status: "done",
       }]);
+
+      // marca cada agente da onda 1
+      setAgentWaves((prev) => {
+        const next = { ...prev };
+        agents.forEach((a) => { next[a] = 1; });
+        return next;
+      });
 
       // ━━━━━━━━━━ PASSO 2 — Delegação ━━━━━━━━━━
       const delegationMsgs: AgentMsg[] = agents.map((agentId, i) => ({
