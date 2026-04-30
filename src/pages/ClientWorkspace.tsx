@@ -396,13 +396,25 @@ export default function ClientWorkspace() {
   const [searchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") ?? "";
   const [tasks, setTasks] = useState(MOCK_TASKS_TEMPLATE);
-  const [crmView, setCrmView] = useState<"contacts" | "pipeline">("contacts");
+  const [crmView, setCrmView] = useState<"contacts" | "pipeline" | "approvals" | "insights">("contacts");
   const [contactSearch, setContactSearch] = useState("");
   const [dbContacts, setDbContacts] = useState<any[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
   const [activeContact, setActiveContact] = useState<any | null>(null);
   const [showNewContact, setShowNewContact] = useState(false);
   const [newContactForm, setNewContactForm] = useState({ name: "", email: "", phone: "", company: "", channel: "", status: "Novo" });
+  const [pendingPosts, setPendingPosts] = useState<any[]>([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const [approvingId, setApprovingId] = useState<string | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+  const [showRejectModal, setShowRejectModal] = useState<string | null>(null);
+  const [insights, setInsights] = useState<any>(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [showDraftModal, setShowDraftModal] = useState(false);
+  const [draftAgent, setDraftAgent] = useState<any>(null);
+  const [draftForm, setDraftForm] = useState({ platforms: [] as string[], tone: "profissional e envolvente", topic: "" });
+  const [generatingDraft, setGeneratingDraft] = useState(false);
   const [agentCommand, setAgentCommand] = useState("");
   const [showCompleted, setShowCompleted] = useState(false);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
@@ -817,6 +829,98 @@ export default function ClientWorkspace() {
 
   useEffect(() => { if (id) loadDbContacts(); }, [id]);
 
+  const loadPendingPosts = async () => {
+    setPendingLoading(true);
+    const { data } = await supabase.from("scheduled_posts").select("*")
+      .eq("client_id", id ?? "").eq("status", "pending_approval")
+      .order("created_at", { ascending: false });
+    if (data) setPendingPosts(data);
+    setPendingLoading(false);
+  };
+
+  useEffect(() => { if (id) loadPendingPosts(); }, [id]);
+
+  const handleApprove = async (postId: string) => {
+    setApprovingId(postId);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { setApprovingId(null); return; }
+    const { data, error } = await supabase.functions.invoke("smm", {
+      body: { action: "approve-post", post_id: postId },
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    if (error || data?.error) {
+      alert(data?.error ?? "Erro ao aprovar.");
+    } else {
+      if (data?.linkedin_intent_url) window.open(data.linkedin_intent_url, "_blank");
+      loadPendingPosts();
+    }
+    setApprovingId(null);
+  };
+
+  const handleReject = async (postId: string) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    setRejectingId(postId);
+    await supabase.functions.invoke("smm", {
+      body: { action: "reject-post", post_id: postId, reason: rejectReason },
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    setShowRejectModal(null);
+    setRejectReason("");
+    setRejectingId(null);
+    loadPendingPosts();
+  };
+
+  const handleGenerateDraft = async () => {
+    if (!draftForm.topic.trim() || !draftForm.platforms.length) return;
+    setGeneratingDraft(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { setGeneratingDraft(false); return; }
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+    const res = await fetch(`${supabaseUrl}/functions/v1/ai-crm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}`, "apikey": anonKey },
+      body: JSON.stringify({
+        action: "generate-draft",
+        client_id: id,
+        client_name: client.name,
+        platforms: draftForm.platforms,
+        tone: draftForm.tone,
+        topic: draftForm.topic,
+        agent_id: draftAgent?.id,
+        agent_name: draftAgent?.name,
+      }),
+    });
+    const data = await res.json();
+    if (data?.error) { alert(data.error); }
+    else {
+      setShowDraftModal(false);
+      setDraftForm({ platforms: [], tone: "profissional e envolvente", topic: "" });
+      setCrmView("approvals");
+      loadPendingPosts();
+    }
+    setGeneratingDraft(false);
+  };
+
+  const loadInsights = async () => {
+    setInsightsLoading(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { setInsightsLoading(false); return; }
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+    const res = await fetch(`${supabaseUrl}/functions/v1/ai-crm`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}`, "apikey": anonKey },
+      body: JSON.stringify({ action: "analyze-performance", client_id: id }),
+    });
+    const data = await res.json();
+    if (!data?.error) setInsights(data);
+    setInsightsLoading(false);
+  };
+
+  useEffect(() => { if (crmView === "insights" && !insights) loadInsights(); }, [crmView]);
+
   const pipelineValue = client.pipeline.reduce((sum, d) => {
     const n = parseFloat(d.value.replace(/[^\d,]/g, "").replace(",", ".")) || 0;
     return sum + n;
@@ -1039,13 +1143,21 @@ export default function ClientWorkspace() {
                 {/* Sub-tabs */}
                 <div className="flex gap-1 p-1 rounded-xl w-fit"
                   style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                  {(["contacts", "pipeline"] as const).map((v) => (
-                    <button key={v} onClick={() => setCrmView(v)}
-                      className="px-4 py-1.5 rounded-lg text-xs font-medium transition-all"
+                  {([
+                    ["contacts",  "Leads"],
+                    ["pipeline",  "Pipeline"],
+                    ["approvals", `Aprovações${pendingPosts.length > 0 ? ` (${pendingPosts.length})` : ""}`],
+                    ["insights",  "Insights IA"],
+                  ] as const).map(([v, label]) => (
+                    <button key={v} onClick={() => setCrmView(v as any)}
+                      className="px-4 py-1.5 rounded-lg text-xs font-medium transition-all relative"
                       style={crmView === v
                         ? { background: `${client.color}22`, color: client.color, border: `1px solid ${client.color}30` }
                         : { color: "rgba(255,255,255,0.4)" }}>
-                      {v === "contacts" ? "Contatos" : "Pipeline"}
+                      {label}
+                      {v === "approvals" && pendingPosts.length > 0 && crmView !== "approvals" && (
+                        <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full" style={{ background: client.color }} />
+                      )}
                     </button>
                   ))}
                 </div>
@@ -1180,6 +1292,167 @@ export default function ClientWorkspace() {
                         );
                       })}
                     </div>
+                  </div>
+                )}
+
+                {/* ── APROVAÇÕES ── */}
+                {crmView === "approvals" && (
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>Fila de Aprovação</p>
+                        <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>Posts criados pelos agentes aguardando sua aprovação</p>
+                      </div>
+                      <button onClick={() => { setDraftAgent(null); setShowDraftModal(true); }}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold"
+                        style={{ background: client.color, color: "#07080A" }}>
+                        <Plus className="w-3.5 h-3.5" /> Solicitar post
+                      </button>
+                    </div>
+
+                    {pendingLoading && (
+                      <div className="flex justify-center py-10">
+                        <div className="h-5 w-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: client.color, borderTopColor: "transparent" }} />
+                      </div>
+                    )}
+
+                    {!pendingLoading && pendingPosts.length === 0 && (
+                      <div className="rounded-2xl py-12 flex flex-col items-center gap-3"
+                        style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.07)" }}>
+                        <CheckCircle2 className="w-8 h-8" style={{ color: "rgba(255,255,255,0.1)" }} />
+                        <p className="text-sm" style={{ color: "rgba(255,255,255,0.25)" }}>Nenhum post aguardando aprovação</p>
+                        <p className="text-xs" style={{ color: "rgba(255,255,255,0.15)" }}>Os agentes vão criar posts aqui para você revisar</p>
+                      </div>
+                    )}
+
+                    {!pendingLoading && pendingPosts.map((post) => (
+                      <div key={post.id} className="rounded-2xl p-4 space-y-3"
+                        style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${client.color}25` }}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-2 flex-wrap">
+                              {(post.platforms as string[]).map((p: string) => (
+                                <span key={p} className="text-[10px] font-medium px-2 py-0.5 rounded-full capitalize"
+                                  style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}>{p}</span>
+                              ))}
+                              {post.agent_id && (
+                                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full"
+                                  style={{ background: `${client.color}15`, color: client.color }}>
+                                  Agente: {post.agent_id}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-sm leading-relaxed whitespace-pre-line" style={{ color: "rgba(255,255,255,0.75)" }}>
+                              {post.caption}
+                            </p>
+                            <p className="text-[10px] mt-2" style={{ color: "rgba(255,255,255,0.25)" }}>
+                              Criado {new Date(post.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => handleApprove(post.id)}
+                            disabled={approvingId === post.id}
+                            className="flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
+                            style={{ background: client.color, color: "#07080A" }}>
+                            {approvingId === post.id
+                              ? <><RefreshCw className="w-3 h-3 animate-spin" /> Publicando…</>
+                              : <><CheckCircle2 className="w-3.5 h-3.5" /> Aprovar e publicar</>}
+                          </button>
+                          <button
+                            onClick={() => setShowRejectModal(post.id)}
+                            className="px-4 py-2 rounded-xl text-xs font-medium transition-all"
+                            style={{ background: "rgba(248,113,113,0.08)", color: "#F87171", border: "1px solid rgba(248,113,113,0.2)" }}>
+                            Rejeitar
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* Reject modal */}
+                    {showRejectModal && (
+                      <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.6)" }}>
+                        <div className="w-full max-w-sm rounded-2xl p-5 space-y-4" style={{ background: "#0D0D1A", border: "1px solid rgba(255,255,255,0.1)" }}>
+                          <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>Rejeitar post</p>
+                          <textarea
+                            value={rejectReason}
+                            onChange={e => setRejectReason(e.target.value)}
+                            placeholder="Motivo da rejeição (opcional)..."
+                            rows={3}
+                            className="w-full rounded-xl px-3 py-2 text-sm resize-none focus:outline-none"
+                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.8)" }}
+                          />
+                          <div className="flex gap-2">
+                            <button onClick={() => setShowRejectModal(null)} className="flex-1 py-2 rounded-xl text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>Cancelar</button>
+                            <button onClick={() => handleReject(showRejectModal)} disabled={!!rejectingId}
+                              className="flex-1 py-2 rounded-xl text-xs font-semibold disabled:opacity-50"
+                              style={{ background: "#F87171", color: "#07080A" }}>
+                              {rejectingId ? "Rejeitando…" : "Confirmar rejeição"}
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* ── INSIGHTS IA ── */}
+                {crmView === "insights" && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>Insights de Performance</p>
+                        <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>Claude analisa os posts publicados e sugere melhorias</p>
+                      </div>
+                      <button onClick={loadInsights} disabled={insightsLoading}
+                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all disabled:opacity-40"
+                        style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                        <RefreshCw className={`w-3 h-3 ${insightsLoading ? "animate-spin" : ""}`} /> Atualizar
+                      </button>
+                    </div>
+
+                    {insightsLoading && (
+                      <div className="flex flex-col items-center gap-3 py-10">
+                        <div className="h-6 w-6 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: client.color, borderTopColor: "transparent" }} />
+                        <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>Claude analisando posts…</p>
+                      </div>
+                    )}
+
+                    {!insightsLoading && !insights && (
+                      <div className="rounded-2xl py-12 flex flex-col items-center gap-3"
+                        style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.07)" }}>
+                        <TrendingUp className="w-8 h-8" style={{ color: "rgba(255,255,255,0.1)" }} />
+                        <p className="text-sm" style={{ color: "rgba(255,255,255,0.25)" }}>Nenhuma análise ainda</p>
+                        <p className="text-xs" style={{ color: "rgba(255,255,255,0.15)" }}>Publique posts para gerar insights</p>
+                      </div>
+                    )}
+
+                    {!insightsLoading && insights?.insights?.map((ins: any, i: number) => (
+                      <div key={i} className="rounded-xl p-4 space-y-1.5"
+                        style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${ins.tipo === "alerta" ? "rgba(248,113,113,0.2)" : ins.tipo === "melhoria" ? `${client.color}25` : "rgba(255,255,255,0.07)"}` }}>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full"
+                            style={ins.tipo === "alerta"
+                              ? { background: "rgba(248,113,113,0.1)", color: "#F87171" }
+                              : ins.tipo === "melhoria"
+                              ? { background: `${client.color}15`, color: client.color }
+                              : { background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)" }}>
+                            {ins.tipo}
+                          </span>
+                          <span className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>{ins.titulo}</span>
+                        </div>
+                        <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.6)" }}>{ins.descricao}</p>
+                        <p className="text-xs font-medium mt-1 pt-1" style={{ color: client.color, borderTop: "1px solid rgba(255,255,255,0.05)" }}>→ {ins.acao}</p>
+                      </div>
+                    ))}
+
+                    {!insightsLoading && insights?.proxima_sugestao && (
+                      <div className="rounded-xl p-4" style={{ background: `${client.color}0D`, border: `1px solid ${client.color}30` }}>
+                        <p className="text-[10px] font-semibold uppercase tracking-wider mb-1.5" style={{ color: client.color }}>Próximo post sugerido</p>
+                        <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.75)" }}>{insights.proxima_sugestao}</p>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1864,34 +2137,46 @@ export default function ClientWorkspace() {
                             </>
                           )}
 
-                          <div className="mt-auto flex gap-1.5">
+                          <div className="mt-auto flex flex-col gap-1.5">
+                            <div className="flex gap-1.5">
+                              <button
+                                onClick={() => {
+                                  setViewingAgentId(isViewing ? null : agent.id);
+                                  if (!isViewing) setSelectedAgentId(null);
+                                }}
+                                className="flex-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all"
+                                style={{
+                                  background: isViewing ? `${agent.color}22` : `${agent.color}08`,
+                                  color: agent.color,
+                                  border: `1px solid ${isViewing ? `${agent.color}45` : `${agent.color}20`}`,
+                                }}>
+                                {isViewing ? "▲ Fechar" : "Ver"}
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setSelectedAgentId(isSelected ? null : agent.id);
+                                  setViewingAgentId(null);
+                                  setAgentInstruction("");
+                                  clearAgentFile();
+                                }}
+                                className="flex-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all"
+                                style={{
+                                  background: isSelected ? `${agent.color}22` : `${agent.color}08`,
+                                  color: agent.color,
+                                  border: `1px solid ${isSelected ? `${agent.color}45` : `${agent.color}20`}`,
+                                }}>
+                                {isSelected ? "▲ Fechar" : "Dar instrução"}
+                              </button>
+                            </div>
                             <button
                               onClick={() => {
-                                setViewingAgentId(isViewing ? null : agent.id);
-                                if (!isViewing) setSelectedAgentId(null);
+                                setDraftAgent(agent);
+                                setDraftForm({ platforms: [], tone: "profissional e envolvente", topic: "" });
+                                setShowDraftModal(true);
                               }}
-                              className="flex-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all"
-                              style={{
-                                background: isViewing ? `${agent.color}22` : `${agent.color}08`,
-                                color: agent.color,
-                                border: `1px solid ${isViewing ? `${agent.color}45` : `${agent.color}20`}`,
-                              }}>
-                              {isViewing ? "▲ Fechar" : "Ver"}
-                            </button>
-                            <button
-                              onClick={() => {
-                                setSelectedAgentId(isSelected ? null : agent.id);
-                                setViewingAgentId(null);
-                                setAgentInstruction("");
-                                clearAgentFile();
-                              }}
-                              className="flex-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all"
-                              style={{
-                                background: isSelected ? `${agent.color}22` : `${agent.color}08`,
-                                color: agent.color,
-                                border: `1px solid ${isSelected ? `${agent.color}45` : `${agent.color}20`}`,
-                              }}>
-                              {isSelected ? "▲ Fechar" : "Dar instrução"}
+                              className="w-full py-1.5 rounded-lg text-[10px] font-semibold transition-all flex items-center justify-center gap-1"
+                              style={{ background: `${agent.color}12`, color: agent.color, border: `1px solid ${agent.color}25` }}>
+                              <Send className="w-3 h-3" /> Gerar post para aprovação
                             </button>
                           </div>
                         </motion.div>
@@ -3496,6 +3781,91 @@ export default function ClientWorkspace() {
           contact={activeContact}
           onClose={() => setActiveContact(null)}
         />
+      )}
+
+      {/* Generate Draft Modal */}
+      {showDraftModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}>
+          <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: "#0D0D1A", border: "1px solid rgba(255,255,255,0.1)" }}>
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+              <div>
+                <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.9)" }}>
+                  {draftAgent ? `${draftAgent.name} vai criar um post` : "Solicitar post com IA"}
+                </p>
+                {draftAgent && <p className="text-[10px] mt-0.5" style={{ color: draftAgent.color }}>{draftAgent.role}</p>}
+              </div>
+              <button onClick={() => setShowDraftModal(false)} style={{ color: "rgba(255,255,255,0.4)" }}>
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-5 space-y-4">
+              {/* Platforms */}
+              <div>
+                <label className="block text-xs font-medium mb-2" style={{ color: "rgba(255,255,255,0.4)" }}>Plataformas *</label>
+                <div className="flex gap-2 flex-wrap">
+                  {["instagram", "facebook", "linkedin"].map(p => {
+                    const sel = draftForm.platforms.includes(p);
+                    const colors: Record<string, string> = { instagram: "#E1306C", facebook: "#1877F2", linkedin: "#0A66C2" };
+                    return (
+                      <button key={p} onClick={() => setDraftForm(f => ({ ...f, platforms: sel ? f.platforms.filter(x => x !== p) : [...f.platforms, p] }))}
+                        className="px-3 py-1.5 rounded-xl text-xs font-medium capitalize transition-all"
+                        style={sel
+                          ? { background: `${colors[p]}20`, color: colors[p], border: `1px solid ${colors[p]}40` }
+                          : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                        {p}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Topic */}
+              <div>
+                <label className="block text-xs font-medium mb-2" style={{ color: "rgba(255,255,255,0.4)" }}>Tema / Objetivo do post *</label>
+                <textarea
+                  value={draftForm.topic}
+                  onChange={e => setDraftForm(f => ({ ...f, topic: e.target.value }))}
+                  placeholder="Ex: Promover lançamento do produto X, destacar benefício Y, engajar com pergunta sobre Z..."
+                  rows={3}
+                  className="w-full rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none"
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.8)" }}
+                />
+              </div>
+
+              {/* Tone */}
+              <div>
+                <label className="block text-xs font-medium mb-2" style={{ color: "rgba(255,255,255,0.4)" }}>Tom</label>
+                <div className="flex gap-2 flex-wrap">
+                  {["profissional e envolvente", "descontraído e divertido", "urgente e persuasivo", "educativo e informativo"].map(t => (
+                    <button key={t} onClick={() => setDraftForm(f => ({ ...f, tone: t }))}
+                      className="px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all"
+                      style={draftForm.tone === t
+                        ? { background: `${client.color}18`, color: client.color, border: `1px solid ${client.color}30` }
+                        : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.35)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 px-5 pb-5">
+              <button onClick={() => setShowDraftModal(false)} className="flex-1 py-2.5 rounded-xl text-sm" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                Cancelar
+              </button>
+              <button
+                onClick={handleGenerateDraft}
+                disabled={generatingDraft || !draftForm.topic.trim() || !draftForm.platforms.length}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 transition-all"
+                style={{ background: client.color, color: "#07080A" }}>
+                {generatingDraft
+                  ? <><RefreshCw className="w-4 h-4 animate-spin" /> Gerando…</>
+                  : <><Send className="w-4 h-4" /> Gerar e enviar para aprovação</>}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

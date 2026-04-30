@@ -140,6 +140,110 @@ Com base nesses dados, gere uma estratégia de vendas personalizada e objetiva. 
       return respond({ strategy });
     }
 
+    // ── Generate post draft ───────────────────────────────────────
+    if (action === "generate-draft") {
+      const { client_id, client_name, platforms, tone, topic, agent_id, agent_name } = body;
+      if (!client_id || !platforms?.length || !topic) return respond({ error: "client_id, platforms e topic são obrigatórios" }, 400);
+
+      const prompt = `Você é ${agent_name ?? "um especialista em marketing digital"} criando um post para o cliente "${client_name ?? "cliente"}".
+
+## Briefing
+- **Plataformas**: ${(platforms as string[]).join(", ")}
+- **Tom**: ${tone ?? "profissional e envolvente"}
+- **Tema/objetivo**: ${topic}
+
+## Sua tarefa
+Crie um post excelente e otimizado para as plataformas indicadas. Responda SOMENTE com JSON válido:
+
+{
+  "caption": "Legenda completa do post com emojis e hashtags. Máx 2200 caracteres. Adapte o tom para as plataformas.",
+  "hashtags": ["hashtag1", "hashtag2"],
+  "best_time": "Melhor horário para publicar (ex: 19:00 de terça)",
+  "rationale": "Por que esse conteúdo vai funcionar — em 1 frase."
+}`;
+
+      const anthropic = new Anthropic({ apiKey: anthropicKey });
+      const message = await anthropic.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1024,
+        messages: [{ role: "user", content: prompt }],
+      });
+
+      const raw = (message.content[0] as { type: string; text: string }).text.trim();
+      const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim();
+      let draft: { caption: string; hashtags: string[]; best_time: string; rationale: string };
+      try { draft = JSON.parse(cleaned); }
+      catch { return respond({ error: "IA retornou formato inesperado." }, 500); }
+
+      // Save as pending_approval post
+      const { data: { session } } = await supabase.auth.getSession().catch(() => ({ data: { session: null } }));
+      const { data: post, error: insertErr } = await supabase.from("scheduled_posts").insert({
+        user_id: userId,
+        client_id,
+        platforms,
+        caption: draft.caption,
+        media_url: null,
+        media_type: "text",
+        status: "pending_approval",
+        agent_id: agent_id ?? null,
+      }).select().single();
+      if (insertErr) return respond({ error: insertErr.message }, 500);
+
+      return respond({ success: true, post, draft });
+    }
+
+    // ── Analyze post performance ──────────────────────────────────
+    if (action === "analyze-performance") {
+      const { client_id } = body;
+      if (!client_id) return respond({ error: "client_id obrigatório" }, 400);
+
+      const { data: posts } = await supabase.from("scheduled_posts")
+        .select("id,platforms,caption,status,published_at,error_message,performance_note")
+        .eq("user_id", userId).eq("client_id", client_id)
+        .eq("status", "published").order("published_at", { ascending: false }).limit(10);
+
+      if (!posts?.length) return respond({ insights: [], message: "Nenhum post publicado ainda." });
+
+      const summary = posts.map((p, i) =>
+        `Post ${i + 1} [${(p.platforms as string[]).join("+")}] publicado em ${p.published_at ? new Date(p.published_at).toLocaleDateString("pt-BR") : "?"}:\n"${(p.caption ?? "").slice(0, 100)}..."`
+      ).join("\n\n");
+
+      const prompt = `Você é um analista de marketing digital analisando os últimos posts publicados para um cliente.
+
+## Posts recentes
+${summary}
+
+## Sua tarefa
+Analise os padrões e gere insights acionáveis. Responda SOMENTE com JSON:
+
+{
+  "insights": [
+    {
+      "tipo": "melhoria | padrão | alerta",
+      "titulo": "Título curto do insight",
+      "descricao": "O que observou e o que fazer — 2 frases no máximo.",
+      "acao": "Ação específica para o próximo post."
+    }
+  ],
+  "proxima_sugestao": "Sugestão concreta para o próximo post baseada nos dados."
+}`;
+
+      const anthropic = new Anthropic({ apiKey: anthropicKey });
+      const message = await anthropic.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 1024,
+        messages: [{ role: "user", content: prompt }],
+      });
+
+      const raw = (message.content[0] as { type: string; text: string }).text.trim();
+      const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim();
+      let result: unknown;
+      try { result = JSON.parse(cleaned); }
+      catch { return respond({ error: "IA retornou formato inesperado." }, 500); }
+
+      return respond(result);
+    }
+
     return respond({ error: "Ação inválida" }, 400);
   } catch (err) {
     console.error("ai-crm error:", err);

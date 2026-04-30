@@ -361,6 +361,91 @@ Deno.serve(async (req) => {
       return respond({ success: true });
     }
 
+    // ── Approve post ─────────────────────────────────────────────
+    if (action === "approve-post") {
+      const { post_id } = body;
+      if (!post_id) return respond({ error: "post_id obrigatório" }, 400);
+
+      const { data: post, error: fetchErr } = await supabase
+        .from("scheduled_posts").select("*").eq("id", post_id).eq("user_id", userId).single();
+      if (fetchErr || !post) return respond({ error: "Post não encontrado" }, 404);
+
+      // Mark approved
+      await supabase.from("scheduled_posts").update({
+        approved_by: userId,
+        approved_at: new Date().toISOString(),
+        status: "publishing",
+      }).eq("id", post_id);
+
+      // Publish to each platform
+      let fbPostId: string | null = null;
+      let igMediaId: string | null = null;
+      let errorMessage: string | null = null;
+      let linkedinIntentUrl: string | null = null;
+      const { caption, media_url, media_type, platforms, client_id, scheduled_at } = post;
+      const isScheduled = scheduled_at ? new Date(scheduled_at) > new Date() : false;
+
+      for (const platform of (platforms as string[])) {
+        const { data: conn } = await supabase.from("social_connections")
+          .select("account_id,access_token").eq("user_id", userId)
+          .eq("client_id", client_id).eq("platform", platform).eq("connected", true).maybeSingle();
+        if (!conn) continue;
+        const accessToken = deobfuscate(conn.access_token, encKey);
+        try {
+          if (platform === "facebook") {
+            const endpoint = media_url ? `${GRAPH}/${conn.account_id}/photos` : `${GRAPH}/${conn.account_id}/feed`;
+            const postBody: Record<string, unknown> = media_url
+              ? { url: media_url, caption: caption ?? "", access_token: accessToken }
+              : { message: caption ?? "", access_token: accessToken };
+            const res = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(postBody) });
+            const result = await res.json();
+            if (result.error) { errorMessage = result.error.message; }
+            else { fbPostId = result.post_id ?? result.id; }
+          } else if (platform === "instagram") {
+            if (!media_url) { errorMessage = "Instagram requer imagem"; continue; }
+            const containerRes = await fetch(`${GRAPH}/${conn.account_id}/media`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ image_url: media_url, caption: caption ?? "", access_token: accessToken }),
+            });
+            const containerData = await containerRes.json();
+            if (containerData.error) { errorMessage = containerData.error.message; continue; }
+            const publishRes = await fetch(`${GRAPH}/${conn.account_id}/media_publish`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ creation_id: containerData.id, access_token: accessToken }),
+            });
+            const published = await publishRes.json();
+            if (published.error) { errorMessage = published.error.message; }
+            else { igMediaId = published.id; }
+          } else if (platform === "linkedin") {
+            const text = media_url ? `${caption ?? ""}\n\n${media_url}`.trim() : (caption ?? "");
+            linkedinIntentUrl = `https://www.linkedin.com/intent/post?text=${encodeURIComponent(text)}`;
+          }
+        } catch (e) { errorMessage = e instanceof Error ? e.message : "Erro ao publicar"; }
+      }
+
+      const finalStatus = errorMessage ? "failed" : isScheduled ? "scheduled" : "published";
+      await supabase.from("scheduled_posts").update({
+        status: finalStatus,
+        published_at: finalStatus === "published" ? new Date().toISOString() : null,
+        fb_post_id: fbPostId,
+        ig_media_id: igMediaId,
+        error_message: errorMessage,
+      }).eq("id", post_id);
+
+      return respond({ success: true, status: finalStatus, error_message: errorMessage, linkedin_intent_url: linkedinIntentUrl });
+    }
+
+    // ── Reject post ──────────────────────────────────────────────
+    if (action === "reject-post") {
+      const { post_id, reason } = body;
+      if (!post_id) return respond({ error: "post_id obrigatório" }, 400);
+      const { error } = await supabase.from("scheduled_posts")
+        .update({ status: "rejected", rejection_reason: reason ?? null })
+        .eq("id", post_id).eq("user_id", userId);
+      if (error) return respond({ error: error.message }, 500);
+      return respond({ success: true });
+    }
+
     // ── Metrics ──────────────────────────────────────────────────
     if (action === "metrics") {
       const { client_id } = body;
