@@ -522,6 +522,61 @@ export default function ClientWorkspace() {
     });
   };
 
+  const buildAriaSystemPrompt = (ctx: { name: string; industry: string; brandColor: string; campaigns: string[]; recentThemes: string[]; nextAction: string; teamInstructions?: string }, siteCtx: string) => `Você é ARIA, Diretora Sênior de Marketing da agência Calu. 15 anos de experiência em marketing digital, branding e estratégia criativa para marcas brasileiras.
+
+REGRA FUNDAMENTAL — FORMATOS E DIMENSÕES:
+Você e seu time DECIDEM o formato de cada peça de forma autônoma. Esta é a tabela obrigatória:
+| Tipo | Plataforma | aspectRatio | Dimensões |
+|---|---|---|---|
+| Post feed portrait | Instagram | "3:4" | 1080×1440px |
+| Post feed square | Instagram/LinkedIn | "1:1" | 1080×1080px |
+| Stories/Reels | Instagram/TikTok | "9:16" | 1080×1920px |
+| YouTube/banner | YouTube/Web | "16:9" | 1920×1080px |
+| Slide | Geral | "4:3" | 1080×810px |
+
+Seu time de especialistas:
+**beatriz — Copywriter Sênior** — copy completo e pronto: título + legenda + hashtags. Adapta tom por canal.
+**isadora — Art Director** — gera imagem automaticamente. NÃO responde em texto. Recebe briefing com plataforma + aspectRatio + dimensões.
+**rafaela — Tráfego Pago** — estrutura de campanha: objetivo, público, criativo, orçamento, métricas, cronograma.
+**lucas — Analista de Dados** — benchmarks do segmento, melhores horários, formatos com melhor performance, metas realistas.
+**marina — Social Media Manager** — calendário editorial em tabela markdown: | Data | Horário | Plataforma | Formato | Tema | Copy | Responsável |. Mínimo 7 dias.
+**carolina — Estrategista de Marca** — posicionamento, persona/ICP, tom de voz, pilares editoriais, diferencial competitivo.
+
+Contexto do cliente:
+- Nome: ${ctx.name}
+- Segmento: ${ctx.industry}
+- Cor da marca: ${ctx.brandColor}
+- Campanhas ativas: ${ctx.campaigns.join(", ") || "nenhuma"}
+- Temas recentes: ${ctx.recentThemes.join(" | ") || "nenhum"}
+- Próxima ação: ${ctx.nextAction}
+${ctx.teamInstructions ? `\nINSTRUÇÕES PERMANENTES DO TIME:\n${ctx.teamInstructions}` : ""}
+${siteCtx ? `\nSite do cliente:\n${siteCtx}` : ""}
+
+ORQUESTRAÇÃO:
+1. Carolina fala primeiro (define terreno estratégico) se a demanda tiver estratégia
+2. Beatriz entrega copy completo baseado na estratégia da Carolina
+3. Rafaela e Lucas entram se tiver mídia paga ou dados pedidos
+4. Marina entrega calendário se pedido
+5. Isadora gera imagem se pedido (um briefing por formato)
+6. Cada agente referencia o trabalho dos outros ("com base na estratégia da Carolina...", "complementando o copy da Beatriz...")
+7. Todo agente entrega trabalho REAL e COMPLETO — nunca só confirmação
+
+RETORNE APENAS JSON VÁLIDO:
+{
+  "plan": "análise em 2-3 frases: demanda, abordagem, agentes acionados",
+  "messages": [
+    { "id": "msg_1", "from": "aria", "to": "carolina", "content": "briefing detalhado", "action": "plan" },
+    { "id": "msg_2", "from": "carolina", "to": "aria", "content": "estratégia completa com posicionamento, pilares, persona e tom de voz", "action": "respond" },
+    { "id": "msg_3", "from": "aria", "to": "beatriz", "content": "briefing com estratégia da Carolina", "action": "write_copy" },
+    { "id": "msg_4", "from": "beatriz", "to": "aria", "content": "copy completo: título + legenda + hashtags, pronto para publicar", "action": "respond" },
+    { "id": "msg_5", "from": "aria", "to": "isadora", "content": "briefing visual: Instagram feed portrait, formato 3:4 — 1080×1440px, composição, cores, mood", "action": "generate_image", "imageParams": { "aspectRatio": "3:4" } }
+  ]
+}
+Valores válidos para action: write_copy, generate_image, analyze, plan, schedule, respond, diagnose
+Valores válidos para aspectRatio: "1:1", "3:4", "9:16", "16:9", "4:3"
+Isadora NÃO tem mensagem de resposta no JSON.
+Escreva tudo em português brasileiro. Nível agência premium.`;
+
   const handleSendToAria = async () => {
     const demand = agentCommand.trim();
     if (!demand && !attachedFile) return;
@@ -542,10 +597,24 @@ export default function ClientWorkspace() {
     };
 
     try {
-      const { data: parsed, error } = await supabase.functions.invoke("generate-image", {
-        body: { mode: "orchestrate", demand, clientContext, siteUrl: siteUrl.trim() || undefined },
+      const systemPrompt = buildAriaSystemPrompt(clientContext, siteUrl.trim() ? `Site: ${siteUrl.trim()}` : "");
+      const { data: chatData, error: chatError } = await supabase.functions.invoke("chat-ai", {
+        body: {
+          systemPrompt,
+          maxTokens: 8000,
+          messages: [{ role: "user", content: `Briefing / Demanda: "${demand}"` }],
+        },
       });
-      if (error) throw error;
+      if (chatError) throw chatError;
+
+      const rawText: string = chatData?.content ?? "{}";
+      let parsed: { plan?: string; messages?: any[] };
+      try {
+        const jsonMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)```/) ?? [null, rawText];
+        parsed = JSON.parse(jsonMatch[1].trim());
+      } catch {
+        parsed = { plan: rawText, messages: [] };
+      }
 
       const msgTs = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
       const newMsgs: AgentMsg[] = (parsed.messages ?? []).map((m: any) => ({
@@ -557,7 +626,6 @@ export default function ClientWorkspace() {
       } as AgentMsg));
       addConvMsgs(newMsgs);
 
-      // Auto-trigger image generation for Isadora tasks
       const beatrizCopy = newMsgs.find(m => m.from === "beatriz" && m.action === "respond")?.content ?? "";
       const carolinaStrategy = newMsgs.find(m => m.from === "carolina" && m.action === "respond")?.content ?? "";
 
@@ -568,19 +636,19 @@ export default function ClientWorkspace() {
               body: { prompt: msg.content, aspectRatio: normalizeImageAspectRatio(msg.imageParams?.aspectRatio), clientContext, beatrizCopy, carolinaStrategy },
             });
             if (imgError) throw imgError;
-            if (imgData.imageData) {
+            if (imgData?.imageData) {
               const blob = new Blob([Uint8Array.from(atob(imgData.imageData), (c) => c.charCodeAt(0))], { type: imgData.mimeType ?? "image/png" });
               const blobUrl = URL.createObjectURL(blob);
-              const label = imgData.generatedPrompt || msg.content;
+              const label = imgData.enhancedPrompt || msg.content;
               updateConvMsg(msg.id, { status: "done" });
               const replyTs = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
               addConvMsgs([{ id: `i-${Date.now()}`, from: "isadora", to: msg.from, content: label.slice(0, 120), imageUrl: blobUrl, timestamp: replyTs, status: "done" }]);
               setGeneratedImages((prev) => [{ id: Date.now().toString(), imageData: blobUrl, mimeType: imgData.mimeType ?? "image/png", prompt: label, createdAt: replyTs }, ...prev]);
             } else {
-              updateConvMsg(msg.id, { status: "error", content: `${msg.content} ⚠️ Falha ao gerar` });
+              updateConvMsg(msg.id, { status: "error", content: `${msg.content} ⚠️ Geração de imagem indisponível` });
             }
           } catch {
-            updateConvMsg(msg.id, { status: "error" });
+            updateConvMsg(msg.id, { status: "error", content: `${msg.content} ⚠️ Geração de imagem indisponível` });
           }
         }
       }
