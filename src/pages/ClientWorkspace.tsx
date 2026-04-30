@@ -629,133 +629,175 @@ export default function ClientWorkspace() {
       teamInstructions: client.teamInstructions ?? undefined,
     };
 
+    const nowTs = () => new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+
+    // Mensagens curtas que ARIA envia para cada agente
+    const ARIA_DELEGATIONS: Record<string, string> = {
+      strategist: "Carolina, defina o terreno estratégico: posicionamento, personas, pilares e KPIs.",
+      copywriter: "Beatriz, escreva o copy completo aplicando psicologia do consumidor — gancho, body e CTA.",
+      traffic:    "Rafaela, monte o plano de tráfego pago: público, criativo, orçamento e métricas esperadas.",
+      analyst:    "Lucas, traga benchmarks, North Star Metric e metas de 30/60/90 dias.",
+      social:     "Marina, monte o calendário editorial completo de 7 dias em tabela.",
+      site:       "Valentina, traga a estratégia de SEO: keywords, clusters e títulos otimizados.",
+      designer:   "Isadora, escreva o briefing visual completo da peça (formato, paleta, mood).",
+    };
+
     try {
-      const ariaSystem = `Você é ARIA, Diretora Sênior de Marketing da Calu Agência. Você lidera um time de especialistas de alto nível. Cada agente entrega trabalho REAL, COMPLETO e PRONTO PARA USAR — nunca esboço ou confirmação.
+      // ━━━━━━━━━━ PASSO 1 — ARIA planeja (chamada curta) ━━━━━━━━━━
+      const planSystem = `Você é ARIA, Diretora Sênior de Marketing da Calu Agência.
+Decida QUAIS AGENTES acionar para a demanda. NÃO gere conteúdo agora.
+Agentes disponíveis (use exatamente esses IDs):
+- strategist (Carolina — Estrategista, posicionamento, personas, pilares)
+- copywriter (Beatriz — Copy, legendas, roteiros, anúncios)
+- traffic (Rafaela — Tráfego pago, campanhas, ads)
+- analyst (Lucas — Métricas, benchmarks, dados)
+- social (Marina — Calendário editorial, social media)
+- site (Valentina — SEO, blog, conteúdo orgânico)
+- designer (Isadora — Briefing visual, criativo)
 
-━━━ TIME DE ESPECIALISTAS ━━━
+Contexto: cliente "${clientContext.name}", segmento "${clientContext.industry}".
+${clientContext.teamInstructions ? `Instruções permanentes: ${clientContext.teamInstructions}` : ""}
 
-CAROLINA — Estrategista-Chefe
-Frameworks: AIDA, Jobs-to-be-Done, Blue Ocean. Entrega: posicionamento de marca + personas detalhadas (nome, dores, desejos, canais) + 3-5 pilares editoriais com nome e objetivo + tom de voz em 3 adjetivos + proposta de valor única + estratégia por fase do funil + KPIs prioritários. Sempre fala primeiro — define o terreno estratégico que todos seguem.
+Responda APENAS JSON válido, sem markdown, sem texto extra:
+{"plan":"2 frases curtas explicando a abordagem","agents":["strategist","copywriter"]}`;
 
-BEATRIZ — Copywriter Sênior & Psicologia do Consumidor
-Frameworks: PAS, AIDA, StoryBrand. Aplica os 6 princípios de Cialdini (escassez, prova social, autoridade, reciprocidade, compromisso, simpatia) e psicologia comportamental (Kahneman, BJ Fogg). Conecta dores emocionais profundas com a solução. Entrega: copy 100% pronto — gancho que para o scroll + desenvolvimento que ativa sistema límbico + CTA irresistível + hashtags estratégicas. Para Reels: roteiro cena a cena com narração. Para anúncios: headline + body + CTA. Referencia a estratégia da Carolina.
-
-RAFAELA — Especialista em Tráfego Pago
-Plataformas: Meta Ads, Google Ads, LinkedIn Ads, TikTok Ads. Entrega: objetivo da campanha + público primário (demográfico + interesses + comportamentos) + lookalike/retargeting + criativo recomendado (formato + copy + visual) + orçamento diário e mensal + métricas esperadas (CPC, CPL, ROAS, CTR) + cronograma + testes A/B. Calcula ROAS e LTV para justificar cada real investido.
-
-LUCAS — Analista de Performance & Dados
-Entrega: benchmarks reais do segmento + North Star Metric definida + análise competitiva com gaps identificados + melhores horários por plataforma para o nicho + formatos com melhor performance no setor + metas numéricas de 30/60/90 dias (seguidores, leads, conversões, receita) + 3 KPIs prioritários + recomendações acionáveis baseadas em dados.
-
-MARINA — Gestora de Redes Sociais
-Conhecimento profundo dos algoritmos de cada plataforma. Regra 80/20 (educativo + entretenimento + venda). Entrega: calendário editorial completo em tabela markdown (mínimo 7 dias):
-| Data | Dia | Horário | Plataforma | Formato | Pilar | Tema/Gancho | Copy (resumo) | Responsável |
-Explica a lógica de distribuição de pilares e frequência ideal por canal.
-
-VALENTINA — Especialista em SEO & Conteúdo Orgânico
-Entrega: pesquisa de palavras-chave com intenção de busca (informacional/comercial/transacional) + clusters de conteúdo para dominar o tópico + estratégia de link building + otimização para buscas por IA + títulos e meta descriptions prontos + análise de concorrência orgânica + gaps de conteúdo a explorar. Acionada quando a demanda envolve SEO, blog, conteúdo orgânico ou visibilidade no Google.
-
-ISADORA — Art Director Sênior
-Acionada quando a demanda inclui criativo, imagem ou visual. NÃO responde em texto — gera imagem automaticamente. Briefing SEMPRE inclui: plataforma + formato + aspectRatio + composição + cores + mood.
-
-━━━ CONTEXTO DO CLIENTE ━━━
-Nome: ${clientContext.name} | Segmento: ${clientContext.industry} | Cor da marca: ${clientContext.brandColor}
-Campanhas ativas: ${clientContext.campaigns.join(", ") || "nenhuma"}
-${clientContext.teamInstructions ? `INSTRUÇÕES PERMANENTES DO CLIENTE (seguir sempre): ${clientContext.teamInstructions}` : ""}
-
-━━━ ORQUESTRAÇÃO ━━━
-Carolina entra SEMPRE quando há estratégia, posicionamento ou conteúdo.
-Beatriz entra SEMPRE quando há copy, legenda, roteiro ou anúncio.
-Rafaela entra se houver tráfego pago ou campanha.
-Lucas entra se pedirem métricas, benchmarks ou planejamento de performance.
-Marina entra se pedirem calendário ou planejamento de publicações.
-Valentina entra se houver SEO, blog ou conteúdo orgânico.
-Isadora entra se houver imagem ou criativo visual.
-Agentes REFERENCIAM o trabalho dos outros explicitamente.
-
-FORMATOS Isadora: "3:4"=feed portrait (1080x1440), "1:1"=square (1080x1080), "9:16"=stories/reels (1080x1920), "16:9"=banner (1920x1080)
-
-RETORNE APENAS JSON VÁLIDO:
-{"plan":"análise em 2-3 frases: o que foi pedido, quais agentes e o que cada um entregará","messages":[{"id":"msg_1","from":"aria","to":"carolina","content":"briefing detalhado","action":"plan"},{"id":"msg_2","from":"carolina","to":"aria","content":"estratégia completa e detalhada pronta para usar","action":"respond"},{"id":"msg_3","from":"aria","to":"beatriz","content":"briefing com base na estratégia da Carolina","action":"write_copy"},{"id":"msg_4","from":"beatriz","to":"aria","content":"copy completo e pronto para publicar com psicologia aplicada","action":"respond"},{"id":"msg_5","from":"aria","to":"user","content":"resumo executivo e próximos passos","action":"respond"}]}
-
-Actions válidas: write_copy, generate_image, analyze, plan, schedule, respond, diagnose
-Português brasileiro. Entrega real e completa — nunca esboço ou confirmação.`;
-
-      const { data: chatData, error: chatError } = await supabase.functions.invoke("chat-ai", {
+      const { data: planData, error: planError } = await supabase.functions.invoke("chat-ai", {
         body: {
-          systemPrompt: ariaSystem,
-          maxTokens: 8000,
-          model: "claude-sonnet-4-6",
-          messages: [{ role: "user", content: `Briefing: "${demand}"` }],
+          systemPrompt: planSystem,
+          maxTokens: 300,
+          messages: [{ role: "user", content: `Demanda: "${demand}"` }],
         },
       });
-      if (chatError) throw chatError;
+      if (planError) throw planError;
 
-      const rawText: string = chatData?.content ?? "{}";
-      let parsed: { plan?: string; messages?: any[] };
+      const planRaw: string = planData?.content ?? "{}";
+      let plan: { plan: string; agents: string[] } = { plan: "", agents: [] };
       try {
-        // tenta code block → JSON solto na resposta → texto completo
-        const fromBlock = rawText.match(/```(?:json)?\s*([\s\S]*?)```/)?.[1]?.trim();
-        const fromRaw   = rawText.match(/(\{[\s\S]*\})/)?.[1]?.trim();
-        parsed = JSON.parse(fromBlock ?? fromRaw ?? rawText);
+        const fromBlock = planRaw.match(/```(?:json)?\s*([\s\S]*?)```/)?.[1]?.trim();
+        const fromRaw   = planRaw.match(/(\{[\s\S]*\})/)?.[1]?.trim();
+        plan = JSON.parse(fromBlock ?? fromRaw ?? planRaw);
       } catch {
-        // fallback: mostra o texto bruto como mensagem da ARIA
-        parsed = {
-          plan: rawText,
-          messages: rawText.trim()
-            ? [{ id: "fallback", from: "aria", to: "user", content: rawText, action: "respond" }]
-            : [],
+        plan = { plan: planRaw.slice(0, 240), agents: ["strategist", "copywriter"] };
+      }
+
+      const validIds = new Set(Object.keys(AGENT_PROMPTS));
+      const agents = (plan.agents ?? []).filter((a) => validIds.has(a));
+      if (agents.length === 0) agents.push("strategist", "copywriter");
+
+      // ARIA mostra o plano na conversa
+      addConvMsgs([{
+        id: `aria-plan-${Date.now()}`,
+        from: "aria", to: "user",
+        content: plan.plan || "Vou acionar o time.",
+        action: "plan", timestamp: nowTs(), status: "done",
+      }]);
+
+      // ━━━━━━━━━━ PASSO 2 — Delegação ━━━━━━━━━━
+      const delegationMsgs: AgentMsg[] = agents.map((agentId, i) => ({
+        id: `aria-deleg-${Date.now()}-${i}`,
+        from: "aria", to: agentId,
+        content: ARIA_DELEGATIONS[agentId] ?? `${agentId}, entregue sua parte da demanda.`,
+        action: "plan", timestamp: nowTs(), status: "done",
+      }));
+      addConvMsgs(delegationMsgs);
+
+      // marca todos como aguardando + define deadline (~2 min por agente)
+      const newDeadlines: Record<string, string> = {};
+      const baseTasks = { ...client.agentTasks };
+      agents.forEach((agentId, i) => {
+        const deadline = new Date(Date.now() + (i + 1) * 2 * 60_000);
+        newDeadlines[agentId] = deadline.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+        baseTasks[agentId] = {
+          current: ARIA_DELEGATIONS[agentId] ?? "Aguardando início",
+          status: "aguardando",
+          recent: baseTasks[agentId]?.recent ?? [],
+          progress: 0,
         };
-      }
+      });
+      setAgentDeadlines((prev) => ({ ...prev, ...newDeadlines }));
+      if (id) updateClient(id, { agentTasks: baseTasks });
 
-      const msgTs = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-      const newMsgs: AgentMsg[] = (parsed.messages ?? []).map((m: any) => ({
-        id: m.id ?? `m-${Date.now()}-${Math.random()}`,
-        from: m.from, to: m.to, content: m.content,
-        action: m.action, imageParams: m.imageParams,
-        timestamp: msgTs,
-        status: m.action === "generate_image" ? "processing" : "done",
-      } as AgentMsg));
-      addConvMsgs(newMsgs);
+      // ━━━━━━━━━━ PASSO 3 — Execução sequencial ━━━━━━━━━━
+      const accumulated: Record<string, string> = {};
 
-      // salva output de cada agente para exibir nos cards
-      const newOutputs: Record<string, string> = {};
-      for (const m of newMsgs) {
-        if ((m.action === "respond" || m.action === "write_copy") && m.from !== "aria" && m.from !== "user" && m.content) {
-          newOutputs[m.from] = m.content;
+      for (const agentId of agents) {
+        // (a) marca como trabalhando
+        const workingTasks = { ...client.agentTasks, ...baseTasks };
+        workingTasks[agentId] = {
+          current: ARIA_DELEGATIONS[agentId] ?? "Trabalhando…",
+          status: "trabalhando",
+          recent: workingTasks[agentId]?.recent ?? [],
+          progress: 25,
+        };
+        if (id) updateClient(id, { agentTasks: workingTasks });
+
+        // (b) chama o agente individualmente
+        const ctxBlock = `Cliente: ${clientContext.name} | Segmento: ${clientContext.industry} | Cor: ${clientContext.brandColor}
+Campanhas ativas: ${clientContext.campaigns.join(", ") || "nenhuma"}
+${clientContext.teamInstructions ? `Instruções permanentes: ${clientContext.teamInstructions}` : ""}
+${accumulated.strategist ? `\nESTRATÉGIA DA CAROLINA (referencie):\n${accumulated.strategist.slice(0, 1500)}` : ""}
+${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copywriter.slice(0, 1000)}` : ""}`;
+
+        let outputText = "";
+        try {
+          const { data: agData, error: agErr } = await supabase.functions.invoke("chat-ai", {
+            body: {
+              systemPrompt: AGENT_PROMPTS[agentId],
+              maxTokens: 2500,
+              messages: [{
+                role: "user",
+                content: `Demanda do cliente: "${demand}"\n\n${ctxBlock}`,
+              }],
+            },
+          });
+          if (agErr) throw agErr;
+          outputText = (agData?.content ?? "").trim();
+        } catch (e) {
+          outputText = `*Erro ao executar este agente: ${e instanceof Error ? e.message : String(e)}*`;
         }
-      }
-      if (Object.keys(newOutputs).length > 0) setAgentOutputs(prev => ({ ...prev, ...newOutputs }));
 
-      const beatrizCopy = newMsgs.find(m => m.from === "beatriz" && m.action === "respond")?.content ?? "";
-      const carolinaStrategy = newMsgs.find(m => m.from === "carolina" && m.action === "respond")?.content ?? "";
+        // (c) salva output completo
+        accumulated[agentId] = outputText;
+        setAgentOutputs((prev) => ({ ...prev, [agentId]: outputText }));
 
-      for (const msg of newMsgs) {
-        if (msg.action === "generate_image" && msg.to === "isadora") {
-          try {
-            const { data: imgData, error: imgError } = await supabase.functions.invoke("generate-image", {
-              body: { prompt: msg.content, aspectRatio: normalizeImageAspectRatio(msg.imageParams?.aspectRatio), clientContext, beatrizCopy, carolinaStrategy },
-            });
-            if (imgError) throw imgError;
-            if (imgData?.imageData) {
-              const blob = new Blob([Uint8Array.from(atob(imgData.imageData), (c) => c.charCodeAt(0))], { type: imgData.mimeType ?? "image/png" });
-              const blobUrl = URL.createObjectURL(blob);
-              const label = imgData.enhancedPrompt || msg.content;
-              updateConvMsg(msg.id, { status: "done" });
-              const replyTs = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-              addConvMsgs([{ id: `i-${Date.now()}`, from: "isadora", to: msg.from, content: label.slice(0, 120), imageUrl: blobUrl, timestamp: replyTs, status: "done" }]);
-              setGeneratedImages((prev) => [{ id: Date.now().toString(), imageData: blobUrl, mimeType: imgData.mimeType ?? "image/png", prompt: label, createdAt: replyTs }, ...prev]);
-            } else if (imgData?.imageBrief) {
-              updateConvMsg(msg.id, { status: "done" });
-              const replyTs = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-              addConvMsgs([{ id: `i-${Date.now()}`, from: "isadora", to: msg.from, content: imgData.imageBrief, timestamp: replyTs, status: "done" }]);
-            } else {
-              updateConvMsg(msg.id, { status: "done", content: `${msg.content}` });
-            }
-          } catch {
-            updateConvMsg(msg.id, { status: "done", content: msg.content });
-          }
-        }
+        // (d) marca como concluído
+        const doneTasks = { ...client.agentTasks, ...baseTasks };
+        Object.keys(accumulated).forEach((aId) => {
+          doneTasks[aId] = {
+            current: "Entrega concluída",
+            status: "concluído",
+            recent: ["Entrega pronta para revisão", ...(doneTasks[aId]?.recent ?? [])].slice(0, 3),
+            progress: 100,
+          };
+        });
+        // os que ainda não rodaram seguem aguardando
+        agents.filter((a) => !accumulated[a]).forEach((a) => {
+          doneTasks[a] = {
+            current: ARIA_DELEGATIONS[a] ?? "Aguardando",
+            status: "aguardando",
+            recent: doneTasks[a]?.recent ?? [],
+            progress: 0,
+          };
+        });
+        if (id) updateClient(id, { agentTasks: doneTasks });
+
+        // (e) primeiro parágrafo na conversa
+        const firstPara = outputText.split(/\n\s*\n/)[0]?.replace(/^#+\s*/g, "").trim() ?? outputText;
+        addConvMsgs([{
+          id: `${agentId}-${Date.now()}`,
+          from: agentId, to: "aria",
+          content: firstPara.slice(0, 300) + (firstPara.length > 300 ? "…" : ""),
+          action: "respond", timestamp: nowTs(), status: "done",
+        }]);
       }
+
+      // ━━━━━━━━━━ PASSO 4 — ARIA conclui ━━━━━━━━━━
+      addConvMsgs([{
+        id: `aria-end-${Date.now()}`,
+        from: "aria", to: "user",
+        content: `✅ ${agents.length} agente(s) concluíram. Veja as entregas completas nos cards abaixo.`,
+        action: "respond", timestamp: nowTs(), status: "done",
+      }]);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
       addConvMsgs([{ id: `e-${Date.now()}`, from: "aria", to: "user", content: `Erro: ${errMsg}`, timestamp: ts, status: "error" }]);
