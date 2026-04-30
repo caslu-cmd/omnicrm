@@ -3490,14 +3490,13 @@ export default function ClientWorkspace() {
         </div>
       )}
 
+      {/* Activity Panel */}
+      {activeContact && (
+        <ContactActivityPanel
+          contact={activeContact}
+          onClose={() => setActiveContact(null)}
+        />
+      )}
     </div>
-
-    {/* Activity Panel */}
-    {activeContact && (
-      <ContactActivityPanel
-        contact={activeContact}
-        onClose={() => setActiveContact(null)}
-      />
-    )}
   );
 }
