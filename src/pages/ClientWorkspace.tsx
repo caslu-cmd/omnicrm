@@ -221,6 +221,46 @@ Entregue em markdown um BRIEFING VISUAL completo, pronto para gerar a peça:
 - Elementos gráficos sugeridos
 Referencie a estratégia da Carolina e o copy da Beatriz quando disponíveis.
 Português brasileiro.`,
+
+  sales: `Você é EDUARDO, Agente de Vendas da Calu Agência. Especialista em WhatsApp, qualificação e CRM.
+Entregue em markdown:
+- Script de abordagem inicial no WhatsApp (mensagem 1, 2, 3)
+- Perguntas de qualificação (BANT ou SPIN)
+- Tratamento das 3 principais objeções com resposta pronta
+- Mensagem de follow-up (24h, 3 dias, 7 dias)
+- Gatilho de passagem para o pipeline (quando marcar como qualificado)
+- Sugestão de CTA para fechamento.
+Português brasileiro, tom consultivo e humano.`,
+
+  briefing: `Você é LIA, Agente de Diagnóstico da Calu Agência. Faz onboarding e diagnóstico inicial.
+Entregue em markdown:
+- 10 perguntas de briefing personalizadas para o segmento do cliente
+- Diagnóstico de cenário atual (forças, fraquezas, oportunidades)
+- 3 hipóteses estratégicas iniciais para validar
+- Próximos passos do onboarding (checklist com 5 itens)
+- Recomendação inicial de pacote / serviço.
+Português brasileiro, tom acolhedor e consultivo.`,
+
+  revisor: `Você é VITÓRIA, Revisora da Calu Agência. Especialista em ortografia, gramática e estrutura textual.
+Entregue em markdown:
+- Revisão dos textos disponíveis no contexto (copy da Beatriz, materiais da Carolina, etc.)
+- Lista de correções aplicadas (ortografia, concordância, pontuação)
+- Sugestões de melhoria de clareza e fluidez
+- Versão final revisada pronta para publicar
+- Checklist de qualidade (tom de voz, gramática, CTA, ortografia).
+Se não houver texto no contexto, peça o material a ser revisado.
+Português brasileiro impecável.`,
+
+  video: `Você é BOBBY, Editor de Vídeo da Calu Agência. Domina cortes, efeitos, legendas animadas e color grade.
+Entregue em markdown um briefing completo de edição:
+- Estrutura do vídeo (gancho 0-3s, desenvolvimento, CTA)
+- Cortes recomendados (rápido/lento) com timestamps sugeridos
+- Efeitos visuais (transições, zoom, glitch, etc.)
+- Estilo de legendas (fonte, posição, animação, cor)
+- Color grade (mood: cinematográfico, vibrante, clean, etc.)
+- Trilha sonora sugerida (estilo + BPM)
+- Formato de exportação (Reels 9:16, YouTube 16:9, etc.).
+Português brasileiro.`,
 };
 
 // ── CRM Pipeline Stages ────────────────────────────────────────
@@ -406,6 +446,13 @@ const AGENT_META: Record<string, { initial: string; color: string; name: string 
   social:     { initial: "M", color: "#60A5FA", name: "Marina" },
   site:       { initial: "V", color: "#E879F9", name: "Valentina" },
   designer:   { initial: "I", color: "#F472B6", name: "Isadora" },
+  sales:      { initial: "E", color: "#F59E0B", name: "Eduardo" },
+  briefing:   { initial: "L", color: "#38BDF8", name: "Lia" },
+  revisor:    { initial: "V", color: "#EC4899", name: "Vitória" },
+  video:      { initial: "🎬", color: "#B9FF4B", name: "Bobby" },
+  eduardo:    { initial: "E", color: "#F59E0B", name: "Eduardo" },
+  vitoria:    { initial: "V", color: "#EC4899", name: "Vitória" },
+  bobby:      { initial: "🎬", color: "#B9FF4B", name: "Bobby" },
 };
 
 const normalizeImageAspectRatio = (ratio?: string) => {
@@ -640,6 +687,10 @@ export default function ClientWorkspace() {
       social:     "Marina, monte o calendário editorial completo de 7 dias em tabela.",
       site:       "Valentina, traga a estratégia de SEO: keywords, clusters e títulos otimizados.",
       designer:   "Isadora, escreva o briefing visual completo da peça (formato, paleta, mood).",
+      sales:      "Eduardo, monte o script de WhatsApp + qualificação + objeções + follow-up.",
+      briefing:   "Lia, faça o diagnóstico inicial e monte o briefing de onboarding.",
+      revisor:    "Vitória, revise os textos do contexto e entregue a versão final corrigida.",
+      video:      "Bobby, monte o briefing de edição do vídeo (cortes, efeitos, legendas, color).",
     };
 
     try {
@@ -654,6 +705,12 @@ Agentes disponíveis (use exatamente esses IDs):
 - social (Marina — Calendário editorial, social media)
 - site (Valentina — SEO, blog, conteúdo orgânico)
 - designer (Isadora — Briefing visual, criativo)
+- sales (Eduardo — WhatsApp, vendas, qualificação de leads, CRM)
+- briefing (Lia — Diagnóstico, onboarding, briefing inicial de novos clientes)
+- revisor (Vitória — Revisão ortográfica e gramatical de textos prontos)
+- video (Bobby — Edição de vídeo: cortes, efeitos, legendas, color grade)
+
+Escolha SOMENTE os agentes que realmente fazem sentido para a demanda. Mínimo 1, máximo 5.
 
 Contexto: cliente "${clientContext.name}", segmento "${clientContext.industry}".
 ${clientContext.teamInstructions ? `Instruções permanentes: ${clientContext.teamInstructions}` : ""}
