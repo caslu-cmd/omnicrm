@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -93,20 +94,36 @@ const ProtectedRoutes = () => {
   );
 };
 
+const EntrarRoute = () => {
+  const { session, loading } = useAuth();
+  if (loading) return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#080808" }}>
+      <style>{`@keyframes _spin{to{transform:rotate(360deg)}}`}</style>
+      <div style={{ width: 36, height: 36, border: "3px solid rgba(185,255,75,.15)", borderTopColor: "#B9FF4B", borderRadius: "50%", animation: "_spin .75s linear infinite" }} />
+    </div>
+  );
+  return session ? <Navigate to="/dashboard" replace /> : <AuthPage />;
+};
+
+const SairRoute = () => {
+  const { signOut } = useAuth();
+  useEffect(() => { signOut().then(() => window.location.replace("/entrar")); }, []);
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#080808" }}>
+      <style>{`@keyframes _spin{to{transform:rotate(360deg)}}`}</style>
+      <div style={{ width: 36, height: 36, border: "3px solid rgba(185,255,75,.15)", borderTopColor: "#B9FF4B", borderRadius: "50%", animation: "_spin .75s linear infinite" }} />
+    </div>
+  );
+};
+
 const AppRoutes = () => {
   const { session, loading } = useAuth();
 
   return (
     <Routes>
       <Route path="/auth" element={loading ? null : session ? <Navigate to="/dashboard" replace /> : <AuthPage />} />
-      <Route path="/entrar" element={
-        loading
-          ? <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#080808"}}>
-              <style>{`@keyframes _spin{to{transform:rotate(360deg)}}`}</style>
-              <div style={{width:36,height:36,border:"3px solid rgba(185,255,75,.15)",borderTopColor:"#B9FF4B",borderRadius:"50%",animation:"_spin .75s linear infinite"}} />
-            </div>
-          : session ? <Navigate to="/dashboard" replace /> : <AuthPage />
-      } />
+      <Route path="/entrar" element={<EntrarRoute />} />
+      <Route path="/sair" element={<SairRoute />} />
       {/* Páginas públicas */}
       <Route path="/portal/:clientId" element={<ClientPortal />} />
       <Route path="/portal" element={<ClientPortal />} />
