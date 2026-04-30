@@ -2508,6 +2508,27 @@ ${priorBlock}`;
                     </div>
                     <div className="p-4 space-y-3 max-h-[600px] overflow-y-auto">
                       {agentConversations.map((msg) => {
+                        // Divisor visual de Onda
+                        if (msg.action === "wave-divider") {
+                          return (
+                            <motion.div key={msg.id}
+                              initial={{ opacity: 0, scaleX: 0.85 }} animate={{ opacity: 1, scaleX: 1 }}
+                              className="flex items-center gap-3 py-2 px-1 my-1">
+                              <div className="h-px flex-1" style={{ background: "linear-gradient(to right, transparent, rgba(185,255,75,0.35))" }} />
+                              <div
+                                className="flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider"
+                                style={{
+                                  background: "rgba(185,255,75,0.1)",
+                                  border: "1px solid rgba(185,255,75,0.3)",
+                                  color: "#B9FF4B",
+                                }}>
+                                🌊 {msg.content}
+                              </div>
+                              <div className="h-px flex-1" style={{ background: "linear-gradient(to left, transparent, rgba(185,255,75,0.35))" }} />
+                            </motion.div>
+                          );
+                        }
+
                         const fromMeta = AGENT_META[msg.from] ?? { initial: msg.from[0]?.toUpperCase(), color: "#888", name: msg.from };
                         const toMeta   = AGENT_META[msg.to]   ?? { initial: msg.to[0]?.toUpperCase(),   color: "#888", name: msg.to };
                         const isExpanded = expandedMsg === msg.id;
