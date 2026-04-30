@@ -542,8 +542,8 @@ export default function ClientWorkspace() {
     };
 
     try {
-      const { data: parsed, error } = await supabase.functions.invoke("aria-orchestrate", {
-        body: { demand, clientContext, siteUrl: siteUrl.trim() || undefined },
+      const { data: parsed, error } = await supabase.functions.invoke("generate-image", {
+        body: { mode: "orchestrate", demand, clientContext, siteUrl: siteUrl.trim() || undefined },
       });
       if (error) throw error;
 

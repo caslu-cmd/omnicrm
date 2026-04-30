@@ -48,7 +48,7 @@ async function scrapeSite(url: string): Promise<string> {
 }
 
 // ─── ARIA: Senior Marketing Director ─────────────────────────────────────────
-async function orchestrate(demand: string, clientContext: Record<string, unknown>, lovableKey: string, siteUrl?: string) {
+async function orchestrate(demand: string, clientContext: Record<string, unknown>, anthropicKey: string, siteUrl?: string) {
   const ctx = clientContext ?? {};
   const siteContext = siteUrl ? await scrapeSite(siteUrl) : "";
 
@@ -164,23 +164,25 @@ REGRAS CRÍTICAS:
 - Escreva tudo em português brasileiro
 - Nível agência premium: entrega pronta para uso imediato`;
 
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: { Authorization: `Bearer ${lovableKey}`, "content-type": "application/json" },
+    headers: {
+      "x-api-key": anthropicKey,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
     body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
-      response_format: { type: "json_object" },
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: `Demanda do cliente: "${demand}"` },
-      ],
+      model: "claude-sonnet-4-6",
+      max_tokens: 8000,
+      system: systemPrompt,
+      messages: [{ role: "user", content: `Demanda do cliente: "${demand}"` }],
     }),
   });
 
-  if (!response.ok) throw new Error(`Lovable AI error: ${await response.text()}`);
+  if (!response.ok) throw new Error(`Anthropic error: ${await response.text()}`);
 
   const data = await response.json();
-  const text = data.choices?.[0]?.message?.content ?? "{}";
+  const text = data.content?.[0]?.text ?? "{}";
   try {
     const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, text];
     return normalizeGeneratedMessages(JSON.parse(jsonMatch[1].trim()));
@@ -347,11 +349,11 @@ Deno.serve(async (req) => {
       if (!demand) return new Response(JSON.stringify({ error: "demand is required" }), {
         status: 400, headers: { ...cors, "Content-Type": "application/json" },
       });
-      const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-      if (!lovableKey) return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
+      const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+      if (!anthropicKey) return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }), {
         status: 500, headers: { ...cors, "Content-Type": "application/json" },
       });
-      const result = await orchestrate(demand, clientContext ?? {}, lovableKey, siteUrl);
+      const result = await orchestrate(demand, clientContext ?? {}, anthropicKey, siteUrl);
       return new Response(JSON.stringify(result), { headers: { ...cors, "Content-Type": "application/json" } });
     }
 
