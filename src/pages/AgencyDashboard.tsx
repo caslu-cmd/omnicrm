@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
   Users, Megaphone, Calendar, TrendingUp,
-  ArrowRight, MessageSquare, Plus, Zap, X
+  ArrowRight, MessageSquare, Plus, Zap, X, Trash2, AlertTriangle
 } from "lucide-react";
 import { useClients } from "@/contexts/ClientsContext";
 import { toast } from "sonner";
@@ -24,8 +24,9 @@ const COLOR_OPTIONS = [
 export default function AgencyDashboard() {
   const navigate = useNavigate();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const { clients: CLIENTS, addClient } = useClients();
+  const { clients: CLIENTS, addClient, deleteClient } = useClients();
   const [showNewClient, setShowNewClient] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
   const [form, setForm] = useState({
     name: "", industry: "", status: "Onboarding" as "Ativo" | "Onboarding" | "Em pausa",
     revenue: "", color: "#B9FF4B",
@@ -282,9 +283,14 @@ export default function AgencyDashboard() {
                     >
                       Ver workspace <ArrowRight className="w-3 h-3" />
                     </button>
-                    <button className="w-10 flex items-center justify-center rounded-xl transition-colors"
-                      style={{ border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.3)" }}>
-                      <MessageSquare className="w-3.5 h-3.5" />
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setConfirmDelete({ id: client.id, name: client.name }); }}
+                      className="w-10 flex items-center justify-center rounded-xl transition-all"
+                      style={{ border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.25)" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(248,113,113,0.35)"; e.currentTarget.style.color = "#F87171"; e.currentTarget.style.background = "rgba(248,113,113,0.08)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; e.currentTarget.style.color = "rgba(255,255,255,0.25)"; e.currentTarget.style.background = "transparent"; }}
+                      title="Excluir cliente">
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -319,6 +325,60 @@ export default function AgencyDashboard() {
           </motion.div>
         </div>
       </div>
+
+      {/* ── Modal Confirmar Exclusão ── */}
+      <AnimatePresence>
+        {confirmDelete && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
+            onClick={(e) => { if (e.target === e.currentTarget) setConfirmDelete(null); }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 8 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 8 }}
+              className="w-full max-w-sm rounded-2xl overflow-hidden"
+              style={{ background: "#0D0D1A", border: "1px solid rgba(248,113,113,0.2)" }}
+            >
+              <div className="p-6 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.2)" }}>
+                    <AlertTriangle className="w-5 h-5" style={{ color: "#F87171" }} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white">Excluir cliente</p>
+                    <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>Esta ação não pode ser desfeita</p>
+                  </div>
+                </div>
+                <p className="text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
+                  Tem certeza que deseja excluir <span className="font-semibold text-white">{confirmDelete.name}</span>? Todos os dados do cliente serão removidos.
+                </p>
+                <div className="flex gap-3 pt-1">
+                  <button
+                    onClick={() => setConfirmDelete(null)}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-medium"
+                    style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => {
+                      deleteClient(confirmDelete.id);
+                      setConfirmDelete(null);
+                      toast.success(`${confirmDelete.name} excluído.`);
+                    }}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+                    style={{ background: "#F87171", color: "#07080A" }}>
+                    Excluir
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* ── Modal Novo Cliente ── */}
       <AnimatePresence>

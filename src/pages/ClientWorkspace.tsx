@@ -11,7 +11,7 @@ import {
   Pencil, ShieldCheck, GraduationCap, Smartphone, QrCode,
   UserCheck, PhoneCall, MessageSquare as MsgSq, BadgeCheck,
   Paperclip, X, Palette, PenLine, BarChart3, Layout, Table2, AtSign,
-  Target, ArrowRight, Repeat2, MousePointerClick, Filter,
+  Target, ArrowRight, Repeat2, MousePointerClick, Filter, Trash2,
 } from "lucide-react";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { CLIENTS } from "@/data/agencyData";
@@ -198,13 +198,7 @@ const OUTPUT_STATUS_STYLE: Record<string, { color: string; bg: string; label: st
 };
 
 const MOCK_TASKS_BY_CLIENT: Record<string, typeof MOCK_TASKS_TEMPLATE> = {};
-const MOCK_TASKS_TEMPLATE = [
-  { id: "1", text: "Revisar artigo antes de publicar", priority: "alta",  done: false, due: "Hoje" },
-  { id: "2", text: "Aprovar criativos das campanhas",  priority: "alta",  done: false, due: "Amanhã" },
-  { id: "3", text: "Enviar relatório mensal ao cliente", priority: "media", done: true,  due: "Hoje" },
-  { id: "4", text: "Conectar LinkedIn da empresa",     priority: "baixa", done: false, due: "02/05" },
-  { id: "5", text: "Definir pauta editorial de junho", priority: "media", done: false, due: "05/05" },
-];
+const MOCK_TASKS_TEMPLATE: { id: string; text: string; priority: string; done: boolean; due: string }[] = [];
 
 // ── Mock site pages per client ─────────────────────────────────
 const SITE_PAGES: Record<string, { page: string; url: string; lastEdit: string; status: "publicado" | "rascunho" | "editando"; changes: number }[]> = {
@@ -215,13 +209,7 @@ const SITE_PAGES: Record<string, { page: string; url: string; lastEdit: string; 
     { page: "Contato", url: "/contato", lastEdit: "há 1 sem", status: "publicado", changes: 1 },
     { page: "Quem Somos", url: "/sobre", lastEdit: "há 2 sem", status: "rascunho", changes: 0 },
   ],
-  "abcer": [
-    { page: "Home", url: "/", lastEdit: "há 5h", status: "editando", changes: 8 },
-    { page: "Eventos — Encontro de Líderes", url: "/eventos/encontro", lastEdit: "há 2h", status: "publicado", changes: 14 },
-    { page: "Inscrição Evento", url: "/inscricao", lastEdit: "há 1h", status: "publicado", changes: 6 },
-    { page: "Galeria", url: "/galeria", lastEdit: "ontem", status: "publicado", changes: 4 },
-    { page: "Associe-se", url: "/associe-se", lastEdit: "há 3 dias", status: "publicado", changes: 2 },
-  ],
+  "abcer": [],
   "gnx": [
     { page: "Home", url: "/", lastEdit: "ontem", status: "publicado", changes: 7 },
     { page: "Landing Page — Leads", url: "/automacao", lastEdit: "há 3h", status: "editando", changes: 9 },
@@ -257,23 +245,7 @@ const REVISED_FILES: Record<string, { id: string; name: string; type: string; er
       ],
     },
   ],
-  "abcer": [
-    {
-      id: "rf1", name: "E-mail Boas-vindas — Novos Associados", type: "E-mail", errors: 3, fixed: 3,
-      diffs: [
-        { before: "Seja muito bem vindo a ABCER", after: "Seja bem-vindo à ABCER", type: "typo" },
-        { before: "todos os beneficios que você terá acesso", after: "todos os benefícios aos quais você terá acesso", type: "structure" },
-        { before: "O nosso time está a sua disposição", after: "Nossa equipe está à sua disposição", type: "style" },
-      ],
-    },
-    {
-      id: "rf2", name: "Copy Facebook Ads — Evento Networking", type: "Anúncio", errors: 2, fixed: 2,
-      diffs: [
-        { before: "Participe do maior evento de networking!", after: "Participe do maior encontro de networking!", type: "style" },
-        { before: "Vagas limitadas, não perca!", after: "Vagas limitadas — não perca.", type: "typo" },
-      ],
-    },
-  ],
+  "abcer": [],
   "gnx": [
     {
       id: "rf1", name: "Artigo 1 — Automação para PMEs", type: "Artigo", errors: 5, fixed: 5,
@@ -305,13 +277,13 @@ const INTEGRATIONS_BASE = [
   {
     id: "instagram", name: "Instagram", description: "Posts, Stories, Reels e métricas",
     Icon: Instagram, color: "#E1306C", bg: "rgba(225,48,108,0.1)", border: "rgba(225,48,108,0.2)",
-    connected: true, account: "@grupolicita", followers: "3,1k seguidores",
+    connected: false, account: null, followers: null,
     features: ["Publicar posts e stories", "Agendar conteúdo", "Métricas de alcance", "Responder comentários"],
   },
   {
     id: "facebook", name: "Facebook", description: "Página, Grupos e Facebook Ads",
     Icon: Facebook, color: "#1877F2", bg: "rgba(24,119,242,0.1)", border: "rgba(24,119,242,0.2)",
-    connected: true, account: "Grupo Licita", followers: "6,4k curtidas",
+    connected: false, account: null, followers: null,
     features: ["Publicar na Página", "Gerenciar Facebook Ads", "Métricas da Página", "Responder mensagens"],
   },
   {
@@ -483,7 +455,9 @@ export default function ClientWorkspace() {
     revenue: string; nextAction: string; followersIg: string; followersFb: string; portalPin: string;
     siteUrl: string; teamInstructions: string;
   } | null>(null);
-  const { clients, updateClient } = useClients();
+  const { clients, updateClient, deleteClient, clearClientData } = useClients();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
   const client = clients.find((c) => c.id === id);
   const [siteUrl, setSiteUrl] = useState(client?.siteUrl ?? "");
@@ -968,6 +942,22 @@ export default function ClientWorkspace() {
         </div>
         <div className="ml-auto flex items-center gap-2">
           <button
+            onClick={() => setShowClearConfirm(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+            style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.3)", border: "1px solid rgba(255,255,255,0.07)" }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "#FBBF24"; e.currentTarget.style.borderColor = "rgba(251,191,36,0.3)"; e.currentTarget.style.background = "rgba(251,191,36,0.06)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.3)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}>
+            <RefreshCw className="w-3 h-3" /> Limpar dados
+          </button>
+          <button
+            onClick={() => setShowDeleteConfirm(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+            style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.3)", border: "1px solid rgba(255,255,255,0.07)" }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "#F87171"; e.currentTarget.style.borderColor = "rgba(248,113,113,0.3)"; e.currentTarget.style.background = "rgba(248,113,113,0.06)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.3)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)"; e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}>
+            <Trash2 className="w-3 h-3" /> Excluir cliente
+          </button>
+          <button
             onClick={() => {
               setEditForm({
                 name: client.name,
@@ -995,6 +985,86 @@ export default function ClientWorkspace() {
             <ExternalLink className="w-3 h-3" /> Ver portal do cliente
           </button>
         </div>
+
+        {/* ── Modal: Limpar Dados ── */}
+        <AnimatePresence>
+          {showClearConfirm && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
+              onClick={(e) => { if (e.target === e.currentTarget) setShowClearConfirm(false); }}>
+              <motion.div initial={{ opacity: 0, scale: 0.95, y: 8 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
+                className="w-full max-w-sm rounded-2xl p-6 space-y-4"
+                style={{ background: "#0D0D1A", border: "1px solid rgba(251,191,36,0.2)" }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: "rgba(251,191,36,0.1)", border: "1px solid rgba(251,191,36,0.2)" }}>
+                    <AlertTriangle className="w-5 h-5" style={{ color: "#FBBF24" }} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white">Limpar todos os dados</p>
+                    <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>Posts, campanhas, contatos, pipeline e outputs serão apagados</p>
+                  </div>
+                </div>
+                <p className="text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
+                  O cliente <span className="font-semibold text-white">{client.name}</span> será mantido, mas todos os dados fictícios serão removidos para que você possa inserir as informações reais.
+                </p>
+                <div className="flex gap-3 pt-1">
+                  <button onClick={() => setShowClearConfirm(false)}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-medium"
+                    style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    Cancelar
+                  </button>
+                  <button onClick={() => { clearClientData(client.id); setShowClearConfirm(false); }}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+                    style={{ background: "#FBBF24", color: "#07080A" }}>
+                    Limpar dados
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Modal: Excluir Cliente ── */}
+        <AnimatePresence>
+          {showDeleteConfirm && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
+              onClick={(e) => { if (e.target === e.currentTarget) setShowDeleteConfirm(false); }}>
+              <motion.div initial={{ opacity: 0, scale: 0.95, y: 8 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
+                className="w-full max-w-sm rounded-2xl p-6 space-y-4"
+                style={{ background: "#0D0D1A", border: "1px solid rgba(248,113,113,0.2)" }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.2)" }}>
+                    <Trash2 className="w-5 h-5" style={{ color: "#F87171" }} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white">Excluir cliente</p>
+                    <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>Esta ação não pode ser desfeita</p>
+                  </div>
+                </div>
+                <p className="text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
+                  Tem certeza que deseja excluir <span className="font-semibold text-white">{client.name}</span>? O cliente e todos os seus dados serão removidos permanentemente.
+                </p>
+                <div className="flex gap-3 pt-1">
+                  <button onClick={() => setShowDeleteConfirm(false)}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-medium"
+                    style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    Cancelar
+                  </button>
+                  <button onClick={() => { deleteClient(client.id); navigate("/agency"); }}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+                    style={{ background: "#F87171", color: "#07080A" }}>
+                    Excluir cliente
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
 
       {/* ── Content ── */}
