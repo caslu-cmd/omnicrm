@@ -236,7 +236,7 @@ async function generateImage(
   prompt: string,
   aspectRatio: string,
   clientContext: Record<string, unknown>,
-  lovableKey: string,
+  anthropicKey: string,
   beatrizCopy = "",
   carolinaStrategy = "",
   googleKey = "",
@@ -252,22 +252,26 @@ async function generateImage(
     "4:3":  "Slide/Facebook — 1080×810px",
   };
 
-  // ── Visual Strategist: Lovable AI sintetiza o contexto completo do time ──
+  // ── Visual Strategist: Claude sintetiza o contexto completo do time ──
   const teamContext = [
     beatrizCopy      ? `COPY DA BEATRIZ (copywriter sênior):\n${beatrizCopy.slice(0, 800)}` : "",
     carolinaStrategy ? `ESTRATÉGIA DA CAROLINA (brand strategist):\n${carolinaStrategy.slice(0, 600)}` : "",
   ].filter(Boolean).join("\n\n");
 
-  const promptRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+  const promptRes = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
-    headers: { Authorization: `Bearer ${lovableKey}`, "content-type": "application/json" },
+    headers: {
+      "x-api-key": anthropicKey,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
     body: JSON.stringify({
-      model: "google/gemini-3-flash-preview",
-      messages: [
-        { role: "system", content: `You are Isadora, a world-class Senior Art Director specialized in Brazilian marketing and social media. You synthesize the team's work into one precise image-generation prompt in English. Output ONLY the final prompt — no explanations, no labels, no preamble.` },
-        {
-          role: "user",
-          content: `CLIENT: ${ctx.name ?? "unknown"}
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 600,
+      system: "You are Isadora, a world-class Senior Art Director specialized in Brazilian marketing and social media. You synthesize the team's work into one precise image-generation prompt in English. Output ONLY the final prompt — no explanations, no labels, no preamble.",
+      messages: [{
+        role: "user",
+        content: `CLIENT: ${ctx.name ?? "unknown"}
 INDUSTRY: ${ctx.industry ?? "unknown"}
 BRAND COLOR: ${ctx.brandColor ?? "not specified"}
 FORMAT: ${ratio} (${platformHint[ratio] ?? "social media"})
@@ -297,15 +301,14 @@ As Senior Art Director, synthesize the full team context and decide internally:
 7. PHOTOGRAPHY STYLE — photorealistic editorial / lifestyle candid / cinematic dramatic / minimalist product
 
 Output ONLY the final image-generation prompt in one rich, detailed paragraph. End with: "no text, no logos, no watermarks, ultra high quality, 4K, sharp focus, award-winning editorial photography"`,
-        },
-      ],
+      }],
     }),
   });
 
   let finalPrompt = prompt;
   if (promptRes.ok) {
     const promptData = await promptRes.json();
-    finalPrompt = promptData.choices?.[0]?.message?.content?.trim() ?? prompt;
+    finalPrompt = promptData.content?.[0]?.text?.trim() ?? prompt;
   }
 
   // ── Nano Banana Pro via Lovable AI Gateway ──
@@ -373,13 +376,13 @@ Deno.serve(async (req) => {
       status: 400, headers: { ...cors, "Content-Type": "application/json" },
     });
 
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!lovableKey) return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
+    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!anthropicKey) return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY not configured" }), {
       status: 500, headers: { ...cors, "Content-Type": "application/json" },
     });
     const googleKey = Deno.env.get("GOOGLE_AI_API_KEY") ?? "";
 
-    const result = await generateImage(prompt, aspectRatio, clientContext ?? {}, lovableKey, beatrizCopy, carolinaStrategy, googleKey);
+    const result = await generateImage(prompt, aspectRatio, clientContext ?? {}, anthropicKey, beatrizCopy, carolinaStrategy, googleKey);
     return new Response(JSON.stringify(result), { headers: { ...cors, "Content-Type": "application/json" } });
 
   } catch (error) {
