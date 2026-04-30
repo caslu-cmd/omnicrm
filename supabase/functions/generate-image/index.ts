@@ -235,10 +235,9 @@ async function generateImage(
   prompt: string,
   aspectRatio: string,
   clientContext: Record<string, unknown>,
-  anthropicKey: string,
+  lovableKey: string,
   beatrizCopy = "",
   carolinaStrategy = "",
-  googleKey = "",
 ) {
   const ctx = clientContext ?? {};
   const ratio = normalizeRatio(aspectRatio, prompt);
