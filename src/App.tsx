@@ -36,6 +36,7 @@ import OAuthCallbackPage from "@/pages/OAuthCallbackPage";
 import NotFound from "@/pages/NotFound";
 import VideoEditorPage from "@/pages/VideoEditorPage";
 
+// Singleton QueryClient
 const queryClient = new QueryClient();
 
 const ProtectedRoutes = () => {
