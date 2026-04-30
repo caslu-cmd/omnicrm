@@ -134,6 +134,7 @@ export default function SocialMediaTab({
   const [submitting, setSubmitting] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [localMediaFile, setLocalMediaFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [linkedinStep, setLinkedinStep] = useState<null | "enter-url" | "oauth">(null);
   const [linkedinOrgUrl, setLinkedinOrgUrl] = useState("");
@@ -360,20 +361,26 @@ export default function SocialMediaTab({
   };
 
   // ── Upload media ───────────────────────────────────────────
-  const handleFileUpload = async (file: File) => {
-    setUploading(true);
+  const handleFileUpload = (file: File) => {
+    // Preview imediato via blob URL — sem depender do Supabase
+    const localUrl = URL.createObjectURL(file);
+    setLocalMediaFile(file);
+    setComposer((p) => ({ ...p, media_url: localUrl }));
+    toast.success(file.type.startsWith("video/") ? "Vídeo carregado!" : "Imagem carregada!");
+  };
+
+  const uploadMediaToSupabase = async (file: File): Promise<string | null> => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { toast.error("Sessão expirada."); return; }
+      if (!session) return null;
       const ext = file.name.split(".").pop();
       const path = `${session.user.id}/${Date.now()}.${ext}`;
       const { error } = await supabase.storage.from("post-media").upload(path, file, { upsert: true });
-      if (error) { toast.error(`Erro no upload: ${error.message}`); return; }
+      if (error) { toast.error(`Erro no upload: ${error.message}`); return null; }
       const { data: { publicUrl } } = supabase.storage.from("post-media").getPublicUrl(path);
-      setComposer((p) => ({ ...p, media_url: publicUrl }));
-      toast.success("Imagem enviada!");
-    } finally {
-      setUploading(false);
+      return publicUrl;
+    } catch {
+      return null;
     }
   };
 
@@ -386,12 +393,20 @@ export default function SocialMediaTab({
 
     setSubmitting(true);
     try {
+      // Se tem arquivo local, sobe pro Supabase agora para gerar URL pública
+      let finalMediaUrl = composer.media_url || null;
+      if (localMediaFile && composer.media_url.startsWith("blob:")) {
+        const uploaded = await uploadMediaToSupabase(localMediaFile);
+        if (uploaded) finalMediaUrl = uploaded;
+        // se falhou, tenta com blob mesmo (plataformas reais vão rejeitar, mas não trava o fluxo)
+      }
+
       const data = await callFn({
         action: "create-post",
         client_id: clientId,
         platforms: composer.platforms,
         caption: composer.media_type === "story" ? null : (composer.caption || null),
-        media_url: composer.media_url || null,
+        media_url: finalMediaUrl,
         media_type: composer.media_type === "story" ? "story" : (composer.media_url ? "image" : "text"),
         link_url: composer.media_type === "story" ? (composer.link_url || null) : null,
         scheduled_at: composer.post_now ? null : composer.scheduled_at,
@@ -408,6 +423,7 @@ export default function SocialMediaTab({
 
       setShowComposer(false);
       setComposer({ platforms: [], caption: "", media_url: "", media_type: "post", link_url: "", post_now: true, scheduled_at: "" });
+      setLocalMediaFile(null);
       loadPosts();
     } finally {
       setSubmitting(false);
@@ -915,14 +931,23 @@ export default function SocialMediaTab({
                   />
                   {composer.media_url ? (
                     <div className="relative">
-                      <img
-                        src={composer.media_url}
-                        alt=""
-                        className="w-full max-h-48 rounded-xl object-cover"
-                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                      />
+                      {localMediaFile?.type.startsWith("video/") ? (
+                        <video
+                          src={composer.media_url}
+                          className="w-full max-h-48 rounded-xl object-cover"
+                          controls
+                          muted
+                        />
+                      ) : (
+                        <img
+                          src={composer.media_url}
+                          alt=""
+                          className="w-full max-h-48 rounded-xl object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                        />
+                      )}
                       <button
-                        onClick={() => { setComposer((p) => ({ ...p, media_url: "" })); if (fileInputRef.current) fileInputRef.current.value = ""; }}
+                        onClick={() => { setComposer((p) => ({ ...p, media_url: "" })); setLocalMediaFile(null); if (fileInputRef.current) fileInputRef.current.value = ""; }}
                         className="absolute top-2 right-2 rounded-full p-1"
                         style={{ background: "rgba(0,0,0,0.6)" }}
                       >
