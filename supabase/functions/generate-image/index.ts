@@ -48,7 +48,24 @@ async function scrapeSite(url: string): Promise<string> {
 }
 
 // ─── ARIA: Senior Marketing Director ─────────────────────────────────────────
-async function orchestrate(demand: string, clientContext: Record<string, unknown>, anthropicKey: string, siteUrl?: string) {
+async function callLovableAI(systemPrompt: string, userContent: string, lovableKey: string, model = "google/gemini-2.5-pro"): Promise<string> {
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userContent },
+      ],
+    }),
+  });
+  if (!res.ok) throw new Error(`Lovable AI error: ${await res.text()}`);
+  const data = await res.json();
+  return data.choices?.[0]?.message?.content ?? "";
+}
+
+async function orchestrate(demand: string, clientContext: Record<string, unknown>, lovableKey: string, siteUrl?: string) {
   const ctx = clientContext ?? {};
   const siteContext = siteUrl ? await scrapeSite(siteUrl) : "";
 
