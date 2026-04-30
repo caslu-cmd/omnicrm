@@ -45,20 +45,23 @@ const ProtectedRoutes = () => {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center bg-background">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#080808" }}>
+        <style>{`@keyframes _spin2{to{transform:rotate(360deg)}}`}</style>
+        <div style={{ width: 36, height: 36, border: "3px solid rgba(185,255,75,.15)", borderTopColor: "#B9FF4B", borderRadius: "50%", animation: "_spin2 .75s linear infinite" }} />
       </div>
     );
   }
 
-  // Raiz sempre mostra a LandingPage (logados e não logados)
-  if (location.pathname === "/") return <LandingPage />;
-
   if (!session) {
-    // Outras rotas protegidas: redireciona para landing
-    return <Navigate to="/" replace />;
+    // Raiz sem sessão → LandingPage
+    if (location.pathname === "/") return <LandingPage />;
+    // Qualquer outra rota protegida → manda pro login
+    return <Navigate to="/entrar" replace />;
   }
-  
+
+  // Logado na raiz → redireciona pro dashboard
+  if (location.pathname === "/") return <Navigate to="/dashboard" replace />;
+
   return (
     <>
       <Routes>
@@ -95,14 +98,14 @@ const AppRoutes = () => {
 
   return (
     <Routes>
-      <Route path="/auth" element={loading ? null : session ? <Navigate to="/" replace /> : <AuthPage />} />
+      <Route path="/auth" element={loading ? null : session ? <Navigate to="/dashboard" replace /> : <AuthPage />} />
       <Route path="/entrar" element={
         loading
           ? <div style={{minHeight:"100vh",display:"flex",alignItems:"center",justifyContent:"center",background:"#080808"}}>
               <style>{`@keyframes _spin{to{transform:rotate(360deg)}}`}</style>
               <div style={{width:36,height:36,border:"3px solid rgba(185,255,75,.15)",borderTopColor:"#B9FF4B",borderRadius:"50%",animation:"_spin .75s linear infinite"}} />
             </div>
-          : session ? <Navigate to="/" replace /> : <AuthPage />
+          : session ? <Navigate to="/dashboard" replace /> : <AuthPage />
       } />
       {/* Páginas públicas */}
       <Route path="/portal/:clientId" element={<ClientPortal />} />
