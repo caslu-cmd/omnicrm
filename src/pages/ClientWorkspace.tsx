@@ -580,6 +580,10 @@ export default function ClientWorkspace() {
   });
   const [agentOutputs, setAgentOutputs] = useState<Record<string, string>>({});
   const [agentDeadlines, setAgentDeadlines] = useState<Record<string, string>>({});
+  // Onda de orquestração ARIA: 0 = ocioso; 1+ = onda ativa
+  const [currentWave, setCurrentWave] = useState<number>(0);
+  const [totalWaves, setTotalWaves] = useState<number>(0);
+  const [agentWaves, setAgentWaves] = useState<Record<string, number>>({});
   const [expandedMsg, setExpandedMsg] = useState<string | null>(null);
   const [expandedAgentOutput, setExpandedAgentOutput] = useState<string | null>(null);
   const [postCanvas, setPostCanvas] = useState<{ imageUrl: string; headline?: string; body?: string; cta?: string } | null>(null);
