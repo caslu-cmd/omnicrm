@@ -16,13 +16,11 @@ async function scrapeSite(url: string): Promise<string> {
     const get = (pattern: RegExp) => pattern.exec(html)?.[1]?.trim() ?? "";
     const getAll = (pattern: RegExp, limit = 4) =>
       [...html.matchAll(pattern)].slice(0, limit).map(m => m[1]?.trim()).filter(Boolean).join(" | ");
-    const title      = get(/<title[^>]*>([^<]{1,120})<\/title>/i);
-    const metaDesc   = get(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']{1,250})["']/i)
-                    || get(/<meta[^>]*content=["']([^"']{1,250})["'][^>]*name=["']description["']/i);
-    const h1         = get(/<h1[^>]*>([^<]{1,120})<\/h1>/i);
-    const h2s        = getAll(/<h2[^>]*>([^<]{3,100})<\/h2>/gi);
-    const themeColor = get(/<meta[^>]*name=["']theme-color["'][^>]*content=["']([^"']+)["']/i);
-    const ogDesc     = get(/<meta[^>]*property=["']og:description["'][^>]*content=["']([^"']{1,250})["']/i);
+    const title    = get(/<title[^>]*>([^<]{1,120})<\/title>/i);
+    const metaDesc = get(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']{1,250})["']/i)
+                  || get(/<meta[^>]*content=["']([^"']{1,250})["'][^>]*name=["']description["']/i);
+    const h1       = get(/<h1[^>]*>([^<]{1,120})<\/h1>/i);
+    const h2s      = getAll(/<h2[^>]*>([^<]{3,100})<\/h2>/gi);
     const bodyText = html
       .replace(/<script[\s\S]*?<\/script>/gi, "")
       .replace(/<style[\s\S]*?<\/style>/gi, "")
@@ -34,199 +32,133 @@ async function scrapeSite(url: string): Promise<string> {
       .slice(0, 600);
     return [
       `REFERÊNCIA DO SITE: ${url}`,
-      title      ? `Título: ${title}` : "",
-      metaDesc   ? `Descrição: ${metaDesc}` : "",
-      ogDesc     ? `OG Desc: ${ogDesc}` : "",
-      h1         ? `H1: ${h1}` : "",
-      h2s        ? `H2s: ${h2s}` : "",
-      themeColor ? `Cor tema: ${themeColor}` : "",
-      bodyText   ? `Conteúdo: ${bodyText}` : "",
+      title    ? `Título: ${title}` : "",
+      metaDesc ? `Descrição: ${metaDesc}` : "",
+      h1       ? `H1: ${h1}` : "",
+      h2s      ? `H2s: ${h2s}` : "",
+      bodyText ? `Conteúdo: ${bodyText}` : "",
     ].filter(Boolean).join("\n");
   } catch {
-    return `REFERÊNCIA DO SITE: ${url} (não foi possível acessar — use o domínio como contexto de marca)`;
+    return `REFERÊNCIA DO SITE: ${url} (não foi possível acessar)`;
   }
 }
 
-// ─── ARIA: Senior Marketing Director ─────────────────────────────────────────
-async function callLovableAI(systemPrompt: string, userContent: string, lovableKey: string, model = "google/gemini-2.5-pro"): Promise<string> {
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
-      ],
-    }),
-  });
-  if (!res.ok) throw new Error(`Lovable AI error: ${await res.text()}`);
-  const data = await res.json();
-  return data.choices?.[0]?.message?.content ?? "";
-}
-
-async function orchestrate(demand: string, clientContext: Record<string, unknown>, lovableKey: string, siteUrl?: string) {
+// ─── ARIA orchestration via Claude Sonnet ─────────────────────────────────────
+async function orchestrate(
+  demand: string,
+  clientContext: Record<string, unknown>,
+  anthropicKey: string,
+  siteUrl?: string,
+) {
   const ctx = clientContext ?? {};
   const siteContext = siteUrl ? await scrapeSite(siteUrl) : "";
 
   const systemPrompt = `Você é ARIA, Diretora Sênior de Marketing da agência Calu. 15 anos de experiência em marketing digital, branding e estratégia criativa para marcas brasileiras.
 
-REGRA FUNDAMENTAL — FORMATOS E DIMENSÕES:
-Você e seu time DECIDEM o formato de cada peça de forma autônoma, com base no tipo de conteúdo. O cliente NUNCA precisa especificar tamanho. Esta é a tabela de decisão obrigatória:
+Você lidera um time de especialistas seniores. Quando recebe um briefing, convoca os agentes relevantes e eles entregam trabalho real e completo — como numa reunião de agência premium.
 
-| Tipo de peça | Plataforma | aspectRatio | Dimensões | Quando usar |
-|---|---|---|---|---|
-| Post feed portrait | Instagram | "3:4" | 1080×1440px | post padrão de feed, melhor alcance orgânico |
-| Post feed square | Instagram / LinkedIn | "1:1" | 1080×1080px | quando o conteúdo é simétrico ou pedido explicitamente |
-| Stories / Reels | Instagram / TikTok | "9:16" | 1080×1920px | story, reels, TikTok, qualquer formato vertical de tela cheia |
-| YouTube thumbnail | YouTube | "16:9" | 1920×1080px | thumbnail, capa de canal, banner de YouTube |
-| Capa Facebook | Facebook | "16:9" | 1920×1080px | capa de página, banner de evento |
-| Post LinkedIn | LinkedIn | "1:1" | 1080×1080px | post padrão no LinkedIn |
-| Artigo LinkedIn | LinkedIn | "16:9" | 1920×1080px | capa de artigo, documento LinkedIn |
-| Banner site / email | Web | "16:9" | 1920×1080px | banner horizontal, header de email |
-| Slide / apresentação | Geral | "4:3" | 1080×810px | slides, apresentações, pitch deck |
+━━━ SEU TIME ━━━
 
-DECISÃO AUTÔNOMA DE FORMATO:
-- Se o cliente pede "post", "conteúdo para o Instagram" ou não especifica → use "3:4" (1080×1440px)
-- Se pede "story", "stories", "reels", "TikTok" → use "9:16" (1080×1920px)
-- Se pede "thumbnail", "capa YouTube", "banner" → use "16:9" (1920×1080px)
-- Se pede "LinkedIn" sem especificar → use "1:1" (1080×1080px)
-- Se pede "capa de artigo LinkedIn" ou "banner LinkedIn" → use "16:9"
-- Se uma demanda gera múltiplas peças (ex: post + story), crie uma mensagem para Isadora POR FORMATO, cada uma com seu aspectRatio correto
+**CAROLINA — Estrategista de Marca**
+Entrega: diagnóstico de posicionamento, arquitetura de mensagem, persona/ICP, tom de voz, diferencial competitivo, pilares editoriais. Fala primeiro — define o terreno estratégico que todos seguem.
 
-Seu time de especialistas:
+**BEATRIZ — Copywriter Sênior**
+Entrega: copy completo e pronto para uso. Para posts: título + legenda completa + hashtags. Para anúncios: headline + body copy + CTA. Ela usa a estratégia da Carolina como base.
 
-**beatriz — Copywriter Sênior**
-Skills: copy de alta conversão, storytelling de marca, roteiros para vídeo/reels, legendas que engajam, CTAs irresistíveis, adaptação de tom de voz por canal e formato
-Beatriz adapta o copy ao formato: copy de feed é diferente de story (mais curto, impactante) e diferente de LinkedIn (mais formal, reflexivo).
+**RAFAELA — Especialista em Tráfego Pago**
+Entrega: estrutura de campanha — objetivo, público segmentado, criativo recomendado, orçamento sugerido, métricas-chave (CPC, CPL, ROAS), cronograma.
 
-**isadora — Senior Art Director & Designer**
-Skills: identidade visual, composição editorial, hierarquia visual, peças para qualquer plataforma e formato
-Isadora recebe SEMPRE: plataforma + aspectRatio + dimensões exatas. Ela decide composição, mood e estilo.
-Isadora NÃO responde em texto — ela entrega a imagem diretamente.
+**LUCAS — Analista de Dados & Performance**
+Entrega: benchmarks do segmento, análise de concorrência, melhores horários, formatos com melhor performance, metas realistas.
 
-**rafaela — Especialista em Tráfego Pago**
-Skills: Meta Ads, Google Ads, segmentação, ROAS, estrutura de campanhas
-Rafaela indica se o criativo deve ser adaptado para anúncio e qual formato performa melhor em mídia paga.
+**MARINA — Social Media Manager**
+Entrega: calendário editorial em tabela markdown — mínimo 7 dias: | Data | Horário | Plataforma | Formato | Tema | Copy (resumo) | Responsável |
 
-**lucas — Analista de Dados & Performance**
-Skills: métricas de redes sociais, GA4, benchmarking, insights acionáveis
-Lucas avalia qual formato/plataforma tem melhor performance para o segmento do cliente.
+**ISADORA — Art Director**
+Entrega imagem automaticamente. NÃO tem mensagem de resposta no JSON. Recebe briefing com: plataforma, aspectRatio, dimensões, composição, cores, mood.
 
-**marina — Social Media Manager & Scheduler**
-Skills: calendário editorial, agendamento por plataforma, horários de pico, estratégia orgânica
-Marina entrega calendário completo: | Data | Horário | Plataforma | Formato | Dimensões | Tema | Responsável |
+━━━ FORMATOS DE IMAGEM ━━━
+| Tipo | Plataforma | aspectRatio | Dimensões |
+|---|---|---|---|
+| Post feed portrait | Instagram | "3:4" | 1080×1440px |
+| Post feed square | Instagram/LinkedIn | "1:1" | 1080×1080px |
+| Stories/Reels | Instagram/TikTok | "9:16" | 1080×1920px |
+| YouTube/banner | YouTube/Web | "16:9" | 1920×1080px |
+| Slide/apresentação | Geral | "4:3" | 1080×810px |
 
-**carolina — Estrategista de Marca**
-Skills: posicionamento, arquitetura de mensagem, persona/ICP, tom de voz, diferencial competitivo
+━━━ CONTEXTO DO CLIENTE ━━━
+Nome: ${ctx.name ?? "não informado"}
+Segmento: ${ctx.industry ?? "não informado"}
+Cor da marca: ${ctx.brandColor ?? "não informada"}
+Campanhas ativas: ${(ctx.campaigns as string[] ?? []).join(", ") || "nenhuma"}
+Temas recentes: ${(ctx.recentThemes as string[] ?? []).join(" | ") || "nenhum"}
+Próxima ação: ${ctx.nextAction ?? "não definida"}
+${ctx.teamInstructions ? `\nINSTRUÇÕES PERMANENTES DO TIME:\n${ctx.teamInstructions}` : ""}
+${siteContext ? `\nSite do cliente:\n${siteContext}` : ""}
 
-**lia — Agente de Briefing & Diagnóstico**
-Skills: coleta estruturada de briefing, diagnóstico de marketing, onboarding de clientes
+━━━ RETORNE APENAS JSON VÁLIDO ━━━
 
-Contexto do cliente:
-- Nome: ${ctx.name ?? "não informado"}
-- Segmento: ${ctx.industry ?? "não informado"}
-- Cor da marca: ${ctx.brandColor ?? "não informada"}
-- Campanhas ativas: ${(ctx.campaigns as string[] ?? []).join(", ") || "nenhuma"}
-- Temas recentes: ${(ctx.recentThemes as string[] ?? []).join(" | ") || "nenhum"}
-- Próxima ação: ${ctx.nextAction ?? "não definida"}
-${ctx.teamInstructions ? `\nINSTRUÇÕES PERMANENTES DO TIME PARA ESTE CLIENTE (seguir sempre, sem exceção):\n${ctx.teamInstructions}` : ""}
-${siteContext ? `\nSite do cliente:\n${siteContext}\nUse para calibrar tom de voz (Beatriz), estilo visual (Isadora) e estratégia (Carolina).` : ""}
-
-AUTONOMIA E COLABORAÇÃO:
-- Os agentes são seniores com opinião própria — podem e devem questionar, contra-propor e colaborar
-- Beatriz adapta o copy para cada formato automaticamente
-- Lucas pode recomendar ajuste de plataforma com base em dados de performance do segmento
-- Rafaela pode sugerir versão para anúncio pago do mesmo criativo
-- Quando um agente discorda, entrega sua versão alternativa COM justificativa
-- A colaboração iterativa é o que gera resultado de nível premium
-
-RETORNE APENAS um JSON válido:
 {
-  "plan": "análise estratégica: qual demanda, quais agentes, qual(is) formato(s)/dimensões escolhidos e por quê",
+  "plan": "análise em 2-3 frases: o que foi pedido, quais agentes foram acionados e o que cada um entregará",
   "messages": [
-    {
-      "id": "msg_1",
-      "from": "aria",
-      "to": "beatriz",
-      "content": "briefing completo: plataforma, formato, tom, copy necessário",
-      "action": "write_copy"
-    },
-    {
-      "id": "msg_2",
-      "from": "aria",
-      "to": "isadora",
-      "content": "briefing visual completo: plataforma Instagram feed portrait, formato 3:4 — 1080×1440px, composição, cores, mood",
-      "action": "generate_image",
-      "imageParams": { "aspectRatio": "3:4" }
-    },
-    {
-      "id": "msg_3",
-      "from": "beatriz",
-      "to": "aria",
-      "content": "copy completo e pronto para uso",
-      "action": "respond"
-    }
+    { "id": "msg_1", "from": "aria", "to": "carolina", "content": "briefing detalhado para a estrategista", "action": "plan" },
+    { "id": "msg_2", "from": "carolina", "to": "aria", "content": "estratégia completa: posicionamento, persona, pilares editoriais, tom de voz — texto completo pronto para usar", "action": "respond" },
+    { "id": "msg_3", "from": "aria", "to": "beatriz", "content": "briefing de copy com a estratégia da Carolina", "action": "write_copy" },
+    { "id": "msg_4", "from": "beatriz", "to": "aria", "content": "copy completo: título + legenda + hashtags — pronto para publicar", "action": "respond" },
+    { "id": "msg_5", "from": "aria", "to": "isadora", "content": "briefing visual: Instagram feed portrait, formato 3:4 — 1080×1440px, composição, cores, mood", "action": "generate_image", "imageParams": { "aspectRatio": "3:4" } }
   ]
 }
 
-REGRAS CRÍTICAS:
-- O aspectRatio no imageParams NUNCA pode ser "4:5" — use sempre "3:4" para feed portrait
-- Valores válidos para aspectRatio: "3:4", "1:1", "9:16", "16:9", "4:3"
-- Sempre informe plataforma + formato + dimensões no briefing da Isadora (ex: "Instagram feed portrait, formato 3:4 — 1080×1440px")
-- Isadora NÃO tem mensagem de resposta no JSON (ela gera imagem automaticamente)
-- Valores válidos para action: write_copy, generate_image, analyze, plan, schedule, respond, diagnose
-- Marina usa action=schedule e retorna calendário em tabela markdown
-- Todo agente entrega trabalho real e completo — nunca só confirmação
-- Escreva tudo em português brasileiro
-- Nível agência premium: entrega pronta para uso imediato`;
+Valores válidos para action: write_copy, generate_image, analyze, plan, schedule, respond, diagnose
+Valores válidos para aspectRatio: "3:4", "1:1", "9:16", "16:9", "4:3"
+Isadora NÃO tem mensagem de resposta.
+Cada agente referencia o trabalho dos outros.
+Todo agente entrega trabalho REAL e COMPLETO — nunca só confirmação.
+Escreva tudo em português brasileiro. Nível agência premium.`;
 
-  const text = await callLovableAI(systemPrompt, `Demanda do cliente: "${demand}"`, lovableKey, "google/gemini-2.5-pro");
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": anthropicKey,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 8000,
+      system: systemPrompt,
+      messages: [{ role: "user", content: `Briefing / Demanda: "${demand}"` }],
+    }),
+  });
+
+  if (!res.ok) throw new Error(`Anthropic error ${res.status}: ${await res.text()}`);
+
+  const data = await res.json();
+  const text: string = data.content?.[0]?.text ?? "{}";
+
   try {
-    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, text];
-    return normalizeGeneratedMessages(JSON.parse(jsonMatch[1].trim()));
+    const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) ?? [null, text];
+    return JSON.parse(jsonMatch[1].trim());
   } catch {
-    return { plan: normalizeRatioReferences(text), messages: [] };
+    return { plan: text, messages: [] };
   }
 }
 
-// ─── ISADORA: Visual Strategist (Sonnet) + Imagen 4 Fast ─────────────────────
+// ─── Isadora: Claude Haiku prompt → Google Imagen 3 ──────────────────────────
 const SUPPORTED_RATIOS = new Set(["1:1", "3:4", "4:3", "9:16", "16:9"]);
 
 function normalizeRatio(aspectRatio: string, prompt: string): string {
   const r = String(aspectRatio || "").trim();
   if (!r || r === "auto") return bestAspectRatio(prompt);
-  if (SUPPORTED_RATIOS.has(r)) return r;
   if (r === "4:5") return "3:4";
-  return "3:4";
+  return SUPPORTED_RATIOS.has(r) ? r : "3:4";
 }
 
-function normalizeRatioReferences(text: string): string {
-  return String(text || "")
-    .replace(/\b4\s*:\s*5\b/g, "3:4")
-    .replace(/1080\s*[×xX]\s*1350/g, "1080×1440");
-}
-
-function normalizeGeneratedMessages(result: any) {
-  if (!Array.isArray(result?.messages)) return result;
-  return {
-    ...result,
-    plan: normalizeRatioReferences(result.plan ?? ""),
-    messages: result.messages.map((message: any) => ({
-      ...message,
-      content: normalizeRatioReferences(message?.content ?? ""),
-      imageParams: message?.imageParams
-        ? { ...message.imageParams, aspectRatio: normalizeRatio(message.imageParams.aspectRatio, message?.content ?? "") }
-        : message?.imageParams,
-    })),
-  };
-}
-
-function bestAspectRatio(description: string): string {
-  const d = description.toLowerCase();
-  if (d.includes("stories") || d.includes("reels") || d.includes("tiktok") || d.includes("vertical")) return "9:16";
-  if (d.includes("banner") || d.includes("capa") || d.includes("youtube") || d.includes("cover")) return "16:9";
-  if (d.includes("slide") || d.includes("apresentação") || d.includes("presentation")) return "4:3";
+function bestAspectRatio(desc: string): string {
+  const d = desc.toLowerCase();
+  if (d.includes("stories") || d.includes("reels") || d.includes("tiktok")) return "9:16";
+  if (d.includes("banner") || d.includes("youtube") || d.includes("cover")) return "16:9";
+  if (d.includes("slide") || d.includes("apresentação")) return "4:3";
   if (d.includes("quadrado") || d.includes("square") || d.includes("1:1")) return "1:1";
   return "3:4";
 }
@@ -235,7 +167,8 @@ async function generateImage(
   prompt: string,
   aspectRatio: string,
   clientContext: Record<string, unknown>,
-  lovableKey: string,
+  anthropicKey: string,
+  googleKey: string,
   beatrizCopy = "",
   carolinaStrategy = "",
 ) {
@@ -243,84 +176,76 @@ async function generateImage(
   const ratio = normalizeRatio(aspectRatio, prompt);
 
   const platformHint: Record<string, string> = {
-    "3:4":  "Instagram feed portrait — 1080×1440px (melhor engajamento)",
-    "1:1":  "Instagram/LinkedIn feed square — 1080×1080px",
+    "3:4":  "Instagram feed portrait — 1080×1440px",
+    "1:1":  "Instagram/LinkedIn square — 1080×1080px",
     "9:16": "Stories/Reels/TikTok — 1080×1920px",
     "16:9": "YouTube/banner — 1920×1080px",
     "4:3":  "Slide/Facebook — 1080×810px",
   };
 
-  // ── Visual Strategist: Claude sintetiza o contexto completo do time ──
   const teamContext = [
-    beatrizCopy      ? `COPY DA BEATRIZ (copywriter sênior):\n${beatrizCopy.slice(0, 800)}` : "",
-    carolinaStrategy ? `ESTRATÉGIA DA CAROLINA (brand strategist):\n${carolinaStrategy.slice(0, 600)}` : "",
+    beatrizCopy      ? `COPY (Beatriz):\n${beatrizCopy.slice(0, 800)}` : "",
+    carolinaStrategy ? `ESTRATÉGIA (Carolina):\n${carolinaStrategy.slice(0, 600)}` : "",
   ].filter(Boolean).join("\n\n");
 
-  const artDirectorSystem = "You are Isadora, a world-class Senior Art Director specialized in Brazilian marketing and social media. You synthesize the team's work into one precise image-generation prompt in English. Output ONLY the final prompt — no explanations, no labels, no preamble.";
-
-  const artDirectorUser = `CLIENT: ${ctx.name ?? "unknown"}
-INDUSTRY: ${ctx.industry ?? "unknown"}
-BRAND COLOR: ${ctx.brandColor ?? "not specified"}
-FORMAT: ${ratio} (${platformHint[ratio] ?? "social media"})
-
-CREATIVE BRIEF FROM ARIA:
-${prompt}
-${teamContext ? `\n${teamContext}` : ""}
-
-As Senior Art Director, synthesize the full team context and decide internally:
-1. EMOTIONAL CORE — what must the viewer feel in 1 second? (aspiration / trust / desire / urgency / belonging)
-2. VISUAL METAPHOR — what single image perfectly embodies both the copy message AND brand strategy?
-3. SUBJECT by industry (law, health, food, beauty, tech, real estate, fitness, finance, education, events, motivation)
-4. COMPOSITION — hero subject position, clean negative space for text overlay (bottom 40% or left third), depth of field
-5. LIGHTING — soft studio / golden hour / cool clinical / dramatic side rim / neon ambient
-6. BRAND COLOR ACCENT — ${ctx.brandColor ?? "brand color"} appears subtly (neon, fabric, object, light leak — never dominant)
-7. PHOTOGRAPHY STYLE — photorealistic editorial / lifestyle candid / cinematic dramatic / minimalist product
-
-Output ONLY the final image-generation prompt in one rich, detailed paragraph. End with: "no text, no logos, no watermarks, ultra high quality, 4K, sharp focus, award-winning editorial photography"`;
-
+  // Claude Haiku builds the image prompt
   let finalPrompt = prompt;
   try {
-    const synthesized = await callLovableAI(artDirectorSystem, artDirectorUser, lovableKey, "google/gemini-2.5-flash");
-    if (synthesized?.trim()) finalPrompt = synthesized.trim();
-  } catch (_) {
+    const haiku = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": anthropicKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 600,
+        system: "You are Isadora, a world-class Senior Art Director. Synthesize the brief into one precise image-generation prompt in English. Output ONLY the final prompt — no explanations, no labels.",
+        messages: [{
+          role: "user",
+          content: `CLIENT: ${ctx.name ?? "unknown"} | INDUSTRY: ${ctx.industry ?? "unknown"} | BRAND COLOR: ${ctx.brandColor ?? "none"} | FORMAT: ${ratio} (${platformHint[ratio] ?? "social media"})
+
+BRIEF: ${prompt}
+${teamContext ? `\n${teamContext}` : ""}
+
+Write one rich, detailed paragraph for image generation. End with: "no text, no logos, no watermarks, ultra high quality, 4K, sharp focus, award-winning editorial photography"`,
+        }],
+      }),
+    });
+    if (haiku.ok) {
+      const haikuData = await haiku.json();
+      const synthesized = haikuData.content?.[0]?.text?.trim();
+      if (synthesized) finalPrompt = synthesized;
+    }
+  } catch {
     // fallback to original prompt
   }
 
-  // ── Nano Banana Pro via Lovable AI Gateway ──
-  const ratioInstruction: Record<string, string> = {
-    "3:4":  "vertical portrait 3:4 aspect ratio (1080x1440)",
-    "1:1":  "square 1:1 aspect ratio (1080x1080)",
-    "9:16": "vertical 9:16 aspect ratio (1080x1920)",
-    "16:9": "horizontal 16:9 aspect ratio (1920x1080)",
-    "4:3":  "horizontal 4:3 aspect ratio (1080x810)",
-  };
+  // Google Imagen 3 generates the image
+  if (!googleKey) throw new Error("GOOGLE_AI_API_KEY não configurada");
 
-  const imgRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "google/gemini-3-pro-image-preview",
-      messages: [
-        { role: "user", content: `Generate an image in ${ratioInstruction[ratio] ?? ratio}. ${finalPrompt}` },
-      ],
-      modalities: ["image", "text"],
-    }),
-  });
+  const imgRes = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${googleKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        instances: [{ prompt: finalPrompt }],
+        parameters: { sampleCount: 1, aspectRatio: ratio },
+      }),
+    },
+  );
 
-  if (!imgRes.ok) throw new Error(`Image gen error: ${await imgRes.text()}`);
+  if (!imgRes.ok) throw new Error(`Imagen 3 error ${imgRes.status}: ${await imgRes.text()}`);
 
   const imgData = await imgRes.json();
-  const imageUrl = imgData.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-  if (!imageUrl) throw new Error("Modelo não retornou imagem");
-
-  // Strip data URL prefix to return raw base64 (matches existing client contract)
-  const match = /^data:([^;]+);base64,(.+)$/.exec(imageUrl);
-  const mimeType = match?.[1] ?? "image/png";
-  const imageData = match?.[2] ?? imageUrl;
+  const prediction = imgData.predictions?.[0];
+  if (!prediction?.bytesBase64Encoded) throw new Error("Imagen 3 não retornou imagem");
 
   return {
-    imageData,
-    mimeType,
+    imageData: prediction.bytesBase64Encoded,
+    mimeType: prediction.mimeType ?? "image/png",
     enhancedPrompt: finalPrompt,
     aspectRatio: ratio,
   };
@@ -333,30 +258,41 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
 
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!lovableKey) return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
-      status: 500, headers: { ...cors, "Content-Type": "application/json" },
-    });
+    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!anthropicKey) {
+      return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY não configurada" }), {
+        status: 500, headers: { ...cors, "Content-Type": "application/json" },
+      });
+    }
 
     if (body.mode === "orchestrate") {
       const { demand, clientContext, siteUrl } = body;
-      if (!demand) return new Response(JSON.stringify({ error: "demand is required" }), {
-        status: 400, headers: { ...cors, "Content-Type": "application/json" },
+      if (!demand) {
+        return new Response(JSON.stringify({ error: "demand é obrigatório" }), {
+          status: 400, headers: { ...cors, "Content-Type": "application/json" },
+        });
+      }
+      const result = await orchestrate(demand, clientContext ?? {}, anthropicKey, siteUrl);
+      return new Response(JSON.stringify(result), {
+        headers: { ...cors, "Content-Type": "application/json" },
       });
-      const result = await orchestrate(demand, clientContext ?? {}, lovableKey, siteUrl);
-      return new Response(JSON.stringify(result), { headers: { ...cors, "Content-Type": "application/json" } });
     }
 
     const { prompt, aspectRatio = "3:4", clientContext, beatrizCopy = "", carolinaStrategy = "" } = body;
-    if (!prompt) return new Response(JSON.stringify({ error: "prompt is required" }), {
-      status: 400, headers: { ...cors, "Content-Type": "application/json" },
+    if (!prompt) {
+      return new Response(JSON.stringify({ error: "prompt é obrigatório" }), {
+        status: 400, headers: { ...cors, "Content-Type": "application/json" },
+      });
+    }
+
+    const googleKey = Deno.env.get("GOOGLE_AI_API_KEY") ?? "";
+    const result = await generateImage(prompt, aspectRatio, clientContext ?? {}, anthropicKey, googleKey, beatrizCopy, carolinaStrategy);
+    return new Response(JSON.stringify(result), {
+      headers: { ...cors, "Content-Type": "application/json" },
     });
 
-    const result = await generateImage(prompt, aspectRatio, clientContext ?? {}, lovableKey, beatrizCopy, carolinaStrategy);
-    return new Response(JSON.stringify(result), { headers: { ...cors, "Content-Type": "application/json" } });
-
-  } catch (error) {
-    return new Response(JSON.stringify({ error: String(error) }), {
+  } catch (e) {
+    return new Response(JSON.stringify({ error: String(e) }), {
       status: 500, headers: { ...cors, "Content-Type": "application/json" },
     });
   }
