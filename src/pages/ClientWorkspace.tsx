@@ -848,11 +848,148 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
         }]);
       }
 
-      // ━━━━━━━━━━ PASSO 4 — ARIA conclui ━━━━━━━━━━
+      // ━━━━━━━━━━ PASSO 4 — Handoff iterativo (até 2 ondas extras) ━━━━━━━━━━
+      const alreadyRan = new Set<string>(agents);
+      let waveIndex = 1;
+      const MAX_EXTRA_WAVES = 2;
+      const MAX_PER_WAVE = 3;
+
+      while (waveIndex <= MAX_EXTRA_WAVES) {
+        // resumo curto das entregas até agora
+        const deliveriesSummary = Object.entries(accumulated)
+          .map(([aId, txt]) => `- ${aId}: ${txt.replace(/\n+/g, " ").slice(0, 220)}…`)
+          .join("\n");
+
+        const remaining = Object.keys(AGENT_PROMPTS).filter((a) => !alreadyRan.has(a));
+        if (remaining.length === 0) break;
+
+        const handoffSystem = `Você é ARIA, Diretora Sênior. Avalie se a demanda do cliente exige continuidade por OUTROS agentes que ainda não atuaram.
+
+Demanda original: "${demand}"
+Agentes que JÁ entregaram: ${[...alreadyRan].join(", ")}
+Agentes DISPONÍVEIS para continuar: ${remaining.join(", ")}
+
+Resumo das entregas atuais:
+${deliveriesSummary}
+
+Decida: a demanda está PLENAMENTE atendida ou faltam etapas (ex: copy pronto → falta briefing visual → falta calendário social → falta plano de tráfego)?
+
+Responda APENAS JSON:
+{"continue": true/false, "reason":"1 frase", "agents":["id1","id2"]}
+- continue=false se a demanda está completa.
+- agents: máximo ${MAX_PER_WAVE}, somente IDs de "DISPONÍVEIS".`;
+
+        const { data: handoffData, error: handoffErr } = await supabase.functions.invoke("chat-ai", {
+          body: {
+            systemPrompt: handoffSystem,
+            maxTokens: 250,
+            messages: [{ role: "user", content: "Avalie continuidade." }],
+          },
+        });
+        if (handoffErr) break;
+
+        const hRaw: string = handoffData?.content ?? "{}";
+        let handoff: { continue: boolean; reason: string; agents: string[] } = { continue: false, reason: "", agents: [] };
+        try {
+          const fromBlock = hRaw.match(/```(?:json)?\s*([\s\S]*?)```/)?.[1]?.trim();
+          const fromRaw   = hRaw.match(/(\{[\s\S]*\})/)?.[1]?.trim();
+          handoff = JSON.parse(fromBlock ?? fromRaw ?? hRaw);
+        } catch { break; }
+
+        const nextAgents = (handoff.agents ?? [])
+          .filter((a) => validIds.has(a) && !alreadyRan.has(a))
+          .slice(0, MAX_PER_WAVE);
+
+        if (!handoff.continue || nextAgents.length === 0) break;
+
+        // ARIA anuncia a continuidade
+        addConvMsgs([{
+          id: `aria-handoff-${Date.now()}`,
+          from: "aria", to: "user",
+          content: `🔄 Continuando: ${handoff.reason || "acionando próximos agentes para dar sequência."}`,
+          action: "plan", timestamp: nowTs(), status: "done",
+        }]);
+
+        // delegação da nova onda
+        const wDeleg: AgentMsg[] = nextAgents.map((agentId, i) => ({
+          id: `aria-wave${waveIndex}-${Date.now()}-${i}`,
+          from: "aria", to: agentId,
+          content: ARIA_DELEGATIONS[agentId] ?? `${agentId}, dê continuidade ao trabalho.`,
+          action: "plan", timestamp: nowTs(), status: "done",
+        }));
+        addConvMsgs(wDeleg);
+
+        // execução sequencial da nova onda
+        for (const agentId of nextAgents) {
+          alreadyRan.add(agentId);
+
+          const workTasks = { ...client.agentTasks };
+          workTasks[agentId] = {
+            current: ARIA_DELEGATIONS[agentId] ?? "Trabalhando…",
+            status: "trabalhando",
+            recent: workTasks[agentId]?.recent ?? [],
+            progress: 25,
+          };
+          if (id) updateClient(id, { agentTasks: workTasks });
+
+          // contexto rico com TUDO que já foi entregue
+          const priorBlock = Object.entries(accumulated)
+            .map(([aId, txt]) => `\n--- Entrega de ${aId} ---\n${txt.slice(0, 1200)}`)
+            .join("\n");
+
+          const ctx2 = `Cliente: ${clientContext.name} | Segmento: ${clientContext.industry}
+${clientContext.teamInstructions ? `Instruções: ${clientContext.teamInstructions}` : ""}
+
+ENTREGAS ANTERIORES DO TIME (use como base e dê CONTINUIDADE — não repita, complemente):
+${priorBlock}`;
+
+          let outText = "";
+          try {
+            const { data: agData, error: agErr } = await supabase.functions.invoke("chat-ai", {
+              body: {
+                systemPrompt: AGENT_PROMPTS[agentId],
+                maxTokens: 2500,
+                messages: [{
+                  role: "user",
+                  content: `Demanda original: "${demand}"\n\n${ctx2}\n\nEntregue sua parte dando continuidade ao que o time já produziu.`,
+                }],
+              },
+            });
+            if (agErr) throw agErr;
+            outText = (agData?.content ?? "").trim();
+          } catch (e) {
+            outText = `*Erro: ${e instanceof Error ? e.message : String(e)}*`;
+          }
+
+          accumulated[agentId] = outText;
+          setAgentOutputs((prev) => ({ ...prev, [agentId]: outText }));
+
+          const doneT = { ...client.agentTasks };
+          doneT[agentId] = {
+            current: "Entrega concluída",
+            status: "concluído",
+            recent: ["Continuidade entregue", ...(doneT[agentId]?.recent ?? [])].slice(0, 3),
+            progress: 100,
+          };
+          if (id) updateClient(id, { agentTasks: doneT });
+
+          const fp = outText.split(/\n\s*\n/)[0]?.replace(/^#+\s*/g, "").trim() ?? outText;
+          addConvMsgs([{
+            id: `${agentId}-w${waveIndex}-${Date.now()}`,
+            from: agentId, to: "aria",
+            content: fp.slice(0, 300) + (fp.length > 300 ? "…" : ""),
+            action: "respond", timestamp: nowTs(), status: "done",
+          }]);
+        }
+
+        waveIndex++;
+      }
+
+      // ━━━━━━━━━━ PASSO 5 — ARIA encerra ━━━━━━━━━━
       addConvMsgs([{
         id: `aria-end-${Date.now()}`,
         from: "aria", to: "user",
-        content: `✅ ${agents.length} agente(s) concluíram. Veja as entregas completas nos cards abaixo.`,
+        content: `✅ ${alreadyRan.size} agente(s) concluíram em ${waveIndex} onda(s). Veja as entregas completas nos cards abaixo.`,
         action: "respond", timestamp: nowTs(), status: "done",
       }]);
     } catch (err) {
