@@ -5,84 +5,58 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
-
-// ─── SITE SCRAPER ─────────────────────────────────────────────────────────────
-async function scrapeSite(url: string): Promise<string> {
-  try {
-    const res = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; CaluBot/1.0)" },
-      signal: AbortSignal.timeout(5000),
-    });
-    const html = await res.text();
-    const get = (p: RegExp) => p.exec(html)?.[1]?.trim() ?? "";
-    const title = get(/<title[^>]*>([^<]{1,120})<\/title>/i);
-    const metaDesc = get(/<meta[^>]*name=["']description["'][^>]*content=["']([^"']{1,250})["']/i);
-    const h1 = get(/<h1[^>]*>([^<]{1,120})<\/h1>/i);
-    const body = html
-      .replace(/<script[\s\S]*?<\/script>/gi, "")
-      .replace(/<style[\s\S]*?<\/style>/gi, "")
-      .replace(/<[^>]+>/g, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 500);
-    return [`SITE: ${url}`, title && `Título: ${title}`, metaDesc && `Desc: ${metaDesc}`, h1 && `H1: ${h1}`, body && `Conteúdo: ${body}`]
-      .filter(Boolean).join("\n");
-  } catch {
-    return `SITE: ${url} (inacessível)`;
-  }
-}
-
-// ─── Lovable AI helper ────────────────────────────────────────────────────────
-async function callLovableAI(system: string, user: string, key: string, model = "google/gemini-2.5-flash") {
-  const res = await fetch(GATEWAY, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model,
-      messages: [{ role: "system", content: system }, { role: "user", content: user }],
-    }),
-  });
-  if (!res.ok) throw new Error(`AI Gateway ${res.status}: ${await res.text()}`);
-  const data = await res.json();
-  return (data.choices?.[0]?.message?.content ?? "").trim();
-}
-
-// ─── ARIA orchestration ──────────────────────────────────────────────────────
+// ─── ARIA orchestration — Claude Haiku (fast, ~5-10s) ─────────────────────────
 async function orchestrate(
   demand: string,
-  clientContext: Record<string, unknown>,
-  lovableKey: string,
-  siteUrl?: string,
+  ctx: Record<string, unknown>,
+  anthropicKey: string,
 ) {
-  const ctx = clientContext ?? {};
-  const siteContext = siteUrl ? await scrapeSite(siteUrl) : "";
+  const system = `Você é ARIA, Diretora de Marketing da agência Calu. Lidere seu time entregando trabalho REAL.
 
-  const systemPrompt = `Você é ARIA, Diretora Sênior de Marketing da agência Calu. Lidera time premium: CAROLINA (estrategista), BEATRIZ (copy), RAFAELA (tráfego pago), LUCAS (dados), MARINA (calendário editorial), ISADORA (art director - gera imagem).
+TIME:
+• CAROLINA (estrategista) — posicionamento, persona, pilares editoriais, tom de voz
+• BEATRIZ (copywriter) — copy completo: título + legenda + hashtags, pronto para publicar
+• RAFAELA (tráfego) — estrutura de campanha: público, orçamento, métricas
+• LUCAS (dados) — benchmarks do segmento, melhores horários, formatos
+• MARINA (social media) — calendário 7 dias em tabela markdown
+• ISADORA (art director) — gera imagem (NÃO tem resposta de texto no JSON)
 
-CONTEXTO CLIENTE:
-Nome: ${ctx.name ?? "n/a"} | Segmento: ${ctx.industry ?? "n/a"} | Cor: ${ctx.brandColor ?? "n/a"}
+CLIENTE: ${ctx.name ?? "n/a"} | Segmento: ${ctx.industry ?? "n/a"} | Cor: ${ctx.brandColor ?? "n/a"}
 Campanhas: ${(ctx.campaigns as string[] ?? []).join(", ") || "nenhuma"}
-${ctx.teamInstructions ? `INSTRUÇÕES: ${ctx.teamInstructions}` : ""}
-${siteContext ? `\n${siteContext}` : ""}
+${ctx.teamInstructions ? `INSTRUÇÕES DO CLIENTE: ${ctx.teamInstructions}` : ""}
 
-RETORNE APENAS JSON VÁLIDO no formato:
-{
-  "plan": "análise em 2-3 frases",
-  "messages": [
-    { "id": "msg_1", "from": "aria", "to": "carolina", "content": "briefing", "action": "plan" },
-    { "id": "msg_2", "from": "carolina", "to": "aria", "content": "estratégia completa pronta para usar", "action": "respond" },
-    { "id": "msg_3", "from": "aria", "to": "beatriz", "content": "briefing copy", "action": "write_copy" },
-    { "id": "msg_4", "from": "beatriz", "to": "aria", "content": "copy completo: título + legenda + hashtags", "action": "respond" },
-    { "id": "msg_5", "from": "aria", "to": "isadora", "content": "briefing visual detalhado", "action": "generate_image", "imageParams": { "aspectRatio": "3:4" } }
-  ]
-}
+FORMATOS Isadora — aspectRatio obrigatório:
+"3:4" = Instagram feed portrait (1080×1440px)
+"1:1" = Instagram/LinkedIn square (1080×1080px)
+"9:16" = Stories/Reels (1080×1920px)
+"16:9" = Banner/YouTube (1920×1080px)
 
-Actions válidas: write_copy, generate_image, analyze, plan, schedule, respond, diagnose
-aspectRatio: "3:4" (feed), "1:1" (square), "9:16" (stories/reels), "16:9" (banner), "4:3" (slide)
-Isadora NÃO tem mensagem de resposta. Português brasileiro. Entrega real e completa.`;
+RETORNE APENAS JSON VÁLIDO:
+{"plan":"análise em 2 frases","messages":[{"id":"msg_1","from":"aria","to":"carolina","content":"briefing","action":"plan"},{"id":"msg_2","from":"carolina","to":"aria","content":"estratégia completa e detalhada pronta para usar","action":"respond"},{"id":"msg_3","from":"aria","to":"beatriz","content":"briefing","action":"write_copy"},{"id":"msg_4","from":"beatriz","to":"aria","content":"copy completo: título + legenda + hashtags","action":"respond"},{"id":"msg_5","from":"aria","to":"isadora","content":"briefing visual detalhado","action":"generate_image","imageParams":{"aspectRatio":"3:4"}}]}
 
-  const text = await callLovableAI(systemPrompt, `Briefing: "${demand}"`, lovableKey, "google/gemini-2.5-flash");
+Inclua apenas agentes necessários para a demanda. Isadora só se pedir imagem/criativo.
+Actions: write_copy, generate_image, analyze, plan, schedule, respond, diagnose
+Português brasileiro. Entrega real e completa — nunca só confirmação.`;
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": anthropicKey,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 3000,
+      system,
+      messages: [{ role: "user", content: `Demanda: "${demand}"` }],
+    }),
+  });
+
+  if (!res.ok) throw new Error(`Anthropic ${res.status}: ${await res.text()}`);
+
+  const data = await res.json();
+  const text: string = data.content?.[0]?.text ?? "{}";
 
   try {
     const m = text.match(/```(?:json)?\s*([\s\S]*?)```/) ?? [null, text];
@@ -92,12 +66,12 @@ Isadora NÃO tem mensagem de resposta. Português brasileiro. Entrega real e com
   }
 }
 
-// ─── Image generation ────────────────────────────────────────────────────────
-const SUPPORTED_RATIOS = new Set(["1:1", "3:4", "4:3", "9:16", "16:9"]);
+// ─── Image generation — Google Imagen 3 (~10-15s) ────────────────────────────
+const RATIOS = new Set(["1:1", "3:4", "4:3", "9:16", "16:9"]);
 
-function normalizeRatio(aspectRatio: string, prompt: string): string {
-  const r = String(aspectRatio || "").trim();
-  if (!r || r === "auto") {
+function normalizeRatio(r: string, prompt: string): string {
+  const v = String(r || "").trim();
+  if (!v || v === "auto") {
     const d = prompt.toLowerCase();
     if (d.includes("stories") || d.includes("reels") || d.includes("tiktok")) return "9:16";
     if (d.includes("banner") || d.includes("youtube")) return "16:9";
@@ -105,63 +79,60 @@ function normalizeRatio(aspectRatio: string, prompt: string): string {
     if (d.includes("quadrado") || d.includes("square")) return "1:1";
     return "3:4";
   }
-  if (r === "4:5") return "3:4";
-  return SUPPORTED_RATIOS.has(r) ? r : "3:4";
+  if (v === "4:5") return "3:4";
+  return RATIOS.has(v) ? v : "3:4";
 }
-
-const RATIO_HINT: Record<string, string> = {
-  "3:4": "vertical portrait 3:4 aspect ratio (1080x1440)",
-  "1:1": "square 1:1 aspect ratio (1080x1080)",
-  "9:16": "vertical 9:16 aspect ratio (1080x1920)",
-  "16:9": "horizontal 16:9 aspect ratio (1920x1080)",
-  "4:3": "horizontal 4:3 aspect ratio (1080x810)",
-};
 
 async function generateImage(
   prompt: string,
   aspectRatio: string,
-  clientContext: Record<string, unknown>,
-  lovableKey: string,
+  ctx: Record<string, unknown>,
+  googleKey: string,
   beatrizCopy = "",
   carolinaStrategy = "",
 ) {
-  const ctx = clientContext ?? {};
   const ratio = normalizeRatio(aspectRatio, prompt);
+  const hint: Record<string, string> = {
+    "3:4": "vertical portrait 3:4 (1080x1440)",
+    "1:1": "square 1:1 (1080x1080)",
+    "9:16": "vertical 9:16 (1080x1920)",
+    "16:9": "horizontal 16:9 (1920x1080)",
+    "4:3": "horizontal 4:3 (1080x810)",
+  };
 
-  const teamCtx = [
-    beatrizCopy && `COPY: ${beatrizCopy.slice(0, 600)}`,
-    carolinaStrategy && `STRATEGY: ${carolinaStrategy.slice(0, 400)}`,
-  ].filter(Boolean).join("\n");
+  const extras = [
+    beatrizCopy ? `Copy: ${beatrizCopy.slice(0, 300)}` : "",
+    carolinaStrategy ? `Estratégia: ${carolinaStrategy.slice(0, 200)}` : "",
+  ].filter(Boolean).join(" | ");
 
-  const finalPrompt = `${RATIO_HINT[ratio]}. Brand: ${ctx.name ?? ""} (${ctx.industry ?? ""}), brand color ${ctx.brandColor ?? "neutral"}.
+  const finalPrompt = `${prompt}. Brand: ${ctx.name ?? ""} in ${ctx.industry ?? ""}, brand color ${ctx.brandColor ?? "neutral"}. Format: ${hint[ratio]}. ${extras} Editorial photography, ultra high quality, 4K, sharp focus, no text, no logos, no watermarks.`;
 
-${prompt}
+  if (!googleKey) throw new Error("GOOGLE_AI_API_KEY não configurada");
 
-${teamCtx}
+  const imgRes = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${googleKey}`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        instances: [{ prompt: finalPrompt }],
+        parameters: { sampleCount: 1, aspectRatio: ratio },
+      }),
+    },
+  );
 
-Editorial photography, ultra high quality, 4K, sharp focus, no text, no logos, no watermarks.`;
+  if (!imgRes.ok) throw new Error(`Imagen 3 ${imgRes.status}: ${await imgRes.text()}`);
 
-  const res = await fetch(GATEWAY, {
-    method: "POST",
-    headers: { Authorization: `Bearer ${lovableKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash-image",
-      messages: [{ role: "user", content: finalPrompt }],
-      modalities: ["image", "text"],
-    }),
-  });
+  const imgData = await imgRes.json();
+  const pred = imgData.predictions?.[0];
+  if (!pred?.bytesBase64Encoded) throw new Error("Imagen 3 não retornou imagem");
 
-  if (!res.ok) throw new Error(`Image gen ${res.status}: ${await res.text()}`);
-
-  const data = await res.json();
-  const imageUrl = data.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-  if (!imageUrl) throw new Error("Sem imagem retornada");
-
-  const match = imageUrl.match(/^data:(image\/[^;]+);base64,(.+)$/);
-  const mimeType = match?.[1] ?? "image/png";
-  const imageData = match?.[2] ?? imageUrl;
-
-  return { imageData, mimeType, enhancedPrompt: finalPrompt, aspectRatio: ratio };
+  return {
+    imageData: pred.bytesBase64Encoded,
+    mimeType: pred.mimeType ?? "image/png",
+    enhancedPrompt: finalPrompt,
+    aspectRatio: ratio,
+  };
 }
 
 // ─── Router ───────────────────────────────────────────────────────────────────
@@ -171,21 +142,21 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
 
-    const lovableKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!lovableKey) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY não configurada" }), {
+    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
+    if (!anthropicKey) {
+      return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY não configurada" }), {
         status: 500, headers: { ...cors, "Content-Type": "application/json" },
       });
     }
 
     if (body.mode === "orchestrate") {
-      const { demand, clientContext, siteUrl } = body;
+      const { demand, clientContext } = body;
       if (!demand) {
-        return new Response(JSON.stringify({ error: "demand é obrigatório" }), {
+        return new Response(JSON.stringify({ error: "demand obrigatório" }), {
           status: 400, headers: { ...cors, "Content-Type": "application/json" },
         });
       }
-      const result = await orchestrate(demand, clientContext ?? {}, lovableKey, siteUrl);
+      const result = await orchestrate(demand, clientContext ?? {}, anthropicKey);
       return new Response(JSON.stringify(result), {
         headers: { ...cors, "Content-Type": "application/json" },
       });
@@ -193,12 +164,13 @@ Deno.serve(async (req) => {
 
     const { prompt, aspectRatio = "3:4", clientContext, beatrizCopy = "", carolinaStrategy = "" } = body;
     if (!prompt) {
-      return new Response(JSON.stringify({ error: "prompt é obrigatório" }), {
+      return new Response(JSON.stringify({ error: "prompt obrigatório" }), {
         status: 400, headers: { ...cors, "Content-Type": "application/json" },
       });
     }
 
-    const result = await generateImage(prompt, aspectRatio, clientContext ?? {}, lovableKey, beatrizCopy, carolinaStrategy);
+    const googleKey = Deno.env.get("GOOGLE_AI_API_KEY") ?? "";
+    const result = await generateImage(prompt, aspectRatio, clientContext ?? {}, googleKey, beatrizCopy, carolinaStrategy);
     return new Response(JSON.stringify(result), {
       headers: { ...cors, "Content-Type": "application/json" },
     });
