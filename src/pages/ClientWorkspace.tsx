@@ -398,6 +398,14 @@ const AGENT_META: Record<string, { initial: string; color: string; name: string 
   valentina: { initial: "V", color: "#E879F9", name: "Valentina" },
   lia:       { initial: "L", color: "#38BDF8", name: "Lia" },
   user:      { initial: "U", color: "#94A3B8", name: "Você" },
+  // Aliases por ID do time (orquestração sequencial)
+  strategist: { initial: "C", color: "#FBBF24", name: "Carolina" },
+  copywriter: { initial: "B", color: "#A78BFA", name: "Beatriz" },
+  traffic:    { initial: "R", color: "#F97316", name: "Rafaela" },
+  analyst:    { initial: "L", color: "#34D399", name: "Lucas" },
+  social:     { initial: "M", color: "#60A5FA", name: "Marina" },
+  site:       { initial: "V", color: "#E879F9", name: "Valentina" },
+  designer:   { initial: "I", color: "#F472B6", name: "Isadora" },
 };
 
 const normalizeImageAspectRatio = (ratio?: string) => {
