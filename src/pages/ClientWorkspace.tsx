@@ -1038,6 +1038,7 @@ ${priorBlock}`;
       addConvMsgs([{ id: `e-${Date.now()}`, from: "aria", to: "user", content: `Erro: ${errMsg}`, timestamp: ts, status: "error" }]);
     } finally {
       setAriaLoading(false);
+      setCurrentWave(0);
     }
   };
 
