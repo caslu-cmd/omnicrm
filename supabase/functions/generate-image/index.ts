@@ -181,25 +181,7 @@ REGRAS CRÍTICAS:
 - Escreva tudo em português brasileiro
 - Nível agência premium: entrega pronta para uso imediato`;
 
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": anthropicKey,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-6",
-      max_tokens: 8000,
-      system: systemPrompt,
-      messages: [{ role: "user", content: `Demanda do cliente: "${demand}"` }],
-    }),
-  });
-
-  if (!response.ok) throw new Error(`Anthropic error: ${await response.text()}`);
-
-  const data = await response.json();
-  const text = data.content?.[0]?.text ?? "{}";
+  const text = await callLovableAI(systemPrompt, `Demanda do cliente: "${demand}"`, lovableKey, "google/gemini-2.5-pro");
   try {
     const jsonMatch = text.match(/```(?:json)?\s*([\s\S]*?)```/) || [null, text];
     return normalizeGeneratedMessages(JSON.parse(jsonMatch[1].trim()));
