@@ -2624,6 +2624,46 @@ ${priorBlock}`;
                   </div>
                 )}
 
+                {/* ── Barra global de Ondas (visível enquanto ARIA orquestra) ── */}
+                {currentWave > 0 && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+                    className="rounded-2xl px-5 py-3 flex items-center gap-4"
+                    style={{
+                      background: "linear-gradient(90deg, rgba(185,255,75,0.08), rgba(185,255,75,0.02))",
+                      border: "1px solid rgba(185,255,75,0.25)",
+                      boxShadow: "0 0 28px -10px rgba(185,255,75,0.4)",
+                    }}>
+                    <span className="relative flex h-2.5 w-2.5 flex-shrink-0">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#B9FF4B" }} />
+                      <span className="relative inline-flex rounded-full h-2.5 w-2.5" style={{ background: "#B9FF4B" }} />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1.5">
+                        <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: "#B9FF4B" }}>
+                          🌊 Onda {currentWave} de {Math.max(totalWaves, currentWave)}
+                        </span>
+                        <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.4)" }}>•</span>
+                        <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.55)" }}>
+                          {Object.entries(agentWaves).filter(([aId, w]) => w === currentWave && client.agentTasks[aId]?.status !== "concluído").length} agente(s) ativo(s) nesta onda
+                        </span>
+                      </div>
+                      <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+                        <motion.div
+                          className="h-full rounded-full"
+                          style={{ background: "#B9FF4B" }}
+                          initial={{ width: 0 }}
+                          animate={{ width: `${(currentWave / Math.max(totalWaves, currentWave, 3)) * 100}%` }}
+                          transition={{ duration: 0.6, ease: "easeOut" }}
+                        />
+                      </div>
+                    </div>
+                    <span className="text-[10px] flex-shrink-0" style={{ color: "rgba(255,255,255,0.4)" }}>
+                      Máx 3 ondas
+                    </span>
+                  </motion.div>
+                )}
+
                 {/* ── Time de Especialistas ── */}
                 <div>
                   <div className="flex items-center gap-3 mb-4">
