@@ -687,6 +687,10 @@ export default function ClientWorkspace() {
       social:     "Marina, monte o calendário editorial completo de 7 dias em tabela.",
       site:       "Valentina, traga a estratégia de SEO: keywords, clusters e títulos otimizados.",
       designer:   "Isadora, escreva o briefing visual completo da peça (formato, paleta, mood).",
+      sales:      "Eduardo, monte o script de WhatsApp + qualificação + objeções + follow-up.",
+      briefing:   "Lia, faça o diagnóstico inicial e monte o briefing de onboarding.",
+      revisor:    "Vitória, revise os textos do contexto e entregue a versão final corrigida.",
+      video:      "Bobby, monte o briefing de edição do vídeo (cortes, efeitos, legendas, color).",
     };
 
     try {
@@ -701,6 +705,12 @@ Agentes disponíveis (use exatamente esses IDs):
 - social (Marina — Calendário editorial, social media)
 - site (Valentina — SEO, blog, conteúdo orgânico)
 - designer (Isadora — Briefing visual, criativo)
+- sales (Eduardo — WhatsApp, vendas, qualificação de leads, CRM)
+- briefing (Lia — Diagnóstico, onboarding, briefing inicial de novos clientes)
+- revisor (Vitória — Revisão ortográfica e gramatical de textos prontos)
+- video (Bobby — Edição de vídeo: cortes, efeitos, legendas, color grade)
+
+Escolha SOMENTE os agentes que realmente fazem sentido para a demanda. Mínimo 1, máximo 5.
 
 Contexto: cliente "${clientContext.name}", segmento "${clientContext.industry}".
 ${clientContext.teamInstructions ? `Instruções permanentes: ${clientContext.teamInstructions}` : ""}
