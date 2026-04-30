@@ -2720,31 +2720,33 @@ ${priorBlock}`;
                             {agent.skill}
                           </div>
 
-                          {/* Wave + Deadline badges */}
-                          <div className="flex flex-wrap items-center gap-1.5 mb-3">
-                            {agentWaves[agent.id] && (
-                              <div
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider"
-                                style={{
-                                  background: "rgba(185,255,75,0.12)",
-                                  color: "#B9FF4B",
-                                  border: "1px solid rgba(185,255,75,0.3)",
-                                }}>
-                                🌊 Onda {agentWaves[agent.id]}
-                              </div>
-                            )}
-                            {agentDeadlines[agent.id] && !isDone && (
-                              <div
-                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-semibold"
-                                style={{
-                                  background: `${agent.color}14`,
-                                  color: agent.color,
-                                  border: `1px solid ${agent.color}30`,
-                                }}>
-                                ⏱ Entrega até {agentDeadlines[agent.id]}
-                              </div>
-                            )}
-                          </div>
+                          {/* Wave + Deadline badges (só renderiza se houver algo) */}
+                          {(agentWaves[agent.id] || (agentDeadlines[agent.id] && !isDone)) && (
+                            <div className="flex flex-wrap items-center gap-1.5 mb-3">
+                              {agentWaves[agent.id] && (
+                                <div
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider"
+                                  style={{
+                                    background: "rgba(185,255,75,0.12)",
+                                    color: "#B9FF4B",
+                                    border: "1px solid rgba(185,255,75,0.3)",
+                                  }}>
+                                  🌊 Onda {agentWaves[agent.id]}
+                                </div>
+                              )}
+                              {agentDeadlines[agent.id] && !isDone && (
+                                <div
+                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-semibold"
+                                  style={{
+                                    background: `${agent.color}14`,
+                                    color: agent.color,
+                                    border: `1px solid ${agent.color}30`,
+                                  }}>
+                                  ⏱ Entrega até {agentDeadlines[agent.id]}
+                                </div>
+                              )}
+                            </div>
+                          )}
 
                           {/* Current task */}
                           {(agent.id === "designer" ? (designerTask || designerRecentWork.length > 0) : task) && (
