@@ -547,39 +547,72 @@ function TeamCarousel() {
       <div ref={trackRef} onScroll={onScroll} className="cl-track"
         onMouseEnter={() => setPaused(true)}
         onMouseLeave={() => setPaused(false)}
-        style={{ display: "flex", gap: GAP, scrollSnapType: "x mandatory", padding: "4px 64px 24px" } as React.CSSProperties}>
-        {TEAM.map((t, idx) => (
-          <div key={t.i}
-            style={{ flexShrink: 0, width: CARD_W, scrollSnapAlign: "start", borderRadius: 20, background: idx === active ? `${t.color}0C` : "rgba(255,255,255,.025)", border: `1px solid ${idx === active ? `${t.color}40` : "rgba(255,255,255,.07)"}`, padding: "36px 28px", display: "flex", flexDirection: "column" as const, transition: "background .3s, border-color .3s", minHeight: 460 }}>
+        style={{ display: "flex", gap: GAP, scrollSnapType: "x mandatory", padding: "4px 64px 36px" } as React.CSSProperties}>
+        {TEAM.map((t, idx) => {
+          const on = idx === active;
+          return (
+            <div key={t.i} style={{
+              flexShrink: 0, width: CARD_W, scrollSnapAlign: "start",
+              borderRadius: 22, padding: "36px 28px",
+              display: "flex", flexDirection: "column" as const, minHeight: 460,
+              position: "relative", overflow: "hidden",
+              background: on ? `${t.color}0F` : "rgba(255,255,255,.022)",
+              border: `1px solid ${on ? `${t.color}65` : "rgba(255,255,255,.07)"}`,
+              boxShadow: on
+                ? `0 0 0 1px ${t.color}1A, 0 24px 72px -24px ${t.color}70, inset 0 1px 0 ${t.color}20`
+                : "inset 0 1px 0 rgba(255,255,255,.04)",
+              transform: on ? "translateY(-6px) scale(1.018)" : "translateY(0) scale(1)",
+              transition: "background .4s, border-color .4s, box-shadow .4s, transform .4s cubic-bezier(.22,.68,0,1.2)",
+              zIndex: on ? 2 : 1,
+            }}>
 
-            {/* Avatar */}
-            <div style={{ width: 72, height: 72, borderRadius: 18, background: `${t.color}20`, border: `2px solid ${t.color}50`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 26, fontWeight: 800, color: t.color, marginBottom: 24, flexShrink: 0 }}>{t.i}</div>
+              {/* Glow blob — visible only when active */}
+              <div style={{
+                position: "absolute", top: -80, right: -80,
+                width: 280, height: 280, borderRadius: "50%",
+                background: `radial-gradient(circle, ${t.color}${on ? "22" : "06"} 0%, transparent 68%)`,
+                filter: "blur(36px)", pointerEvents: "none",
+                transition: "background .5s",
+              }} />
 
-            {/* Identity */}
-            <div style={{ fontFamily: mono, fontSize: 10, color: t.color, letterSpacing: "0.08em", textTransform: "uppercase" as const, marginBottom: 6 }}>Agente especialista</div>
-            <h3 style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.035em", lineHeight: 1, marginBottom: 4 }}>{t.name}</h3>
-            <div style={{ fontFamily: mono, fontSize: 11, color: MUTED, marginBottom: 20 }}>{t.role}</div>
+              {/* Avatar */}
+              <div style={{
+                width: 72, height: 72, borderRadius: 18,
+                background: on ? `${t.color}28` : `${t.color}18`,
+                border: `2px solid ${on ? t.color : `${t.color}45`}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: 26, fontWeight: 800, color: t.color,
+                marginBottom: 24, flexShrink: 0, position: "relative",
+                boxShadow: on ? `0 0 32px -6px ${t.color}90, inset 0 1px 0 ${t.color}35` : "none",
+                transition: "background .4s, border-color .4s, box-shadow .4s",
+              }}>{t.i}</div>
 
-            {/* Desc */}
-            <p style={{ fontSize: 14, color: DIM, lineHeight: 1.7, marginBottom: 24, flexGrow: 1 }}>{t.desc}</p>
+              {/* Identity */}
+              <div style={{ fontFamily: mono, fontSize: 10, color: t.color, letterSpacing: "0.08em", textTransform: "uppercase" as const, marginBottom: 6, opacity: on ? 1 : 0.65, transition: "opacity .4s" }}>Agente especialista</div>
+              <h3 style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.035em", lineHeight: 1, marginBottom: 4, color: on ? OFF : "rgba(240,239,232,.6)", transition: "color .4s" }}>{t.name}</h3>
+              <div style={{ fontFamily: mono, fontSize: 11, color: on ? t.color : MUTED, marginBottom: 20, transition: "color .4s" }}>{t.role}</div>
 
-            {/* Tasks */}
-            <div style={{ display: "flex", flexDirection: "column" as const, gap: 8, marginBottom: 24 }}>
-              {t.tasks.map(task => (
-                <div key={task} style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                  <div style={{ width: 5, height: 5, borderRadius: "50%", background: t.color, flexShrink: 0 }} />
-                  <span style={{ fontSize: 13, color: "rgba(240,239,232,.5)", fontWeight: 500 }}>{task}</span>
-                </div>
-              ))}
+              {/* Desc */}
+              <p style={{ fontSize: 14, color: on ? "rgba(240,239,232,.68)" : DIM, lineHeight: 1.7, marginBottom: 24, flexGrow: 1, transition: "color .4s" }}>{t.desc}</p>
+
+              {/* Tasks */}
+              <div style={{ display: "flex", flexDirection: "column" as const, gap: 8, marginBottom: 24 }}>
+                {t.tasks.map(task => (
+                  <div key={task} style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                    <div style={{ width: 5, height: 5, borderRadius: "50%", background: on ? t.color : "rgba(255,255,255,.2)", flexShrink: 0, boxShadow: on ? `0 0 6px ${t.color}` : "none", transition: "background .4s, box-shadow .4s" }} />
+                    <span style={{ fontSize: 13, color: on ? "rgba(240,239,232,.65)" : "rgba(240,239,232,.3)", fontWeight: 500, transition: "color .4s" }}>{task}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Status */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 20, borderTop: `1px solid ${on ? `${t.color}25` : "rgba(255,255,255,.06)"}`, transition: "border-color .4s" }}>
+                <div style={{ width: 7, height: 7, borderRadius: "50%", background: LIME, boxShadow: on ? `0 0 10px ${LIME}` : "none", transition: "box-shadow .4s" }} />
+                <span style={{ fontFamily: mono, fontSize: 10, color: LIME }}>trabalhando agora</span>
+              </div>
             </div>
-
-            {/* Status */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 20, borderTop: "1px solid rgba(255,255,255,.06)" }}>
-              <div style={{ width: 7, height: 7, borderRadius: "50%", background: LIME, boxShadow: `0 0 8px ${LIME}` }} />
-              <span style={{ fontFamily: mono, fontSize: 10, color: LIME }}>trabalhando agora</span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Dots */}
