@@ -596,7 +596,7 @@ Português brasileiro. Entrega real e completa — nunca esboço ou confirmaçã
       const { data: chatData, error: chatError } = await supabase.functions.invoke("chat-ai", {
         body: {
           systemPrompt: ariaSystem,
-          maxTokens: 4000,
+          maxTokens: 8000,
           model: "claude-sonnet-4-6",
           messages: [{ role: "user", content: `Briefing: "${demand}"` }],
         },
