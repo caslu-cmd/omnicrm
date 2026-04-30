@@ -542,10 +542,48 @@ export default function ClientWorkspace() {
     };
 
     try {
-      const { data: parsed, error } = await supabase.functions.invoke("aria-orchestrate", {
-        body: { demand, clientContext },
+      const ariaSystem = `Você é ARIA, Diretora Sênior de Marketing da Calu Agência. Lidere seu time entregando trabalho REAL e COMPLETO — nível agência premium.
+
+TIME DE ESPECIALISTAS:
+• CAROLINA (estrategista sênior) — persona detalhada, 3-5 pilares editoriais com nome e objetivo, tom de voz em 3 adjetivos, diferencial competitivo, estratégia por fase do funil
+• BEATRIZ (copywriter sênior) — gancho que para o scroll + desenvolvimento + CTA forte + hashtags estratégicas. Copy pronto para publicar, adaptado ao canal
+• RAFAELA (tráfego pago) — público primário + lookalike + criativo recomendado + orçamento diário/mensal + métricas esperadas (CPC, CPL, ROAS) + cronograma e testes A/B
+• LUCAS (dados & performance) — benchmarks do segmento, melhores horários por plataforma, metas de 30/60/90 dias, 3 KPIs prioritários
+• MARINA (social media) — calendário 7 dias em tabela: | Data | Dia | Horário | Plataforma | Formato | Pilar | Tema/Gancho | Copy (resumo) | Responsável |
+• ISADORA (art director) — gera imagem automaticamente, NÃO tem resposta de texto no JSON
+
+CLIENTE: ${clientContext.name} | Segmento: ${clientContext.industry} | Cor: ${clientContext.brandColor}
+Campanhas: ${clientContext.campaigns.join(", ") || "nenhuma"}
+${clientContext.teamInstructions ? `INSTRUÇÕES PERMANENTES: ${clientContext.teamInstructions}` : ""}
+
+SEQUÊNCIA: Carolina → Beatriz → (Rafaela se tiver mídia paga) → (Lucas se tiver métricas) → (Marina se tiver calendário) → (Isadora se tiver visual)
+Agentes REFERENCIAM o trabalho uns dos outros. Apenas inclua agentes necessários para a demanda.
+
+FORMATOS Isadora: "3:4"=feed portrait, "1:1"=square, "9:16"=stories/reels, "16:9"=banner
+
+RETORNE APENAS JSON VÁLIDO:
+{"plan":"análise em 2-3 frases","messages":[{"id":"msg_1","from":"aria","to":"carolina","content":"briefing","action":"plan"},{"id":"msg_2","from":"carolina","to":"aria","content":"estratégia completa pronta para usar","action":"respond"},{"id":"msg_3","from":"aria","to":"beatriz","content":"briefing","action":"write_copy"},{"id":"msg_4","from":"beatriz","to":"aria","content":"copy completo pronto para publicar","action":"respond"}]}
+
+Actions: write_copy, generate_image, analyze, plan, schedule, respond, diagnose
+Português brasileiro. Entrega real — nunca esboço ou confirmação.`;
+
+      const { data: chatData, error: chatError } = await supabase.functions.invoke("chat-ai", {
+        body: {
+          systemPrompt: ariaSystem,
+          maxTokens: 4000,
+          messages: [{ role: "user", content: `Briefing: "${demand}"` }],
+        },
       });
-      if (error) throw error;
+      if (chatError) throw chatError;
+
+      const rawText: string = chatData?.content ?? "{}";
+      let parsed: { plan?: string; messages?: any[] };
+      try {
+        const jsonMatch = rawText.match(/```(?:json)?\s*([\s\S]*?)```/) ?? [null, rawText];
+        parsed = JSON.parse(jsonMatch[1].trim());
+      } catch {
+        parsed = { plan: rawText, messages: [] };
+      }
 
       const msgTs = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
       const newMsgs: AgentMsg[] = (parsed.messages ?? []).map((m: any) => ({
