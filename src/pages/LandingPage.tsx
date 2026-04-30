@@ -76,6 +76,7 @@ const CSS = `
   @keyframes cl-glow-in { 0%{opacity:0} 100%{opacity:1} }
   @keyframes cl-line    { from{transform:scaleX(0);transform-origin:left} to{transform:scaleX(1);transform-origin:left} }
   @keyframes cl-tl-in   { from{opacity:0;transform:translateX(-16px)} to{opacity:1;transform:translateX(0)} }
+  @keyframes cl-shine   { from{transform:translateX(-220px) skewX(-18deg)} to{transform:translateX(960px) skewX(-18deg)} }
   .cl-a1{animation:cl-in .65s ease both .05s}
   .cl-a2{animation:cl-in .65s ease both .18s}
   .cl-a3{animation:cl-in .65s ease both .30s}
@@ -96,9 +97,9 @@ const CSS = `
   .cl-track{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
   .cl-track::-webkit-scrollbar{display:none}
   .cl-agent-in{animation:cl-agent-in .42s cubic-bezier(.22,.68,0,1.2) both}
-  .cl-tl-step{transition:background .22s,border-color .22s,box-shadow .22s,transform .18s;cursor:pointer}
-  .cl-tl-step:hover{transform:translateY(-2px)}
-  .cl-tl-node{transition:background .3s,border-color .3s,box-shadow .3s}
+  .cl-tl-step{transition:background .28s,border-color .28s,box-shadow .28s,transform .22s;cursor:pointer}
+  .cl-tl-step:hover{transform:translateY(-4px) !important;border-color:rgba(185,255,75,.32) !important;box-shadow:0 16px 48px -16px rgba(185,255,75,.28),0 0 0 1px rgba(185,255,75,.14) !important}
+  .cl-tl-node{transition:background .35s,border-color .35s,box-shadow .35s}
   .cl-agent-btn{transition:all .2s;cursor:pointer}
   .cl-agent-btn:hover{transform:scale(1.12)}
 `;
@@ -203,80 +204,99 @@ function HeroAgentCard() {
       onMouseEnter={() => setPaused(true)}
       onMouseLeave={() => setPaused(false)}
       style={{
-        background: `${agent.color}08`,
-        border: `1px solid ${agent.color}30`,
-        borderRadius: 22,
-        padding: "22px",
+        background: `${agent.color}07`,
+        border: `1px solid ${agent.color}35`,
+        borderRadius: 26,
+        padding: "28px",
         position: "relative",
         overflow: "hidden",
-        boxShadow: `0 0 48px -12px ${agent.color}45, 0 0 0 1px ${agent.color}15`,
+        boxShadow: `0 0 80px -20px ${agent.color}50, 0 0 0 1px ${agent.color}18`,
         transition: "background .6s, border-color .6s, box-shadow .6s",
-        minWidth: 260,
       }}
     >
-      {/* Glow blob */}
+      {/* Glow blob top-right */}
       <div style={{
-        position: "absolute", top: -60, right: -60,
+        position: "absolute", top: -80, right: -80,
+        width: 320, height: 320, borderRadius: "50%",
+        background: `radial-gradient(circle, ${agent.color}28 0%, transparent 68%)`,
+        filter: "blur(36px)", pointerEvents: "none",
+        transition: "background .6s",
+      }} />
+      {/* Glow blob bottom-left */}
+      <div style={{
+        position: "absolute", bottom: -60, left: -60,
         width: 200, height: 200, borderRadius: "50%",
-        background: `radial-gradient(circle, ${agent.color}22 0%, transparent 70%)`,
-        filter: "blur(24px)", pointerEvents: "none",
+        background: `radial-gradient(circle, ${agent.color}14 0%, transparent 70%)`,
+        filter: "blur(28px)", pointerEvents: "none",
         transition: "background .6s",
       }} />
 
-      <div style={{ fontFamily: mono, fontSize: 10, color: LIME, marginBottom: 16, letterSpacing: "0.08em", textTransform: "uppercase" as const }}>
-        Time ativo agora
+      {/* Header row */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 22 }}>
+        <span style={{ fontFamily: mono, fontSize: 10, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" as const }}>Time ativo agora</span>
+        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <div className="cl-dot" style={{ width: 7, height: 7, borderRadius: "50%", background: LIME, boxShadow: `0 0 10px ${LIME}` }} />
+          <span style={{ fontFamily: mono, fontSize: 10, color: LIME }}>10 online</span>
+        </div>
       </div>
 
       {/* Featured agent */}
-      <div key={key} className="cl-agent-in" style={{ marginBottom: 16 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+      <div key={key} className="cl-agent-in" style={{ marginBottom: 20 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 18 }}>
           <div style={{
-            width: 54, height: 54, borderRadius: 15,
-            background: `${agent.color}20`,
-            border: `2px solid ${agent.color}55`,
+            width: 72, height: 72, borderRadius: 20,
+            background: `${agent.color}1C`,
+            border: `2px solid ${agent.color}60`,
             display: "flex", alignItems: "center", justifyContent: "center",
-            fontSize: 20, fontWeight: 800, color: agent.color, flexShrink: 0,
-            boxShadow: `0 0 24px -4px ${agent.color}70`,
+            fontSize: 26, fontWeight: 800, color: agent.color, flexShrink: 0,
+            boxShadow: `0 0 36px -6px ${agent.color}80, inset 0 1px 0 ${agent.color}30`,
+            transition: "box-shadow .6s",
           }}>{agent.i}</div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.1 }}>{agent.name}</div>
-            <div style={{ fontFamily: mono, fontSize: 9, color: MUTED, marginTop: 3 }}>{agent.role}</div>
-          </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
-            <div style={{ width: 6, height: 6, borderRadius: "50%", background: LIME, boxShadow: `0 0 8px ${LIME}` }} />
-            <span style={{ fontFamily: mono, fontSize: 9, color: LIME }}>online</span>
+            <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1.1, color: OFF }}>{agent.name}</div>
+            <div style={{ fontFamily: mono, fontSize: 11, color: agent.color, marginTop: 5, opacity: 0.8 }}>{agent.role}</div>
           </div>
         </div>
 
-        {/* Task preview */}
+        {/* Tasks grid */}
         <div style={{
-          background: "rgba(0,0,0,.35)", borderRadius: 11, padding: "10px 13px",
-          border: `1px solid ${agent.color}15`,
+          background: "rgba(0,0,0,.4)", borderRadius: 14, padding: "14px 16px",
+          border: `1px solid ${agent.color}18`,
+          boxShadow: `inset 0 1px 0 ${agent.color}10`,
         }}>
-          <div style={{ fontFamily: mono, fontSize: 9, color: MUTED, marginBottom: 4 }}>fazendo agora</div>
-          <div style={{ fontSize: 12, color: "rgba(240,239,232,.55)", lineHeight: 1.5 }}>{agent.tasks[0]}</div>
+          <div style={{ fontFamily: mono, fontSize: 9, color: MUTED, marginBottom: 10, letterSpacing: "0.08em", textTransform: "uppercase" as const }}>Executando agora</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "7px 12px" }}>
+            {agent.tasks.map((task, j) => (
+              <div key={j} style={{ display: "flex", alignItems: "center", gap: 7 }}>
+                <div style={{ width: 4, height: 4, borderRadius: "50%", background: j === 0 ? agent.color : "rgba(255,255,255,.15)", flexShrink: 0, boxShadow: j === 0 ? `0 0 6px ${agent.color}` : "none" }} />
+                <span style={{ fontSize: 12, color: j === 0 ? "rgba(240,239,232,.75)" : "rgba(240,239,232,.35)", lineHeight: 1.4 }}>{task}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* Divider */}
-      <div style={{ height: 1, background: "rgba(255,255,255,.06)", marginBottom: 14 }} />
+      <div style={{ height: 1, background: `linear-gradient(to right, ${agent.color}20, rgba(255,255,255,.04), transparent)`, marginBottom: 18, transition: "background .6s" }} />
 
       {/* All agents */}
-      <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 6 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 8 }}>
         {TEAM.map((t, i) => (
           <button
             key={t.i}
             onClick={() => { setActive(i); setKey(k => k + 1); setPaused(true); }}
             className="cl-agent-btn"
             style={{
-              width: 30, height: 30, borderRadius: 9, border: "none",
-              background: i === active ? `${t.color}28` : "rgba(255,255,255,.05)",
-              outline: i === active ? `1.5px solid ${t.color}60` : "1px solid rgba(255,255,255,.08)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              fontSize: 10, fontWeight: 800, color: i === active ? t.color : MUTED,
-              boxShadow: i === active ? `0 0 14px -3px ${t.color}65` : "none",
+              height: 44, borderRadius: 12, border: "none",
+              background: i === active ? `${t.color}22` : "rgba(255,255,255,.04)",
+              outline: i === active ? `1.5px solid ${t.color}70` : "1px solid rgba(255,255,255,.07)",
+              display: "flex", flexDirection: "column" as const, alignItems: "center", justifyContent: "center", gap: 2,
+              boxShadow: i === active ? `0 0 18px -4px ${t.color}70` : "none",
             }}
-          >{t.i}</button>
+          >
+            <span style={{ fontSize: 13, fontWeight: 800, color: i === active ? t.color : MUTED }}>{t.i}</span>
+            <span style={{ fontFamily: mono, fontSize: 8, color: i === active ? t.color : "rgba(255,255,255,.2)", lineHeight: 1 }}>{t.name.slice(0,3)}</span>
+          </button>
         ))}
       </div>
     </div>
@@ -289,148 +309,168 @@ function ProcessTimeline() {
 
   return (
     <section id="processo" style={{ padding: "120px 64px", borderBottom: "1px solid rgba(255,255,255,.06)", position: "relative", overflow: "hidden" }}>
-      {/* ambient glow */}
-      <div style={{ position: "absolute", top: "20%", left: "50%", transform: "translateX(-50%)", width: 800, height: 600, borderRadius: "50%", background: "radial-gradient(circle, rgba(185,255,75,.04) 0%, transparent 65%)", filter: "blur(60px)", pointerEvents: "none" }} />
+      {/* background ambient */}
+      <div style={{ position: "absolute", top: "30%", left: "50%", transform: "translateX(-50%)", width: 1000, height: 700, borderRadius: "50%", background: "radial-gradient(circle, rgba(185,255,75,.035) 0%, transparent 62%)", filter: "blur(72px)", pointerEvents: "none" }} />
 
-      <div style={{ maxWidth: 860, margin: "0 auto", position: "relative" }}>
+      <div style={{ maxWidth: 1120, margin: "0 auto", position: "relative" }}>
 
         {/* Header */}
-        <div style={{ marginBottom: 80 }}>
+        <div style={{ textAlign: "center", marginBottom: 96 }}>
           <span style={{ fontFamily: mono, fontSize: 12, color: LIME, letterSpacing: "0.14em", textTransform: "uppercase" as const, display: "block", marginBottom: 16 }}>Do briefing à publicação</span>
-          <h2 style={{ fontSize: "clamp(34px, 4.5vw, 60px)", fontWeight: 800, lineHeight: 1.0, letterSpacing: "-0.045em" }}>
+          <h2 style={{ fontSize: "clamp(34px, 4.5vw, 62px)", fontWeight: 800, lineHeight: 1.0, letterSpacing: "-0.045em" }}>
             Como a Calu trabalha<br /><span style={{ color: LIME }}>do início ao resultado.</span>
           </h2>
-          <p style={{ fontSize: 18, color: DIM, lineHeight: 1.7, marginTop: 20, maxWidth: 500 }}>
-            Clique em cada etapa para ver o que acontece nos bastidores — agentes, entregáveis e duração.
+          <p style={{ fontSize: 18, color: DIM, lineHeight: 1.7, marginTop: 20, maxWidth: 480, margin: "20px auto 0" }}>
+            Clique em cada etapa para ver o que acontece nos bastidores.
           </p>
         </div>
 
-        {/* Vertical steps */}
+        {/* Zigzag steps — 3 cols: [card-left] [spine] [card-right] */}
         <div>
           {PROCESS.map((step, i) => {
             const isActive = activeStep === i;
             const isPassed = activeStep !== null && i <= activeStep;
             const isLast = i === PROCESS.length - 1;
+            const isRight = i % 2 === 0; // even → card on right
+
+            const card = (
+              <div
+                className="cl-tl-step"
+                onClick={() => setActiveStep(isActive ? null : i)}
+                style={{
+                  padding: "30px 34px",
+                  borderRadius: 24,
+                  background: isActive ? `${step.color}09` : "rgba(255,255,255,.028)",
+                  border: `1px solid ${isActive ? `${step.color}60` : "rgba(255,255,255,.08)"}`,
+                  boxShadow: isActive
+                    ? `0 0 0 1px ${step.color}1A, 0 20px 64px -20px ${step.color}65, inset 0 1px 0 ${step.color}18`
+                    : "inset 0 1px 0 rgba(255,255,255,.04)",
+                  position: "relative", overflow: "hidden",
+                  marginBottom: isLast ? 0 : 0,
+                }}
+              >
+                {/* Shine sweep — always present, very subtle */}
+                <div style={{
+                  position: "absolute", top: 0, bottom: 0, width: 90,
+                  background: "linear-gradient(90deg, transparent 0%, rgba(255,255,255,.038) 50%, transparent 100%)",
+                  animation: `cl-shine ${5 + i * 0.5}s ease-in-out infinite`,
+                  animationDelay: `${i * 0.65}s`,
+                  pointerEvents: "none",
+                }} />
+
+                {/* Glow blob — corner opposite to spine */}
+                <div style={{
+                  position: "absolute",
+                  top: -90, [isRight ? "left" : "right"]: -90,
+                  width: 300, height: 300, borderRadius: "50%",
+                  background: `radial-gradient(circle, ${step.color}${isActive ? "18" : "08"} 0%, transparent 68%)`,
+                  filter: "blur(40px)", pointerEvents: "none",
+                  transition: "background .5s",
+                }} />
+
+                {/* Top: step label + agents */}
+                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 16, position: "relative" }}>
+                  <div>
+                    <div style={{ fontFamily: mono, fontSize: 11, color: step.color, letterSpacing: "0.1em", textTransform: "uppercase" as const, marginBottom: 8, opacity: 0.9 }}>{step.n} · {step.duration}</div>
+                    <h3 style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.038em", lineHeight: 1.08, color: isActive ? OFF : "rgba(240,239,232,.8)" }}>{step.title}</h3>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexShrink: 0, paddingTop: 2 }}>
+                    {step.agents.map(a => (
+                      <div key={a.i} title={a.name} style={{
+                        width: 40, height: 40, borderRadius: 12,
+                        background: `${a.color}15`, border: `1.5px solid ${a.color}55`,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 13, fontWeight: 800, color: a.color,
+                        boxShadow: isActive ? `0 0 20px -4px ${a.color}80` : "none",
+                        transition: "box-shadow .35s",
+                      }}>{a.i}</div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Description */}
+                <p style={{ fontSize: 16, color: DIM, lineHeight: 1.72, position: "relative" }}>{step.desc}</p>
+
+                {/* Expanded */}
+                {isActive && (
+                  <div style={{ marginTop: 26, position: "relative" }}>
+                    <div style={{ height: 1, background: `linear-gradient(to right, ${step.color}35, transparent)`, marginBottom: 22 }} />
+                    <div style={{ fontFamily: mono, fontSize: 11, color: step.color, marginBottom: 16, letterSpacing: "0.1em", textTransform: "uppercase" as const }}>Entregáveis</div>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 28px", marginBottom: 22 }}>
+                      {step.details.map((d, j) => (
+                        <div key={j} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                          <div style={{ width: 6, height: 6, borderRadius: "50%", background: step.color, flexShrink: 0, marginTop: 9, boxShadow: `0 0 8px ${step.color}` }} />
+                          <span style={{ fontSize: 15, color: "rgba(240,239,232,.58)", lineHeight: 1.65 }}>{d}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <div style={{ display: "inline-flex", alignItems: "center", gap: 12, padding: "13px 22px", borderRadius: 14, background: `${step.color}0E`, border: `1px solid ${step.color}38`, boxShadow: `0 0 32px -10px ${step.color}50` }}>
+                      <div style={{ width: 7, height: 7, borderRadius: "50%", background: step.color, boxShadow: `0 0 10px ${step.color}` }} />
+                      <span style={{ fontFamily: mono, fontSize: 12, color: step.color, letterSpacing: "0.04em" }}>Output →</span>
+                      <span style={{ fontSize: 16, fontWeight: 700, color: OFF }}>{step.output}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
 
             return (
-              <div key={i} style={{ display: "grid", gridTemplateColumns: "88px 1fr", alignItems: "start" }}>
+              <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 100px 1fr", alignItems: "start", gap: "0 0" }}>
 
-                {/* ── Spine column ── */}
-                <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "center", paddingTop: 4 }}>
-                  {/* Node */}
+                {/* Left slot */}
+                <div style={{ paddingRight: 32, paddingBottom: isLast ? 0 : 28 }}>
+                  {!isRight ? card : <div />}
+                </div>
+
+                {/* Spine */}
+                <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "center" }}>
                   <div
                     className="cl-tl-node"
                     onClick={() => setActiveStep(isActive ? null : i)}
                     style={{
-                      width: 60, height: 60, borderRadius: "50%", flexShrink: 0, zIndex: 2, position: "relative",
-                      background: isActive ? `${step.color}18` : isPassed ? `${LIME}0C` : "rgba(255,255,255,.04)",
-                      border: `2px solid ${isActive ? step.color : isPassed ? `${LIME}90` : "rgba(255,255,255,.12)"}`,
+                      width: 64, height: 64, borderRadius: "50%", flexShrink: 0, zIndex: 2, position: "relative",
+                      background: isActive ? `${step.color}1C` : isPassed ? `${LIME}0D` : "rgba(255,255,255,.05)",
+                      border: `2px solid ${isActive ? step.color : isPassed ? `${LIME}95` : "rgba(255,255,255,.13)"}`,
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontFamily: mono, fontSize: 15, fontWeight: 800,
                       color: isActive ? step.color : isPassed ? LIME : MUTED,
                       cursor: "pointer",
                       boxShadow: isActive
-                        ? `0 0 0 8px ${step.color}12, 0 0 48px -8px ${step.color}90`
-                        : isPassed ? `0 0 18px -4px ${LIME}55` : "none",
+                        ? `0 0 0 10px ${step.color}10, 0 0 56px -8px ${step.color}95`
+                        : isPassed ? `0 0 22px -5px ${LIME}60` : "none",
                       transition: "all .4s cubic-bezier(.22,.68,0,1.2)",
                     }}
                   >{step.n}</div>
 
-                  {/* Line segment */}
                   {!isLast && (
-                    <div style={{ width: 2, flexGrow: 1, minHeight: 48, position: "relative", margin: "6px 0" }}>
+                    <div style={{ width: 2, flexGrow: 1, minHeight: 52, position: "relative", margin: "8px 0" }}>
                       <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,.06)", borderRadius: 2 }} />
                       <div style={{
                         position: "absolute", top: 0, left: 0, right: 0,
                         height: isPassed ? "100%" : "0%",
-                        background: `linear-gradient(to bottom, ${LIME}, ${LIME}50)`,
+                        background: `linear-gradient(to bottom, ${LIME}, ${LIME}45)`,
                         borderRadius: 2,
-                        boxShadow: isPassed ? `0 0 10px ${LIME}70` : "none",
-                        transition: "height .55s ease",
+                        boxShadow: isPassed ? `0 0 12px ${LIME}80` : "none",
+                        transition: "height .6s ease",
                       }} />
                     </div>
                   )}
                 </div>
 
-                {/* ── Card column ── */}
-                <div
-                  className="cl-tl-step"
-                  onClick={() => setActiveStep(isActive ? null : i)}
-                  style={{
-                    marginLeft: 24,
-                    marginBottom: isLast ? 0 : 20,
-                    padding: "28px 32px",
-                    borderRadius: 22,
-                    background: isActive ? `${step.color}09` : "rgba(255,255,255,.025)",
-                    border: `1px solid ${isActive ? `${step.color}55` : "rgba(255,255,255,.07)"}`,
-                    boxShadow: isActive ? `0 0 0 1px ${step.color}18, 0 16px 56px -20px ${step.color}55, inset 0 1px 0 ${step.color}12` : "none",
-                    position: "relative", overflow: "hidden",
-                  }}
-                >
-                  {/* active glow blob inside card */}
-                  {isActive && (
-                    <div style={{
-                      position: "absolute", top: -80, right: -80, width: 280, height: 280,
-                      borderRadius: "50%", background: `radial-gradient(circle, ${step.color}14 0%, transparent 70%)`,
-                      filter: "blur(30px)", pointerEvents: "none",
-                    }} />
-                  )}
-
-                  {/* Top row: title + duration + agents */}
-                  <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 14, position: "relative" }}>
-                    <div>
-                      <div style={{ fontFamily: mono, fontSize: 11, color: step.color, letterSpacing: "0.1em", textTransform: "uppercase" as const, marginBottom: 6 }}>{step.n} · {step.duration}</div>
-                      <h3 style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.035em", lineHeight: 1.1, color: isActive ? OFF : "rgba(240,239,232,.78)" }}>{step.title}</h3>
-                    </div>
-                    {/* Agent badges */}
-                    <div style={{ display: "flex", gap: 7, flexShrink: 0, paddingTop: 4 }}>
-                      {step.agents.map(a => (
-                        <div key={a.i} title={a.name} style={{
-                          width: 36, height: 36, borderRadius: 11,
-                          background: `${a.color}16`, border: `1.5px solid ${a.color}55`,
-                          display: "flex", alignItems: "center", justifyContent: "center",
-                          fontSize: 12, fontWeight: 800, color: a.color,
-                          boxShadow: isActive ? `0 0 16px -4px ${a.color}70` : "none",
-                          transition: "box-shadow .35s",
-                        }} title={a.name}>{a.i}</div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Description */}
-                  <p style={{ fontSize: 16, color: DIM, lineHeight: 1.7, position: "relative" }}>{step.desc}</p>
-
-                  {/* Expanded details */}
-                  {isActive && (
-                    <div style={{ marginTop: 24, position: "relative" }}>
-                      <div style={{ height: 1, background: `linear-gradient(to right, ${step.color}30, transparent)`, marginBottom: 20 }} />
-                      <div style={{ fontFamily: mono, fontSize: 11, color: step.color, marginBottom: 14, letterSpacing: "0.1em", textTransform: "uppercase" as const }}>Entregáveis</div>
-                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px 32px", marginBottom: 20 }}>
-                        {step.details.map((d, j) => (
-                          <div key={j} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                            <div style={{ width: 6, height: 6, borderRadius: "50%", background: step.color, flexShrink: 0, marginTop: 8, boxShadow: `0 0 8px ${step.color}` }} />
-                            <span style={{ fontSize: 15, color: "rgba(240,239,232,.55)", lineHeight: 1.65 }}>{d}</span>
-                          </div>
-                        ))}
-                      </div>
-                      {/* Output badge */}
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: 12, padding: "13px 20px", borderRadius: 14, background: `${step.color}0D`, border: `1px solid ${step.color}35`, boxShadow: `0 0 24px -8px ${step.color}40` }}>
-                        <div style={{ width: 7, height: 7, borderRadius: "50%", background: step.color, boxShadow: `0 0 10px ${step.color}` }} />
-                        <span style={{ fontFamily: mono, fontSize: 12, color: step.color, letterSpacing: "0.04em" }}>Output →</span>
-                        <span style={{ fontSize: 16, fontWeight: 700, color: OFF }}>{step.output}</span>
-                      </div>
-                    </div>
-                  )}
+                {/* Right slot */}
+                <div style={{ paddingLeft: 32, paddingBottom: isLast ? 0 : 28 }}>
+                  {isRight ? card : <div />}
                 </div>
+
               </div>
             );
           })}
         </div>
 
         {/* Bottom CTA */}
-        <div style={{ textAlign: "center", marginTop: 72 }}>
-          <div style={{ display: "inline-flex", alignItems: "center", gap: 14, padding: "16px 30px", borderRadius: 100, background: "rgba(185,255,75,.06)", border: "1px solid rgba(185,255,75,.22)", boxShadow: "0 0 40px -12px rgba(185,255,75,.25)" }}>
-            <div className="cl-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: LIME, boxShadow: `0 0 12px ${LIME}` }} />
+        <div style={{ textAlign: "center", marginTop: 80 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 14, padding: "16px 32px", borderRadius: 100, background: "rgba(185,255,75,.06)", border: "1px solid rgba(185,255,75,.24)", boxShadow: "0 0 48px -14px rgba(185,255,75,.28)" }}>
+            <div className="cl-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: LIME, boxShadow: `0 0 14px ${LIME}` }} />
             <span style={{ fontSize: 16, color: OFF }}>Todo esse processo acontece <strong style={{ color: LIME }}>em paralelo</strong>, sem esperar uma etapa acabar pra começar a outra.</span>
           </div>
         </div>
@@ -601,7 +641,7 @@ export default function LandingPage() {
       <section style={{ minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center", padding: "120px 64px 80px", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: "28%", right: "8%", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(185,255,75,.07) 0%, transparent 65%)", filter: "blur(40px)", pointerEvents: "none" }} />
 
-        <div style={{ maxWidth: 1200, margin: "0 auto", width: "100%", display: "grid", gridTemplateColumns: "1fr 240px", gap: 48, alignItems: "center" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", width: "100%", display: "grid", gridTemplateColumns: "1fr 400px", gap: 56, alignItems: "center" }}>
           <div>
             <div className="cl-a1" style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 28 }}>
               <div className="cl-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: LIME }} />
