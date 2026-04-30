@@ -68,10 +68,14 @@ const CSS = `
   .cl * { box-sizing: border-box; margin: 0; padding: 0; }
   .cl a { text-decoration: none; color: inherit; }
   .cl h1, .cl h2, .cl h3, .cl h4, .cl h5, .cl h6 { font-family: 'Syne', 'Inter', sans-serif; }
-  @keyframes cl-in   { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
-  @keyframes cl-tick { from { transform:translateX(0); } to { transform:translateX(-50%); } }
-  @keyframes cl-bob  { 0%,100%{transform:translateY(0)} 50%{transform:translateY(6px)} }
-  @keyframes cl-pulse{ 0%,100%{box-shadow:0 0 0 0 rgba(185,255,75,.5)} 50%{box-shadow:0 0 0 6px rgba(185,255,75,0)} }
+  @keyframes cl-in      { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
+  @keyframes cl-tick    { from { transform:translateX(0); } to { transform:translateX(-50%); } }
+  @keyframes cl-bob     { 0%,100%{transform:translateY(0)} 50%{transform:translateY(6px)} }
+  @keyframes cl-pulse   { 0%,100%{box-shadow:0 0 0 0 rgba(185,255,75,.5)} 50%{box-shadow:0 0 0 6px rgba(185,255,75,0)} }
+  @keyframes cl-agent-in{ 0%{opacity:0;transform:translateY(12px) scale(.96)} 100%{opacity:1;transform:translateY(0) scale(1)} }
+  @keyframes cl-glow-in { 0%{opacity:0} 100%{opacity:1} }
+  @keyframes cl-line    { from{transform:scaleX(0);transform-origin:left} to{transform:scaleX(1);transform-origin:left} }
+  @keyframes cl-tl-in   { from{opacity:0;transform:translateX(-16px)} to{opacity:1;transform:translateX(0)} }
   .cl-a1{animation:cl-in .65s ease both .05s}
   .cl-a2{animation:cl-in .65s ease both .18s}
   .cl-a3{animation:cl-in .65s ease both .30s}
@@ -91,9 +95,323 @@ const CSS = `
   .cl-bob{animation:cl-bob 1.7s ease-in-out infinite}
   .cl-track{overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}
   .cl-track::-webkit-scrollbar{display:none}
+  .cl-agent-in{animation:cl-agent-in .42s cubic-bezier(.22,.68,0,1.2) both}
+  .cl-tl-step{transition:background .22s,border-color .22s,box-shadow .22s,transform .18s;cursor:pointer}
+  .cl-tl-step:hover{transform:translateY(-2px)}
+  .cl-tl-node{transition:background .3s,border-color .3s,box-shadow .3s}
+  .cl-agent-btn{transition:all .2s;cursor:pointer}
+  .cl-agent-btn:hover{transform:scale(1.12)}
 `;
 
 function fmt(n: number) { return n.toLocaleString("pt-BR"); }
+
+// ── Process steps ──────────────────────────────────────────────
+const PROCESS = [
+  {
+    n: "01", title: "Briefing IA",
+    agents: [{ i: "L", color: "#38BDF8", name: "Lia" }],
+    duration: "30 min",
+    output: "Diagnóstico completo",
+    desc: "Lia coleta briefing via conversa natural com IA, analisa concorrência e entrega um diagnóstico de marketing personalizado.",
+    details: ["Formulário inteligente de onboarding", "Análise automática da concorrência", "Mapa de oportunidades da marca", "Briefing consolidado para o time"],
+    color: "#38BDF8",
+  },
+  {
+    n: "02", title: "Estratégia",
+    agents: [{ i: "C", color: "#FBBF24", name: "Carolina" }, { i: "A", color: "#B9FF4B", name: "ARIA" }],
+    duration: "2h",
+    output: "Pauta editorial mensal",
+    desc: "Carolina define posicionamento, pauta editorial e direção criativa. ARIA coordena e garante que tudo esteja alinhado ao objetivo do cliente.",
+    details: ["Pauta editorial 30 dias", "Posicionamento e tom de voz", "Calendário de campanhas", "Direção criativa aprovada"],
+    color: "#FBBF24",
+  },
+  {
+    n: "03", title: "Produção",
+    agents: [{ i: "B", color: "#A78BFA", name: "Beatriz" }, { i: "I", color: "#D946EF", name: "Isadora" }, { i: "🎬", color: "#B9FF4B", name: "Bobby" }],
+    duration: "48h",
+    output: "Todos os assets criados",
+    desc: "Beatriz escreve copy, Isadora cria os visuais e Bobby edita os vídeos — tudo em paralelo, sem esperar um pelo outro.",
+    details: ["Copy para posts, reels e anúncios", "Peças visuais e templates", "Vídeos editados e formatados", "Assets aprovados para revisão"],
+    color: "#A78BFA",
+  },
+  {
+    n: "04", title: "Revisão",
+    agents: [{ i: "V", color: "#EC4899", name: "Vitória" }],
+    duration: "4h",
+    output: "Zero erros garantido",
+    desc: "Vitória revisa 100% do conteúdo antes de qualquer aprovação — gramática, tom de voz, consistência de marca e checagem de fatos.",
+    details: ["Revisão ortográfica e gramatical", "Checagem de tom de voz", "Consistência com o manual da marca", "Aprovação final para o cliente"],
+    color: "#EC4899",
+  },
+  {
+    n: "05", title: "Aprovação",
+    agents: [{ i: "A", color: "#B9FF4B", name: "ARIA" }],
+    duration: "24h",
+    output: "Feedback do cliente",
+    desc: "O cliente aprova tudo via portal exclusivo — vê os posts, sugere ajustes e aprova com um clique. ARIA gerencia o fluxo de aprovação.",
+    details: ["Portal de aprovação do cliente", "Comentários inline em cada peça", "Histórico de revisões", "Aprovação com um clique"],
+    color: "#B9FF4B",
+  },
+  {
+    n: "06", title: "Publicação",
+    agents: [{ i: "M", color: "#60A5FA", name: "Marina" }, { i: "T", color: "#06B6D4", name: "Teo" }],
+    duration: "contínuo",
+    output: "Presença diária nas redes",
+    desc: "Marina publica nos horários de maior engajamento e monitora comentários. Teo mantém o site e o blog atualizados com SEO otimizado.",
+    details: ["Agendamento automático otimizado", "Publicação em todas as plataformas", "Monitoramento de comentários", "Blog e site atualizados"],
+    color: "#60A5FA",
+  },
+  {
+    n: "07", title: "Tráfego Pago",
+    agents: [{ i: "R", color: "#F97316", name: "Rafaela" }, { i: "E", color: "#F59E0B", name: "Eduardo" }],
+    duration: "24/7",
+    output: "ROAS maximizado",
+    desc: "Rafaela ativa e otimiza campanhas no Meta e Google. Eduardo qualifica os leads que chegam via WhatsApp e alimenta o pipeline.",
+    details: ["Meta Ads e Google Ads ativos", "Remarketing configurado", "Qualificação de leads no CRM", "Otimização diária de verbas"],
+    color: "#F97316",
+  },
+  {
+    n: "08", title: "Relatório",
+    agents: [{ i: "L", color: "#34D399", name: "Lucas" }, { i: "A", color: "#B9FF4B", name: "ARIA" }],
+    duration: "semanal",
+    output: "Insights + próximos passos",
+    desc: "Lucas entrega relatório semanal com métricas reais. ARIA consolida os dados e gera recomendações estratégicas para o próximo ciclo.",
+    details: ["Dashboard de performance em tempo real", "Relatório PDF semanal", "Análise de ROI por canal", "Recomendações para o próximo mês"],
+    color: "#34D399",
+  },
+];
+
+// ── Hero Agent Card ────────────────────────────────────────────
+function HeroAgentCard() {
+  const [active, setActive] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [key, setKey] = useState(0);
+
+  useEffect(() => {
+    if (paused) return;
+    const t = setInterval(() => {
+      setActive(p => (p + 1) % TEAM.length);
+      setKey(k => k + 1);
+    }, 2800);
+    return () => clearInterval(t);
+  }, [paused]);
+
+  const agent = TEAM[active];
+
+  return (
+    <div
+      onMouseEnter={() => setPaused(true)}
+      onMouseLeave={() => setPaused(false)}
+      style={{
+        background: `${agent.color}08`,
+        border: `1px solid ${agent.color}30`,
+        borderRadius: 22,
+        padding: "22px",
+        position: "relative",
+        overflow: "hidden",
+        boxShadow: `0 0 48px -12px ${agent.color}45, 0 0 0 1px ${agent.color}15`,
+        transition: "background .6s, border-color .6s, box-shadow .6s",
+        minWidth: 260,
+      }}
+    >
+      {/* Glow blob */}
+      <div style={{
+        position: "absolute", top: -60, right: -60,
+        width: 200, height: 200, borderRadius: "50%",
+        background: `radial-gradient(circle, ${agent.color}22 0%, transparent 70%)`,
+        filter: "blur(24px)", pointerEvents: "none",
+        transition: "background .6s",
+      }} />
+
+      <div style={{ fontFamily: mono, fontSize: 10, color: LIME, marginBottom: 16, letterSpacing: "0.08em", textTransform: "uppercase" as const }}>
+        Time ativo agora
+      </div>
+
+      {/* Featured agent */}
+      <div key={key} className="cl-agent-in" style={{ marginBottom: 16 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
+          <div style={{
+            width: 54, height: 54, borderRadius: 15,
+            background: `${agent.color}20`,
+            border: `2px solid ${agent.color}55`,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 20, fontWeight: 800, color: agent.color, flexShrink: 0,
+            boxShadow: `0 0 24px -4px ${agent.color}70`,
+          }}>{agent.i}</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: "-0.03em", lineHeight: 1.1 }}>{agent.name}</div>
+            <div style={{ fontFamily: mono, fontSize: 9, color: MUTED, marginTop: 3 }}>{agent.role}</div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 5, flexShrink: 0 }}>
+            <div style={{ width: 6, height: 6, borderRadius: "50%", background: LIME, boxShadow: `0 0 8px ${LIME}` }} />
+            <span style={{ fontFamily: mono, fontSize: 9, color: LIME }}>online</span>
+          </div>
+        </div>
+
+        {/* Task preview */}
+        <div style={{
+          background: "rgba(0,0,0,.35)", borderRadius: 11, padding: "10px 13px",
+          border: `1px solid ${agent.color}15`,
+        }}>
+          <div style={{ fontFamily: mono, fontSize: 9, color: MUTED, marginBottom: 4 }}>fazendo agora</div>
+          <div style={{ fontSize: 12, color: "rgba(240,239,232,.55)", lineHeight: 1.5 }}>{agent.tasks[0]}</div>
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div style={{ height: 1, background: "rgba(255,255,255,.06)", marginBottom: 14 }} />
+
+      {/* All agents */}
+      <div style={{ display: "flex", flexWrap: "wrap" as const, gap: 6 }}>
+        {TEAM.map((t, i) => (
+          <button
+            key={t.i}
+            onClick={() => { setActive(i); setKey(k => k + 1); setPaused(true); }}
+            className="cl-agent-btn"
+            style={{
+              width: 30, height: 30, borderRadius: 9, border: "none",
+              background: i === active ? `${t.color}28` : "rgba(255,255,255,.05)",
+              outline: i === active ? `1.5px solid ${t.color}60` : "1px solid rgba(255,255,255,.08)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: 10, fontWeight: 800, color: i === active ? t.color : MUTED,
+              boxShadow: i === active ? `0 0 14px -3px ${t.color}65` : "none",
+            }}
+          >{t.i}</button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── Process Timeline ───────────────────────────────────────────
+function ProcessTimeline() {
+  const [activeStep, setActiveStep] = useState<number | null>(null);
+
+  return (
+    <section id="processo" style={{ padding: "100px 64px", borderBottom: "1px solid rgba(255,255,255,.06)" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto" }}>
+
+        {/* Header */}
+        <div style={{ textAlign: "center", marginBottom: 72 }}>
+          <span style={{ fontFamily: mono, fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" as const }}>Do briefing à publicação</span>
+          <h2 style={{ fontSize: "clamp(22px, 3.2vw, 42px)", fontWeight: 800, lineHeight: 1.06, letterSpacing: "-0.04em", marginTop: 10 }}>
+            Como a Calu trabalha<br /><span style={{ color: LIME }}>do início ao resultado.</span>
+          </h2>
+          <p style={{ fontSize: 15, color: DIM, lineHeight: 1.65, marginTop: 14, maxWidth: 480, margin: "14px auto 0" }}>
+            Clique em cada etapa para ver o que acontece nos bastidores.
+          </p>
+        </div>
+
+        {/* Timeline grid */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 2, position: "relative" }}>
+          {/* Connecting line */}
+          <div style={{
+            position: "absolute", top: 28, left: "6.25%", right: "6.25%",
+            height: 1, background: "rgba(255,255,255,.06)", zIndex: 0,
+          }} />
+          <div style={{
+            position: "absolute", top: 28, left: "6.25%",
+            height: 1, zIndex: 1,
+            width: activeStep !== null ? `${(activeStep / (PROCESS.length - 1)) * 87.5}%` : "0%",
+            background: `linear-gradient(to right, #B9FF4B, ${activeStep !== null ? PROCESS[activeStep].color : "#B9FF4B"})`,
+            transition: "width .5s ease, background .5s",
+          }} />
+
+          {PROCESS.map((step, i) => {
+            const isActive = activeStep === i;
+            const isPassed = activeStep !== null && i < activeStep;
+            return (
+              <div key={i} style={{ position: "relative", zIndex: 2 }}>
+                {/* Node */}
+                <div style={{ display: "flex", justifyContent: "center", marginBottom: 20 }}>
+                  <div
+                    className="cl-tl-node"
+                    onClick={() => setActiveStep(isActive ? null : i)}
+                    style={{
+                      width: 56, height: 56, borderRadius: "50%",
+                      background: isActive ? `${step.color}22` : isPassed ? "rgba(185,255,75,.08)" : "rgba(255,255,255,.04)",
+                      border: `2px solid ${isActive ? step.color : isPassed ? "#B9FF4B60" : "rgba(255,255,255,.1)"}`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontFamily: mono, fontSize: 13, fontWeight: 800,
+                      color: isActive ? step.color : isPassed ? "#B9FF4B" : MUTED,
+                      cursor: "pointer",
+                      boxShadow: isActive ? `0 0 28px -6px ${step.color}70, 0 0 0 6px ${step.color}10` : "none",
+                    }}
+                  >{step.n}</div>
+                </div>
+
+                {/* Card */}
+                <div
+                  className="cl-tl-step"
+                  onClick={() => setActiveStep(isActive ? null : i)}
+                  style={{
+                    margin: "0 4px",
+                    padding: "18px 16px",
+                    borderRadius: 16,
+                    background: isActive ? `${step.color}0C` : "rgba(255,255,255,.025)",
+                    border: `1px solid ${isActive ? `${step.color}40` : "rgba(255,255,255,.07)"}`,
+                    boxShadow: isActive ? `0 8px 32px -8px ${step.color}35` : "none",
+                  }}
+                >
+                  <div style={{ fontFamily: mono, fontSize: 10, color: step.color, marginBottom: 6, letterSpacing: "0.06em" }}>{step.title}</div>
+
+                  {/* Agents */}
+                  <div style={{ display: "flex", gap: 5, marginBottom: 10 }}>
+                    {step.agents.map(a => (
+                      <div key={a.i} style={{
+                        width: 24, height: 24, borderRadius: 7,
+                        background: `${a.color}20`, border: `1px solid ${a.color}40`,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 9, fontWeight: 800, color: a.color,
+                      }} title={a.name}>{a.i}</div>
+                    ))}
+                    <span style={{ fontFamily: mono, fontSize: 9, color: MUTED, alignSelf: "center", marginLeft: 4 }}>{step.duration}</span>
+                  </div>
+
+                  <p style={{ fontSize: 12, color: DIM, lineHeight: 1.55, marginBottom: isActive ? 14 : 0 }}>
+                    {isActive ? step.desc : step.desc.slice(0, 60) + "…"}
+                  </p>
+
+                  {/* Expanded details */}
+                  {isActive && (
+                    <div style={{ marginTop: 2 }}>
+                      <div style={{ height: 1, background: `${step.color}20`, marginBottom: 12 }} />
+                      <div style={{ fontFamily: mono, fontSize: 9, color: step.color, marginBottom: 8, letterSpacing: "0.06em", textTransform: "uppercase" as const }}>Entregáveis</div>
+                      <div style={{ display: "flex", flexDirection: "column" as const, gap: 6 }}>
+                        {step.details.map((d, j) => (
+                          <div key={j} style={{ display: "flex", alignItems: "flex-start", gap: 8 }}>
+                            <div style={{ width: 4, height: 4, borderRadius: "50%", background: step.color, flexShrink: 0, marginTop: 5 }} />
+                            <span style={{ fontSize: 11, color: "rgba(240,239,232,.5)", lineHeight: 1.55 }}>{d}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: 9, background: `${step.color}10`, border: `1px solid ${step.color}25` }}>
+                        <span style={{ fontFamily: mono, fontSize: 10, color: step.color }}>Output → </span>
+                        <span style={{ fontSize: 12, color: OFF }}>{step.output}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Second row: steps 5-8 */}
+        {/* (already in the grid above — 4 cols × 2 rows = 8 steps) */}
+
+        {/* Bottom CTA */}
+        <div style={{ textAlign: "center", marginTop: 52 }}>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 10, padding: "12px 24px", borderRadius: 100, background: "rgba(185,255,75,.06)", border: "1px solid rgba(185,255,75,.18)" }}>
+            <div className="cl-dot" style={{ width: 7, height: 7, borderRadius: "50%", background: LIME }} />
+            <span style={{ fontSize: 14, color: OFF }}>Todo esse processo acontece <strong style={{ color: LIME }}>em paralelo</strong>, sem esperar uma etapa acabar pra começar a outra.</span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+  );
+}
 
 function TeamCarousel() {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -238,7 +556,7 @@ export default function LandingPage() {
           <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-0.02em" }}>Calu Agência</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
-          {[["Serviços","#servicos"],["Soluções IA","#solucoes"],["Time","#time"],["Contato","#contato"]].map(([l,h]) => (
+          {[["Serviços","#servicos"],["Processo","#processo"],["Soluções IA","#solucoes"],["Time","#time"],["Contato","#contato"]].map(([l,h]) => (
             <a key={l} href={h} className="cl-link" style={{ fontSize: 13, color: DIM, fontWeight: 500 }}>{l}</a>
           ))}
           <a href="/briefing" className="cl-pill"
@@ -293,19 +611,8 @@ export default function LandingPage() {
           </div>
 
           {/* Agent card */}
-          <div className="cl-a3" style={{ background: "rgba(255,255,255,.04)", border: "1px solid rgba(255,255,255,.08)", borderRadius: 18, padding: "20px" }}>
-            <div style={{ fontFamily: mono, fontSize: 10, color: LIME, marginBottom: 14, letterSpacing: "0.08em", textTransform: "uppercase" }}>Time ativo agora</div>
-            {TEAM.slice(0, 5).map(t => (
-              <div key={t.i} style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 11 }}>
-                <div style={{ width: 28, height: 28, borderRadius: 8, background: `${t.color}20`, border: `1px solid ${t.color}40`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 11, fontWeight: 800, color: t.color, flexShrink: 0 }}>{t.i}</div>
-                <div>
-                  <div style={{ fontSize: 12, fontWeight: 600, lineHeight: 1 }}>{t.name}</div>
-                  <div style={{ fontFamily: mono, fontSize: 9, color: MUTED, marginTop: 2 }}>{t.role}</div>
-                </div>
-                <div style={{ marginLeft: "auto", width: 6, height: 6, borderRadius: "50%", background: LIME, flexShrink: 0 }} />
-              </div>
-            ))}
-            <div style={{ fontFamily: mono, fontSize: 9, color: MUTED, marginTop: 4 }}>+ 5 especialistas</div>
+          <div className="cl-a3">
+            <HeroAgentCard />
           </div>
         </div>
 
@@ -325,6 +632,9 @@ export default function LandingPage() {
           ))}
         </div>
       </div>
+
+      {/* PROCESS TIMELINE */}
+      <ProcessTimeline />
 
       {/* MARKETING + IA */}
       <section style={{ padding: "100px 64px", borderBottom: "1px solid rgba(255,255,255,.06)" }}>
