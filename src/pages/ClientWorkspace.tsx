@@ -787,7 +787,7 @@ export default function ClientWorkspace() {
 
   const loadDbContacts = async () => {
     setContactsLoading(true);
-    const { data } = await supabase.from("contacts").select("*")
+    const { data } = await (supabase as any).from("contacts").select("*")
       .eq("client_id", id ?? "")
       .order("created_at", { ascending: false });
     if (data) setDbContacts(data);
@@ -798,7 +798,7 @@ export default function ClientWorkspace() {
     if (!newContactForm.name.trim()) return;
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
-    const { error } = await supabase.from("contacts").insert({
+    const { error } = await (supabase as any).from("contacts").insert({
       user_id: session.user.id,
       client_id: id ?? "",
       name: newContactForm.name,
@@ -3490,14 +3490,13 @@ export default function ClientWorkspace() {
         </div>
       )}
 
+      {/* Activity Panel */}
+      {activeContact && (
+        <ContactActivityPanel
+          contact={activeContact}
+          onClose={() => setActiveContact(null)}
+        />
+      )}
     </div>
-
-    {/* Activity Panel */}
-    {activeContact && (
-      <ContactActivityPanel
-        contact={activeContact}
-        onClose={() => setActiveContact(null)}
-      />
-    )}
   );
 }
