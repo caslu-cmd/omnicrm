@@ -34,6 +34,7 @@ import PrivacyPage from "@/pages/PrivacyPage";
 import TermsPage from "@/pages/TermsPage";
 import OAuthCallbackPage from "@/pages/OAuthCallbackPage";
 import NotFound from "@/pages/NotFound";
+import VideoEditorPage from "@/pages/VideoEditorPage";
 
 const queryClient = new QueryClient();
 
@@ -73,6 +74,7 @@ const ProtectedRoutes = () => {
           <Route path="/admin" element={<AdminPage />} />
           <Route path="/agency" element={<AgencyDashboard />} />
           <Route path="/agency/clients/:id" element={<ClientWorkspace />} />
+          <Route path="/video-editor" element={<VideoEditorPage />} />
         </Route>
       </Routes>
       <AiAssistant />

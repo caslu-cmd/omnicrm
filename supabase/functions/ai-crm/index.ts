@@ -192,6 +192,71 @@ Crie um post excelente e otimizado para as plataformas indicadas. Responda SOMEN
       return respond({ success: true, post, draft });
     }
 
+    // ── Generate full campaign (multiple posts) ───────────────────
+    if (action === "generate-campaign") {
+      const { client_id, client_name, agent_id, agent_name, goal, platforms, tone, num_posts } = body;
+      if (!client_id || !goal || !platforms?.length) return respond({ error: "client_id, goal e platforms são obrigatórios" }, 400);
+
+      const count = Math.min(Math.max(parseInt(num_posts ?? "5", 10), 2), 7);
+
+      const prompt = `Você é ${agent_name ?? "Marina, especialista em Social Media"} planejando uma campanha completa para o cliente "${client_name ?? "cliente"}".
+
+## Briefing da Campanha
+- **Objetivo**: ${goal}
+- **Plataformas**: ${(platforms as string[]).join(", ")}
+- **Tom**: ${tone ?? "profissional e envolvente"}
+- **Quantidade de posts**: ${count}
+
+## Sua tarefa
+Crie ${count} posts distintos para formar uma campanha coesa e eficaz. Cada post deve ter um ângulo diferente (ex: educativo, prova social, bastidores, oferta, pergunta para engajamento). Responda SOMENTE com JSON válido:
+
+{
+  "campaign_name": "Nome criativo e curto para a campanha",
+  "campaign_goal": "Objetivo resumido em 1 frase",
+  "posts": [
+    {
+      "day": 1,
+      "angle": "Tipo do post (educativo/prova social/etc)",
+      "caption": "Legenda completa com emojis e hashtags",
+      "hashtags": ["tag1", "tag2"],
+      "best_time": "Ex: segunda às 19h",
+      "rationale": "Por que esse post vai funcionar — 1 frase"
+    }
+  ]
+}`;
+
+      const anthropic = new Anthropic({ apiKey: anthropicKey });
+      const message = await anthropic.messages.create({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 3000,
+        messages: [{ role: "user", content: prompt }],
+      });
+
+      const raw = (message.content[0] as { type: string; text: string }).text.trim();
+      const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim();
+      let campaign: { campaign_name: string; campaign_goal: string; posts: Array<{ day: number; angle: string; caption: string; hashtags: string[]; best_time: string; rationale: string }> };
+      try { campaign = JSON.parse(cleaned); }
+      catch { return respond({ error: "IA retornou formato inesperado." }, 500); }
+
+      // Insert all posts as pending_approval
+      const inserts = campaign.posts.map(p => ({
+        user_id: userId,
+        client_id,
+        platforms,
+        caption: p.caption,
+        media_url: null,
+        media_type: "text",
+        status: "pending_approval",
+        agent_id: agent_id ?? null,
+        performance_note: `Campanha: ${campaign.campaign_name} | Dia ${p.day} — ${p.angle}`,
+      }));
+
+      const { data: posts, error: insertErr } = await supabase.from("scheduled_posts").insert(inserts).select();
+      if (insertErr) return respond({ error: insertErr.message }, 500);
+
+      return respond({ success: true, campaign_name: campaign.campaign_name, campaign_goal: campaign.campaign_goal, posts_created: posts?.length ?? 0, campaign });
+    }
+
     // ── Analyze post performance ──────────────────────────────────
     if (action === "analyze-performance") {
       const { client_id } = body;

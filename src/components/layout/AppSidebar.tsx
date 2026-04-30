@@ -6,7 +6,7 @@ import {
   HelpCircle, Shield, ChevronLeft, ChevronRight, Phone,
   Palette, Bell, Crown, ArrowLeftRight, Star,
   ArrowLeft, Megaphone, BarChart2, ExternalLink,
-  Bot, Activity, Link2, ListTodo, Share2
+  Bot, Activity, Link2, ListTodo, Share2, Clapperboard
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useIsAdmin } from "@/hooks/useAdmin";
@@ -28,6 +28,7 @@ const crmItems = [
   { to: "/campaigns", icon: Send, label: "Campanhas" },
   { to: "/scheduling", icon: Calendar, label: "Agendamentos" },
   { to: "/voice", icon: Phone, label: "Voz & Chamadas" },
+  { to: "/video-editor", icon: Clapperboard, label: "Editor de Vídeo" },
   { to: "/sites", icon: Globe, label: "Sites & LPs" },
   { to: "/members", icon: GraduationCap, label: "Membros" },
   { to: "/payments", icon: CreditCard, label: "Pagamentos" },
