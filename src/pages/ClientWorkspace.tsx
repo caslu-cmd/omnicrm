@@ -3538,19 +3538,6 @@ ${priorBlock}`;
             )}
 
             {/* ══════════════════════════════════════════════════════
-                SITE — Teo editor via GitHub + Supabase
-            ══════════════════════════════════════════════════════ */}
-            {activeTab === "site" && client.siteRepo && (
-              <div className="h-[calc(100vh-10rem)]">
-                <SiteEditorPanel
-                  clientId={client.id}
-                  siteUrl={client.siteUrl ?? ""}
-                  siteRepo={client.siteRepo}
-                />
-              </div>
-            )}
-
-            {/* ══════════════════════════════════════════════════════
                 CURSOS
             ══════════════════════════════════════════════════════ */}
             {activeTab === "courses" && (
@@ -3897,6 +3884,63 @@ ${priorBlock}`;
                     </motion.div>
                   ))}
                 </div>
+
+                {/* ── Card de Site / Teo ─────────────────────────────── */}
+                {client.siteRepo && (() => {
+                  const siteConnected = !!client.siteRepo;
+                  return (
+                    <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                      className="rounded-2xl overflow-hidden"
+                      style={{ border: siteConnected ? "1px solid rgba(6,182,212,0.25)" : "1px solid rgba(255,255,255,0.08)" }}>
+
+                      {/* Header */}
+                      <div className="flex items-center justify-between px-6 py-4"
+                        style={{ background: "rgba(6,182,212,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                            style={{ background: "rgba(6,182,212,0.12)", border: "1px solid rgba(6,182,212,0.25)" }}>
+                            <Globe className="w-5 h-5" style={{ color: "#06B6D4" }} />
+                          </div>
+                          <div>
+                            <div className="text-sm font-semibold flex items-center gap-2" style={{ color: "rgba(255,255,255,0.9)" }}>
+                              Site
+                              <span className="text-[10px] font-normal px-1.5 py-0.5 rounded"
+                                style={{ background: "rgba(6,182,212,0.12)", color: "#06B6D4" }}>
+                                via Teo · Lovable
+                              </span>
+                            </div>
+                            <div className="text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                              {client.siteUrl ?? client.siteRepo} · edição e deploy automático
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-1.5">
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#06B6D4" }} />
+                              <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "#06B6D4" }} />
+                            </span>
+                            <span className="text-xs font-medium" style={{ color: "#06B6D4" }}>Conectado</span>
+                          </div>
+                          <a href={client.siteUrl} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all"
+                            style={{ background: "rgba(6,182,212,0.1)", color: "#06B6D4", border: "1px solid rgba(6,182,212,0.2)" }}>
+                            <ExternalLink className="w-3 h-3" /> Ver site
+                          </a>
+                        </div>
+                      </div>
+
+                      {/* Teo editor expandido */}
+                      <div style={{ height: "600px" }}>
+                        <SiteEditorPanel
+                          clientId={client.id}
+                          siteUrl={client.siteUrl ?? ""}
+                          siteRepo={client.siteRepo}
+                        />
+                      </div>
+                    </motion.div>
+                  );
+                })()}
 
                 {/* ── WhatsApp Z-API Panel ────────────────────────────── */}
                 <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
