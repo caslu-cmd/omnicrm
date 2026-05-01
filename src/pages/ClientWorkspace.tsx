@@ -14,12 +14,13 @@ import {
   Target, ArrowRight, Repeat2, MousePointerClick, Filter, Trash2,
 } from "lucide-react";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
-import { CLIENTS } from "@/data/agencyData";
+import { CLIENTS, AgentTask } from "@/data/agencyData";
 import { useClients } from "@/contexts/ClientsContext";
 import { supabase } from "@/integrations/supabase/client";
 import PostCanvas from "@/components/PostCanvas";
 import SocialMediaTab from "@/components/SocialMediaTab";
 import ContactActivityPanel from "@/components/ContactActivityPanel";
+import SiteEditorPanel from "@/components/SiteEditorPanel";
 
 const SOURCES: Record<string, { label: string; color: string; bg: string }> = {
   instagram: { label: "Instagram", color: "#E1306C", bg: "rgba(225,48,108,0.1)" },
@@ -147,6 +148,81 @@ const MARKETING_TEAM = [
     description: "Edita vídeos com IA — cortes, efeitos cinematográficos, legendas animadas e color grade profissional",
   },
 ];
+
+// ── Individual agent prompts for sequential orchestration ──────
+const AGENT_PROMPTS: Record<string, string> = {
+  strategist: `Você é CAROLINA, Estrategista-Chefe da Calu Agência.
+Frameworks: AIDA, Jobs-to-be-Done, Blue Ocean.
+ENTREGUE AGORA, COMPLETO E PRONTO PARA USAR — sem introduções, direto ao ponto:
+## Posicionamento de Marca
+## Personas (nome, dores, desejos, canais)
+## Pilares Editoriais (3-5 pilares com nome e objetivo)
+## Tom de Voz (3 adjetivos)
+## Proposta de Valor Única
+## Estratégia por Fase do Funil (topo, meio, fundo)
+## KPIs Prioritários
+Português brasileiro. Markdown.`,
+
+  copywriter: `Você é BEATRIZ, Copywriter Sênior da Calu Agência.
+Frameworks: PAS, AIDA, StoryBrand. Aplica Cialdini (escassez, prova social, autoridade, reciprocidade, compromisso, simpatia) e Kahneman/BJ Fogg.
+ENTREGUE AGORA, COPY 100% PRONTO PARA PUBLICAR:
+## Gancho (para o scroll)
+## Desenvolvimento (ativa sistema límbico)
+## CTA Irresistível
+## Hashtags Estratégicas
+Para Reels: roteiro cena a cena. Para anúncio: Headline + Body + CTA.
+Nunca esboço. Português brasileiro. Markdown.`,
+
+  traffic: `Você é RAFAELA, Especialista em Tráfego Pago da Calu Agência.
+Plataformas: Meta Ads, Google Ads, LinkedIn Ads, TikTok Ads.
+ENTREGUE AGORA, COMPLETO:
+## Objetivo da Campanha
+## Público Primário (demográfico + interesses + comportamentos)
+## Lookalike + Retargeting
+## Criativo Recomendado (formato + copy + visual)
+## Orçamento (diário e mensal)
+## Métricas Esperadas (CPC, CPL, ROAS, CTR)
+## Cronograma + Testes A/B
+Calcule ROAS e LTV. Português brasileiro. Markdown.`,
+
+  analyst: `Você é LUCAS, Analista de Performance & Dados da Calu Agência.
+ENTREGUE AGORA, COMPLETO:
+## Benchmarks do Segmento
+## North Star Metric
+## Análise Competitiva (gaps identificados)
+## Melhores Horários por Plataforma
+## Formatos com Melhor Performance
+## Metas 30/60/90 dias (seguidores, leads, conversões, receita)
+## 3 KPIs Prioritários + Recomendações Acionáveis
+Português brasileiro. Markdown.`,
+
+  social: `Você é MARINA, Gestora de Redes Sociais da Calu Agência.
+Regra 80/20 (educativo + entretenimento + venda). Profunda em algoritmos de cada plataforma.
+ENTREGUE AGORA: calendário editorial completo em tabela markdown (mínimo 7 dias):
+| Data | Dia | Horário | Plataforma | Formato | Pilar | Tema/Gancho | Copy (resumo) |
+Explique a lógica de distribuição dos pilares e frequência ideal por canal.
+Português brasileiro.`,
+
+  site: `Você é VALENTINA, Especialista em SEO & Conteúdo Orgânico da Calu Agência.
+ENTREGUE AGORA, COMPLETO:
+## Palavras-Chave (com intenção: informacional/comercial/transacional)
+## Clusters de Conteúdo
+## Estratégia de Link Building
+## Otimização para Buscas por IA
+## Títulos e Meta Descriptions Prontos
+## Análise de Concorrência Orgânica + Gaps a Explorar
+Português brasileiro. Markdown.`,
+
+  designer: `Você é ISADORA, Art Director Sênior da Calu Agência.
+Como não é possível gerar imagem neste momento, entregue um briefing criativo COMPLETO:
+## Conceito Visual e Mood
+## Paleta de Cores (hex codes específicos)
+## Tipografia Sugerida
+## Composição da Peça (o que vai onde)
+## Referências Visuais (estilos, marcas similares)
+## Instruções para Execução
+Português brasileiro. Markdown.`,
+};
 
 // ── CRM Pipeline Stages ────────────────────────────────────────
 const PIPELINE_STAGES = [
@@ -313,16 +389,24 @@ type AgentMsg = {
 };
 
 const AGENT_META: Record<string, { initial: string; color: string; name: string }> = {
-  aria:      { initial: "A", color: "#B9FF4B", name: "ARIA" },
-  beatriz:   { initial: "B", color: "#A78BFA", name: "Beatriz" },
-  isadora:   { initial: "I", color: "#F472B6", name: "Isadora" },
-  rafaela:   { initial: "R", color: "#F97316", name: "Rafaela" },
-  lucas:     { initial: "L", color: "#34D399", name: "Lucas" },
-  marina:    { initial: "M", color: "#60A5FA", name: "Marina" },
-  carolina:  { initial: "C", color: "#FBBF24", name: "Carolina" },
-  valentina: { initial: "V", color: "#E879F9", name: "Valentina" },
-  lia:       { initial: "L", color: "#38BDF8", name: "Lia" },
-  user:      { initial: "U", color: "#94A3B8", name: "Você" },
+  aria:       { initial: "A", color: "#B9FF4B", name: "ARIA" },
+  beatriz:    { initial: "B", color: "#A78BFA", name: "Beatriz" },
+  isadora:    { initial: "I", color: "#F472B6", name: "Isadora" },
+  rafaela:    { initial: "R", color: "#F97316", name: "Rafaela" },
+  lucas:      { initial: "L", color: "#34D399", name: "Lucas" },
+  marina:     { initial: "M", color: "#60A5FA", name: "Marina" },
+  carolina:   { initial: "C", color: "#FBBF24", name: "Carolina" },
+  valentina:  { initial: "V", color: "#E879F9", name: "Valentina" },
+  lia:        { initial: "L", color: "#38BDF8", name: "Lia" },
+  user:       { initial: "U", color: "#94A3B8", name: "Você" },
+  // Team IDs (mapeados para o ARIA orquestrador sequencial)
+  strategist: { initial: "C", color: "#FBBF24", name: "Carolina" },
+  copywriter: { initial: "B", color: "#A78BFA", name: "Beatriz" },
+  traffic:    { initial: "R", color: "#F97316", name: "Rafaela" },
+  analyst:    { initial: "L", color: "#34D399", name: "Lucas" },
+  social:     { initial: "M", color: "#60A5FA", name: "Marina" },
+  site:       { initial: "V", color: "#E879F9", name: "Valentina" },
+  designer:   { initial: "I", color: "#F472B6", name: "Isadora" },
 };
 
 const normalizeImageAspectRatio = (ratio?: string) => {
@@ -449,6 +533,7 @@ export default function ClientWorkspace() {
     try { return JSON.parse(localStorage.getItem(`agent-conv-${id}`) ?? "[]"); } catch { return []; }
   });
   const [agentOutputs, setAgentOutputs] = useState<Record<string, string>>({});
+  const [agentDeadlines, setAgentDeadlines] = useState<Record<string, string>>({});
   const [expandedMsg, setExpandedMsg] = useState<string | null>(null);
   const [expandedAgentOutput, setExpandedAgentOutput] = useState<string | null>(null);
   const [postCanvas, setPostCanvas] = useState<{ imageUrl: string; headline?: string; body?: string; cta?: string } | null>(null);
@@ -534,147 +619,186 @@ export default function ClientWorkspace() {
     setAriaLoading(true);
 
     const ts = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-    const userMsg: AgentMsg = { id: `u-${Date.now()}`, from: "user", to: "aria", content: demand || `[arquivo: ${attachedFile?.name}]`, timestamp: ts, status: "done" };
-    addConvMsgs([userMsg]);
+    addConvMsgs([{
+      id: `u-${Date.now()}`, from: "user", to: "aria",
+      content: demand || `[arquivo: ${attachedFile?.name}]`,
+      timestamp: ts, status: "done",
+    }]);
 
     const clientContext = {
       name: client.name, industry: client.industry, brandColor: client.color,
       campaigns: client.activeCampaigns?.map((c) => c.name) ?? [],
-      recentThemes: client.recentPosts?.map((p) => p.caption.slice(0, 80)) ?? [],
-      nextAction: client.nextAction,
       teamInstructions: client.teamInstructions ?? undefined,
     };
 
     try {
-      const ariaSystem = `Você é ARIA, Diretora Sênior de Marketing da Calu Agência. Você lidera um time de especialistas de alto nível. Cada agente entrega trabalho REAL, COMPLETO e PRONTO PARA USAR — nunca esboço ou confirmação.
+      // ── Passo 1: ARIA decide quais agentes acionar (SÓ roteamento, sem gerar conteúdo) ──
+      const ariaPlanSystem = `Você é ARIA. Sua única tarefa agora é decidir quais especialistas acionar. NÃO gere conteúdo, NÃO escreva análises, NÃO complete as tarefas — apenas roteie.
 
-━━━ TIME DE ESPECIALISTAS ━━━
+IDs disponíveis: strategist, copywriter, traffic, analyst, social, site, designer
 
-CAROLINA — Estrategista-Chefe
-Frameworks: AIDA, Jobs-to-be-Done, Blue Ocean. Entrega: posicionamento de marca + personas detalhadas (nome, dores, desejos, canais) + 3-5 pilares editoriais com nome e objetivo + tom de voz em 3 adjetivos + proposta de valor única + estratégia por fase do funil + KPIs prioritários. Sempre fala primeiro — define o terreno estratégico que todos seguem.
+Quando acionar cada um:
+strategist → estratégia, posicionamento, marca, pilares editoriais
+copywriter → copy, legenda, roteiro, anúncio, texto
+traffic → tráfego pago, Meta Ads, Google Ads, impulsionamento
+analyst → métricas, KPIs, relatório, benchmark, dados
+social → calendário editorial, planejamento de posts, agenda
+site → SEO, blog, artigo, conteúdo orgânico
+designer → imagem, criativo, peça visual, stories, feed
 
-BEATRIZ — Copywriter Sênior & Psicologia do Consumidor
-Frameworks: PAS, AIDA, StoryBrand. Aplica os 6 princípios de Cialdini (escassez, prova social, autoridade, reciprocidade, compromisso, simpatia) e psicologia comportamental (Kahneman, BJ Fogg). Conecta dores emocionais profundas com a solução. Entrega: copy 100% pronto — gancho que para o scroll + desenvolvimento que ativa sistema límbico + CTA irresistível + hashtags estratégicas. Para Reels: roteiro cena a cena com narração. Para anúncios: headline + body + CTA. Referencia a estratégia da Carolina.
+Regra: strategist + copywriter entram SEMPRE quando há conteúdo ou estratégia.
 
-RAFAELA — Especialista em Tráfego Pago
-Plataformas: Meta Ads, Google Ads, LinkedIn Ads, TikTok Ads. Entrega: objetivo da campanha + público primário (demográfico + interesses + comportamentos) + lookalike/retargeting + criativo recomendado (formato + copy + visual) + orçamento diário e mensal + métricas esperadas (CPC, CPL, ROAS, CTR) + cronograma + testes A/B. Calcula ROAS e LTV para justificar cada real investido.
+RESPONDA APENAS COM JSON COMPACTO, SEM MARKDOWN:
+{"plan":"2 frases curtas descrevendo o que será feito","agents":["strategist","copywriter"]}`;
 
-LUCAS — Analista de Performance & Dados
-Entrega: benchmarks reais do segmento + North Star Metric definida + análise competitiva com gaps identificados + melhores horários por plataforma para o nicho + formatos com melhor performance no setor + metas numéricas de 30/60/90 dias (seguidores, leads, conversões, receita) + 3 KPIs prioritários + recomendações acionáveis baseadas em dados.
-
-MARINA — Gestora de Redes Sociais
-Conhecimento profundo dos algoritmos de cada plataforma. Regra 80/20 (educativo + entretenimento + venda). Entrega: calendário editorial completo em tabela markdown (mínimo 7 dias):
-| Data | Dia | Horário | Plataforma | Formato | Pilar | Tema/Gancho | Copy (resumo) | Responsável |
-Explica a lógica de distribuição de pilares e frequência ideal por canal.
-
-VALENTINA — Especialista em SEO & Conteúdo Orgânico
-Entrega: pesquisa de palavras-chave com intenção de busca (informacional/comercial/transacional) + clusters de conteúdo para dominar o tópico + estratégia de link building + otimização para buscas por IA + títulos e meta descriptions prontos + análise de concorrência orgânica + gaps de conteúdo a explorar. Acionada quando a demanda envolve SEO, blog, conteúdo orgânico ou visibilidade no Google.
-
-ISADORA — Art Director Sênior
-Acionada quando a demanda inclui criativo, imagem ou visual. NÃO responde em texto — gera imagem automaticamente. Briefing SEMPRE inclui: plataforma + formato + aspectRatio + composição + cores + mood.
-
-━━━ CONTEXTO DO CLIENTE ━━━
-Nome: ${clientContext.name} | Segmento: ${clientContext.industry} | Cor da marca: ${clientContext.brandColor}
-Campanhas ativas: ${clientContext.campaigns.join(", ") || "nenhuma"}
-${clientContext.teamInstructions ? `INSTRUÇÕES PERMANENTES DO CLIENTE (seguir sempre): ${clientContext.teamInstructions}` : ""}
-
-━━━ ORQUESTRAÇÃO ━━━
-Carolina entra SEMPRE quando há estratégia, posicionamento ou conteúdo.
-Beatriz entra SEMPRE quando há copy, legenda, roteiro ou anúncio.
-Rafaela entra se houver tráfego pago ou campanha.
-Lucas entra se pedirem métricas, benchmarks ou planejamento de performance.
-Marina entra se pedirem calendário ou planejamento de publicações.
-Valentina entra se houver SEO, blog ou conteúdo orgânico.
-Isadora entra se houver imagem ou criativo visual.
-Agentes REFERENCIAM o trabalho dos outros explicitamente.
-
-FORMATOS Isadora: "3:4"=feed portrait (1080x1440), "1:1"=square (1080x1080), "9:16"=stories/reels (1080x1920), "16:9"=banner (1920x1080)
-
-RETORNE APENAS JSON VÁLIDO:
-{"plan":"análise em 2-3 frases: o que foi pedido, quais agentes e o que cada um entregará","messages":[{"id":"msg_1","from":"aria","to":"carolina","content":"briefing detalhado","action":"plan"},{"id":"msg_2","from":"carolina","to":"aria","content":"estratégia completa e detalhada pronta para usar","action":"respond"},{"id":"msg_3","from":"aria","to":"beatriz","content":"briefing com base na estratégia da Carolina","action":"write_copy"},{"id":"msg_4","from":"beatriz","to":"aria","content":"copy completo e pronto para publicar com psicologia aplicada","action":"respond"},{"id":"msg_5","from":"aria","to":"user","content":"resumo executivo e próximos passos","action":"respond"}]}
-
-Actions válidas: write_copy, generate_image, analyze, plan, schedule, respond, diagnose
-Português brasileiro. Entrega real e completa — nunca esboço ou confirmação.`;
-
-      const { data: chatData, error: chatError } = await supabase.functions.invoke("chat-ai", {
+      const { data: planData, error: planError } = await supabase.functions.invoke("chat-ai", {
         body: {
-          systemPrompt: ariaSystem,
-          maxTokens: 8000,
+          systemPrompt: ariaPlanSystem,
+          maxTokens: 300,
           model: "claude-sonnet-4-6",
-          messages: [{ role: "user", content: `Briefing: "${demand}"` }],
+          messages: [{ role: "user", content: `Demanda: "${demand}"\nCliente: ${clientContext.name} (${clientContext.industry})` }],
         },
       });
-      if (chatError) throw chatError;
+      if (planError) throw planError;
 
-      const rawText: string = chatData?.content ?? "{}";
-      let parsed: { plan?: string; messages?: any[] };
+      const rawPlan: string = planData?.content ?? "{}";
+      let plan: { plan?: string; agents?: string[] } = {};
       try {
-        // tenta code block → JSON solto na resposta → texto completo
-        const fromBlock = rawText.match(/```(?:json)?\s*([\s\S]*?)```/)?.[1]?.trim();
-        const fromRaw   = rawText.match(/(\{[\s\S]*\})/)?.[1]?.trim();
-        parsed = JSON.parse(fromBlock ?? fromRaw ?? rawText);
+        const stripped = rawPlan.match(/\{[^{}]*(?:\{[^{}]*\}[^{}]*)?\}/)?.[0] ?? rawPlan;
+        plan = JSON.parse(stripped);
       } catch {
-        // fallback: mostra o texto bruto como mensagem da ARIA
-        parsed = {
-          plan: rawText,
-          messages: rawText.trim()
-            ? [{ id: "fallback", from: "aria", to: "user", content: rawText, action: "respond" }]
-            : [],
+        plan = { plan: "Acionando time de especialistas...", agents: ["strategist", "copywriter"] };
+      }
+
+      const agentsToRun = (plan.agents ?? ["strategist", "copywriter"]).filter((a) => AGENT_PROMPTS[a]);
+
+      // Tarefa genérica por agente baseada na demanda
+      const TASK_LABEL: Record<string, string> = {
+        strategist: `Posicionamento e estratégia — ${clientContext.name}`,
+        copywriter:  `Copy e textos prontos — ${clientContext.name}`,
+        traffic:     `Estratégia de tráfego pago — ${clientContext.name}`,
+        analyst:     `Benchmarks e metas — ${clientContext.name}`,
+        social:      `Calendário editorial — ${clientContext.name}`,
+        site:        `SEO e conteúdo orgânico — ${clientContext.name}`,
+        designer:    `Briefing criativo — ${clientContext.name}`,
+      };
+
+      // Exibe o plano da ARIA na conversa
+      const planTs = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      addConvMsgs([{
+        id: `aria-plan-${Date.now()}`, from: "aria", to: "user",
+        content: plan.plan ?? "Distribuindo tarefas para o time...",
+        timestamp: planTs, status: "done",
+      }]);
+
+      // Delegação imediata: persiste as tarefas nos cards de todos os agentes
+      const today = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
+      setAgentDeadlines(prev => {
+        const next = { ...prev };
+        for (const a of agentsToRun) next[a] = `Hoje · ${today}`;
+        return next;
+      });
+
+      // Atualiza agentTasks no contexto (persiste entre sessões) para todos os acionados
+      const localTasks = { ...client.agentTasks };
+      for (const agentId of agentsToRun) {
+        localTasks[agentId] = {
+          current: TASK_LABEL[agentId] ?? demand.slice(0, 70),
+          status: "aguardando",
+          progress: 0,
+          recent: client.agentTasks[agentId]?.recent ?? [],
         };
       }
+      updateClient(id!, { agentTasks: localTasks });
 
-      const msgTs = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-      const newMsgs: AgentMsg[] = (parsed.messages ?? []).map((m: any) => ({
-        id: m.id ?? `m-${Date.now()}-${Math.random()}`,
-        from: m.from, to: m.to, content: m.content,
-        action: m.action, imageParams: m.imageParams,
-        timestamp: msgTs,
-        status: m.action === "generate_image" ? "processing" : "done",
-      } as AgentMsg));
-      addConvMsgs(newMsgs);
+      // Mensagens de ARIA delegando para cada agente (tom de briefing)
+      const ARIA_BRIEFING: Record<string, string> = {
+        strategist: "Carolina, defina o terreno estratégico — você fala primeiro.",
+        copywriter: "Beatriz, hora do copy. Use Cialdini e ative o sistema límbico.",
+        traffic:    "Rafaela, monte a estratégia de mídia paga com ROAS e cronograma.",
+        analyst:    "Lucas, traga benchmarks reais, KPIs e metas 30/60/90.",
+        social:     "Marina, monte o calendário editorial completo com horários.",
+        site:       "Valentina, pesquise as palavras-chave e crie os clusters de conteúdo.",
+        designer:   "Isadora, entregue o briefing criativo completo — paleta, composição, mood.",
+      };
+      const delegTs = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      const delegMsgs = agentsToRun.map((agentId, idx) => ({
+        id: `deleg-${agentId}-${Date.now() + idx}`,
+        from: "aria", to: agentId,
+        content: ARIA_BRIEFING[agentId] ?? `${TASK_LABEL[agentId]}.`,
+        action: "plan", timestamp: delegTs, status: "done" as const,
+      }));
+      addConvMsgs(delegMsgs);
 
-      // salva output de cada agente para exibir nos cards
-      const newOutputs: Record<string, string> = {};
-      for (const m of newMsgs) {
-        if ((m.action === "respond" || m.action === "write_copy") && m.from !== "aria" && m.from !== "user" && m.content) {
-          newOutputs[m.from] = m.content;
-        }
+      // ── Passo 2: Executa cada agente sequencialmente ─────────────
+      let strategyOutput = "";
+
+      for (let idx = 0; idx < agentsToRun.length; idx++) {
+        const agentId = agentsToRun[idx];
+        const agentMeta = MARKETING_TEAM.find((a) => a.id === agentId);
+        if (!agentMeta) continue;
+
+        localTasks[agentId] = { ...localTasks[agentId], status: "trabalhando", progress: 15 + idx * 5 };
+        updateClient(id!, { agentTasks: { ...localTasks } });
+
+        const ctxBlock = `\n\n━━━ CONTEXTO DO CLIENTE ━━━\nNome: ${clientContext.name}\nSegmento: ${clientContext.industry}\nCampanhas: ${clientContext.campaigns.join(", ") || "nenhuma"}${clientContext.teamInstructions ? `\nINSTRUÇÕES: ${clientContext.teamInstructions}` : ""}${agentId === "copywriter" && strategyOutput ? `\n\n━━━ ESTRATÉGIA (Carolina) ━━━\n${strategyOutput.slice(0, 1200)}` : ""}`;
+
+        const { data: agentData, error: agentError } = await supabase.functions.invoke("chat-ai", {
+          body: {
+            systemPrompt: AGENT_PROMPTS[agentId] + ctxBlock,
+            maxTokens: 2500,
+            model: "claude-sonnet-4-6",
+            messages: [{ role: "user", content: demand }],
+          },
+        });
+        if (agentError) throw agentError;
+
+        const agentOutput: string = agentData?.content ?? "";
+        if (agentId === "strategist") strategyOutput = agentOutput;
+        setAgentOutputs(prev => ({ ...prev, [agentId]: agentOutput }));
+
+        const prevRecent = localTasks[agentId]?.recent ?? [];
+        localTasks[agentId] = {
+          current: TASK_LABEL[agentId] ?? demand.slice(0, 70),
+          status: "concluído",
+          progress: 100,
+          recent: [TASK_LABEL[agentId] ?? demand.slice(0, 60), ...prevRecent].slice(0, 3),
+        };
+        updateClient(id!, { agentTasks: { ...localTasks } });
+
+        // Mensagem CURTA na conversa — apenas o primeiro parágrafo como resposta conversacional
+        const firstPara = agentOutput
+          .split(/\n\n+/)[0]
+          .replace(/^#{1,3}\s*/, "")
+          .replace(/\*\*/g, "")
+          .trim()
+          .slice(0, 300);
+        const chatReply = firstPara + (agentOutput.length > 300 ? " — entregável completo no card abaixo." : "");
+
+        const doneTs = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+        addConvMsgs([{
+          id: `${agentId}-reply-${Date.now()}`,
+          from: agentId, to: "aria",
+          content: chatReply,
+          action: agentId === "copywriter" ? "write_copy" : "respond",
+          timestamp: doneTs, status: "done",
+        }]);
       }
-      if (Object.keys(newOutputs).length > 0) setAgentOutputs(prev => ({ ...prev, ...newOutputs }));
 
-      const beatrizCopy = newMsgs.find(m => m.from === "beatriz" && m.action === "respond")?.content ?? "";
-      const carolinaStrategy = newMsgs.find(m => m.from === "carolina" && m.action === "respond")?.content ?? "";
+      // ARIA encerra
+      const finalTs = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      addConvMsgs([{
+        id: `aria-done-${Date.now()}`, from: "aria", to: "user",
+        content: `✅ ${agentsToRun.length} agente(s) concluíram. Veja as entregas nos cards abaixo.`,
+        timestamp: finalTs, status: "done",
+      }]);
 
-      for (const msg of newMsgs) {
-        if (msg.action === "generate_image" && msg.to === "isadora") {
-          try {
-            const { data: imgData, error: imgError } = await supabase.functions.invoke("generate-image", {
-              body: { prompt: msg.content, aspectRatio: normalizeImageAspectRatio(msg.imageParams?.aspectRatio), clientContext, beatrizCopy, carolinaStrategy },
-            });
-            if (imgError) throw imgError;
-            if (imgData?.imageData) {
-              const blob = new Blob([Uint8Array.from(atob(imgData.imageData), (c) => c.charCodeAt(0))], { type: imgData.mimeType ?? "image/png" });
-              const blobUrl = URL.createObjectURL(blob);
-              const label = imgData.enhancedPrompt || msg.content;
-              updateConvMsg(msg.id, { status: "done" });
-              const replyTs = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-              addConvMsgs([{ id: `i-${Date.now()}`, from: "isadora", to: msg.from, content: label.slice(0, 120), imageUrl: blobUrl, timestamp: replyTs, status: "done" }]);
-              setGeneratedImages((prev) => [{ id: Date.now().toString(), imageData: blobUrl, mimeType: imgData.mimeType ?? "image/png", prompt: label, createdAt: replyTs }, ...prev]);
-            } else if (imgData?.imageBrief) {
-              updateConvMsg(msg.id, { status: "done" });
-              const replyTs = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
-              addConvMsgs([{ id: `i-${Date.now()}`, from: "isadora", to: msg.from, content: imgData.imageBrief, timestamp: replyTs, status: "done" }]);
-            } else {
-              updateConvMsg(msg.id, { status: "done", content: `${msg.content}` });
-            }
-          } catch {
-            updateConvMsg(msg.id, { status: "done", content: msg.content });
-          }
-        }
-      }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      addConvMsgs([{ id: `e-${Date.now()}`, from: "aria", to: "user", content: `Erro: ${errMsg}`, timestamp: ts, status: "error" }]);
+      addConvMsgs([{
+        id: `e-${Date.now()}`, from: "aria", to: "user",
+        content: `Erro: ${errMsg}`, timestamp: ts, status: "error",
+      }]);
     } finally {
       setAriaLoading(false);
     }
@@ -2137,7 +2261,7 @@ Português brasileiro. Entrega real e completa — nunca esboço ou confirmaçã
                         <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>Conversa do Time</span>
                         <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B" }}>{agentConversations.length}</span>
                       </div>
-                      <button onClick={() => { setAgentConversations([]); setAgentOutputs({}); localStorage.removeItem(`agent-conv-${id}`); }}
+                      <button onClick={() => { setAgentConversations([]); setAgentOutputs({}); setAgentDeadlines({}); localStorage.removeItem(`agent-conv-${id}`); }}
                         className="text-[10px] transition-colors" style={{ color: "rgba(255,255,255,0.2)" }}
                         onMouseEnter={(e) => (e.currentTarget.style.color = "#F87171")}
                         onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.2)")}>
@@ -2253,12 +2377,20 @@ Português brasileiro. Entrega real e completa — nunca esboço ou confirmaçã
 
                   <div className="grid grid-cols-4 gap-4">
                     {MARKETING_TEAM.map((agent, i) => {
-                      const task = client.agentTasks[agent.id];
-                      const isWorking = task?.status === "trabalhando";
-                      const isDone = task?.status === "concluído";
+                      const task: AgentTask = client.agentTasks[agent.id]
+                        ?? { current: "", status: "idle", recent: [], progress: 0 };
+                      const isWorking = task.status === "trabalhando";
+                      const isDone = task.status === "concluído";
+                      const isAwaiting = task.status === "aguardando";
                       const isSelected = selectedAgentId === agent.id;
                       const isViewing = viewingAgentId === agent.id;
                       const isActive = isSelected || isViewing;
+                      const deadline = agentDeadlines[agent.id];
+                      const hasOutput = Boolean(agentOutputs[agent.id]);
+                      const taskProgress = agent.id === "designer" ? (designerTask?.progress ?? 0) : (task.progress ?? 0);
+                      const showProgress = agent.id === "designer"
+                        ? (designerTask !== null)
+                        : ((isWorking || isAwaiting || isDone) && taskProgress > 0);
 
                       return (
                         <motion.div key={agent.id}
@@ -2266,8 +2398,8 @@ Português brasileiro. Entrega real e completa — nunca esboço ou confirmaçã
                           transition={{ delay: i * 0.06 }}
                           className="rounded-2xl p-4 flex flex-col cursor-default"
                           style={{
-                            background: isActive ? `${agent.color}0d` : "rgba(255,255,255,0.025)",
-                            border: `1px solid ${isActive ? `${agent.color}40` : isWorking ? `${agent.color}28` : "rgba(255,255,255,0.07)"}`,
+                            background: isActive ? `${agent.color}0d` : hasOutput ? `${agent.color}06` : "rgba(255,255,255,0.025)",
+                            border: `1px solid ${isActive ? `${agent.color}40` : isWorking ? `${agent.color}35` : hasOutput ? `${agent.color}22` : "rgba(255,255,255,0.07)"}`,
                             boxShadow: isActive ? `0 0 32px -10px ${agent.color}40` : isWorking ? `0 0 28px -10px ${agent.color}30` : "none",
                           }}>
 
@@ -2297,20 +2429,28 @@ Português brasileiro. Entrega real e completa — nunca esboço ou confirmaçã
                             {agent.skill}
                           </div>
 
-                          {/* Current task */}
-                          {(agent.id === "designer" ? (designerTask || designerRecentWork.length > 0) : task) && (
+                          {/* Current task status */}
+                          {(agent.id === "designer" ? (designerTask || designerRecentWork.length > 0) : (task.status !== "idle" && task.current)) && (
                             <>
-                              <div className="mb-2.5">
-                                <div className="text-[9px] uppercase tracking-wider mb-1 font-medium"
-                                  style={{ color: (agent.id === "designer" ? (designerTask && designerTask.progress < 100) : isWorking) ? agent.color : isDone || (agent.id === "designer" && designerRecentWork.length > 0) ? "#34D399" : "rgba(255,255,255,0.2)" }}>
-                                  {agent.id === "designer"
-                                    ? (designerTask && designerTask.progress < 100 ? "● Criando peça" : "✓ Concluído")
-                                    : (isWorking ? "● Fazendo agora" : isDone ? "✓ Concluído" : "○ Aguardando")}
+                              <div className="mb-2">
+                                <div className="flex items-center gap-1.5 mb-1">
+                                  <span className="text-[9px] uppercase tracking-wider font-medium"
+                                    style={{ color: (agent.id === "designer" ? (designerTask && designerTask.progress < 100) : isWorking) ? agent.color : isDone || (agent.id === "designer" && designerRecentWork.length > 0) ? "#34D399" : isAwaiting ? "#FBBF24" : "rgba(255,255,255,0.2)" }}>
+                                    {agent.id === "designer"
+                                      ? (designerTask && designerTask.progress < 100 ? "● Criando peça" : "✓ Concluído")
+                                      : (isWorking ? "● Fazendo agora" : isDone ? "✓ Concluído" : isAwaiting ? "◌ Aguardando" : "○ Idle")}
+                                  </span>
+                                  {deadline && (
+                                    <span className="flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full"
+                                      style={{ background: `${agent.color}15`, color: `${agent.color}CC`, border: `1px solid ${agent.color}25` }}>
+                                      <Clock className="w-2 h-2" />{deadline}
+                                    </span>
+                                  )}
                                 </div>
-                                <p className="text-[11px] leading-relaxed line-clamp-3" style={{ color: "rgba(255,255,255,0.6)" }}>
+                                <p className="text-[11px] leading-relaxed line-clamp-2" style={{ color: "rgba(255,255,255,0.6)" }}>
                                   {agent.id === "designer"
                                     ? (designerTask?.prompt ?? designerRecentWork[0] ?? "")
-                                    : task?.current}
+                                    : task.current}
                                 </p>
                                 {agent.id === "designer" && designerTask && designerTask.progress < 100 && (
                                   <div className="text-[9px] mt-1" style={{ color: `${agent.color}80` }}>
@@ -2318,45 +2458,49 @@ Português brasileiro. Entrega real e completa — nunca esboço ou confirmaçã
                                   </div>
                                 )}
                               </div>
-
-                              {((agent.id === "designer" ? (designerTask && designerTask.progress < 100) : isWorking) && (agent.id === "designer" ? (designerTask?.progress ?? 0) : task?.progress ?? 0) > 0) && (
-                                <div className="mb-3">
-                                  <div className="flex justify-between mb-1">
-                                    <span className="text-[9px]" style={{ color: "rgba(255,255,255,0.2)" }}>Progresso</span>
-                                    <span className="text-[9px]" style={{ color: agent.color }}>{agent.id === "designer" ? designerTask?.progress : task?.progress}%</span>
-                                  </div>
-                                  <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
-                                    <motion.div className="h-full rounded-full"
-                                      style={{ background: agent.color }}
-                                      initial={{ width: 0 }}
-                                      animate={{ width: `${agent.id === "designer" ? (designerTask?.progress ?? 0) : (task?.progress ?? 0)}%` }}
-                                      transition={{ duration: 0.6, ease: "easeOut", delay: agent.id === "designer" ? 0 : 0.3 + i * 0.1 }}
-                                    />
-                                  </div>
-                                </div>
-                              )}
-
-                              {task.recent.length > 0 && (
-                                <div className="space-y-1.5 mb-3 flex-1">
-                                  {task.recent.slice(0, 2).map((r, j) => (
-                                    <div key={j} className="flex items-start gap-1.5">
-                                      <CheckCircle2 className="w-3 h-3 flex-shrink-0 mt-0.5" style={{ color: `${agent.color}60` }} />
-                                      <span className="text-[10px] leading-relaxed" style={{ color: "rgba(255,255,255,0.28)" }}>{r}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
                             </>
                           )}
 
-                          {/* Última entrega do agente (vinda da conversa com ARIA) */}
-                          {agentOutputs[agent.id] && (
-                            <div className="mb-3 rounded-lg p-2.5" style={{ background: `${agent.color}08`, border: `1px solid ${agent.color}18` }}>
-                              <div className="text-[9px] uppercase tracking-widest font-semibold mb-1.5" style={{ color: `${agent.color}80` }}>
-                                Última entrega
+                          {/* Progress bar — shown while working or when done */}
+                          {showProgress && (
+                            <div className="mb-3">
+                              <div className="flex justify-between mb-1">
+                                <span className="text-[9px]" style={{ color: "rgba(255,255,255,0.2)" }}>
+                                  {isDone && agent.id !== "designer" ? "Concluído" : "Progresso"}
+                                </span>
+                                <span className="text-[9px]" style={{ color: agent.color }}>{taskProgress}%</span>
                               </div>
-                              <p className="text-[10px] leading-relaxed line-clamp-3" style={{ color: "rgba(255,255,255,0.55)" }}>
-                                {agentOutputs[agent.id].replace(/#{1,3}\s/g, "").replace(/\*\*/g, "").slice(0, 180)}…
+                              <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+                                <motion.div className="h-full rounded-full"
+                                  style={{ background: isDone ? "#34D399" : agent.color }}
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${taskProgress}%` }}
+                                  transition={{ duration: 0.7, ease: "easeOut" }}
+                                />
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Recent completed items */}
+                          {(task.recent?.length ?? 0) > 0 && (
+                            <div className="space-y-1.5 mb-3 flex-1">
+                              {task.recent.slice(0, 2).map((r, j) => (
+                                <div key={j} className="flex items-start gap-1.5">
+                                  <CheckCircle2 className="w-3 h-3 flex-shrink-0 mt-0.5" style={{ color: `${agent.color}60` }} />
+                                  <span className="text-[10px] leading-relaxed" style={{ color: "rgba(255,255,255,0.28)" }}>{r}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Entrega da ARIA */}
+                          {agentOutputs[agent.id] && (
+                            <div className="mb-3 rounded-lg p-2.5" style={{ background: `${agent.color}08`, border: `1px solid ${agent.color}20` }}>
+                              <div className="text-[9px] uppercase tracking-widest font-semibold mb-1.5" style={{ color: `${agent.color}90` }}>
+                                Entrega concluída
+                              </div>
+                              <p className="text-[10px] leading-relaxed line-clamp-3" style={{ color: "rgba(255,255,255,0.6)" }}>
+                                {agentOutputs[agent.id].replace(/#{1,3}\s/g, "").replace(/\*\*/g, "").slice(0, 200)}…
                               </p>
                               <button
                                 onClick={() => setExpandedAgentOutput(expandedAgentOutput === agent.id ? null : agent.id)}
@@ -3082,6 +3226,19 @@ Português brasileiro. Entrega real e completa — nunca esboço ou confirmaçã
                     </motion.div>
                   )}
                 </AnimatePresence>
+              </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════════
+                SITE — Teo editor de site via GitHub
+            ══════════════════════════════════════════════════════ */}
+            {activeTab === "site" && client.siteRepo && (
+              <div className="h-[calc(100vh-10rem)]">
+                <SiteEditorPanel
+                  clientId={client.id}
+                  siteUrl={client.siteUrl ?? ""}
+                  siteRepo={client.siteRepo}
+                />
               </div>
             )}
 

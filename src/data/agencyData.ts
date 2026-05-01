@@ -184,6 +184,7 @@ export interface Client {
   outputs: GeneratedOutput[];
   collabCampaigns?: CollabCampaign[];
   siteUrl?: string;
+  siteRepo?: string;
   teamInstructions?: string;
 }
 
@@ -575,6 +576,8 @@ export const CLIENTS: Client[] = [
     pipeline: [],
     outputs: [],
     collabCampaigns: [],
+    siteUrl: "https://abcer.lovable.com",
+    siteRepo: "caslu-cmd/abcer",
   },
 
   // ── GNX ──────────────────────────────────────────────────────
