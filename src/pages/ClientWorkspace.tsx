@@ -86,9 +86,9 @@ const MARKETING_TEAM = [
   },
   {
     id: "strategist",
-    name: "Carolina",
+    name: "Queila",
     role: "Estrategista",
-    initial: "C",
+    initial: "Q",
     skill: "Posicionamento · Pauta · Brand",
     color: "#FBBF24",
     description: "Define o posicionamento e a pauta editorial do cliente",
