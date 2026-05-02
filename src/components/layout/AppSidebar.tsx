@@ -6,7 +6,7 @@ import {
   HelpCircle, Shield, ChevronLeft, ChevronRight, Phone,
   Palette, Bell, Crown, ArrowLeftRight, Star,
   ArrowLeft, Megaphone, BarChart2, ExternalLink,
-  Bot, Activity, Link2, ListTodo, Share2, Clapperboard, Globe
+  Bot, Activity, Link2, ListTodo, Share2, Clapperboard
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useIsAdmin } from "@/hooks/useAdmin";
