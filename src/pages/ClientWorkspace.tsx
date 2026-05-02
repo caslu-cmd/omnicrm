@@ -104,9 +104,9 @@ const MARKETING_TEAM = [
   },
   {
     id: "designer",
-    name: "Isadora",
+    name: "Carolina",
     role: "Designer",
-    initial: "I",
+    initial: "C",
     skill: "Visual · Social Media · Motion",
     color: "#D946EF",
     description: "Cria peças visuais, templates e identidade visual nas redes",
