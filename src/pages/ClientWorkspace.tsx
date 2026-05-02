@@ -86,9 +86,9 @@ const MARKETING_TEAM = [
   },
   {
     id: "strategist",
-    name: "Carolina",
+    name: "Queila",
     role: "Estrategista",
-    initial: "C",
+    initial: "Q",
     skill: "Posicionamento · Pauta · Brand",
     color: "#FBBF24",
     description: "Define o posicionamento e a pauta editorial do cliente",
@@ -104,9 +104,9 @@ const MARKETING_TEAM = [
   },
   {
     id: "designer",
-    name: "Isadora",
+    name: "Carolina",
     role: "Designer",
-    initial: "I",
+    initial: "C",
     skill: "Visual · Social Media · Motion",
     color: "#D946EF",
     description: "Cria peças visuais, templates e identidade visual nas redes",
@@ -151,7 +151,7 @@ const MARKETING_TEAM = [
 
 // ── Prompts individuais por agente (orquestração sequencial) ─────────────
 const AGENT_PROMPTS: Record<string, string> = {
-  strategist: `Você é CAROLINA, Estrategista-Chefe da Calu Agência. Frameworks: AIDA, Jobs-to-be-Done, Blue Ocean.
+  strategist: `Você é QUEILA, Estrategista-Chefe da Calu Agência. Frameworks: AIDA, Jobs-to-be-Done, Blue Ocean.
 Entregue trabalho REAL E COMPLETO em markdown bem formatado, pronto para usar:
 - Posicionamento de marca (1 parágrafo)
 - 2-3 personas (nome, dores, desejos, canais)
@@ -163,7 +163,7 @@ Entregue trabalho REAL E COMPLETO em markdown bem formatado, pronto para usar:
 NUNCA esboço ou confirmação. Português brasileiro.`,
 
   copywriter: `Você é BEATRIZ, Copywriter Sênior da Calu Agência. Frameworks: PAS, AIDA, StoryBrand. Aplica os 6 princípios de Cialdini e psicologia comportamental (Kahneman, BJ Fogg).
-Entregue copy 100% PRONTO em markdown, referenciando a estratégia da Carolina quando disponível:
+Entregue copy 100% PRONTO em markdown, referenciando a estratégia da Queila quando disponível:
 - Gancho que para o scroll
 - Desenvolvimento que ativa o sistema límbico (dor → solução)
 - CTA irresistível
@@ -211,7 +211,7 @@ Entregue em markdown:
 - Análise de concorrência orgânica + gaps a explorar.
 Português brasileiro. Material pronto para publicar.`,
 
-  designer: `Você é ISADORA, Art Director Sênior da Calu Agência.
+  designer: `Você é CAROLINA, Art Director Sênior da Calu Agência.
 Entregue em markdown um BRIEFING VISUAL completo, pronto para gerar a peça:
 - Plataforma e formato (ex: Instagram feed 4:5, Stories 9:16)
 - Aspect ratio
@@ -220,7 +220,7 @@ Entregue em markdown um BRIEFING VISUAL completo, pronto para gerar a peça:
 - Tipografia (estilo + peso)
 - Mood / referência visual
 - Elementos gráficos sugeridos
-Referencie a estratégia da Carolina e o copy da Beatriz quando disponíveis.
+Referencie a estratégia da Queila e o copy da Beatriz quando disponíveis.
 Português brasileiro.`,
 
   sales: `Você é EDUARDO, Agente de Vendas da Calu Agência. Especialista em WhatsApp, qualificação e CRM.
@@ -244,7 +244,7 @@ Português brasileiro, tom acolhedor e consultivo.`,
 
   revisor: `Você é VITÓRIA, Revisora da Calu Agência. Especialista em ortografia, gramática e estrutura textual.
 Entregue em markdown:
-- Revisão dos textos disponíveis no contexto (copy da Beatriz, materiais da Carolina, etc.)
+- Revisão dos textos disponíveis no contexto (copy da Beatriz, materiais da Queila, etc.)
 - Lista de correções aplicadas (ortografia, concordância, pontuação)
 - Sugestões de melhoria de clareza e fluidez
 - Versão final revisada pronta para publicar
@@ -435,18 +435,19 @@ const AGENT_META: Record<string, { initial: string; color: string; name: string 
   rafaela:   { initial: "R", color: "#F97316", name: "Rafaela" },
   lucas:     { initial: "L", color: "#34D399", name: "Lucas" },
   marina:    { initial: "M", color: "#60A5FA", name: "Marina" },
-  carolina:  { initial: "C", color: "#FBBF24", name: "Carolina" },
+  carolina:  { initial: "C", color: "#F472B6", name: "Carolina" },
+  queila:    { initial: "Q", color: "#FBBF24", name: "Queila" },
   valentina: { initial: "V", color: "#E879F9", name: "Valentina" },
   lia:       { initial: "L", color: "#38BDF8", name: "Lia" },
   user:      { initial: "U", color: "#94A3B8", name: "Você" },
   // Aliases por ID do time (orquestração sequencial)
-  strategist: { initial: "C", color: "#FBBF24", name: "Carolina" },
+  strategist: { initial: "Q", color: "#FBBF24", name: "Queila" },
   copywriter: { initial: "B", color: "#A78BFA", name: "Beatriz" },
   traffic:    { initial: "R", color: "#F97316", name: "Rafaela" },
   analyst:    { initial: "L", color: "#34D399", name: "Lucas" },
   social:     { initial: "M", color: "#60A5FA", name: "Marina" },
   site:       { initial: "V", color: "#E879F9", name: "Valentina" },
-  designer:   { initial: "I", color: "#F472B6", name: "Isadora" },
+  designer:   { initial: "C", color: "#F472B6", name: "Carolina" },
   sales:      { initial: "E", color: "#F59E0B", name: "Eduardo" },
   briefing:   { initial: "L", color: "#38BDF8", name: "Lia" },
   revisor:    { initial: "V", color: "#EC4899", name: "Vitória" },
@@ -689,13 +690,13 @@ export default function ClientWorkspace() {
 
     // Mensagens curtas que ARIA envia para cada agente
     const ARIA_DELEGATIONS: Record<string, string> = {
-      strategist: "Carolina, defina o terreno estratégico: posicionamento, personas, pilares e KPIs.",
+      strategist: "Queila, defina o terreno estratégico: posicionamento, personas, pilares e KPIs.",
       copywriter: "Beatriz, escreva o copy completo aplicando psicologia do consumidor — gancho, body e CTA.",
       traffic:    "Rafaela, monte o plano de tráfego pago: público, criativo, orçamento e métricas esperadas.",
       analyst:    "Lucas, traga benchmarks, North Star Metric e metas de 30/60/90 dias.",
       social:     "Marina, monte o calendário editorial completo de 7 dias em tabela.",
       site:       "Valentina, traga a estratégia de SEO: keywords, clusters e títulos otimizados.",
-      designer:   "Isadora, escreva o briefing visual completo da peça (formato, paleta, mood).",
+      designer:   "Carolina, escreva o briefing visual completo da peça (formato, paleta, mood).",
       sales:      "Eduardo, monte o script de WhatsApp + qualificação + objeções + follow-up.",
       briefing:   "Lia, faça o diagnóstico inicial e monte o briefing de onboarding.",
       revisor:    "Vitória, revise os textos do contexto e entregue a versão final corrigida.",
@@ -707,13 +708,13 @@ export default function ClientWorkspace() {
       const planSystem = `Você é ARIA, Diretora Sênior de Marketing da Calu Agência.
 Decida QUAIS AGENTES acionar para a demanda. NÃO gere conteúdo agora.
 Agentes disponíveis (use exatamente esses IDs):
-- strategist (Carolina — Estrategista, posicionamento, personas, pilares)
+- strategist (Queila — Estrategista, posicionamento, personas, pilares)
 - copywriter (Beatriz — Copy, legendas, roteiros, anúncios)
 - traffic (Rafaela — Tráfego pago, campanhas, ads)
 - analyst (Lucas — Métricas, benchmarks, dados)
 - social (Marina — Calendário editorial, social media)
 - site (Valentina — SEO, blog, conteúdo orgânico)
-- designer (Isadora — Briefing visual, criativo)
+- designer (Carolina — Briefing visual, criativo)
 - sales (Eduardo — WhatsApp, vendas, qualificação de leads, CRM)
 - briefing (Lia — Diagnóstico, onboarding, briefing inicial de novos clientes)
 - revisor (Vitória — Revisão ortográfica e gramatical de textos prontos)
@@ -816,7 +817,7 @@ Responda APENAS JSON válido, sem markdown, sem texto extra:
         const ctxBlock = `Cliente: ${clientContext.name} | Segmento: ${clientContext.industry} | Cor: ${clientContext.brandColor}
 Campanhas ativas: ${clientContext.campaigns.join(", ") || "nenhuma"}
 ${clientContext.teamInstructions ? `Instruções permanentes: ${clientContext.teamInstructions}` : ""}
-${accumulated.strategist ? `\nESTRATÉGIA DA CAROLINA (referencie):\n${accumulated.strategist.slice(0, 1500)}` : ""}
+${accumulated.strategist ? `\nESTRATÉGIA DA QUEILA (referencie):\n${accumulated.strategist.slice(0, 1500)}` : ""}
 ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copywriter.slice(0, 1000)}` : ""}`;
 
         let outputText = "";
@@ -1162,7 +1163,7 @@ ${priorBlock}`;
     setAgentInstruction("");
     setIsadoraLoading(true);
     setIsadoraError(null);
-    const taskLabel = direction || "Isadora criando autonomamente...";
+    const taskLabel = direction || "Carolina criando autonomamente...";
     const ESTIMATED = 35;
     const startedAt = Date.now();
     setDesignerTask({ prompt: taskLabel, progress: 0, startedAt, estimatedSeconds: ESTIMATED });
@@ -2594,7 +2595,7 @@ ${priorBlock}`;
                                 </div>
                               )}
 
-                              {/* Imagem da Isadora */}
+                              {/* Imagem da Carolina */}
                               {msg.imageUrl && (
                                 <div className="mt-3">
                                   <img src={msg.imageUrl} alt="gerado" className="rounded-lg max-h-56 object-cover w-full" style={{ border: "1px solid rgba(255,255,255,0.1)" }} />
@@ -2906,7 +2907,7 @@ ${priorBlock}`;
                               </button>
                             </div>
 
-                            {/* Formato (só Isadora) */}
+                            {/* Formato (só Carolina) */}
                             {/* Bobby: painel completo de plataforma + roteiro */}
                             {selectedAgent.id === "video" && (
                               <div className="space-y-4 mb-2">
@@ -2986,7 +2987,7 @@ ${priorBlock}`;
                                     style={{ background: "rgba(255,255,255,0.05)", border: "1px solid #B9FF4B28", color: "#F0F0F0", outline: "none" }}
                                   />
                                   <p className="text-[10px] mt-1.5" style={{ color: "rgba(255,255,255,0.2)" }}>
-                                    Gerado por Beatriz ou Carolina? Cole aqui e Bobby edita em cima.
+                                    Gerado por Beatriz ou Queila? Cole aqui e Bobby edita em cima.
                                   </p>
                                 </div>
 
@@ -3035,7 +3036,7 @@ ${priorBlock}`;
                             <textarea
                               value={agentInstruction}
                               onChange={(e) => setAgentInstruction(e.target.value)}
-                              placeholder={selectedAgent.id === "designer" ? "Dê uma direção (opcional) — ou deixe em branco e a Isadora decide sozinha com base no cliente." : `O que você quer que ${selectedAgent.name} faça? Seja específico...`}
+                              placeholder={selectedAgent.id === "designer" ? "Dê uma direção (opcional) — ou deixe em branco e a Carolina decide sozinha com base no cliente." : `O que você quer que ${selectedAgent.name} faça? Seja específico...`}
                               rows={3}
                               autoFocus
                               className="w-full rounded-xl px-4 py-3 text-sm resize-none mb-3"
@@ -4432,7 +4433,7 @@ ${priorBlock}`;
                     <textarea
                       value={agentInstruction}
                       onChange={(e) => setAgentInstruction(e.target.value)}
-                      placeholder={viewedAgent.id === "designer" ? "Dê uma direção (opcional) — ou deixe em branco e a Isadora decide sozinha com base no cliente." : `O que você quer que ${viewedAgent.name} faça?`}
+                      placeholder={viewedAgent.id === "designer" ? "Dê uma direção (opcional) — ou deixe em branco e a Carolina decide sozinha com base no cliente." : `O que você quer que ${viewedAgent.name} faça?`}
                       rows={3}
                       className="w-full rounded-xl px-4 py-3 text-sm resize-none"
                       style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${viewedAgent.color}25`, color: "#F0F0F0", outline: "none" }}
@@ -4635,7 +4636,7 @@ ${priorBlock}`;
                 <label className="block text-[10px] uppercase tracking-widest font-semibold mb-1.5" style={{ color: "rgba(255,255,255,0.3)" }}>Instruções do time</label>
                 <textarea value={editForm.teamInstructions} onChange={(e) => setEditForm(f => f && { ...f, teamInstructions: e.target.value })}
                   rows={3}
-                  placeholder="Ex: Beatriz nunca usa a palavra 'potencializar'. Isadora sempre usa fundo escuro. Tom B2B sério e direto."
+                  placeholder="Ex: Beatriz nunca usa a palavra 'potencializar'. Carolina sempre usa fundo escuro. Tom B2B sério e direto."
                   className="w-full rounded-xl px-3 py-2 text-sm resize-none" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }} />
                 <p className="text-[10px] mt-1" style={{ color: "rgba(255,255,255,0.2)" }}>Injetado automaticamente em todos os agentes. Escreva uma vez, vale para sempre.</p>
               </div>
