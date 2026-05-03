@@ -132,10 +132,10 @@ export default function AgencyDashboard() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.5 }}
-          className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 md:mb-12"
+          className="flex md:grid md:grid-cols-4 gap-3 md:gap-4 mb-6 md:mb-12 overflow-x-auto md:overflow-visible -mx-4 px-4 md:mx-0 md:px-0 snap-x snap-mandatory scrollbar-thin pb-2 md:pb-0"
         >
           {stats.map((stat, i) => (
-            <div key={stat.label} className="rounded-2xl p-5 group transition-all duration-300"
+            <div key={stat.label} className="rounded-2xl p-5 group transition-all duration-300 flex-shrink-0 w-[68vw] sm:w-[44vw] md:w-auto snap-start"
               style={{
                 background: "rgba(255,255,255,0.025)",
                 border: "1px solid rgba(255,255,255,0.07)",
