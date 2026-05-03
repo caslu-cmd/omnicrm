@@ -3482,7 +3482,7 @@ ${priorBlock}`;
                     <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.2)" }}>{MARKETING_TEAM.length} agentes</span>
                   </div>
 
-                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  <div className="flex flex-col gap-2.5">
                     {MARKETING_TEAM.map((agent, i) => {
                       const task = client.agentTasks[agent.id];
                       const isWorking = task?.status === "trabalhando";
@@ -3491,149 +3491,115 @@ ${priorBlock}`;
                       const isViewing = viewingAgentId === agent.id;
                       const isActive = isSelected || isViewing;
 
+                      const currentText = agent.id === "designer"
+                        ? (designerTask?.prompt ?? designerRecentWork[0] ?? "")
+                        : task?.current;
+                      const progress = agent.id === "designer" ? (designerTask?.progress ?? 0) : (task?.progress ?? 0);
+                      const showProgress = (agent.id === "designer" ? (designerTask && designerTask.progress < 100) : isWorking) && progress > 0;
+
                       return (
                         <motion.div key={agent.id}
-                          initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: i * 0.06 }}
-                          className="rounded-2xl p-4 flex flex-col cursor-default"
+                          initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.04 }}
+                          className="rounded-2xl px-3 py-3 sm:px-4"
                           style={{
                             background: isActive ? `${agent.color}0d` : "rgba(255,255,255,0.025)",
                             border: `1px solid ${isActive ? `${agent.color}40` : isWorking ? `${agent.color}28` : "rgba(255,255,255,0.07)"}`,
                             boxShadow: isActive ? `0 0 32px -10px ${agent.color}40` : isWorking ? `0 0 28px -10px ${agent.color}30` : "none",
                           }}>
 
-                          {/* Avatar + name */}
-                          <div className="flex items-start justify-between mb-3">
-                            <div className="flex items-center gap-2.5">
+                          {/* Tudo em linha — wrap automático */}
+                          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                            {/* Avatar + nome + role */}
+                            <div className="flex items-center gap-2.5 min-w-0">
                               <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
                                 style={{ background: `${agent.color}18`, border: `1px solid ${agent.color}30`, color: agent.color }}>
                                 {agent.initial}
                               </div>
-                              <div className="min-w-0">
-                                <div className="text-xs font-bold leading-tight" style={{ color: "rgba(255,255,255,0.9)" }}>{agent.name}</div>
-                                <div className="text-[10px] leading-tight" style={{ color: agent.color }}>{agent.role}</div>
+                              <div className="flex items-baseline gap-2 flex-wrap min-w-0">
+                                <span className="text-xs font-bold leading-tight break-words" style={{ color: "rgba(255,255,255,0.9)" }}>{agent.name}</span>
+                                <span className="text-[10px] leading-tight break-words" style={{ color: agent.color }}>{agent.role}</span>
                               </div>
                             </div>
+
+                            {/* Status dot/check */}
                             {isWorking && (
-                              <span className="relative flex h-1.5 w-1.5 flex-shrink-0 mt-1.5">
+                              <span className="relative flex h-1.5 w-1.5 flex-shrink-0">
                                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: agent.color }} />
                                 <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: agent.color }} />
                               </span>
                             )}
-                            {isDone && !isWorking && <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-1" style={{ color: "#34D399" }} />}
-                          </div>
+                            {isDone && !isWorking && <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#34D399" }} />}
 
-                          {/* Skill */}
-                          <div className="text-[10px] mb-2 leading-relaxed" style={{ color: "rgba(255,255,255,0.22)" }}>
-                            {agent.skill}
-                          </div>
+                            {/* Skill */}
+                            <span className="text-[10px] break-words min-w-0" style={{ color: "rgba(255,255,255,0.32)" }}>
+                              · {agent.skill}
+                            </span>
 
-                          {/* Wave + Deadline badges (só renderiza se houver algo) */}
-                          {(agentWaves[agent.id] || (agentDeadlines[agent.id] && !isDone)) && (
-                            <div className="flex flex-wrap items-center gap-1.5 mb-3">
-                              {agentWaves[agent.id] && (
-                                <div
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider"
-                                  style={{
-                                    background: "rgba(185,255,75,0.12)",
-                                    color: "#B9FF4B",
-                                    border: "1px solid rgba(185,255,75,0.3)",
-                                  }}>
-                                  🌊 Onda {agentWaves[agent.id]}
-                                </div>
-                              )}
-                              {agentDeadlines[agent.id] && !isDone && (
-                                <div
-                                  className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-semibold"
-                                  style={{
-                                    background: `${agent.color}14`,
-                                    color: agent.color,
-                                    border: `1px solid ${agent.color}30`,
-                                  }}>
-                                  ⏱ Entrega até {agentDeadlines[agent.id]}
-                                </div>
-                              )}
-                            </div>
-                          )}
+                            {/* Wave + Deadline badges */}
+                            {agentWaves[agent.id] && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider whitespace-nowrap"
+                                style={{ background: "rgba(185,255,75,0.12)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.3)" }}>
+                                🌊 Onda {agentWaves[agent.id]}
+                              </span>
+                            )}
+                            {agentDeadlines[agent.id] && !isDone && (
+                              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-semibold whitespace-nowrap"
+                                style={{ background: `${agent.color}14`, color: agent.color, border: `1px solid ${agent.color}30` }}>
+                                ⏱ {agentDeadlines[agent.id]}
+                              </span>
+                            )}
 
-                          {/* Current task */}
-                          {(agent.id === "designer" ? (designerTask || designerRecentWork.length > 0) : task) && (
-                            <>
-                              <div className="mb-2.5">
-                                <div className="text-[9px] uppercase tracking-wider mb-1 font-medium"
-                                  style={{ color: (agent.id === "designer" ? (designerTask && designerTask.progress < 100) : isWorking) ? agent.color : isDone || (agent.id === "designer" && designerRecentWork.length > 0) ? "#34D399" : "rgba(255,255,255,0.2)" }}>
+                            {/* Tarefa atual (inline) */}
+                            {currentText && (
+                              <span className="inline-flex items-center gap-1.5 text-[11px] break-words min-w-0"
+                                style={{ color: "rgba(255,255,255,0.55)" }}>
+                                <span className="text-[9px] font-semibold uppercase tracking-wider whitespace-nowrap"
+                                  style={{ color: isWorking ? agent.color : isDone ? "#34D399" : "rgba(255,255,255,0.3)" }}>
                                   {agent.id === "designer"
-                                    ? (designerTask && designerTask.progress < 100 ? "● Criando peça" : "✓ Concluído")
-                                    : (isWorking ? "● Fazendo agora" : isDone ? "✓ Concluído" : "○ Aguardando")}
-                                </div>
-                                <p className="text-[11px] leading-relaxed line-clamp-3" style={{ color: "rgba(255,255,255,0.6)" }}>
-                                  {agent.id === "designer"
-                                    ? (designerTask?.prompt ?? designerRecentWork[0] ?? "")
-                                    : task?.current}
-                                </p>
-                                {agent.id === "designer" && designerTask && designerTask.progress < 100 && (
-                                  <div className="text-[9px] mt-1" style={{ color: `${agent.color}80` }}>
-                                    ~{Math.max(0, designerTask.estimatedSeconds - Math.floor((Date.now() - designerTask.startedAt) / 1000))}s restantes
-                                  </div>
-                                )}
-                              </div>
+                                    ? (designerTask && designerTask.progress < 100 ? "● Criando" : "✓ Feito")
+                                    : (isWorking ? "● Agora" : isDone ? "✓ Feito" : "○ Aguard.")}
+                                </span>
+                                <span className="line-clamp-2">{currentText}</span>
+                              </span>
+                            )}
 
-                              {((agent.id === "designer" ? (designerTask && designerTask.progress < 100) : isWorking) && (agent.id === "designer" ? (designerTask?.progress ?? 0) : task?.progress ?? 0) > 0) && (
-                                <div className="mb-3">
-                                  <div className="flex justify-between mb-1">
-                                    <span className="text-[9px]" style={{ color: "rgba(255,255,255,0.2)" }}>Progresso</span>
-                                    <span className="text-[9px]" style={{ color: agent.color }}>{agent.id === "designer" ? designerTask?.progress : task?.progress}%</span>
-                                  </div>
-                                  <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
-                                    <motion.div className="h-full rounded-full"
-                                      style={{ background: agent.color }}
-                                      initial={{ width: 0 }}
-                                      animate={{ width: `${agent.id === "designer" ? (designerTask?.progress ?? 0) : (task?.progress ?? 0)}%` }}
-                                      transition={{ duration: 0.6, ease: "easeOut", delay: agent.id === "designer" ? 0 : 0.3 + i * 0.1 }}
-                                    />
-                                  </div>
-                                </div>
-                              )}
+                            {/* Progresso inline */}
+                            {showProgress && (
+                              <span className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                                <span className="h-1 w-16 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+                                  <motion.span className="h-full block rounded-full"
+                                    style={{ background: agent.color }}
+                                    initial={{ width: 0 }}
+                                    animate={{ width: `${progress}%` }}
+                                    transition={{ duration: 0.6, ease: "easeOut" }}
+                                  />
+                                </span>
+                                <span className="text-[9px]" style={{ color: agent.color }}>{progress}%</span>
+                              </span>
+                            )}
 
-                              {task.recent.length > 0 && (
-                                <div className="space-y-1.5 mb-3 flex-1">
-                                  {task.recent.slice(0, 2).map((r, j) => (
-                                    <div key={j} className="flex items-start gap-1.5">
-                                      <CheckCircle2 className="w-3 h-3 flex-shrink-0 mt-0.5" style={{ color: `${agent.color}60` }} />
-                                      <span className="text-[10px] leading-relaxed" style={{ color: "rgba(255,255,255,0.28)" }}>{r}</span>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </>
-                          )}
-
-                          {/* Última entrega do agente (vinda da conversa com ARIA) */}
-                          {agentOutputs[agent.id] && (
-                            <div className="mb-3 rounded-lg p-2.5" style={{ background: `${agent.color}08`, border: `1px solid ${agent.color}18` }}>
-                              <div className="text-[9px] uppercase tracking-widest font-semibold mb-1.5" style={{ color: `${agent.color}80` }}>
-                                Última entrega
-                              </div>
-                              <p className="text-[10px] leading-relaxed line-clamp-3" style={{ color: "rgba(255,255,255,0.55)" }}>
-                                {agentOutputs[agent.id].replace(/#{1,3}\s/g, "").replace(/\*\*/g, "").slice(0, 180)}…
-                              </p>
+                            {/* Última entrega resumida */}
+                            {agentOutputs[agent.id] && (
                               <button
                                 onClick={() => setExpandedAgentOutput(expandedAgentOutput === agent.id ? null : agent.id)}
-                                className="mt-1.5 text-[10px] font-semibold"
-                                style={{ color: agent.color }}>
-                                Ver entrega completa ↓
+                                className="text-[10px] font-semibold whitespace-nowrap px-2 py-0.5 rounded-md"
+                                style={{ background: `${agent.color}10`, color: agent.color, border: `1px solid ${agent.color}25` }}>
+                                Ver entrega ↓
                               </button>
-                            </div>
-                          )}
+                            )}
 
-                          <div className="mt-auto flex flex-col gap-1.5">
-                            <div className="flex gap-1.5">
+                            {/* Spacer para empurrar botões à direita quando couber */}
+                            <div className="flex-1 min-w-0" />
+
+                            {/* Ações inline */}
+                            <div className="flex items-center gap-1.5 flex-wrap">
                               <button
                                 onClick={() => {
                                   setViewingAgentId(isViewing ? null : agent.id);
                                   if (!isViewing) setSelectedAgentId(null);
                                 }}
-                                className="flex-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all"
+                                className="px-2.5 py-1 rounded-lg text-[10px] font-semibold whitespace-nowrap"
                                 style={{
                                   background: isViewing ? `${agent.color}22` : `${agent.color}08`,
                                   color: agent.color,
@@ -3648,27 +3614,27 @@ ${priorBlock}`;
                                   setAgentInstruction("");
                                   clearAgentFile();
                                 }}
-                                className="flex-1 py-1.5 rounded-lg text-[10px] font-semibold transition-all"
+                                className="px-2.5 py-1 rounded-lg text-[10px] font-semibold whitespace-nowrap"
                                 style={{
                                   background: isSelected ? `${agent.color}22` : `${agent.color}08`,
                                   color: agent.color,
                                   border: `1px solid ${isSelected ? `${agent.color}45` : `${agent.color}20`}`,
                                 }}>
-                                {isSelected ? "▲ Fechar" : agent.id === "briefing" ? "Iniciar Briefing" : "Dar instrução"}
+                                {isSelected ? "▲ Fechar" : agent.id === "briefing" ? "Briefing" : "Instruir"}
                               </button>
+                              {agent.id !== "briefing" && (
+                                <button
+                                  onClick={() => {
+                                    setDraftAgent(agent);
+                                    setDraftForm({ platforms: [], tone: "profissional e envolvente", topic: "" });
+                                    setShowDraftModal(true);
+                                  }}
+                                  className="px-2.5 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1 whitespace-nowrap"
+                                  style={{ background: `${agent.color}12`, color: agent.color, border: `1px solid ${agent.color}25` }}>
+                                  <Send className="w-3 h-3" /> Gerar post
+                                </button>
+                              )}
                             </div>
-                            {agent.id !== "briefing" && (
-                              <button
-                                onClick={() => {
-                                  setDraftAgent(agent);
-                                  setDraftForm({ platforms: [], tone: "profissional e envolvente", topic: "" });
-                                  setShowDraftModal(true);
-                                }}
-                                className="w-full py-1.5 rounded-lg text-[10px] font-semibold transition-all flex items-center justify-center gap-1"
-                                style={{ background: `${agent.color}12`, color: agent.color, border: `1px solid ${agent.color}25` }}>
-                                <Send className="w-3 h-3" /> Gerar post para aprovação
-                              </button>
-                            )}
                           </div>
                         </motion.div>
                       );
