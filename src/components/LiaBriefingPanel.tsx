@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronRight, Download, RefreshCw, X, CheckCircle2 } from "lucide-react";
+import { ChevronRight, Download, RefreshCw, X, CheckCircle2, Users } from "lucide-react";
 
 const LIA_COLOR = "#38BDF8";
 const CALU_GREEN = "#B9FF4B";
@@ -442,6 +442,8 @@ export default function LiaBriefingPanel({ clientId, clientName, clientIndustry,
   const [loading, setLoading] = useState(false);
   const [diagnosis, setDiagnosis] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [consultingTeam, setConsultingTeam] = useState(false);
+  const [teamProposed, setTeamProposed] = useState(false);
 
   const set = <K extends keyof BriefingData>(key: K, val: BriefingData[K]) =>
     setData((prev) => ({ ...prev, [key]: val }));
@@ -487,6 +489,84 @@ export default function LiaBriefingPanel({ clientId, clientName, clientIndustry,
     win.document.close();
   };
 
+  const consultarTime = async () => {
+    if (!diagnosis || consultingTeam || teamProposed) return;
+    setConsultingTeam(true);
+    try {
+      const AGENTS = [
+        { id: "strategist",  name: "Queila",    color: "#FBBF24", role: "Estrategista de Marketing" },
+        { id: "copywriter",  name: "Beatriz",   color: "#A78BFA", role: "Copywriter" },
+        { id: "traffic",     name: "Rafaela",   color: "#F472B6", role: "Gestora de Tráfego Pago" },
+        { id: "social",      name: "Marina",    color: "#34D399", role: "Social Media" },
+        { id: "calendario",  name: "Pedro",     color: "#2DD4BF", role: "Planejamento Editorial" },
+        { id: "designer",    name: "Carolina",  color: "#FB923C", role: "Designer Visual" },
+        { id: "analyst",     name: "Lucas",     color: "#60A5FA", role: "Analista de Dados" },
+      ];
+
+      const prompt = `Você é o orquestrador de uma agência de marketing digital chamada Calu Agência.
+
+Com base no briefing e diagnóstico abaixo de "${clientName}", defina quais agentes devem agir e qual ação concreta cada um deve propor.
+
+DIAGNÓSTICO:
+${diagnosis}
+
+BRIEFING RESUMIDO:
+- Segmento: ${data.segmento}
+- Meta 90 dias: ${data.meta90dias}
+- Budget marketing: ${data.budgetMarketing}
+- Canais ativos: ${(data.canaisAtivos || []).join(", ")}
+- Dor principal: ${data.dorPrincipal}
+- Diferencial: ${data.diferencial}
+
+AGENTES DISPONÍVEIS:
+${AGENTS.map(a => `- ${a.name} (${a.role})`).join("\n")}
+
+Retorne SOMENTE um JSON válido, sem markdown, sem explicação. Array com 3 a 5 propostas, cada uma com:
+{
+  "agentId": "id do agente",
+  "agentName": "nome",
+  "agentColor": "cor hex",
+  "titulo": "título da ação proposta (máx 60 chars)",
+  "descricao": "o que exatamente o agente vai executar (2-3 frases diretas)"
+}`;
+
+      const { data: res, error: err } = await supabase.functions.invoke("chat-ai", {
+        body: {
+          systemPrompt: "Você é um orquestrador de agentes de marketing. Retorne SOMENTE JSON válido, sem markdown.",
+          maxTokens: 2000,
+          messages: [{ role: "user", content: prompt }],
+        },
+      });
+      if (err) throw err;
+
+      let proposals: any[] = [];
+      const raw = res?.content ?? "";
+      const match = raw.match(/\[[\s\S]*\]/);
+      if (match) proposals = JSON.parse(match[0]);
+      if (!proposals.length) throw new Error("Nenhuma proposta gerada");
+
+      const rows = proposals.map((p: any) => ({
+        client_id: clientId,
+        agent_id: p.agentId,
+        agent_name: p.agentName,
+        agent_color: p.agentColor ?? AGENTS.find(a => a.id === p.agentId)?.color ?? "#B9FF4B",
+        titulo: p.titulo,
+        descricao: p.descricao,
+        status: "pending",
+        briefing_context: data as any,
+      }));
+
+      const { error: insErr } = await supabase.from("agent_proposals").insert(rows);
+      if (insErr) throw insErr;
+
+      setTeamProposed(true);
+    } catch (e) {
+      console.error("consultarTime error:", e);
+    } finally {
+      setConsultingTeam(false);
+    }
+  };
+
   if (diagnosis) {
     return (
       <div>
@@ -509,20 +589,44 @@ export default function LiaBriefingPanel({ clientId, clientName, clientIndustry,
           {diagnosis}
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2">
           <button
-            onClick={openPdf}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold"
-            style={{ background: CALU_GREEN, color: "#07080A", boxShadow: `0 0 20px -4px ${CALU_GREEN}60` }}>
-            <Download className="w-4 h-4" />
-            Baixar Diagnóstico em PDF
+            onClick={consultarTime}
+            disabled={consultingTeam || teamProposed}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold disabled:opacity-60 transition-all"
+            style={{
+              background: teamProposed ? "rgba(185,255,75,0.08)" : "rgba(185,255,75,0.12)",
+              color: teamProposed ? CALU_GREEN : "#F0F0F0",
+              border: `1px solid ${teamProposed ? "rgba(185,255,75,0.4)" : "rgba(255,255,255,0.12)"}`,
+            }}>
+            {consultingTeam ? (
+              <><RefreshCw className="w-4 h-4 animate-spin" /> Consultando os agentes...</>
+            ) : teamProposed ? (
+              <><CheckCircle2 className="w-4 h-4" style={{ color: CALU_GREEN }} /> Propostas enviadas para sua aprovação</>
+            ) : (
+              <><Users className="w-4 h-4" /> Consultar o Time — propor ações</>
+            )}
           </button>
-          <button
-            onClick={() => { setDiagnosis(null); setStep(0); setData({ ...EMPTY, empresa: clientName, segmento: clientIndustry }); }}
-            className="px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors"
-            style={{ background: `${LIA_COLOR}12`, color: LIA_COLOR, border: `1px solid ${LIA_COLOR}25` }}>
-            Novo
-          </button>
+          {teamProposed && (
+            <p className="text-[11px] text-center" style={{ color: "rgba(255,255,255,0.35)" }}>
+              Vá até a aba <strong style={{ color: "rgba(255,255,255,0.6)" }}>Aprovações</strong> para revisar e aprovar cada proposta
+            </p>
+          )}
+          <div className="flex gap-2">
+            <button
+              onClick={openPdf}
+              className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold"
+              style={{ background: CALU_GREEN, color: "#07080A", boxShadow: `0 0 20px -4px ${CALU_GREEN}60` }}>
+              <Download className="w-4 h-4" />
+              Baixar PDF
+            </button>
+            <button
+              onClick={() => { setDiagnosis(null); setStep(0); setTeamProposed(false); setData({ ...EMPTY, empresa: clientName, segmento: clientIndustry }); }}
+              className="px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors"
+              style={{ background: `${LIA_COLOR}12`, color: LIA_COLOR, border: `1px solid ${LIA_COLOR}25` }}>
+              Novo
+            </button>
+          </div>
         </div>
       </div>
     );

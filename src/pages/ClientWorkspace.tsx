@@ -628,6 +628,9 @@ export default function ClientWorkspace() {
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [showRejectModal, setShowRejectModal] = useState<string | null>(null);
+  const [agentProposals, setAgentProposals] = useState<any[]>([]);
+  const [proposalsLoading, setProposalsLoading] = useState(false);
+  const [approvingProposalId, setApprovingProposalId] = useState<string | null>(null);
   const [insights, setInsights] = useState<any>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [showDraftModal, setShowDraftModal] = useState(false);
@@ -1614,6 +1617,30 @@ ${priorBlock}`;
 
   useEffect(() => { if (id) loadPendingPosts(); }, [id]);
 
+  const loadProposals = async () => {
+    if (!id) return;
+    setProposalsLoading(true);
+    const { data } = await supabase.from("agent_proposals").select("*")
+      .eq("client_id", id).eq("status", "pending")
+      .order("created_at", { ascending: false });
+    if (data) setAgentProposals(data);
+    setProposalsLoading(false);
+  };
+
+  useEffect(() => { if (id) loadProposals(); }, [id]);
+
+  const handleApproveProposal = async (proposalId: string) => {
+    setApprovingProposalId(proposalId);
+    await supabase.from("agent_proposals").update({ status: "approved" }).eq("id", proposalId);
+    setAgentProposals(prev => prev.filter(p => p.id !== proposalId));
+    setApprovingProposalId(null);
+  };
+
+  const handleRejectProposal = async (proposalId: string) => {
+    await supabase.from("agent_proposals").update({ status: "rejected" }).eq("id", proposalId);
+    setAgentProposals(prev => prev.filter(p => p.id !== proposalId));
+  };
+
   const handleApprove = async (postId: string) => {
     setApprovingId(postId);
     const { data: { session } } = await supabase.auth.getSession();
@@ -2016,7 +2043,7 @@ ${priorBlock}`;
                   {([
                     ["contacts",  "Leads"],
                     ["pipeline",  "Pipeline"],
-                    ["approvals", `Aprovações${pendingPosts.length > 0 ? ` (${pendingPosts.length})` : ""}`],
+                    ["approvals", `Aprovações${(pendingPosts.length + agentProposals.length) > 0 ? ` (${pendingPosts.length + agentProposals.length})` : ""}`],
                     ["insights",  "Insights IA"],
                   ] as const).map(([v, label]) => (
                     <button key={v} onClick={() => setCrmView(v as any)}
@@ -2025,7 +2052,7 @@ ${priorBlock}`;
                         ? { background: `${client.color}22`, color: client.color, border: `1px solid ${client.color}30` }
                         : { color: "rgba(255,255,255,0.4)" }}>
                       {label}
-                      {v === "approvals" && pendingPosts.length > 0 && crmView !== "approvals" && (
+                      {v === "approvals" && (pendingPosts.length + agentProposals.length) > 0 && crmView !== "approvals" && (
                         <span className="absolute -top-1 -right-1 h-2 w-2 rounded-full" style={{ background: client.color }} />
                       )}
                     </button>
@@ -2167,7 +2194,79 @@ ${priorBlock}`;
 
                 {/* ── APROVAÇÕES ── */}
                 {crmView === "approvals" && (
-                  <div className="space-y-3">
+                  <div className="space-y-5">
+
+                    {/* Propostas dos Agentes */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>Propostas dos Agentes</p>
+                          <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>Os agentes analisaram o briefing e propõem essas ações — só você pode aprovar</p>
+                        </div>
+                        <button onClick={loadProposals} disabled={proposalsLoading}
+                          className="p-1.5 rounded-lg transition-all disabled:opacity-40"
+                          style={{ color: "rgba(255,255,255,0.3)" }}>
+                          <RefreshCw className={`w-3.5 h-3.5 ${proposalsLoading ? "animate-spin" : ""}`} />
+                        </button>
+                      </div>
+
+                      {proposalsLoading && (
+                        <div className="flex justify-center py-6">
+                          <div className="h-5 w-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: client.color, borderTopColor: "transparent" }} />
+                        </div>
+                      )}
+
+                      {!proposalsLoading && agentProposals.length === 0 && (
+                        <div className="rounded-2xl py-8 flex flex-col items-center gap-2"
+                          style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.06)" }}>
+                          <p className="text-sm" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhuma proposta pendente</p>
+                          <p className="text-xs" style={{ color: "rgba(255,255,255,0.12)" }}>Gere um diagnóstico e clique em "Consultar o Time"</p>
+                        </div>
+                      )}
+
+                      {!proposalsLoading && agentProposals.map((proposal) => (
+                        <div key={proposal.id} className="rounded-2xl p-4 space-y-3"
+                          style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${proposal.agent_color}30` }}>
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0"
+                              style={{ background: `${proposal.agent_color}18`, color: proposal.agent_color, border: `1px solid ${proposal.agent_color}30` }}>
+                              {proposal.agent_name?.[0]}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-0.5">
+                                <span className="text-xs font-semibold" style={{ color: proposal.agent_color }}>{proposal.agent_name}</span>
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.3)" }}>proposta</span>
+                              </div>
+                              <p className="text-sm font-semibold mb-1" style={{ color: "rgba(255,255,255,0.85)" }}>{proposal.titulo}</p>
+                              <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.5)" }}>{proposal.descricao}</p>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleApproveProposal(proposal.id)}
+                              disabled={approvingProposalId === proposal.id}
+                              className="flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50"
+                              style={{ background: proposal.agent_color, color: "#07080A" }}>
+                              {approvingProposalId === proposal.id
+                                ? <><RefreshCw className="w-3 h-3 animate-spin" /> Aprovando…</>
+                                : <><CheckCircle2 className="w-3.5 h-3.5" /> Aprovar</>}
+                            </button>
+                            <button
+                              onClick={() => handleRejectProposal(proposal.id)}
+                              className="px-4 py-2 rounded-xl text-xs font-medium"
+                              style={{ background: "rgba(248,113,113,0.08)", color: "#F87171", border: "1px solid rgba(248,113,113,0.2)" }}>
+                              Rejeitar
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Divider */}
+                    <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }} />
+
+                    {/* Posts para aprovação */}
+                    <div className="space-y-3">
                     <div className="flex items-center justify-between">
                       <div>
                         <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>Fila de Aprovação</p>
@@ -2264,6 +2363,7 @@ ${priorBlock}`;
                         </div>
                       </div>
                     )}
+                    </div>{/* end posts section */}
                   </div>
                 )}
 
