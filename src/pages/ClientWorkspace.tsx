@@ -720,16 +720,22 @@ export default function ClientWorkspace() {
       }
 
       const audioPath = `aira/${Date.now()}.webm`;
-      const { error: uploadError } = await supabase.storage
-        .from("aira-recordings")
-        .upload(audioPath, blob, { contentType: blob.type || "audio/webm" });
-      if (uploadError) throw new Error("Erro ao salvar áudio: " + uploadError.message);
-
-      const { data: signedAudio, error: signedAudioError } = await supabase.storage
-        .from("aira-recordings")
-        .createSignedUrl(audioPath, 60 * 10);
-      if (signedAudioError || !signedAudio?.signedUrl) {
-        throw new Error("Erro ao preparar áudio: " + (signedAudioError?.message || "URL indisponível"));
+      let audioBase64: string | null = null;
+      let audioUrl: string | null = null;
+      if (blob.size <= 8 * 1024 * 1024) {
+        audioBase64 = await blobToBase64(blob);
+      } else {
+        const { error: uploadError } = await supabase.storage
+          .from("aira-recordings")
+          .upload(audioPath, blob, { contentType: blob.type || "audio/webm" });
+        if (uploadError) throw new Error("Erro ao salvar áudio: " + uploadError.message);
+        const { data: signedAudio, error: signedAudioError } = await supabase.storage
+          .from("aira-recordings")
+          .createSignedUrl(audioPath, 60 * 10);
+        if (signedAudioError || !signedAudio?.signedUrl) {
+          throw new Error("Erro ao preparar áudio: " + (signedAudioError?.message || "URL indisponível"));
+        }
+        audioUrl = signedAudio.signedUrl;
       }
 
       setAiraLiveText("Transcrevendo e resumindo...");
@@ -737,7 +743,9 @@ export default function ClientWorkspace() {
       const { data, error } = await supabase.functions.invoke("aira-meeting", {
         body: {
           audioPath,
-          audioUrl: signedAudio.signedUrl,
+          audioUrl,
+          audioBase64,
+          audioMimeType: blob.type || "audio/webm",
           clientName: client?.name,
           meetingTitle: airaMeetingTitle || `Reuniao ${new Date().toLocaleString("pt-BR")}`,
           onlyLuana: airaOnlyLuana,
@@ -749,7 +757,7 @@ export default function ClientWorkspace() {
       setAiraSummary(data?.summary || "Resumo nao disponivel.");
       setAiraStatus("done");
       setAiraLiveText("");
-      supabase.storage.from("aira-recordings").remove([audioPath]).catch(() => {});
+      if (audioUrl) supabase.storage.from("aira-recordings").remove([audioPath]).catch(() => {});
     } catch (e: any) {
       setAiraError("Erro ao processar a reuniao: " + (e?.message || e));
       setAiraStatus("idle");
