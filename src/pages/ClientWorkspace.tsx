@@ -2887,6 +2887,31 @@ ${priorBlock}`;
                           <input value={airaMeetingTitle} onChange={(e) => setAiraMeetingTitle(e.target.value)} placeholder="Ex: Alinhamento estratégico"
                             className="w-full mt-1 px-3 py-2 rounded-lg text-sm" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#F0F0F0" }} />
                         </div>
+                        <div>
+                          <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.4)" }}>Fonte de áudio</label>
+                          <div className="grid grid-cols-3 gap-2 mt-1">
+                            {([
+                              { v: "system", t: "Áudio do PC", d: "Som da reunião" },
+                              { v: "mic", t: "Microfone", d: "Sua voz/ambiente" },
+                              { v: "both", t: "PC + Mic", d: "Tudo junto" },
+                            ] as const).map(opt => {
+                              const sel = airaSource === opt.v;
+                              return (
+                                <button key={opt.v} onClick={() => airaSaveSource(opt.v)} type="button"
+                                  className="p-2 rounded-lg text-left transition-all"
+                                  style={{ background: sel ? "rgba(185,255,75,0.1)" : "rgba(255,255,255,0.03)", border: `1px solid ${sel ? "rgba(185,255,75,0.4)" : "rgba(255,255,255,0.08)"}` }}>
+                                  <div className="text-xs font-semibold" style={{ color: sel ? "#B9FF4B" : "#F0F0F0" }}>{opt.t}</div>
+                                  <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.4)" }}>{opt.d}</div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {airaSource !== "mic" && (
+                            <p className="text-[11px] mt-2" style={{ color: "rgba(255,255,255,0.4)" }}>
+                              💡 Para capturar o áudio do PC, o navegador pedirá para compartilhar uma aba ou tela — <strong style={{ color: "#B9FF4B" }}>marque "Compartilhar áudio do sistema/aba"</strong>. Funciona melhor no Chrome/Edge.
+                            </p>
+                          )}
+                        </div>
                         {!airaOnlyLuana && <div className="rounded-xl p-3" style={{ background: "rgba(185,255,75,0.04)", border: "1px solid rgba(185,255,75,0.15)" }}>
                           <div className="flex items-center justify-between mb-2">
                             <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#B9FF4B" }}>Grupos do WhatsApp</label>
