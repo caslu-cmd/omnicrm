@@ -2577,7 +2577,8 @@ ${priorBlock}`;
                       {/* Botão Pausar */}
                       {airaStatus === "recording" && (
                         <button onClick={async () => {
-                          try { await fetch("http://127.0.0.1:8700/reuniao/pausar", { method: "POST" }); setAiraStatus("paused"); } catch {}
+                          if (!airaDemoMode) { try { await airaSafeFetch("/reuniao/pausar", { method: "POST" }); } catch {} }
+                          setAiraStatus("paused");
                         }}
                           className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all"
                           style={{ background: "rgba(245,158,11,0.12)", color: "#F59E0B", border: "1px solid rgba(245,158,11,0.3)" }}>
@@ -2588,7 +2589,8 @@ ${priorBlock}`;
                       {/* Botão Continuar */}
                       {airaStatus === "paused" && (
                         <button onClick={async () => {
-                          try { await fetch("http://127.0.0.1:8700/reuniao/continuar", { method: "POST" }); setAiraStatus("recording"); } catch {}
+                          if (!airaDemoMode) { try { await airaSafeFetch("/reuniao/continuar", { method: "POST" }); } catch {} }
+                          setAiraStatus("recording");
                         }}
                           className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all"
                           style={{ background: "rgba(185,255,75,0.12)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.3)" }}>
@@ -2601,8 +2603,15 @@ ${priorBlock}`;
                         <button onClick={async () => {
                           if (airaPollRef.current) clearInterval(airaPollRef.current);
                           setAiraStatus("loading");
+                          if (airaDemoMode) {
+                            setTimeout(() => {
+                              setAiraSummary("📝 Resumo (modo demo)\n\n• Discussão de pontos da reunião\n• Próximos passos definidos\n• Responsáveis atribuídos\n\nConfigure a URL da secretária para resumos reais.");
+                              setAiraStatus("done");
+                            }, 1200);
+                            return;
+                          }
                           try {
-                            const r = await fetch("http://127.0.0.1:8700/reuniao/encerrar", { method: "POST" });
+                            const r = await airaSafeFetch("/reuniao/encerrar", { method: "POST" });
                             const d = await r.json();
                             setAiraSummary(d.resposta);
                             setAiraStatus("done");
