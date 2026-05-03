@@ -15,22 +15,24 @@ import { useClients } from "@/contexts/ClientsContext";
 
 // ── Agent team displayed in portal ───────────────────────────
 const PORTAL_TEAM = [
-  { id: "luana",      name: "Luana",    role: "Orquestradora Geral",      initial: "Lu", color: "#B9FF4B" },
-  { id: "strategist", name: "Carolina", role: "Estrategista de Marca",   initial: "C", color: "#FBBF24" },
-  { id: "copywriter", name: "Beatriz",  role: "Copywriter",              initial: "B", color: "#A78BFA" },
-  { id: "designer",   name: "Isadora",  role: "Designer Visual",         initial: "I", color: "#D946EF" },
-  { id: "traffic",    name: "Rafaela",  role: "Gestora de Tráfego",      initial: "R", color: "#F97316" },
-  { id: "social",     name: "Marina",   role: "Social Media Manager",    initial: "M", color: "#60A5FA" },
-  { id: "calendario", name: "Pedro",    role: "Calendário Editorial",     initial: "P", color: "#2DD4BF" },
-  { id: "analyst",    name: "Lucas",    role: "Analista de Dados",       initial: "L", color: "#34D399" },
-  { id: "sales",      name: "Eduardo",  role: "Agente de Vendas",        initial: "E", color: "#F59E0B" },
-  { id: "site",       name: "Teo",      role: "Editor de Site",          initial: "T", color: "#06B6D4" },
-  { id: "revisor",    name: "Vitória",  role: "Revisora de Conteúdo",    initial: "V", color: "#EC4899" },
+  { id: "aria",       name: "ARIA",     role: "Orquestradora Geral",      initial: "A",  color: "#B9FF4B" },
+  { id: "strategist", name: "Queila",   role: "Estrategista-Chefe",       initial: "Q",  color: "#FBBF24" },
+  { id: "copywriter", name: "Beatriz",  role: "Copywriter",               initial: "B",  color: "#A78BFA" },
+  { id: "designer",   name: "Carolina", role: "Designer",                 initial: "C",  color: "#D946EF" },
+  { id: "traffic",    name: "Rafaela",  role: "Gestora de Tráfego",       initial: "R",  color: "#F97316" },
+  { id: "social",     name: "Marina",   role: "Social Media",             initial: "M",  color: "#60A5FA" },
+  { id: "calendario", name: "Pedro",    role: "Calendário Editorial",      initial: "P",  color: "#2DD4BF" },
+  { id: "analyst",    name: "Lucas",    role: "Analista de Dados",        initial: "L",  color: "#34D399" },
+  { id: "sales",      name: "Eduardo",  role: "Agente de Vendas",         initial: "E",  color: "#F59E0B" },
+  { id: "site",       name: "Teo",      role: "Editor de Site",           initial: "T",  color: "#06B6D4" },
+  { id: "revisor",    name: "Vitória",  role: "Revisora",                 initial: "V",  color: "#EC4899" },
+  { id: "briefing",   name: "Lia",      role: "Agente de Diagnóstico",    initial: "Li", color: "#38BDF8" },
+  { id: "video",      name: "Bobby",    role: "Editor de Vídeo",          initial: "Bo", color: "#B9FF4B" },
 ];
 
 const TEAM_DESCS: Record<string, string> = {
-  luana:      "Coordena todo o time e garante que a estratégia seja executada no prazo certo.",
-  strategist: "Define seu posicionamento, pauta editorial e direção criativa.",
+  aria:       "Coordena todo o time e garante que a estratégia seja executada no prazo certo.",
+  strategist: "Define seu posicionamento, pauta editorial e direção criativa de marca.",
   copywriter: "Escreve cada texto, legenda, artigo e anúncio com foco em conversão.",
   designer:   "Cria todos os visuais alinhados ao manual de marca da sua empresa.",
   traffic:    "Gerencia campanhas pagas com foco em CPA baixo e ROAS alto.",
@@ -38,8 +40,10 @@ const TEAM_DESCS: Record<string, string> = {
   analyst:    "Monitora métricas e entrega relatórios com insights acionáveis.",
   sales:      "Qualifica leads via WhatsApp e alimenta seu CRM para fechar negócios.",
   site:       "Atualiza seu site, publica no blog e otimiza páginas para SEO.",
-  calendario: "Planeja o calendário editorial, pilares de conteúdo e cronograma de campanhas do mês.",
+  calendario: "Planeja o calendário editorial, pilares de conteúdo e cronograma do mês.",
   revisor:    "Revisa e corrige 100% do conteúdo antes de publicar.",
+  briefing:   "Primeiro contato — coleta briefing, analisa o cenário e entrega diagnóstico personalizado.",
+  video:      "Edita vídeos com IA: cortes, efeitos cinematográficos, legendas e color grade.",
 };
 
 const marketRates: Record<string, { role: string; min: number; max: number }> = {
@@ -52,6 +56,8 @@ const marketRates: Record<string, { role: string; min: number; max: number }> = 
   sales:      { role: "SDR / Pré-vendedor",             min: 3500,  max: 6000  },
   site:       { role: "Web Designer / WordPress Dev",   min: 4000,  max: 6500  },
   revisor:    { role: "Revisora / Editora de Texto",    min: 2500,  max: 4000  },
+  briefing:   { role: "Consultor de Onboarding",        min: 3000,  max: 5000  },
+  video:      { role: "Editor de Vídeo Profissional",   min: 4500,  max: 8000  },
 };
 
 const MARKET_TOTAL_MIN = Object.values(marketRates).reduce((s, m) => s + m.min, 0);
@@ -550,10 +556,10 @@ export default function ClientPortal() {
                     Abril 2025 · Relatório executivo
                   </div>
                   <h1 className="text-3xl font-bold tracking-tight mb-2" style={{ color: "#F0F0F0" }}>
-                    Seu time está entregando resultados.
+                    Calu Agência entregando resultados.
                   </h1>
                   <p className="text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
-                    {client.agentFeed.length * 3}+ horas dedicadas à {client.name} este mês, todos os dias.
+                    24 horas por dia dedicadas à {client.name}, todos os dias.
                   </p>
                 </div>
                 <div className="flex items-center gap-2 text-xs px-3 py-1.5 rounded-full"
