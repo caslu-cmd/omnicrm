@@ -587,8 +587,10 @@ export default function ClientWorkspace() {
   });
   const [airaLoadingGroups, setAiraLoadingGroups] = useState(false);
   const [airaOnlyLuana, setAiraOnlyLuana] = useState(false);
+  const [airaLiveText, setAiraLiveText] = useState("");
   const airaTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const airaTranscriptRef = useRef<string>("");
+  const airaInterimRef = useRef<string>("");
   const airaRecognitionRef = useRef<any>(null);
   const airaPausedRef = useRef(false);
 
@@ -600,13 +602,23 @@ export default function ClientWorkspace() {
     const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SR) { setAiraError("Use o Chrome — reconhecimento de voz não suportado neste navegador."); return; }
     airaTranscriptRef.current = "";
+    airaInterimRef.current = "";
     airaPausedRef.current = false;
+    setAiraLiveText("");
     const rec = new SR();
-    rec.lang = "pt-BR"; rec.continuous = true; rec.interimResults = false;
+    rec.lang = "pt-BR"; rec.continuous = true; rec.interimResults = true;
     rec.onresult = (e: any) => {
+      let interim = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) airaTranscriptRef.current += e.results[i][0].transcript + " ";
+        const text = e.results[i][0].transcript;
+        if (e.results[i].isFinal) {
+          airaTranscriptRef.current += text + " ";
+        } else {
+          interim += text;
+        }
       }
+      airaInterimRef.current = interim;
+      setAiraLiveText(airaTranscriptRef.current + interim);
     };
     rec.onerror = (e: any) => { if (e.error !== "no-speech") setAiraError("Erro no microfone: " + e.error); };
     rec.onend = () => { if (airaRecognitionRef.current === rec && !airaPausedRef.current) try { rec.start(); } catch {} };
@@ -625,8 +637,8 @@ export default function ClientWorkspace() {
     try { rec?.stop(); } catch {}
     setAiraStatus("loading");
 
-    const transcript = airaTranscriptRef.current.trim();
-    if (!transcript) { setAiraError("Nenhuma fala foi detectada. Fale mais perto do microfone."); setAiraStatus("idle"); return; }
+    const transcript = (airaTranscriptRef.current + " " + airaInterimRef.current).trim();
+    if (!transcript) { setAiraError("Nenhuma fala foi detectada. Verifique se o microfone está funcionando e tente novamente."); setAiraStatus("idle"); return; }
 
     try {
       const { data, error } = await supabase.functions.invoke("aira-meeting", {
@@ -2727,6 +2739,11 @@ ${priorBlock}`;
                               Gravação em pausa. Clique em <strong style={{ color: "rgba(255,255,255,0.5)" }}>Continuar</strong> para retomar ou <strong style={{ color: "rgba(255,255,255,0.5)" }}>Parar</strong> para encerrar.
                             </p>
                           </>
+                        )}
+                        {airaLiveText && (
+                          <div className="mt-3 px-3 py-2 rounded-lg max-h-24 overflow-y-auto text-left" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                            <p className="text-[11px] leading-relaxed" style={{ color: "rgba(255,255,255,0.5)" }}>{airaLiveText}</p>
+                          </div>
                         )}
                       </div>
                     </div>
