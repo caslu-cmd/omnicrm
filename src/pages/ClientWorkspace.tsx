@@ -2948,7 +2948,7 @@ ${priorBlock}`;
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap min-w-0">
-                      <h3 className="text-base font-bold" style={{ color: "#F0F0F0" }}>Luana</h3>
+                      <h3 className="text-base font-bold" style={{ color: "#F0F0F0" }}>Luna</h3>
                       <span className="text-[10px] px-2.5 py-0.5 rounded-full font-semibold whitespace-nowrap"
                         style={{ background: "rgba(185,255,75,0.12)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.25)" }}>
                         Orquestradora
@@ -3085,7 +3085,7 @@ ${priorBlock}`;
                         disabled={(!agentCommand.trim() && !attachedFile) || ariaLoading}
                         className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
                         style={{ background: "#B9FF4B", color: "#07080A", boxShadow: (agentCommand || attachedFile) ? "0 0 20px -4px rgba(185,255,75,0.5)" : "none" }}>
-                        {ariaLoading ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Orquestrando...</> : <><Send className="w-3.5 h-3.5" /> Enviar para Luana</>}
+                        {ariaLoading ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Orquestrando...</> : <><Send className="w-3.5 h-3.5" /> Enviar para Luna</>}
                       </button>
                     </div>
                   </div>
@@ -3138,7 +3138,7 @@ ${priorBlock}`;
                           {airaStatus === "loading" && "Processando..."}
                           {airaStatus === "recording" && "Ao vivo — ouvindo a reunião"}
                           {airaStatus === "paused" && "Pausado — retome quando quiser"}
-                          {airaStatus === "done" && (airaOnlyLuana ? "Resumo salvo para Luana ✓" : "Resumo enviado ✓")}
+                          {airaStatus === "done" && (airaOnlyLuana ? "Resumo salvo para Luna ✓" : "Resumo enviado ✓")}
                         </p>
                       </div>
                     </div>
@@ -3336,7 +3336,7 @@ ${priorBlock}`;
                         <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>A AIRA capta e transcreve a reunião, gerando um resumo executivo automático.</p>
                       </div>
                       <div className="px-6 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
-                        {/* Toggle: Somente para Luana */}
+                        {/* Toggle: Somente para Luna */}
                         <label className="flex items-center justify-between p-3 rounded-xl cursor-pointer" style={{ background: airaOnlyLuana ? "rgba(185,255,75,0.08)" : "rgba(255,255,255,0.03)", border: `1px solid ${airaOnlyLuana ? "rgba(185,255,75,0.3)" : "rgba(255,255,255,0.08)"}` }}>
                           <div>
                             <p className="text-sm font-semibold" style={{ color: airaOnlyLuana ? "#B9FF4B" : "#F0F0F0" }}>Somente para Luana</p>

@@ -208,7 +208,8 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
     localStorage.setItem("client-edits", JSON.stringify(newEdits));
   };
 
-  const allClients = [...CLIENTS, ...extraClients];
+  const staticIdSet = new Set(CLIENTS.map((c) => c.id));
+  const allClients = [...CLIENTS, ...extraClients.filter((c) => !staticIdSet.has(c.id))];
 
   const REQUIRED_AGENTS = ["calendario", "video", "briefing"] as const;
   const DEFAULT_TASK: AgentTask = { current: "Aguardando instrução", status: "aguardando", recent: [], progress: 0 };

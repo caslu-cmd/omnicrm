@@ -109,7 +109,10 @@ Deno.serve(async (req) => {
       catch { return respond({ error: "State inválido" }, 400); }
       const { clientId, platform } = sd;
 
-      const tokenRes = await fetch(`${GRAPH}/oauth/access_token?client_id=${metaAppId}&redirect_uri=${encodeURIComponent(redirectUri)}&client_secret=${metaAppSecret}&code=${code}`);
+      // Use the redirect_uri from the client (so it matches whatever domain the app is on)
+      const callbackRedirectUri = (body.redirect_uri as string) || redirectUri;
+
+      const tokenRes = await fetch(`${GRAPH}/oauth/access_token?client_id=${metaAppId}&redirect_uri=${encodeURIComponent(callbackRedirectUri)}&client_secret=${metaAppSecret}&code=${code}`);
       const tokenData = await tokenRes.json();
       if (tokenData.error) return respond({ error: tokenData.error.message }, 400);
 
