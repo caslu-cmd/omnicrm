@@ -571,11 +571,13 @@ export default function ClientWorkspace() {
   const [videoPlatform, setVideoPlatform] = useState<string>("reels");
   const [videoScript, setVideoScript] = useState("");
   const [videoFile, setVideoFile] = useState<File | null>(null);
-  // AIRA — ouvir reunião (captura no browser, transcreve via IA, envia WhatsApp)
+  // AIRA — ouvir reunião (Web Speech API nativa do Chrome + Claude para resumo)
   type AiraPerson = { name: string; phone: string };
   const [airaStatus, setAiraStatus] = useState<"idle" | "recording" | "paused" | "loading" | "done">("idle");
   const [airaSummary, setAiraSummary] = useState<string | null>(null);
   const [airaError, setAiraError] = useState<string | null>(null);
+  const [airaLiveText, setAiraLiveText] = useState<string>("");
+  const airaTranscriptRef2 = useRef<string>("");
   const [airaElapsed, setAiraElapsed] = useState(0);
   const [airaShowSetup, setAiraShowSetup] = useState(false);
   const [airaMeetingTitle, setAiraMeetingTitle] = useState("");
@@ -594,66 +596,68 @@ export default function ClientWorkspace() {
   const airaSaveLuana = (l: AiraPerson) => { setAiraLuana(l); localStorage.setItem("aira-luana", JSON.stringify(l)); };
   const airaSaveParticipants = (p: AiraPerson[]) => { setAiraParticipants(p); localStorage.setItem(`aira-participants-${id}`, JSON.stringify(p)); };
 
-  const airaStartRecording = async () => {
-    setAiraError(null);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-      airaStreamRef.current = stream;
-      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm";
-      const rec = new MediaRecorder(stream, { mimeType: mime });
-      airaChunksRef.current = [];
-      rec.ondataavailable = (e) => { if (e.data.size > 0) airaChunksRef.current.push(e.data); };
-      rec.start(1000);
-      airaRecorderRef.current = rec;
-      setAiraStatus("recording");
-      setAiraElapsed(0);
-      airaTimerRef.current = setInterval(() => setAiraElapsed(s => s + 1), 1000);
-    } catch (e: any) {
-      setAiraError("Não foi possível acessar o microfone. Verifique as permissões do navegador.");
-      setAiraStatus("idle");
+  const airaRecognitionRef = useRef<any>(null);
+
+  const airaIniciarReconhecimento = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      setAiraError("Seu navegador não suporta reconhecimento de voz. Use o Chrome.");
+      return false;
     }
+    const rec = new SpeechRecognition();
+    rec.lang = "pt-BR";
+    rec.continuous = true;
+    rec.interimResults = true;
+    rec.onresult = (e: any) => {
+      let final = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) final += e.results[i][0].transcript + " ";
+      }
+      if (final) {
+        airaTranscriptRef2.current += final;
+        setAiraLiveText(airaTranscriptRef2.current);
+      }
+    };
+    rec.onerror = (e: any) => {
+      if (e.error !== "no-speech" && e.error !== "aborted") {
+        setAiraError("Erro no reconhecimento de voz: " + e.error);
+      }
+    };
+    rec.onend = () => {
+      if (airaStatus === "recording") rec.start();
+    };
+    rec.start();
+    airaRecognitionRef.current = rec;
+    return true;
   };
 
-  const airaStopRecording = (): Promise<Blob> => new Promise((resolve) => {
-    const rec = airaRecorderRef.current;
-    if (!rec) return resolve(new Blob());
-    rec.onstop = () => {
-      const blob = new Blob(airaChunksRef.current, { type: rec.mimeType });
-      airaStreamRef.current?.getTracks().forEach(t => t.stop());
-      if (airaTimerRef.current) clearInterval(airaTimerRef.current);
-      resolve(blob);
-    };
-    if (rec.state !== "inactive") rec.stop();
-  });
-
-  const blobToBase64 = (blob: Blob): Promise<string> => new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onloadend = () => { const s = r.result as string; resolve(s.split(",")[1] || ""); };
-    r.onerror = reject;
-    r.readAsDataURL(blob);
-  });
+  const airaStartRecording = async () => {
+    setAiraError(null);
+    airaTranscriptRef2.current = "";
+    setAiraLiveText("");
+    const ok = airaIniciarReconhecimento();
+    if (!ok) return;
+    setAiraStatus("recording");
+    setAiraElapsed(0);
+    airaTimerRef.current = setInterval(() => setAiraElapsed(s => s + 1), 1000);
+  };
 
   const airaFinalize = async () => {
+    airaRecognitionRef.current?.abort();
+    airaRecognitionRef.current = null;
+    if (airaTimerRef.current) clearInterval(airaTimerRef.current);
+    const transcript = airaTranscriptRef2.current.trim();
+    if (!transcript) { setAiraError("Nenhuma fala detectada. Verifique o microfone e as permissões."); setAiraStatus("idle"); return; }
     setAiraStatus("loading");
     try {
-      const blob = await airaStopRecording();
-      if (blob.size < 500) { setAiraError("Áudio muito curto."); setAiraStatus("idle"); return; }
-      const audioBase64 = await blobToBase64(blob);
       const { data, error } = await supabase.functions.invoke("aira-meeting", {
-        body: {
-          audioBase64,
-          audioMime: blob.type,
-          clientName: client?.name,
-          meetingTitle: airaMeetingTitle || `Reunião ${new Date().toLocaleString("pt-BR")}`,
-          luana: airaLuana.phone ? airaLuana : null,
-          participants: airaParticipants.filter(p => p.phone),
-        },
+        body: { transcript, clientName: client?.name ?? "" },
       });
       if (error) throw error;
       setAiraSummary(data?.summary || "Resumo não disponível.");
       setAiraStatus("done");
     } catch (e: any) {
-      setAiraError("Erro ao processar a reunião: " + (e?.message || e));
+      setAiraError("Erro ao gerar resumo: " + (e?.message || e));
       setAiraStatus("idle");
     }
   };
@@ -2645,7 +2649,8 @@ ${priorBlock}`;
 
                       {airaStatus === "recording" && (
                         <button onClick={() => {
-                          try { airaRecorderRef.current?.pause(); } catch {}
+                          airaRecognitionRef.current?.abort();
+                          airaRecognitionRef.current = null;
                           if (airaTimerRef.current) clearInterval(airaTimerRef.current);
                           setAiraStatus("paused");
                         }}
@@ -2657,7 +2662,7 @@ ${priorBlock}`;
 
                       {airaStatus === "paused" && (
                         <button onClick={() => {
-                          try { airaRecorderRef.current?.resume(); } catch {}
+                          airaIniciarReconhecimento();
                           airaTimerRef.current = setInterval(() => setAiraElapsed(s => s + 1), 1000);
                           setAiraStatus("recording");
                         }}
@@ -2708,22 +2713,26 @@ ${priorBlock}`;
                         ))}
                       </div>
                       {/* Texto */}
-                      <div className="text-center">
+                      <div className="text-center w-full">
                         {airaStatus === "recording" && (
-                          <>
-                            <p className="text-lg font-bold mb-1" style={{ color: "#EF4444" }}>Estou ouvindo...</p>
-                            <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
-                              A AIRA está captando tudo. Use <strong style={{ color: "rgba(255,255,255,0.5)" }}>Pausar</strong> para interromper ou <strong style={{ color: "rgba(255,255,255,0.5)" }}>Parar</strong> para encerrar e gerar o resumo.
-                            </p>
-                          </>
+                          <p className="text-lg font-bold mb-2" style={{ color: "#EF4444" }}>Estou ouvindo...</p>
                         )}
                         {airaStatus === "paused" && (
-                          <>
-                            <p className="text-lg font-bold mb-1" style={{ color: "#F59E0B" }}>Pausado</p>
-                            <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
-                              Gravação em pausa. Clique em <strong style={{ color: "rgba(255,255,255,0.5)" }}>Continuar</strong> para retomar ou <strong style={{ color: "rgba(255,255,255,0.5)" }}>Parar</strong> para encerrar.
+                          <p className="text-lg font-bold mb-2" style={{ color: "#F59E0B" }}>Pausado</p>
+                        )}
+                        {/* Transcrição ao vivo */}
+                        {airaLiveText && (
+                          <div className="mt-2 rounded-xl px-4 py-3 text-left max-h-32 overflow-y-auto"
+                            style={{ background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                            <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.5)" }}>
+                              {airaLiveText}
                             </p>
-                          </>
+                          </div>
+                        )}
+                        {!airaLiveText && airaStatus === "recording" && (
+                          <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
+                            Aguardando falas...
+                          </p>
                         )}
                       </div>
                     </div>
