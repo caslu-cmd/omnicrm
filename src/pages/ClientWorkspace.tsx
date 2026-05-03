@@ -536,15 +536,16 @@ type AgentMsg = {
 };
 
 const AGENT_META: Record<string, { initial: string; color: string; name: string }> = {
-  aria:      { initial: "Lu", color: "#B9FF4B", name: "Luana" },
-  luana:     { initial: "Lu", color: "#B9FF4B", name: "Luana" },
+  aria:      { initial: "Lu", color: "#B9FF4B", name: "Luna" },
+  luana:     { initial: "Lu", color: "#B9FF4B", name: "Luna" },
   beatriz:   { initial: "B", color: "#A78BFA", name: "Beatriz" },
-  isadora:   { initial: "I", color: "#F472B6", name: "Isadora" },
+  marcela:   { initial: "M", color: "#D946EF", name: "Marcela" },
   rafaela:   { initial: "R", color: "#F97316", name: "Rafaela" },
   lucas:     { initial: "L", color: "#34D399", name: "Lucas" },
   marina:    { initial: "M", color: "#60A5FA", name: "Marina" },
-  carolina:  { initial: "C", color: "#F472B6", name: "Carolina" },
+  carolina:  { initial: "Q", color: "#FBBF24", name: "Queila" },
   queila:    { initial: "Q", color: "#FBBF24", name: "Queila" },
+  aira:      { initial: "A", color: "#FB7185", name: "Aira" },
   valentina: { initial: "V", color: "#E879F9", name: "Valentina" },
   lia:       { initial: "L", color: "#38BDF8", name: "Lia" },
   user:      { initial: "U", color: "#94A3B8", name: "Você" },
@@ -555,7 +556,8 @@ const AGENT_META: Record<string, { initial: string; color: string; name: string 
   analyst:    { initial: "L", color: "#34D399", name: "Lucas" },
   social:     { initial: "M", color: "#60A5FA", name: "Marina" },
   site:       { initial: "V", color: "#E879F9", name: "Valentina" },
-  designer:   { initial: "C", color: "#F472B6", name: "Carolina" },
+  designer:   { initial: "M", color: "#D946EF", name: "Marcela" },
+  secretary:  { initial: "A", color: "#FB7185", name: "Aira" },
   sales:      { initial: "E", color: "#F59E0B", name: "Eduardo" },
   briefing:   { initial: "L", color: "#38BDF8", name: "Lia" },
   revisor:    { initial: "V", color: "#EC4899", name: "Vitória" },
@@ -678,8 +680,8 @@ export default function ClientWorkspace() {
   const [wpBlasting, setWpBlasting] = useState(false);
   const [wpBlastResult, setWpBlastResult] = useState<string | null>(null);
   const [generatedImages, setGeneratedImages] = useState<Array<{id: string, imageData: string, mimeType: string, prompt: string, createdAt: string}>>([]);
-  const [isadoraLoading, setIsadoraLoading] = useState(false);
-  const [isadoraError, setIsadoraError] = useState<string | null>(null);
+  const [marcelaLoading, setMarcelaLoading] = useState(false);
+  const [marcelaError, setIsadoraError] = useState<string | null>(null);
   const [designAspectRatio, setDesignAspectRatio] = useState<"1:1" | "9:16" | "16:9" | "4:3" | "3:4">("1:1");
   const [videoPlatform, setVideoPlatform] = useState<string>("reels");
   const [videoScript, setVideoScript] = useState("");
@@ -1558,7 +1560,7 @@ ${priorBlock}`;
   const handleSendToDesigner = async () => {
     const direction = agentInstruction.trim();
     setAgentInstruction("");
-    setIsadoraLoading(true);
+    setMarcelaLoading(true);
     setIsadoraError(null);
     const taskLabel = direction || "Carolina criando autonomamente...";
     const ESTIMATED = 35;
@@ -1609,7 +1611,7 @@ ${priorBlock}`;
       const msg = err instanceof Error ? `${err.name}: ${err.message}` : JSON.stringify(err);
       setIsadoraError(msg);
     } finally {
-      setIsadoraLoading(false);
+      setMarcelaLoading(false);
     }
   };
 
@@ -3570,7 +3572,7 @@ ${priorBlock}`;
                                       style={{ background: "rgba(185,255,75,0.12)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.25)" }}>
                                       <Layout className="w-3 h-3" /> Montar Post
                                     </button>
-                                    <a href={msg.imageUrl} download={`isadora-${msg.id}.png`}
+                                    <a href={msg.imageUrl} download={`marcela-${msg.id}.png`}
                                       className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1.5 rounded-lg"
                                       style={{ background: "rgba(244,114,182,0.1)", color: "#F472B6", border: "1px solid rgba(244,114,182,0.2)" }}>
                                       Baixar
@@ -3989,9 +3991,9 @@ ${priorBlock}`;
                               style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${selectedAgent.color}28`, color: "#F0F0F0", outline: "none" }}
                             />
                             )}
-                            {isadoraError && selectedAgent.id === "designer" && (
+                            {marcelaError && selectedAgent.id === "designer" && (
                               <div className="mb-3 px-3 py-2 rounded-xl text-xs" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#FCA5A5" }}>
-                                {isadoraError}
+                                {marcelaError}
                               </div>
                             )}
 
@@ -4038,10 +4040,10 @@ ${priorBlock}`;
                                     setAgentInstruction(""); clearAgentFile(); setSelectedAgentId(null);
                                   }
                                 }}
-                                disabled={(selectedAgent.id !== "designer" && !agentInstruction.trim() && !agentFile) || isadoraLoading}
+                                disabled={(selectedAgent.id !== "designer" && !agentInstruction.trim() && !agentFile) || marcelaLoading}
                                 className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
                                 style={{ background: selectedAgent.color, color: "#07080A", boxShadow: (agentInstruction || agentFile || selectedAgent.id === "designer") ? `0 0 20px -4px ${selectedAgent.color}60` : "none" }}>
-                                {isadoraLoading && selectedAgent.id === "designer"
+                                {marcelaLoading && selectedAgent.id === "designer"
                                   ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Gerando...</>
                                   : <><Send className="w-3.5 h-3.5" /> {selectedAgent.id === "designer" && !agentInstruction.trim() ? "Criar agora" : `Enviar para ${selectedAgent.name}`}</>}
                               </button>
@@ -5275,7 +5277,7 @@ ${priorBlock}`;
                               <span className="text-[10px] flex-shrink-0" style={{ color: "rgba(255,255,255,0.25)" }}>{img.createdAt}</span>
                               <a
                                 href={img.imageData}
-                                download={`isadora-${img.id}.png`}
+                                download={`marcela-${img.id}.png`}
                                 className="text-[10px] font-bold px-2 py-0.5 rounded-lg flex-shrink-0"
                                 style={{ background: `${viewedAgent.color}20`, color: viewedAgent.color }}>
                                 Baixar
@@ -5384,9 +5386,9 @@ ${priorBlock}`;
                       style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${viewedAgent.color}25`, color: "#F0F0F0", outline: "none" }}
                     />
                     {agentFile && <div className="mt-2">{renderFilePreview(agentFile, agentFileUrl, agentFileText, viewedAgent.color)}</div>}
-                    {isadoraError && viewedAgent.id === "designer" && (
+                    {marcelaError && viewedAgent.id === "designer" && (
                       <div className="mt-2 px-3 py-2 rounded-xl text-xs" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#FCA5A5" }}>
-                        Erro: {isadoraError}
+                        Erro: {marcelaError}
                       </div>
                     )}
                     <div className="flex items-center gap-3 mt-3">
@@ -5419,10 +5421,10 @@ ${priorBlock}`;
                             setAgentInstruction(""); clearAgentFile(); setViewingAgentId(null);
                           }
                         }}
-                        disabled={(viewedAgent.id !== "designer" && !agentInstruction.trim() && !agentFile) || isadoraLoading}
+                        disabled={(viewedAgent.id !== "designer" && !agentInstruction.trim() && !agentFile) || marcelaLoading}
                         className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40"
                         style={{ background: viewedAgent.color, color: "#07080A", boxShadow: (agentInstruction || agentFile || viewedAgent.id === "designer") ? `0 0 20px -4px ${viewedAgent.color}70` : "none" }}>
-                        {isadoraLoading && viewedAgent.id === "designer" ? (
+                        {marcelaLoading && viewedAgent.id === "designer" ? (
                           <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Gerando...</>
                         ) : (
                           <><Send className="w-3.5 h-3.5" /> {viewedAgent.id === "designer" && !agentInstruction.trim() ? "Criar agora" : `Enviar para ${viewedAgent.name}`}</>

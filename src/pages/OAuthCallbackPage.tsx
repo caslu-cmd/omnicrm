@@ -26,8 +26,8 @@ export default function OAuthCallbackPage() {
       return;
     }
 
-    if (!code || !state) {
-      const msg = "Parâmetros inválidos.";
+    if (!code) {
+      const msg = "Código de autorização ausente.";
       setStatus("error");
       setMessage(msg);
       window.opener?.postMessage({
@@ -40,7 +40,7 @@ export default function OAuthCallbackPage() {
     window.opener?.postMessage({
       type: isLinkedIn ? "linkedin-oauth-exchange" : "meta-oauth-exchange",
       code,
-      state,
+      state: state ?? "",
     }, "*");
 
     setStatus("success");

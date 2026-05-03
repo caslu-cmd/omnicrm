@@ -138,6 +138,7 @@ export default function SocialMediaTab({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [linkedinStep, setLinkedinStep] = useState<null | "enter-url" | "oauth">(null);
   const [linkedinOrgUrl, setLinkedinOrgUrl] = useState("");
+  const pendingOAuthStateRef = useRef<string>("");
 
   const [composer, setComposer] = useState({
     platforms: [] as string[],
@@ -205,6 +206,7 @@ export default function SocialMediaTab({
 
       const state = btoa(JSON.stringify({ userId: session.user.id, clientId, platform, ts: Date.now() }))
         .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+      pendingOAuthStateRef.current = state;
       const oauthUrl =
         `https://www.facebook.com/v22.0/dialog/oauth` +
         `?client_id=${META_APP_ID}` +
@@ -220,9 +222,11 @@ export default function SocialMediaTab({
           window.removeEventListener("message", onMessage);
           clearInterval(timer);
           const { code, state: receivedState } = event.data as { code: string; state: string };
+          const resolvedState = receivedState || pendingOAuthStateRef.current;
+          pendingOAuthStateRef.current = "";
           try {
             const { data, error } = await supabase.functions.invoke("smm", {
-              body: { action: "oauth-callback", code, state: receivedState },
+              body: { action: "oauth-callback", code, state: resolvedState },
             });
             let msg = "Erro ao conectar.";
             if (error) {
