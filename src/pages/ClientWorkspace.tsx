@@ -3469,7 +3469,7 @@ ${priorBlock}`;
                     <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.2)" }}>{MARKETING_TEAM.length} agentes</span>
                   </div>
 
-                  <div className="grid grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 sm:gap-4">
                     {MARKETING_TEAM.map((agent, i) => {
                       const task = client.agentTasks[agent.id];
                       const isWorking = task?.status === "trabalhando";
