@@ -188,4 +188,32 @@ export interface Client {
   teamInstructions?: string;
 }
 
-export const CLIENTS: Client[] = [];
+export const CLIENTS: Client[] = [
+  {
+    id: "grupo-licita",
+    name: "Grupo Licita",
+    industry: "Consultoria & Licitações",
+    color: "#B9FF4B",
+    initials: "GL",
+    status: "Ativo",
+    agentActive: true,
+    postsMonth: 0,
+    campaigns: 0,
+    lastActivity: "Hoje",
+    revenue: "—",
+    nextAction: "Configurar campanhas",
+    followers: { instagram: "—", facebook: "—" },
+    recentPosts: [],
+    activeCampaigns: [],
+    agentFeed: [],
+    weeklyContent: [],
+    metrics: [],
+    contacts: [],
+    pipeline: [],
+    agentTasks: {},
+    orchestratorStatus: "aguardando",
+    orchestratorPlan: [],
+    portalPin: "1234",
+    outputs: [],
+  },
+];
