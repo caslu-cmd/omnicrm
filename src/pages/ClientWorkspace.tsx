@@ -2678,7 +2678,18 @@ ${priorBlock}`;
                       {(airaStatus === "idle" || airaStatus === "loading") && (
                         <button
                           disabled={airaStatus === "loading"}
-                          onClick={() => setAiraShowSetup(true)}
+                          onClick={async () => {
+                            setAiraShowSetup(true);
+                            if (wpStatus !== "connected") { try { await checkWpStatus(); } catch {} }
+                            else if (wpGroups.length === 0) {
+                              setAiraLoadingGroups(true);
+                              try {
+                                const { data: grps } = await supabase.functions.invoke("whatsapp", { body: { action: "groups" } });
+                                if (Array.isArray(grps)) setWpGroups(grps);
+                              } catch {}
+                              setAiraLoadingGroups(false);
+                            }
+                          }}
                           className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
                           style={{ background: "#B9FF4B", color: "#07080A", boxShadow: "0 0 20px -4px rgba(185,255,75,0.4)" }}>
                           {airaStatus === "loading"
