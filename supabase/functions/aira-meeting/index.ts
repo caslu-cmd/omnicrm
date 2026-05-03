@@ -16,6 +16,13 @@ const ZAPI_TOKEN          = Deno.env.get("ZAPI_TOKEN")        ?? "BA4478E497A2E1
 const ZAPI_CLIENT         = Deno.env.get("ZAPI_CLIENT_TOKEN") ?? "Fabcb22cf9022425ca4fe8f3a4c91a7e9S";
 const CAROL_PHONE         = Deno.env.get("CAROL_PHONE")       ?? "5585986408404";
 
+async function blobToBase64(blob: Blob): Promise<string> {
+  const buf = new Uint8Array(await blob.arrayBuffer());
+  let bin = "";
+  for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
+  return btoa(bin);
+}
+
 async function transcrever(audioPath: string): Promise<string> {
   const storageUrl = `${SUPABASE_URL}/storage/v1/object/aira-recordings/${audioPath}`;
   return transcreverUrl(storageUrl, { "Authorization": `Bearer ${SERVICE_ROLE_KEY}` });
@@ -24,37 +31,58 @@ async function transcrever(audioPath: string): Promise<string> {
 async function transcreverUrl(audioUrl: string, headers: Record<string, string> = {}): Promise<string> {
   const fileRes = await fetch(audioUrl, { headers });
   if (!fileRes.ok) throw new Error(`Audio download ${fileRes.status}: ${await fileRes.text()}`);
-  return transcreverBlob(await fileRes.blob());
+  const blob = await fileRes.blob();
+  const b64 = await blobToBase64(blob);
+  return transcreverBase64(b64, blob.type || "audio/webm");
 }
 
 async function transcreverBase64(audioBase64: string, mimeType = "audio/webm"): Promise<string> {
-  const bytes = Uint8Array.from(atob(audioBase64), (c) => c.charCodeAt(0));
-  return transcreverBlob(new Blob([bytes], { type: mimeType }));
+  // Tenta Groq/OpenAI Whisper se chave existir, senão usa Lovable AI (Gemini) com áudio inline
+  if (GROQ_API_KEY || OPENAI_API_KEY) {
+    const bytes = Uint8Array.from(atob(audioBase64), (c) => c.charCodeAt(0));
+    return transcreverWhisper(new Blob([bytes], { type: mimeType }));
+  }
+  if (!LOVABLE_API_KEY) throw new Error("Nenhuma chave de IA configurada (LOVABLE_API_KEY)");
+
+  console.log("Transcrevendo via Lovable AI (Gemini), tamanho base64:", audioBase64.length);
+  const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: "Transcreva integralmente o áudio em português. Retorne APENAS a transcrição, sem comentários." },
+            { type: "input_audio", input_audio: { data: audioBase64, format: mimeType.includes("mp3") ? "mp3" : "webm" } },
+          ],
+        },
+      ],
+    }),
+  });
+  if (!r.ok) throw new Error(`Lovable AI STT ${r.status}: ${await r.text()}`);
+  const d = await r.json();
+  const text = d.choices?.[0]?.message?.content ?? "";
+  console.log("Transcript len:", text.length);
+  return text;
 }
 
-async function transcreverBlob(audioBlob: Blob): Promise<string> {
+async function transcreverWhisper(audioBlob: Blob): Promise<string> {
   const key = GROQ_API_KEY || OPENAI_API_KEY;
-  if (!key) throw new Error("Configure GROQ_API_KEY nas secrets do Supabase");
-
-  console.log("Audio baixado, tamanho:", audioBlob.size, "bytes");
-
   const url = GROQ_API_KEY
     ? "https://api.groq.com/openai/v1/audio/transcriptions"
     : "https://api.openai.com/v1/audio/transcriptions";
-
   const form = new FormData();
   form.append("file", audioBlob, "audio.webm");
   form.append("model", GROQ_API_KEY ? "whisper-large-v3" : "whisper-1");
   form.append("language", "pt");
-
-  const r = await fetch(url, {
-    method: "POST",
-    headers: { "Authorization": `Bearer ${key}` },
-    body: form,
-  });
+  const r = await fetch(url, { method: "POST", headers: { "Authorization": `Bearer ${key}` }, body: form });
   if (!r.ok) throw new Error(`Whisper error ${r.status}: ${await r.text()}`);
   const d = await r.json();
-  console.log("Transcript:", d.text);
   return d.text ?? "";
 }
 
