@@ -288,3 +288,5 @@ export const CLIENTS: Client[] = [
       },
     ],
   },
+];
+

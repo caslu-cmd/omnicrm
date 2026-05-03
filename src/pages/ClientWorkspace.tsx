@@ -1637,7 +1637,7 @@ ${priorBlock}`;
   const loadProposals = async () => {
     if (!id) return;
     setProposalsLoading(true);
-    const { data } = await supabase.from("agent_proposals").select("*")
+    const { data } = await (supabase as any).from("agent_proposals").select("*")
       .eq("client_id", id).eq("status", "pending")
       .order("created_at", { ascending: false });
     if (data) setAgentProposals(data);
@@ -1648,13 +1648,13 @@ ${priorBlock}`;
 
   const handleApproveProposal = async (proposalId: string) => {
     setApprovingProposalId(proposalId);
-    await supabase.from("agent_proposals").update({ status: "approved" }).eq("id", proposalId);
+    await (supabase as any).from("agent_proposals").update({ status: "approved" }).eq("id", proposalId);
     setAgentProposals(prev => prev.filter(p => p.id !== proposalId));
     setApprovingProposalId(null);
   };
 
   const handleRejectProposal = async (proposalId: string) => {
-    await supabase.from("agent_proposals").update({ status: "rejected" }).eq("id", proposalId);
+    await (supabase as any).from("agent_proposals").update({ status: "rejected" }).eq("id", proposalId);
     setAgentProposals(prev => prev.filter(p => p.id !== proposalId));
   };
 
