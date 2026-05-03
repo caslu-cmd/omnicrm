@@ -2849,10 +2849,6 @@ ${priorBlock}`;
                     </div>
                   </div>
                 )}
-                      </div>
-                    </div>
-                  </div>
-                )}
 
                 {/* ── Conversa do Time ── */}
                 {agentConversations.length > 0 && (
