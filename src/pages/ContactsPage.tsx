@@ -87,9 +87,17 @@ const ContactsPage = () => {
   useEffect(() => { if (user) fetch(); }, [user]);
 
   const fetch = async () => {
-    const { data, error } = await supabase.from("contacts").select("*").order("created_at", { ascending: false });
-    if (error) { toast.error("Erro ao carregar contatos"); return; }
-    setContacts(data || []);
+    const pageSize = 1000;
+    let all: Contact[] = [];
+    let from = 0;
+    while (true) {
+      const { data, error } = await supabase.from("contacts").select("*").order("created_at", { ascending: false }).range(from, from + pageSize - 1);
+      if (error) { toast.error("Erro ao carregar contatos"); return; }
+      all = all.concat(data || []);
+      if (!data || data.length < pageSize) break;
+      from += pageSize;
+    }
+    setContacts(all);
     setLoading(false);
   };
 
