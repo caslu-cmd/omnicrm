@@ -586,67 +586,57 @@ export default function ClientWorkspace() {
     try { return JSON.parse(localStorage.getItem(`aira-groups-${id}`) || "[]"); } catch { return []; }
   });
   const [airaLoadingGroups, setAiraLoadingGroups] = useState(false);
-  const airaRecorderRef = useRef<MediaRecorder | null>(null);
-  const airaChunksRef = useRef<Blob[]>([]);
-  const airaStreamRef = useRef<MediaStream | null>(null);
+  const [airaOnlyLuana, setAiraOnlyLuana] = useState(false);
   const airaTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const airaTranscriptRef = useRef<string>("");
+  const airaRecognitionRef = useRef<any>(null);
+  const airaPausedRef = useRef(false);
 
   const airaSaveParticipants = (p: AiraPerson[]) => { setAiraParticipants(p); localStorage.setItem(`aira-participants-${id}`, JSON.stringify(p)); };
   const airaSaveGroups = (g: string[]) => { setAiraSelectedGroups(g); localStorage.setItem(`aira-groups-${id}`, JSON.stringify(g)); };
 
-  const airaStartRecording = async () => {
+  const airaStartRecording = () => {
     setAiraError(null);
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
-      airaStreamRef.current = stream;
-      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm";
-      const rec = new MediaRecorder(stream, { mimeType: mime });
-      airaChunksRef.current = [];
-      rec.ondataavailable = (e) => { if (e.data.size > 0) airaChunksRef.current.push(e.data); };
-      rec.start(1000);
-      airaRecorderRef.current = rec;
-      setAiraStatus("recording");
-      setAiraElapsed(0);
-      airaTimerRef.current = setInterval(() => setAiraElapsed(s => s + 1), 1000);
-    } catch (e: any) {
-      setAiraError("Não foi possível acessar o microfone. Verifique as permissões do navegador.");
-      setAiraStatus("idle");
-    }
+    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!SR) { setAiraError("Use o Chrome — reconhecimento de voz não suportado neste navegador."); return; }
+    airaTranscriptRef.current = "";
+    airaPausedRef.current = false;
+    const rec = new SR();
+    rec.lang = "pt-BR"; rec.continuous = true; rec.interimResults = false;
+    rec.onresult = (e: any) => {
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        if (e.results[i].isFinal) airaTranscriptRef.current += e.results[i][0].transcript + " ";
+      }
+    };
+    rec.onerror = (e: any) => { if (e.error !== "no-speech") setAiraError("Erro no microfone: " + e.error); };
+    rec.onend = () => { if (airaRecognitionRef.current === rec && !airaPausedRef.current) try { rec.start(); } catch {} };
+    rec.start();
+    airaRecognitionRef.current = rec;
+    setAiraStatus("recording");
+    setAiraElapsed(0);
+    airaTimerRef.current = setInterval(() => setAiraElapsed(s => s + 1), 1000);
   };
 
-  const airaStopRecording = (): Promise<Blob> => new Promise((resolve) => {
-    const rec = airaRecorderRef.current;
-    if (!rec) return resolve(new Blob());
-    rec.onstop = () => {
-      const blob = new Blob(airaChunksRef.current, { type: rec.mimeType });
-      airaStreamRef.current?.getTracks().forEach(t => t.stop());
-      if (airaTimerRef.current) clearInterval(airaTimerRef.current);
-      resolve(blob);
-    };
-    if (rec.state !== "inactive") rec.stop();
-  });
-
-  const blobToBase64 = (blob: Blob): Promise<string> => new Promise((resolve, reject) => {
-    const r = new FileReader();
-    r.onloadend = () => { const s = r.result as string; resolve(s.split(",")[1] || ""); };
-    r.onerror = reject;
-    r.readAsDataURL(blob);
-  });
-
   const airaFinalize = async () => {
+    if (airaTimerRef.current) clearInterval(airaTimerRef.current);
+    const rec = airaRecognitionRef.current;
+    airaRecognitionRef.current = null;
+    airaPausedRef.current = false;
+    try { rec?.stop(); } catch {}
     setAiraStatus("loading");
+
+    const transcript = airaTranscriptRef.current.trim();
+    if (!transcript) { setAiraError("Nenhuma fala foi detectada. Fale mais perto do microfone."); setAiraStatus("idle"); return; }
+
     try {
-      const blob = await airaStopRecording();
-      if (blob.size < 500) { setAiraError("Áudio muito curto."); setAiraStatus("idle"); return; }
-      const audioBase64 = await blobToBase64(blob);
       const { data, error } = await supabase.functions.invoke("aira-meeting", {
         body: {
-          audioBase64,
-          audioMime: blob.type,
+          transcript,
           clientName: client?.name,
           meetingTitle: airaMeetingTitle || `Reunião ${new Date().toLocaleString("pt-BR")}`,
-          groups: airaSelectedGroups,
-          participants: airaParticipants.filter(p => p.phone),
+          onlyLuana: airaOnlyLuana,
+          groups: airaOnlyLuana ? [] : airaSelectedGroups,
+          participants: airaOnlyLuana ? [] : airaParticipants.filter(p => p.phone),
         },
       });
       if (error) throw error;
@@ -2629,7 +2619,7 @@ ${priorBlock}`;
                           {airaStatus === "loading" && "Processando..."}
                           {airaStatus === "recording" && "Ao vivo — ouvindo a reunião"}
                           {airaStatus === "paused" && "Pausado — retome quando quiser"}
-                          {airaStatus === "done" && "Resumo enviado para o WhatsApp ✓"}
+                          {airaStatus === "done" && (airaOnlyLuana ? "Resumo salvo para Luana ✓" : "Resumo enviado ✓")}
                         </p>
                       </div>
                     </div>
@@ -2645,7 +2635,8 @@ ${priorBlock}`;
 
                       {airaStatus === "recording" && (
                         <button onClick={() => {
-                          try { airaRecorderRef.current?.pause(); } catch {}
+                          airaPausedRef.current = true;
+                          try { airaRecognitionRef.current?.stop(); } catch {}
                           if (airaTimerRef.current) clearInterval(airaTimerRef.current);
                           setAiraStatus("paused");
                         }}
@@ -2657,7 +2648,8 @@ ${priorBlock}`;
 
                       {airaStatus === "paused" && (
                         <button onClick={() => {
-                          try { airaRecorderRef.current?.resume(); } catch {}
+                          airaPausedRef.current = false;
+                          try { airaRecognitionRef.current?.start(); } catch {}
                           airaTimerRef.current = setInterval(() => setAiraElapsed(s => s + 1), 1000);
                           setAiraStatus("recording");
                         }}
@@ -2779,16 +2771,24 @@ ${priorBlock}`;
                   <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }} onClick={() => setAiraShowSetup(false)}>
                     <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg rounded-2xl overflow-hidden" style={{ background: "#0F1014", border: "1px solid rgba(185,255,75,0.2)" }}>
                       <div className="px-6 py-4 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
-                        <h3 className="text-base font-bold" style={{ color: "#F0F0F0" }}>Quem deve receber o resumo?</h3>
-                        <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>A AIRA vai gravar pelo microfone do seu computador e enviar o resumo no WhatsApp.</p>
+                        <h3 className="text-base font-bold" style={{ color: "#F0F0F0" }}>Configurar reunião</h3>
+                        <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>A AIRA capta a reunião pelo microfone e gera um resumo executivo.</p>
                       </div>
                       <div className="px-6 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
+                        {/* Toggle: Somente para Luana */}
+                        <label className="flex items-center justify-between p-3 rounded-xl cursor-pointer" style={{ background: airaOnlyLuana ? "rgba(185,255,75,0.08)" : "rgba(255,255,255,0.03)", border: `1px solid ${airaOnlyLuana ? "rgba(185,255,75,0.3)" : "rgba(255,255,255,0.08)"}` }}>
+                          <div>
+                            <p className="text-sm font-semibold" style={{ color: airaOnlyLuana ? "#B9FF4B" : "#F0F0F0" }}>Somente para Luana</p>
+                            <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>O resumo fica só na plataforma, sem envio por WhatsApp</p>
+                          </div>
+                          <input type="checkbox" checked={airaOnlyLuana} onChange={(e) => setAiraOnlyLuana(e.target.checked)} className="w-4 h-4 accent-lime-400" />
+                        </label>
                         <div>
                           <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.4)" }}>Título da reunião (opcional)</label>
                           <input value={airaMeetingTitle} onChange={(e) => setAiraMeetingTitle(e.target.value)} placeholder="Ex: Alinhamento estratégico"
                             className="w-full mt-1 px-3 py-2 rounded-lg text-sm" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#F0F0F0" }} />
                         </div>
-                        <div className="rounded-xl p-3" style={{ background: "rgba(185,255,75,0.04)", border: "1px solid rgba(185,255,75,0.15)" }}>
+                        {!airaOnlyLuana && <div className="rounded-xl p-3" style={{ background: "rgba(185,255,75,0.04)", border: "1px solid rgba(185,255,75,0.15)" }}>
                           <div className="flex items-center justify-between mb-2">
                             <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#B9FF4B" }}>Grupos do WhatsApp</label>
                             <button
@@ -2824,8 +2824,8 @@ ${priorBlock}`;
                               })}
                             </div>
                           )}
-                        </div>
-                        <div>
+                        </div>}
+                        {!airaOnlyLuana && <div>
                           <div className="flex items-center justify-between mb-2">
                             <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.4)" }}>Participantes individuais (opcional)</label>
                             <button onClick={() => airaSaveParticipants([...airaParticipants, { name: "", phone: "" }])}
@@ -2843,15 +2843,17 @@ ${priorBlock}`;
                               </div>
                             ))}
                           </div>
-                        </div>
-                        <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>
-                          💡 Selecione um grupo do WhatsApp e/ou adicione participantes individuais. Telefones em formato internacional: <code>5511987654321</code>
-                        </p>
+                        </div>}
+                        {!airaOnlyLuana && (
+                          <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                            💡 Selecione um grupo do WhatsApp e/ou adicione participantes individuais. Telefones em formato internacional: <code>5511987654321</code>
+                          </p>
+                        )}
                       </div>
                       <div className="px-6 py-4 flex justify-end gap-2 border-t" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
                         <button onClick={() => setAiraShowSetup(false)} className="px-4 py-2 text-sm rounded-lg" style={{ color: "rgba(255,255,255,0.5)" }}>Cancelar</button>
                         <button onClick={() => { setAiraShowSetup(false); airaStartRecording(); }}
-                          disabled={airaSelectedGroups.length === 0 && airaParticipants.filter(p => p.phone).length === 0}
+                          disabled={!airaOnlyLuana && airaSelectedGroups.length === 0 && airaParticipants.filter(p => p.phone).length === 0}
                           className="px-4 py-2 text-sm font-semibold rounded-lg disabled:opacity-40"
                           style={{ background: "#B9FF4B", color: "#07080A" }}>
                           <Mic className="w-4 h-4 inline mr-1" /> Começar a ouvir

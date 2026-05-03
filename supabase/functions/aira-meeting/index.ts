@@ -12,6 +12,24 @@ const ZAPI_CLIENT      = Deno.env.get("ZAPI_CLIENT_TOKEN") ?? "Fabcb22cf9022425c
 const CAROL_PHONE      = Deno.env.get("CAROL_PHONE")       ?? "5585986408404";
 
 async function resumirComClaude(transcript: string, clientName: string): Promise<string> {
+  const today = new Date().toLocaleDateString("pt-BR", {
+    weekday: "long", year: "numeric", month: "long", day: "numeric",
+  });
+
+  const systemPrompt = `Voce e a AIRA, secretaria executiva da Calu Agencia. Gere resumos de reuniao claros, objetivos e acionaveis em portugues brasileiro. Use formatacao WhatsApp (*negrito*). A data de hoje e ${today}.`;
+
+  const userContent = `Reuniao${clientName ? ` com cliente: ${clientName}` : ""}.
+
+Transcricao:
+${transcript}
+
+Gere um resumo executivo com:
+* Decisoes tomadas
+* Tarefas definidas (quem faz o que)
+* Proximos passos
+
+Use a data de hoje (${today}) em qualquer referencia de data. Seja direto.`;
+
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -22,11 +40,8 @@ async function resumirComClaude(transcript: string, clientName: string): Promise
     body: JSON.stringify({
       model: "claude-sonnet-4-6",
       max_tokens: 1024,
-      system: "Você é a AIRA, secretária executiva da Calu Agência. Gere resumos de reunião claros, objetivos e acionáveis em português brasileiro. Use formatação WhatsApp (*negrito*).",
-      messages: [{
-        role: "user",
-        content: `Reunião${clientName ? ` com cliente: ${clientName}` : ""}.\n\nTranscrição:\n${transcript}\n\nGere um resumo executivo com:\n📌 *Decisões tomadas*\n✅ *Tarefas definidas* (quem faz o quê)\n🚀 *Próximos passos*\n\nSeja direto e use emojis com moderação.`,
-      }],
+      system: systemPrompt,
+      messages: [{ role: "user", content: userContent }],
     }),
   });
   if (!r.ok) throw new Error(`Claude error ${r.status}: ${await r.text()}`);
@@ -50,16 +65,29 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {
-    const { transcript, clientName } = await req.json();
+    const { transcript, clientName, onlyLuana, groups, participants } = await req.json();
     if (!transcript?.trim()) {
-      return Response.json({ error: "transcript obrigatório" }, { status: 400, headers: cors });
+      return Response.json({ error: "transcript obrigatorio" }, { status: 400, headers: cors });
     }
 
     const summary = await resumirComClaude(transcript, clientName ?? "");
-    const mensagem = `🎙️ *Resumo da Reunião — AIRA*${clientName ? `\nCliente: ${clientName}` : ""}\n\n${summary}`;
-    const zap = await enviarWhatsApp(CAROL_PHONE, mensagem);
 
-    return Response.json({ summary, whatsapp: zap }, { headers: cors });
+    if (onlyLuana) {
+      return Response.json({ summary, whatsapp: null }, { headers: cors });
+    }
+
+    const mensagem = `Resumo da Reuniao - AIRA${clientName ? `\nCliente: ${clientName}` : ""}\n\n${summary}`;
+
+    const targets: string[] = [];
+    if (Array.isArray(groups) && groups.length > 0) targets.push(...groups);
+    if (Array.isArray(participants) && participants.length > 0) {
+      targets.push(...participants.map((p: any) => p.phone).filter(Boolean));
+    }
+    if (targets.length === 0) targets.push(CAROL_PHONE);
+
+    const results = await Promise.all(targets.map((t) => enviarWhatsApp(t, mensagem)));
+
+    return Response.json({ summary, whatsapp: results }, { headers: cors });
   } catch (e) {
     console.error("aira-meeting error:", e);
     return Response.json({ error: String(e) }, { status: 500, headers: cors });
