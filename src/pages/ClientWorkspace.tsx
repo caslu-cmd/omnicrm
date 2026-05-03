@@ -14,7 +14,7 @@ import {
   Target, ArrowRight, Repeat2, MousePointerClick, Filter, Trash2, Mic, MicOff, StopCircle,
 } from "lucide-react";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
-import { CLIENTS } from "@/data/agencyData";
+import { CLIENTS, GeneratedOutput } from "@/data/agencyData";
 import { useClients } from "@/contexts/ClientsContext";
 import { supabase } from "@/integrations/supabase/client";
 import PostCanvas from "@/components/PostCanvas";
@@ -158,6 +158,21 @@ const MARKETING_TEAM = [
     description: "Planeja calendários editoriais, pilares de conteúdo e cronogramas estratégicos por plataforma",
   },
 ];
+
+const AGENT_OUTPUT_TYPE: Record<string, GeneratedOutput["type"]> = {
+  copywriter: "copy",
+  strategist: "plan",
+  analyst:    "report",
+  traffic:    "ad",
+  social:     "post",
+  designer:   "design",
+  site:       "article",
+  briefing:   "report",
+  revisor:    "copy",
+  video:      "copy",
+  calendario: "plan",
+  sales:      "report",
+};
 
 // ── Prompts individuais por agente (orquestração sequencial) ─────────────
 // Configuração de cada agente: tokens e se usa extended thinking
@@ -902,6 +917,11 @@ export default function ClientWorkspace() {
   const [designerRecentWork, setDesignerRecentWork] = useState<string[]>([]);
   const designerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [ariaLoading, setAriaLoading] = useState(false);
+  const [showManualOutput, setShowManualOutput] = useState(false);
+  const [manualForm, setManualForm] = useState<{
+    name: string; type: GeneratedOutput["type"]; preview: string;
+    status: GeneratedOutput["status"]; platform: string;
+  }>({ name: "", type: "copy", preview: "", status: "revisão", platform: "" });
   const [agentConversations, setAgentConversations] = useState<AgentMsg[]>(() => {
     try { return JSON.parse(localStorage.getItem(`agent-conv-${id}`) ?? "[]"); } catch { return []; }
   });
@@ -1371,7 +1391,22 @@ ${priorBlock}`;
         waveIndex++;
       }
 
-      // ━━━━━━━━━━ PASSO 5 — ARIA encerra ━━━━━━━━━━
+      // ━━━━━━━━━━ PASSO 5 — ARIA encerra + registra entregas no portal ━━━━━━━━━━
+      if (id && Object.keys(accumulated).length > 0) {
+        const today = new Date();
+        const dateStr = `${String(today.getDate()).padStart(2, "0")}/${String(today.getMonth() + 1).padStart(2, "0")}`;
+        const newOutputs: GeneratedOutput[] = Object.entries(accumulated).map(([aId, txt]) => ({
+          id: `${aId}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          name: `${AGENT_META[aId]?.name ?? aId} — ${txt.split("\n")[0].replace(/^#+\s*/, "").trim().slice(0, 55) || demand.slice(0, 40)}`,
+          type: AGENT_OUTPUT_TYPE[aId] ?? "copy",
+          agent: aId,
+          createdAt: dateStr,
+          preview: txt.slice(0, 500),
+          status: "revisão" as const,
+        }));
+        updateClient(id, { outputs: [...(client.outputs ?? []), ...newOutputs] });
+      }
+
       addConvMsgs([{
         id: `aria-end-${Date.now()}`,
         from: "aria", to: "user",
@@ -1385,6 +1420,25 @@ ${priorBlock}`;
       setAriaLoading(false);
       setCurrentWave(0);
     }
+  };
+
+  const handleAddManualOutput = () => {
+    if (!id || !manualForm.name.trim()) return;
+    const today = new Date();
+    const dateStr = `${String(today.getDate()).padStart(2, "0")}/${String(today.getMonth() + 1).padStart(2, "0")}`;
+    const entry: GeneratedOutput = {
+      id: `manual-${Date.now()}`,
+      name: manualForm.name.trim(),
+      type: manualForm.type,
+      agent: "manual",
+      createdAt: dateStr,
+      preview: manualForm.preview.trim(),
+      platform: manualForm.platform.trim() || undefined,
+      status: manualForm.status,
+    };
+    updateClient(id, { outputs: [...(client.outputs ?? []), entry] });
+    setShowManualOutput(false);
+    setManualForm({ name: "", type: "copy", preview: "", status: "revisão", platform: "" });
   };
 
   const fetchWpQr = async () => {
@@ -1822,8 +1876,8 @@ ${priorBlock}`;
                     <AlertTriangle className="w-5 h-5" style={{ color: "#FBBF24" }} />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-white">Limpar todos os dados</p>
-                    <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>Posts, campanhas, contatos, pipeline e outputs serão apagados</p>
+                    <p className="text-sm font-semibold text-white">Limpar dados de {client.name}</p>
+                    <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>Só os dados deste cliente serão apagados</p>
                   </div>
                 </div>
                 <p className="text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
@@ -1840,6 +1894,107 @@ ${priorBlock}`;
                     style={{ background: "#FBBF24", color: "#07080A" }}>
                     Limpar dados
                   </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Modal: Registrar Entrega Manual ── */}
+        <AnimatePresence>
+          {showManualOutput && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
+              onClick={(e) => { if (e.target === e.currentTarget) setShowManualOutput(false); }}>
+              <motion.div initial={{ opacity: 0, scale: 0.95, y: 8 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
+                className="w-full max-w-lg rounded-2xl overflow-hidden"
+                style={{ background: "#0D0D14", border: "1px solid rgba(185,255,75,0.2)" }}>
+                <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div>
+                    <p className="text-sm font-bold text-white">Registrar entrega no portal</p>
+                    <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
+                      Esta entrega ficará visível para o cliente em {client.name}
+                    </p>
+                  </div>
+                  <button onClick={() => setShowManualOutput(false)} style={{ color: "rgba(255,255,255,0.3)" }}>
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+                <div className="p-6 space-y-4">
+                  <div>
+                    <label className="text-[11px] uppercase tracking-wider font-semibold mb-1.5 block" style={{ color: "rgba(255,255,255,0.4)" }}>
+                      Título da entrega *
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ex: Planejamento editorial de junho"
+                      value={manualForm.name}
+                      onChange={(e) => setManualForm(f => ({ ...f, name: e.target.value }))}
+                      className="w-full rounded-xl px-4 py-2.5 text-sm"
+                      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[11px] uppercase tracking-wider font-semibold mb-1.5 block" style={{ color: "rgba(255,255,255,0.4)" }}>Tipo</label>
+                      <select value={manualForm.type} onChange={(e) => setManualForm(f => ({ ...f, type: e.target.value as GeneratedOutput["type"] }))}
+                        className="w-full rounded-xl px-3 py-2.5 text-sm"
+                        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }}>
+                        <option value="copy">Copy</option>
+                        <option value="article">Artigo</option>
+                        <option value="plan">Plano</option>
+                        <option value="report">Relatório</option>
+                        <option value="post">Post</option>
+                        <option value="design">Design</option>
+                        <option value="email">E-mail</option>
+                        <option value="ad">Anúncio</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="text-[11px] uppercase tracking-wider font-semibold mb-1.5 block" style={{ color: "rgba(255,255,255,0.4)" }}>Status</label>
+                      <select value={manualForm.status} onChange={(e) => setManualForm(f => ({ ...f, status: e.target.value as GeneratedOutput["status"] }))}
+                        className="w-full rounded-xl px-3 py-2.5 text-sm"
+                        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }}>
+                        <option value="rascunho">Rascunho</option>
+                        <option value="revisão">Para revisar</option>
+                        <option value="aprovado">Aprovado</option>
+                        <option value="publicado">Publicado</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[11px] uppercase tracking-wider font-semibold mb-1.5 block" style={{ color: "rgba(255,255,255,0.4)" }}>
+                      Plataforma (opcional)
+                    </label>
+                    <input type="text" placeholder="Ex: Instagram, LinkedIn, E-mail..."
+                      value={manualForm.platform}
+                      onChange={(e) => setManualForm(f => ({ ...f, platform: e.target.value }))}
+                      className="w-full rounded-xl px-4 py-2.5 text-sm"
+                      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }} />
+                  </div>
+                  <div>
+                    <label className="text-[11px] uppercase tracking-wider font-semibold mb-1.5 block" style={{ color: "rgba(255,255,255,0.4)" }}>
+                      Conteúdo / Prévia
+                    </label>
+                    <textarea rows={4} placeholder="Cole o conteúdo, descreva a entrega ou adicione observações..."
+                      value={manualForm.preview}
+                      onChange={(e) => setManualForm(f => ({ ...f, preview: e.target.value }))}
+                      className="w-full rounded-xl px-4 py-3 text-sm resize-none"
+                      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }} />
+                  </div>
+                  <div className="flex gap-3 pt-1">
+                    <button onClick={() => setShowManualOutput(false)}
+                      className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+                      style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}>
+                      Cancelar
+                    </button>
+                    <button onClick={handleAddManualOutput} disabled={!manualForm.name.trim()}
+                      className="flex-1 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40"
+                      style={{ background: "#B9FF4B", color: "#07080A" }}>
+                      Registrar no portal
+                    </button>
+                  </div>
                 </div>
               </motion.div>
             </motion.div>
@@ -3479,6 +3634,14 @@ ${priorBlock}`;
                     </h3>
                     <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
                     <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.2)" }}>{MARKETING_TEAM.length} agentes</span>
+                    <button
+                      onClick={() => setShowManualOutput(true)}
+                      className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold transition-all flex-shrink-0"
+                      style={{ background: "rgba(185,255,75,0.08)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.2)" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(185,255,75,0.14)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(185,255,75,0.08)"; }}>
+                      <Plus className="w-3 h-3" /> Registrar entrega
+                    </button>
                   </div>
 
                   <div className="flex flex-col gap-2.5">
