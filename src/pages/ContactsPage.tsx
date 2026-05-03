@@ -179,6 +179,42 @@ const ContactsPage = () => {
         </div>
       </motion.div>
 
+      {/* Segment Selector (by source/channel) */}
+      <motion.div variants={row} className="flex items-center gap-2 flex-wrap border-b border-border pb-3">
+        <button
+          onClick={() => setFilterSource("Todos")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+            filterSource === "Todos"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "bg-muted text-muted-foreground hover:bg-muted/70"
+          }`}
+        >
+          Todos <span className="ml-1 opacity-70">({contacts.length})</span>
+        </button>
+        {Array.from(new Set(contacts.map(c => c.channel).filter(Boolean) as string[]))
+          .sort()
+          .map(seg => {
+            const cfg = SOURCES[seg];
+            const label = cfg?.label ?? seg;
+            const count = contacts.filter(c => c.channel === seg).length;
+            const Icon = cfg?.Icon;
+            const active = filterSource === seg;
+            return (
+              <button
+                key={seg}
+                onClick={() => setFilterSource(seg)}
+                className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all border inline-flex items-center gap-1.5"
+                style={active
+                  ? { background: cfg?.bg ?? "var(--muted)", color: cfg?.color ?? "var(--foreground)", borderColor: cfg?.color ?? "var(--border)" }
+                  : { background: "transparent", color: "var(--muted-foreground)", borderColor: "var(--border)" }}
+              >
+                {Icon && <Icon className="h-3 w-3" />}
+                {label} <span className="opacity-70">({count})</span>
+              </button>
+            );
+          })}
+      </motion.div>
+
       {/* Search + Filters */}
       <motion.div variants={row} className="flex items-center gap-3 flex-wrap">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
