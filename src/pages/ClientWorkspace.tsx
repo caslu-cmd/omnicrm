@@ -2956,29 +2956,27 @@ ${priorBlock}`;
                   }}>
 
                   {/* Header */}
-                  <div className="flex items-center justify-between px-6 py-4"
+                  <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-4 flex-wrap"
                     style={{ borderBottom: `1px solid ${airaStatus === "recording" ? "rgba(239,68,68,0.1)" : "rgba(185,255,75,0.08)"}` }}>
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                    <div className="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                         style={{ background: airaStatus === "recording" ? "rgba(239,68,68,0.12)" : "rgba(185,255,75,0.1)", border: `1px solid ${airaStatus === "recording" ? "rgba(239,68,68,0.3)" : "rgba(185,255,75,0.2)"}` }}>
                         <Mic className="w-5 h-5" style={{ color: airaStatus === "recording" ? "#EF4444" : "#B9FF4B" }} />
                       </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold" style={{ color: "#F0F0F0" }}>AIRA</span>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
-                            style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.2)" }}>
-                            Ouvir Reunião
+                      <div className="flex items-center gap-2 flex-wrap min-w-0">
+                        <span className="text-sm font-bold" style={{ color: "#F0F0F0" }}>AIRA</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap"
+                          style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.2)" }}>
+                          Ouvir Reunião
+                        </span>
+                        {airaStatus === "recording" && (
+                          <span className="relative flex h-2 w-2 flex-shrink-0">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#EF4444" }} />
+                            <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "#EF4444" }} />
                           </span>
-                          {airaStatus === "recording" && (
-                            <span className="relative flex h-2 w-2">
-                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#EF4444" }} />
-                              <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "#EF4444" }} />
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>
-                          {airaStatus === "idle" && "Escuta a reunião e gera resumo no WhatsApp"}
+                        )}
+                        <p className="text-[11px] break-words min-w-0" style={{ color: "rgba(255,255,255,0.4)" }}>
+                          · {airaStatus === "idle" && "Escuta a reunião e gera resumo no WhatsApp"}
                           {airaStatus === "loading" && "Processando..."}
                           {airaStatus === "recording" && "Ao vivo — ouvindo a reunião"}
                           {airaStatus === "paused" && "Pausado — retome quando quiser"}
@@ -2986,7 +2984,7 @@ ${priorBlock}`;
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       {/* Botão Nova reunião */}
                       {airaStatus === "done" && (
                         <button onClick={() => { setAiraStatus("idle"); setAiraSummary(null); setAiraElapsed(0); }}
