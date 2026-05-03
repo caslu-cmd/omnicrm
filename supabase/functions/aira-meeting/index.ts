@@ -5,7 +5,8 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const ANTHROPIC_API_KEY   = Deno.env.get("ANTHROPIC_API_KEY")!;
+const ANTHROPIC_API_KEY   = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
+const LOVABLE_API_KEY     = Deno.env.get("LOVABLE_API_KEY") ?? "";
 const GROQ_API_KEY        = Deno.env.get("GROQ_API_KEY") ?? "";
 const OPENAI_API_KEY      = Deno.env.get("OPENAI_API_KEY") ?? "";
 const SUPABASE_URL        = Deno.env.get("SUPABASE_URL")!;
@@ -72,6 +73,29 @@ async function resumirComClaude(transcript: string, clientName: string): Promise
 
 Transcricao:
 ${transcript}`;
+
+  if (LOVABLE_API_KEY) {
+    const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userContent },
+        ],
+        max_tokens: 1024,
+      }),
+    });
+    if (!r.ok) throw new Error(`Lovable AI error ${r.status}: ${await r.text()}`);
+    const d = await r.json();
+    return d.choices?.[0]?.message?.content ?? "";
+  }
+
+  if (!ANTHROPIC_API_KEY) throw new Error("LOVABLE_API_KEY nao configurada");
 
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
