@@ -11,7 +11,7 @@ import {
   Pencil, ShieldCheck, GraduationCap, Smartphone, QrCode,
   UserCheck, PhoneCall, MessageSquare as MsgSq, BadgeCheck,
   Paperclip, X, Palette, PenLine, BarChart3, Layout, Table2, AtSign,
-  Target, ArrowRight, Repeat2, MousePointerClick, Filter, Trash2,
+  Target, ArrowRight, Repeat2, MousePointerClick, Filter, Trash2, Mic, MicOff, StopCircle,
 } from "lucide-react";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { CLIENTS } from "@/data/agencyData";
@@ -571,6 +571,13 @@ export default function ClientWorkspace() {
   const [videoPlatform, setVideoPlatform] = useState<string>("reels");
   const [videoScript, setVideoScript] = useState("");
   const [videoFile, setVideoFile] = useState<File | null>(null);
+  // AIRA — ouvir reunião
+  const [airaStatus, setAiraStatus] = useState<"idle" | "recording" | "loading" | "done">("idle");
+  const [airaTranscript, setAiraTranscript] = useState<string[]>([]);
+  const [airaSummary, setAiraSummary] = useState<string | null>(null);
+  const [airaError, setAiraError] = useState<string | null>(null);
+  const airaTranscriptRef = useRef<HTMLDivElement>(null);
+  const airaPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [videoFileUrl, setVideoFileUrl] = useState<string | null>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const [designerTask, setDesignerTask] = useState<{prompt: string; progress: number; startedAt: number; estimatedSeconds: number} | null>(null);
@@ -3373,6 +3380,125 @@ ${priorBlock}`;
                     })}
                   </div>
                 </div>
+
+                {/* ── AIRA — Ouvir Reunião ── */}
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
+                  className="rounded-2xl overflow-hidden"
+                  style={{ background: "rgba(185,255,75,0.03)", border: "1px solid rgba(185,255,75,0.15)" }}>
+
+                  <div className="flex items-center justify-between px-6 py-4"
+                    style={{ borderBottom: "1px solid rgba(185,255,75,0.08)" }}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                        style={{ background: airaStatus === "recording" ? "rgba(239,68,68,0.12)" : "rgba(185,255,75,0.1)", border: `1px solid ${airaStatus === "recording" ? "rgba(239,68,68,0.3)" : "rgba(185,255,75,0.2)"}` }}>
+                        {airaStatus === "recording"
+                          ? <MicOff className="w-5 h-5" style={{ color: "#EF4444" }} />
+                          : <Mic className="w-5 h-5" style={{ color: "#B9FF4B" }} />}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-bold" style={{ color: "#F0F0F0" }}>AIRA</span>
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                            style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.2)" }}>
+                            Ouvir Reunião
+                          </span>
+                          {airaStatus === "recording" && (
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#EF4444" }} />
+                              <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "#EF4444" }} />
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>
+                          {airaStatus === "idle" && "Escuta a reunião e gera resumo no WhatsApp"}
+                          {airaStatus === "loading" && "Aguarde..."}
+                          {airaStatus === "recording" && "Gravando — clique para encerrar e resumir"}
+                          {airaStatus === "done" && "Resumo enviado para o WhatsApp ✓"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      {airaStatus === "done" && (
+                        <button onClick={() => { setAiraStatus("idle"); setAiraSummary(null); setAiraTranscript([]); }}
+                          className="text-xs px-3 py-1.5 rounded-lg transition-all"
+                          style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                          Nova reunião
+                        </button>
+                      )}
+                      <button
+                        disabled={airaStatus === "loading" || airaStatus === "done"}
+                        onClick={async () => {
+                          setAiraError(null);
+                          if (airaStatus === "idle") {
+                            setAiraStatus("loading");
+                            try {
+                              await fetch("http://localhost:8700/reuniao/iniciar", { method: "POST" });
+                              setAiraStatus("recording");
+                              setAiraTranscript([]);
+                              setAiraSummary(null);
+                              airaPollRef.current = setInterval(async () => {
+                                try {
+                                  const r = await fetch("http://localhost:8700/reuniao/status");
+                                  const d = await r.json();
+                                  if (d.falas_captadas > 0)
+                                    setAiraTranscript(t => t.length < d.falas_captadas
+                                      ? [...t, `${d.falas_captadas} fala(s) captada(s)`]
+                                      : t);
+                                } catch {}
+                              }, 10000);
+                            } catch {
+                              setAiraError("API indisponível. Verifique se a secretária está rodando em localhost:8700.");
+                              setAiraStatus("idle");
+                            }
+                          } else if (airaStatus === "recording") {
+                            if (airaPollRef.current) clearInterval(airaPollRef.current);
+                            setAiraStatus("loading");
+                            try {
+                              const r = await fetch("http://localhost:8700/reuniao/encerrar", { method: "POST" });
+                              const d = await r.json();
+                              setAiraSummary(d.resposta);
+                              setAiraStatus("done");
+                            } catch {
+                              setAiraError("Erro ao encerrar a reunião.");
+                              setAiraStatus("idle");
+                            }
+                          }
+                        }}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
+                        style={{
+                          background: airaStatus === "recording" ? "rgba(239,68,68,0.15)" : "#B9FF4B",
+                          color: airaStatus === "recording" ? "#EF4444" : "#07080A",
+                          border: airaStatus === "recording" ? "1px solid rgba(239,68,68,0.3)" : "none",
+                          boxShadow: airaStatus === "recording" ? "none" : "0 0 20px -4px rgba(185,255,75,0.4)",
+                        }}>
+                        {airaStatus === "loading"
+                          ? <><RefreshCw className="w-4 h-4 animate-spin" /> Aguarde</>
+                          : airaStatus === "recording"
+                          ? <><StopCircle className="w-4 h-4" /> Encerrar</>
+                          : <><Mic className="w-4 h-4" /> Ouvir Reunião</>}
+                      </button>
+                    </div>
+                  </div>
+
+                  {airaError && (
+                    <div className="px-6 py-3 text-xs" style={{ color: "#FCA5A5", background: "rgba(239,68,68,0.06)", borderBottom: "1px solid rgba(239,68,68,0.12)" }}>
+                      {airaError}
+                    </div>
+                  )}
+
+                  {airaSummary && (
+                    <div className="px-6 py-5 space-y-2">
+                      <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(185,255,75,0.6)" }}>
+                        Resumo da Reunião
+                      </p>
+                      <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "rgba(255,255,255,0.65)" }}>
+                        {airaSummary}
+                      </p>
+                    </div>
+                  )}
+                </motion.div>
+
               </div>
             )}
 
