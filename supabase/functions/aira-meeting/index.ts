@@ -22,12 +22,19 @@ async function transcrever(audioPath: string): Promise<string> {
 }
 
 async function transcreverUrl(audioUrl: string, headers: Record<string, string> = {}): Promise<string> {
+  const fileRes = await fetch(audioUrl, { headers });
+  if (!fileRes.ok) throw new Error(`Audio download ${fileRes.status}: ${await fileRes.text()}`);
+  return transcreverBlob(await fileRes.blob());
+}
+
+async function transcreverBase64(audioBase64: string, mimeType = "audio/webm"): Promise<string> {
+  const bytes = Uint8Array.from(atob(audioBase64), (c) => c.charCodeAt(0));
+  return transcreverBlob(new Blob([bytes], { type: mimeType }));
+}
+
+async function transcreverBlob(audioBlob: Blob): Promise<string> {
   const key = GROQ_API_KEY || OPENAI_API_KEY;
   if (!key) throw new Error("Configure GROQ_API_KEY nas secrets do Supabase");
-
-  const fileRes = await fetch(audioUrl, { headers });
-  if (!fileRes.ok) throw new Error(`Storage error ${fileRes.status}: ${await fileRes.text()}`);
-  const audioBlob = await fileRes.blob();
 
   console.log("Audio baixado, tamanho:", audioBlob.size, "bytes");
 
@@ -132,10 +139,12 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {
-    const { audioPath, audioUrl, transcript: transcriptRaw, clientName, onlyLuana, groups, participants } = await req.json();
+    const { audioPath, audioUrl, audioBase64, audioMimeType, transcript: transcriptRaw, clientName, onlyLuana, groups, participants } = await req.json();
 
     let transcript = transcriptRaw ?? "";
-    if (!transcript && audioUrl) {
+    if (!transcript && audioBase64) {
+      transcript = await transcreverBase64(audioBase64, audioMimeType);
+    } else if (!transcript && audioUrl) {
       transcript = await transcreverUrl(audioUrl);
     } else if (!transcript && audioPath) {
       transcript = await transcrever(audioPath);
