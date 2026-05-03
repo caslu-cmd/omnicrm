@@ -588,6 +588,7 @@ export default function ClientWorkspace() {
   const [airaLoadingGroups, setAiraLoadingGroups] = useState(false);
   const [airaOnlyLuana, setAiraOnlyLuana] = useState(false);
   const [airaLiveText, setAiraLiveText] = useState("");
+  const [airaMicActive, setAiraMicActive] = useState(false);
   const airaTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const airaTranscriptRef = useRef<string>("");
   const airaInterimRef = useRef<string>("");
@@ -620,8 +621,16 @@ export default function ClientWorkspace() {
       airaInterimRef.current = interim;
       setAiraLiveText(airaTranscriptRef.current + interim);
     };
-    rec.onerror = (e: any) => { if (e.error !== "no-speech" && e.error !== "aborted") setAiraError("Erro no microfone: " + e.error); };
-    rec.onend = () => { if (airaRecognitionRef.current === rec && !airaPausedRef.current) try { rec.start(); } catch {} };
+    rec.onstart = () => setAiraMicActive(true);
+    rec.onerror = (e: any) => {
+      if (e.error !== "no-speech" && e.error !== "aborted") setAiraError("Erro no microfone: " + e.error);
+    };
+    rec.onend = () => {
+      setAiraMicActive(false);
+      if (airaRecognitionRef.current === rec && !airaPausedRef.current) {
+        setTimeout(() => { try { rec.start(); } catch {} }, 200);
+      }
+    };
     rec.start();
     airaRecognitionRef.current = rec;
     setAiraStatus("recording");
@@ -2726,7 +2735,12 @@ ${priorBlock}`;
                       <div className="text-center">
                         {airaStatus === "recording" && (
                           <>
-                            <p className="text-lg font-bold mb-1" style={{ color: "#EF4444" }}>Estou ouvindo...</p>
+                            <p className="text-lg font-bold mb-1" style={{ color: "#EF4444" }}>
+                              Estou ouvindo...
+                              <span className="ml-2 text-xs font-normal px-2 py-0.5 rounded-full" style={{ background: airaMicActive ? "rgba(34,197,94,0.15)" : "rgba(255,255,255,0.06)", color: airaMicActive ? "#4ade80" : "rgba(255,255,255,0.3)" }}>
+                                {airaMicActive ? "● mic ativo" : "○ aguardando mic"}
+                              </span>
+                            </p>
                             <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
                               A AIRA está captando tudo. Use <strong style={{ color: "rgba(255,255,255,0.5)" }}>Pausar</strong> para interromper ou <strong style={{ color: "rgba(255,255,255,0.5)" }}>Parar</strong> para encerrar e gerar o resumo.
                             </p>
