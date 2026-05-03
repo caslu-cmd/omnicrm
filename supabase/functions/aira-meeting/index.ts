@@ -34,7 +34,7 @@ async function sendWhatsApp(phone: string, message: string) {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
   try {
-    const { audioBase64, audioMime, clientName, participants, luana, meetingTitle } = await req.json();
+    const { audioBase64, audioMime, clientName, participants, groups, meetingTitle } = await req.json();
     if (!audioBase64) return Response.json({ error: "audioBase64 obrigatório" }, { status: 400, headers: cors });
 
     // 1) Transcrever via Gemini multimodal
@@ -53,23 +53,27 @@ serve(async (req) => {
       { role: "system", content: "Você é a AIRA, secretária executiva. Gere resumos de reunião claros, objetivos e acionáveis em pt-BR." },
       {
         role: "user",
-        content: `Reunião: ${meetingTitle || "Reunião"}${clientName ? ` — Cliente: ${clientName}` : ""}\nParticipantes: ${(participants || []).map((p: any) => p.name).join(", ") || "não informado"}\n\nTranscrição:\n${transcript}\n\nGere um resumo em formato WhatsApp com:\n📅 *Resumo da Reunião*\n\n*Pontos principais:*\n• ...\n\n*Decisões:*\n• ...\n\n*Próximos passos / Ações:* (com responsável quando mencionado)\n• ...\n\nSeja conciso. Use emojis com moderação. Markdown do WhatsApp (*negrito*).`,
+        content: `Reunião: ${meetingTitle || "Reunião"}${clientName ? ` — Cliente: ${clientName}` : ""}\n\nTranscrição:\n${transcript}\n\nGere um resumo em formato WhatsApp com:\n📅 *Resumo da Reunião*\n\n*Pontos principais:*\n• ...\n\n*Decisões:*\n• ...\n\n*Próximos passos / Ações:* (com responsável quando mencionado)\n• ...\n\nSeja conciso. Use emojis com moderação. Markdown do WhatsApp (*negrito*).`,
       },
     ]);
 
-    // 3) Enviar WhatsApp
-    const recipients: { name: string; phone: string; role: string }[] = [];
-    if (luana?.phone) recipients.push({ name: luana.name || "Luana", phone: luana.phone, role: "orquestradora" });
-    for (const p of (participants || [])) if (p.phone) recipients.push({ name: p.name, phone: p.phone, role: "participante" });
+    const header = `📅 *${meetingTitle || "Reunião"}*${clientName ? ` — ${clientName}` : ""}\n\n`;
+    const sends: any[] = [];
 
-    const sends = [];
-    for (const r of recipients) {
-      const greeting = r.role === "orquestradora"
-        ? `Olá ${r.name}! 👋\nSegue o resumo da reunião${clientName ? ` com ${clientName}` : ""} para você orquestrar os agentes:\n\n`
-        : `Olá ${r.name}! 👋\nSegue o resumo da nossa reunião:\n\n`;
-      const res = await sendWhatsApp(r.phone, greeting + summary);
-      sends.push({ to: r.name, phone: r.phone, ok: res.ok });
-      await new Promise((res) => setTimeout(res, 800));
+    // Enviar para grupos
+    for (const gid of (groups || [])) {
+      const res = await sendWhatsApp(gid, header + summary);
+      sends.push({ type: "group", to: gid, ok: res.ok });
+      await new Promise((r) => setTimeout(r, 1200));
+    }
+
+    // Enviar para participantes individuais
+    for (const p of (participants || [])) {
+      if (!p.phone) continue;
+      const greeting = `Olá ${p.name || ""}! 👋\nSegue o resumo da nossa reunião:\n\n`;
+      const res = await sendWhatsApp(p.phone, greeting + summary);
+      sends.push({ type: "person", to: p.name, phone: p.phone, ok: res.ok });
+      await new Promise((r) => setTimeout(r, 800));
     }
 
     return Response.json({ transcript, summary, sends }, { headers: cors });
