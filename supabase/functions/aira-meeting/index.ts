@@ -16,14 +16,15 @@ const ZAPI_CLIENT         = Deno.env.get("ZAPI_CLIENT_TOKEN") ?? "Fabcb22cf90224
 const CAROL_PHONE         = Deno.env.get("CAROL_PHONE")       ?? "5585986408404";
 
 async function transcrever(audioPath: string): Promise<string> {
+  const storageUrl = `${SUPABASE_URL}/storage/v1/object/aira-recordings/${audioPath}`;
+  return transcreverUrl(storageUrl, { "Authorization": `Bearer ${SERVICE_ROLE_KEY}` });
+}
+
+async function transcreverUrl(audioUrl: string, headers: Record<string, string> = {}): Promise<string> {
   const key = GROQ_API_KEY || OPENAI_API_KEY;
   if (!key) throw new Error("Configure GROQ_API_KEY nas secrets do Supabase");
 
-  // Download audio from Supabase Storage
-  const storageUrl = `${SUPABASE_URL}/storage/v1/object/aira-recordings/${audioPath}`;
-  const fileRes = await fetch(storageUrl, {
-    headers: { "Authorization": `Bearer ${SERVICE_ROLE_KEY}` },
-  });
+  const fileRes = await fetch(audioUrl, { headers });
   if (!fileRes.ok) throw new Error(`Storage error ${fileRes.status}: ${await fileRes.text()}`);
   const audioBlob = await fileRes.blob();
 
@@ -107,10 +108,12 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {
-    const { audioPath, transcript: transcriptRaw, clientName, onlyLuana, groups, participants } = await req.json();
+    const { audioPath, audioUrl, transcript: transcriptRaw, clientName, onlyLuana, groups, participants } = await req.json();
 
     let transcript = transcriptRaw ?? "";
-    if (!transcript && audioPath) {
+    if (!transcript && audioUrl) {
+      transcript = await transcreverUrl(audioUrl);
+    } else if (!transcript && audioPath) {
       transcript = await transcrever(audioPath);
     }
     if (!transcript?.trim()) {
