@@ -196,7 +196,7 @@ export default function AgencyDashboard() {
                 transition={{ delay: 0.18 + i * 0.07, duration: 0.45 }}
                 onHoverStart={() => setHoveredId(client.id)}
                 onHoverEnd={() => setHoveredId(null)}
-                className="relative rounded-2xl overflow-hidden cursor-pointer"
+                className="relative rounded-2xl overflow-hidden cursor-pointer flex-shrink-0 w-[82vw] sm:w-auto snap-start"
                 style={{
                   background: "rgba(255,255,255,0.022)",
                   border: `1px solid ${isHovered ? "rgba(185,255,75,0.28)" : "rgba(255,255,255,0.06)"}`,
