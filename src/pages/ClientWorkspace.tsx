@@ -1625,7 +1625,7 @@ ${priorBlock}`;
   const loadProposals = async () => {
     if (!id) return;
     setProposalsLoading(true);
-    const { data } = await supabase.from("agent_proposals").select("*")
+    const { data } = await (supabase as any).from("agent_proposals").select("*")
       .eq("client_id", id).eq("status", "pending")
       .order("created_at", { ascending: false });
     if (data) setAgentProposals(data);
@@ -1636,13 +1636,13 @@ ${priorBlock}`;
 
   const handleApproveProposal = async (proposalId: string) => {
     setApprovingProposalId(proposalId);
-    await supabase.from("agent_proposals").update({ status: "approved" }).eq("id", proposalId);
+    await (supabase as any).from("agent_proposals").update({ status: "approved" }).eq("id", proposalId);
     setAgentProposals(prev => prev.filter(p => p.id !== proposalId));
     setApprovingProposalId(null);
   };
 
   const handleRejectProposal = async (proposalId: string) => {
-    await supabase.from("agent_proposals").update({ status: "rejected" }).eq("id", proposalId);
+    await (supabase as any).from("agent_proposals").update({ status: "rejected" }).eq("id", proposalId);
     setAgentProposals(prev => prev.filter(p => p.id !== proposalId));
   };
 
@@ -3469,7 +3469,7 @@ ${priorBlock}`;
                     <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.2)" }}>{MARKETING_TEAM.length} agentes</span>
                   </div>
 
-                  <div className="grid grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 sm:gap-4">
                     {MARKETING_TEAM.map((agent, i) => {
                       const task = client.agentTasks[agent.id];
                       const isWorking = task?.status === "trabalhando";
