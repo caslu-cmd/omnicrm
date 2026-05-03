@@ -571,25 +571,94 @@ export default function ClientWorkspace() {
   const [videoPlatform, setVideoPlatform] = useState<string>("reels");
   const [videoScript, setVideoScript] = useState("");
   const [videoFile, setVideoFile] = useState<File | null>(null);
-  // AIRA — ouvir reunião
-  const AIRA_API_URL = (typeof window !== "undefined" && localStorage.getItem("aira-api-url")) || "http://127.0.0.1:8700";
+  // AIRA — ouvir reunião (captura no browser, transcreve via IA, envia WhatsApp)
+  type AiraPerson = { name: string; phone: string };
   const [airaStatus, setAiraStatus] = useState<"idle" | "recording" | "paused" | "loading" | "done">("idle");
-  const [airaTranscript, setAiraTranscript] = useState<string[]>([]);
   const [airaSummary, setAiraSummary] = useState<string | null>(null);
   const [airaError, setAiraError] = useState<string | null>(null);
-  const [airaDemoMode, setAiraDemoMode] = useState(false);
-  const airaTranscriptRef = useRef<HTMLDivElement>(null);
-  const airaPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const airaDemoCounterRef = useRef(0);
+  const [airaElapsed, setAiraElapsed] = useState(0);
+  const [airaShowSetup, setAiraShowSetup] = useState(false);
+  const [airaMeetingTitle, setAiraMeetingTitle] = useState("");
+  const [airaLuana, setAiraLuana] = useState<AiraPerson>(() => {
+    try { return JSON.parse(localStorage.getItem("aira-luana") || "") || { name: "Luana", phone: "" }; }
+    catch { return { name: "Luana", phone: "" }; }
+  });
+  const [airaParticipants, setAiraParticipants] = useState<AiraPerson[]>(() => {
+    try { return JSON.parse(localStorage.getItem(`aira-participants-${id}`) || "[]"); } catch { return []; }
+  });
+  const airaRecorderRef = useRef<MediaRecorder | null>(null);
+  const airaChunksRef = useRef<Blob[]>([]);
+  const airaStreamRef = useRef<MediaStream | null>(null);
+  const airaTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const airaSafeFetch = async (path: string, init?: RequestInit) => {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 2500);
+  const airaSaveLuana = (l: AiraPerson) => { setAiraLuana(l); localStorage.setItem("aira-luana", JSON.stringify(l)); };
+  const airaSaveParticipants = (p: AiraPerson[]) => { setAiraParticipants(p); localStorage.setItem(`aira-participants-${id}`, JSON.stringify(p)); };
+
+  const airaStartRecording = async () => {
+    setAiraError(null);
     try {
-      const r = await fetch(`${AIRA_API_URL}${path}`, { ...init, signal: ctrl.signal });
-      return r;
-    } finally { clearTimeout(t); }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      airaStreamRef.current = stream;
+      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm";
+      const rec = new MediaRecorder(stream, { mimeType: mime });
+      airaChunksRef.current = [];
+      rec.ondataavailable = (e) => { if (e.data.size > 0) airaChunksRef.current.push(e.data); };
+      rec.start(1000);
+      airaRecorderRef.current = rec;
+      setAiraStatus("recording");
+      setAiraElapsed(0);
+      airaTimerRef.current = setInterval(() => setAiraElapsed(s => s + 1), 1000);
+    } catch (e: any) {
+      setAiraError("Não foi possível acessar o microfone. Verifique as permissões do navegador.");
+      setAiraStatus("idle");
+    }
   };
+
+  const airaStopRecording = (): Promise<Blob> => new Promise((resolve) => {
+    const rec = airaRecorderRef.current;
+    if (!rec) return resolve(new Blob());
+    rec.onstop = () => {
+      const blob = new Blob(airaChunksRef.current, { type: rec.mimeType });
+      airaStreamRef.current?.getTracks().forEach(t => t.stop());
+      if (airaTimerRef.current) clearInterval(airaTimerRef.current);
+      resolve(blob);
+    };
+    if (rec.state !== "inactive") rec.stop();
+  });
+
+  const blobToBase64 = (blob: Blob): Promise<string> => new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onloadend = () => { const s = r.result as string; resolve(s.split(",")[1] || ""); };
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
+
+  const airaFinalize = async () => {
+    setAiraStatus("loading");
+    try {
+      const blob = await airaStopRecording();
+      if (blob.size < 500) { setAiraError("Áudio muito curto."); setAiraStatus("idle"); return; }
+      const audioBase64 = await blobToBase64(blob);
+      const { data, error } = await supabase.functions.invoke("aira-meeting", {
+        body: {
+          audioBase64,
+          audioMime: blob.type,
+          clientName: client?.name,
+          meetingTitle: airaMeetingTitle || `Reunião ${new Date().toLocaleString("pt-BR")}`,
+          luana: airaLuana.phone ? airaLuana : null,
+          participants: airaParticipants.filter(p => p.phone),
+        },
+      });
+      if (error) throw error;
+      setAiraSummary(data?.summary || "Resumo não disponível.");
+      setAiraStatus("done");
+    } catch (e: any) {
+      setAiraError("Erro ao processar a reunião: " + (e?.message || e));
+      setAiraStatus("idle");
+    }
+  };
+
+  const fmtTime = (s: number) => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
   const [videoFileUrl, setVideoFileUrl] = useState<string | null>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const [designerTask, setDesignerTask] = useState<{prompt: string; progress: number; startedAt: number; estimatedSeconds: number} | null>(null);
@@ -2567,17 +2636,17 @@ ${priorBlock}`;
                     <div className="flex items-center gap-2">
                       {/* Botão Nova reunião */}
                       {airaStatus === "done" && (
-                        <button onClick={() => { setAiraStatus("idle"); setAiraSummary(null); setAiraTranscript([]); }}
+                        <button onClick={() => { setAiraStatus("idle"); setAiraSummary(null); setAiraElapsed(0); }}
                           className="text-xs px-3 py-1.5 rounded-lg transition-all"
                           style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.08)" }}>
                           Nova reunião
                         </button>
                       )}
 
-                      {/* Botão Pausar */}
                       {airaStatus === "recording" && (
-                        <button onClick={async () => {
-                          if (!airaDemoMode) { try { await airaSafeFetch("/reuniao/pausar", { method: "POST" }); } catch {} }
+                        <button onClick={() => {
+                          try { airaRecorderRef.current?.pause(); } catch {}
+                          if (airaTimerRef.current) clearInterval(airaTimerRef.current);
                           setAiraStatus("paused");
                         }}
                           className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all"
@@ -2586,10 +2655,10 @@ ${priorBlock}`;
                         </button>
                       )}
 
-                      {/* Botão Continuar */}
                       {airaStatus === "paused" && (
-                        <button onClick={async () => {
-                          if (!airaDemoMode) { try { await airaSafeFetch("/reuniao/continuar", { method: "POST" }); } catch {} }
+                        <button onClick={() => {
+                          try { airaRecorderRef.current?.resume(); } catch {}
+                          airaTimerRef.current = setInterval(() => setAiraElapsed(s => s + 1), 1000);
                           setAiraStatus("recording");
                         }}
                           className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all"
@@ -2598,76 +2667,33 @@ ${priorBlock}`;
                         </button>
                       )}
 
-                      {/* Botão Parar (encerra e gera resumo) */}
                       {(airaStatus === "recording" || airaStatus === "paused") && (
-                        <button onClick={async () => {
-                          if (airaPollRef.current) clearInterval(airaPollRef.current);
-                          setAiraStatus("loading");
-                          if (airaDemoMode) {
-                            setTimeout(() => {
-                              setAiraSummary("📝 Resumo (modo demo)\n\n• Discussão de pontos da reunião\n• Próximos passos definidos\n• Responsáveis atribuídos\n\nConfigure a URL da secretária para resumos reais.");
-                              setAiraStatus("done");
-                            }, 1200);
-                            return;
-                          }
-                          try {
-                            const r = await airaSafeFetch("/reuniao/encerrar", { method: "POST" });
-                            const d = await r.json();
-                            setAiraSummary(d.resposta);
-                            setAiraStatus("done");
-                          } catch {
-                            setAiraError("Erro ao encerrar a reunião.");
-                            setAiraStatus("idle");
-                          }
-                        }}
+                        <button onClick={airaFinalize}
                           className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all"
                           style={{ background: "rgba(239,68,68,0.12)", color: "#EF4444", border: "1px solid rgba(239,68,68,0.3)" }}>
-                          <StopCircle className="w-4 h-4" /> Parar
+                          <StopCircle className="w-4 h-4" /> Parar e enviar
                         </button>
                       )}
 
-                      {/* Botão Ouvir Reunião (idle ou loading) */}
                       {(airaStatus === "idle" || airaStatus === "loading") && (
                         <button
                           disabled={airaStatus === "loading"}
-                          onClick={async () => {
-                            setAiraError(null);
-                            setAiraStatus("loading");
-                            setAiraTranscript([]);
-                            setAiraSummary(null);
-                            airaDemoCounterRef.current = 0;
-                            try {
-                              await airaSafeFetch("/reuniao/iniciar", { method: "POST" });
-                              setAiraDemoMode(false);
-                              setAiraStatus("recording");
-                              airaPollRef.current = setInterval(async () => {
-                                try {
-                                  const r = await airaSafeFetch("/reuniao/status");
-                                  const d = await r.json();
-                                  if (d.falas_captadas > 0)
-                                    setAiraTranscript(t => t.length < d.falas_captadas ? [...t, `${d.falas_captadas} fala(s) captada(s)`] : t);
-                                } catch {}
-                              }, 10000);
-                            } catch {
-                              // Fallback: modo demo (servidor local indisponível)
-                              setAiraDemoMode(true);
-                              setAiraStatus("recording");
-                              setAiraError("Modo demo ativo — servidor da secretária offline em " + AIRA_API_URL + ".");
-                              airaPollRef.current = setInterval(() => {
-                                airaDemoCounterRef.current += 1;
-                                setAiraTranscript(t => [...t, `${airaDemoCounterRef.current} fala(s) captada(s) (demo)`]);
-                              }, 4000);
-                            }
-                          }}
+                          onClick={() => setAiraShowSetup(true)}
                           className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
                           style={{ background: "#B9FF4B", color: "#07080A", boxShadow: "0 0 20px -4px rgba(185,255,75,0.4)" }}>
                           {airaStatus === "loading"
-                            ? <><RefreshCw className="w-4 h-4 animate-spin" /> Conectando</>
+                            ? <><RefreshCw className="w-4 h-4 animate-spin" /> Processando</>
                             : <><Mic className="w-4 h-4" /> Ouvir Reunião</>}
                         </button>
                       )}
                     </div>
                   </div>
+
+                  {(airaStatus === "recording" || airaStatus === "paused") && (
+                    <div className="px-6 pt-3 text-center text-xs font-mono" style={{ color: airaStatus === "paused" ? "#F59E0B" : "#EF4444" }}>
+                      {fmtTime(airaElapsed)}
+                    </div>
+                  )}
 
                   {/* Área de gravação ao vivo */}
                   {(airaStatus === "recording" || airaStatus === "paused") && (
@@ -2736,6 +2762,66 @@ ${priorBlock}`;
                     </div>
                   )}
                 </motion.div>
+
+                {/* Modal de setup AIRA */}
+                {airaShowSetup && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }} onClick={() => setAiraShowSetup(false)}>
+                    <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg rounded-2xl overflow-hidden" style={{ background: "#0F1014", border: "1px solid rgba(185,255,75,0.2)" }}>
+                      <div className="px-6 py-4 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+                        <h3 className="text-base font-bold" style={{ color: "#F0F0F0" }}>Quem deve receber o resumo?</h3>
+                        <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>A AIRA vai gravar pelo microfone do seu computador e enviar o resumo no WhatsApp.</p>
+                      </div>
+                      <div className="px-6 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
+                        <div>
+                          <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.4)" }}>Título da reunião (opcional)</label>
+                          <input value={airaMeetingTitle} onChange={(e) => setAiraMeetingTitle(e.target.value)} placeholder="Ex: Alinhamento estratégico"
+                            className="w-full mt-1 px-3 py-2 rounded-lg text-sm" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#F0F0F0" }} />
+                        </div>
+                        <div className="rounded-xl p-3" style={{ background: "rgba(185,255,75,0.04)", border: "1px solid rgba(185,255,75,0.15)" }}>
+                          <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#B9FF4B" }}>Luana — Orquestradora dos Agentes</label>
+                          <div className="grid grid-cols-2 gap-2 mt-2">
+                            <input value={airaLuana.name} onChange={(e) => airaSaveLuana({ ...airaLuana, name: e.target.value })} placeholder="Nome"
+                              className="px-3 py-2 rounded-lg text-sm" style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", color: "#F0F0F0" }} />
+                            <input value={airaLuana.phone} onChange={(e) => airaSaveLuana({ ...airaLuana, phone: e.target.value.replace(/\D/g,"") })} placeholder="WhatsApp (5511...)"
+                              className="px-3 py-2 rounded-lg text-sm font-mono" style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", color: "#F0F0F0" }} />
+                          </div>
+                        </div>
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.4)" }}>Outros participantes</label>
+                            <button onClick={() => airaSaveParticipants([...airaParticipants, { name: "", phone: "" }])}
+                              className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B" }}>+ Adicionar</button>
+                          </div>
+                          <div className="space-y-2">
+                            {airaParticipants.length === 0 && <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Nenhum participante. Apenas a Luana receberá.</p>}
+                            {airaParticipants.map((p, i) => (
+                              <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
+                                <input value={p.name} onChange={(e) => { const c = [...airaParticipants]; c[i] = { ...c[i], name: e.target.value }; airaSaveParticipants(c); }} placeholder="Nome"
+                                  className="px-3 py-2 rounded-lg text-sm" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#F0F0F0" }} />
+                                <input value={p.phone} onChange={(e) => { const c = [...airaParticipants]; c[i] = { ...c[i], phone: e.target.value.replace(/\D/g,"") }; airaSaveParticipants(c); }} placeholder="5511..."
+                                  className="px-3 py-2 rounded-lg text-sm font-mono" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#F0F0F0" }} />
+                                <button onClick={() => airaSaveParticipants(airaParticipants.filter((_, idx) => idx !== i))}
+                                  className="px-2 py-2 rounded-lg text-xs" style={{ color: "#F87171", background: "rgba(239,68,68,0.08)" }}>✕</button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                          💡 Formato internacional sem símbolos. Ex: <code>5511987654321</code>
+                        </p>
+                      </div>
+                      <div className="px-6 py-4 flex justify-end gap-2 border-t" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+                        <button onClick={() => setAiraShowSetup(false)} className="px-4 py-2 text-sm rounded-lg" style={{ color: "rgba(255,255,255,0.5)" }}>Cancelar</button>
+                        <button onClick={() => { setAiraShowSetup(false); airaStartRecording(); }}
+                          disabled={!airaLuana.phone}
+                          className="px-4 py-2 text-sm font-semibold rounded-lg disabled:opacity-40"
+                          style={{ background: "#B9FF4B", color: "#07080A" }}>
+                          <Mic className="w-4 h-4 inline mr-1" /> Começar a ouvir
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* ── Conversa do Time ── */}
                 {agentConversations.length > 0 && (
