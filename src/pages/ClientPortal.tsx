@@ -15,7 +15,7 @@ import { useClients } from "@/contexts/ClientsContext";
 
 // ── Agent team displayed in portal ───────────────────────────
 const PORTAL_TEAM = [
-  { id: "aria",       name: "ARIA",     role: "Orquestradora Geral",      initial: "A",  color: "#B9FF4B" },
+  { id: "aria",       name: "Luana",    role: "Orquestradora Geral",      initial: "Lu", color: "#B9FF4B" },
   { id: "strategist", name: "Queila",   role: "Estrategista-Chefe",       initial: "Q",  color: "#FBBF24" },
   { id: "copywriter", name: "Beatriz",  role: "Copywriter",               initial: "B",  color: "#A78BFA" },
   { id: "designer",   name: "Carolina", role: "Designer",                 initial: "C",  color: "#D946EF" },
@@ -806,7 +806,7 @@ export default function ClientPortal() {
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm font-bold" style={{ color: "#111" }}>ARIA</span>
+                    <span className="text-sm font-bold" style={{ color: "#111" }}>Luana</span>
                     <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
                       style={{ background: "rgba(185,255,75,0.2)", color: "#3a6e00" }}>
                       Orquestradora Geral
