@@ -572,7 +572,7 @@ export default function ClientWorkspace() {
   const [videoScript, setVideoScript] = useState("");
   const [videoFile, setVideoFile] = useState<File | null>(null);
   // AIRA — ouvir reunião
-  const [airaStatus, setAiraStatus] = useState<"idle" | "recording" | "loading" | "done">("idle");
+  const [airaStatus, setAiraStatus] = useState<"idle" | "recording" | "paused" | "loading" | "done">("idle");
   const [airaTranscript, setAiraTranscript] = useState<string[]>([]);
   const [airaSummary, setAiraSummary] = useState<string | null>(null);
   const [airaError, setAiraError] = useState<string | null>(null);
@@ -2546,12 +2546,14 @@ ${priorBlock}`;
                         <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>
                           {airaStatus === "idle" && "Escuta a reunião e gera resumo no WhatsApp"}
                           {airaStatus === "loading" && "Processando..."}
-                          {airaStatus === "recording" && "Ao vivo — clique em Encerrar quando terminar"}
+                          {airaStatus === "recording" && "Ao vivo — ouvindo a reunião"}
+                          {airaStatus === "paused" && "Pausado — retome quando quiser"}
                           {airaStatus === "done" && "Resumo enviado para o WhatsApp ✓"}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      {/* Botão Nova reunião */}
                       {airaStatus === "done" && (
                         <button onClick={() => { setAiraStatus("idle"); setAiraSummary(null); setAiraTranscript([]); }}
                           className="text-xs px-3 py-1.5 rounded-lg transition-all"
@@ -2559,11 +2561,56 @@ ${priorBlock}`;
                           Nova reunião
                         </button>
                       )}
-                      <button
-                        disabled={airaStatus === "loading" || airaStatus === "done"}
-                        onClick={async () => {
-                          setAiraError(null);
-                          if (airaStatus === "idle") {
+
+                      {/* Botão Pausar */}
+                      {airaStatus === "recording" && (
+                        <button onClick={async () => {
+                          try { await fetch("http://127.0.0.1:8700/reuniao/pausar", { method: "POST" }); setAiraStatus("paused"); } catch {}
+                        }}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all"
+                          style={{ background: "rgba(245,158,11,0.12)", color: "#F59E0B", border: "1px solid rgba(245,158,11,0.3)" }}>
+                          ⏸ Pausar
+                        </button>
+                      )}
+
+                      {/* Botão Continuar */}
+                      {airaStatus === "paused" && (
+                        <button onClick={async () => {
+                          try { await fetch("http://127.0.0.1:8700/reuniao/continuar", { method: "POST" }); setAiraStatus("recording"); } catch {}
+                        }}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all"
+                          style={{ background: "rgba(185,255,75,0.12)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.3)" }}>
+                          ▶ Continuar
+                        </button>
+                      )}
+
+                      {/* Botão Parar (encerra e gera resumo) */}
+                      {(airaStatus === "recording" || airaStatus === "paused") && (
+                        <button onClick={async () => {
+                          if (airaPollRef.current) clearInterval(airaPollRef.current);
+                          setAiraStatus("loading");
+                          try {
+                            const r = await fetch("http://127.0.0.1:8700/reuniao/encerrar", { method: "POST" });
+                            const d = await r.json();
+                            setAiraSummary(d.resposta);
+                            setAiraStatus("done");
+                          } catch {
+                            setAiraError("Erro ao encerrar a reunião.");
+                            setAiraStatus("idle");
+                          }
+                        }}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all"
+                          style={{ background: "rgba(239,68,68,0.12)", color: "#EF4444", border: "1px solid rgba(239,68,68,0.3)" }}>
+                          <StopCircle className="w-4 h-4" /> Parar
+                        </button>
+                      )}
+
+                      {/* Botão Ouvir Reunião (idle ou loading) */}
+                      {(airaStatus === "idle" || airaStatus === "loading") && (
+                        <button
+                          disabled={airaStatus === "loading"}
+                          onClick={async () => {
+                            setAiraError(null);
                             setAiraStatus("loading");
                             try {
                               await fetch("http://127.0.0.1:8700/reuniao/iniciar", { method: "POST" });
@@ -2582,53 +2629,47 @@ ${priorBlock}`;
                               setAiraError("API indisponível. Verifique se a secretária está rodando em 127.0.0.1:8700.");
                               setAiraStatus("idle");
                             }
-                          } else if (airaStatus === "recording") {
-                            if (airaPollRef.current) clearInterval(airaPollRef.current);
-                            setAiraStatus("loading");
-                            try {
-                              const r = await fetch("http://127.0.0.1:8700/reuniao/encerrar", { method: "POST" });
-                              const d = await r.json();
-                              setAiraSummary(d.resposta);
-                              setAiraStatus("done");
-                            } catch {
-                              setAiraError("Erro ao encerrar a reunião.");
-                              setAiraStatus("idle");
-                            }
-                          }
-                        }}
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
-                        style={{
-                          background: airaStatus === "recording" ? "rgba(239,68,68,0.15)" : airaStatus === "loading" ? "rgba(185,255,75,0.15)" : "#B9FF4B",
-                          color: airaStatus === "recording" ? "#EF4444" : airaStatus === "loading" ? "#B9FF4B" : "#07080A",
-                          border: airaStatus === "recording" ? "1px solid rgba(239,68,68,0.3)" : airaStatus === "loading" ? "1px solid rgba(185,255,75,0.2)" : "none",
-                          boxShadow: airaStatus === "idle" ? "0 0 20px -4px rgba(185,255,75,0.4)" : "none",
-                        }}>
-                        {airaStatus === "loading"
-                          ? <><RefreshCw className="w-4 h-4 animate-spin" /> Processando</>
-                          : airaStatus === "recording"
-                          ? <><StopCircle className="w-4 h-4" /> Encerrar</>
-                          : <><Mic className="w-4 h-4" /> Ouvir Reunião</>}
-                      </button>
+                          }}
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
+                          style={{ background: "#B9FF4B", color: "#07080A", boxShadow: "0 0 20px -4px rgba(185,255,75,0.4)" }}>
+                          {airaStatus === "loading"
+                            ? <><RefreshCw className="w-4 h-4 animate-spin" /> Conectando</>
+                            : <><Mic className="w-4 h-4" /> Ouvir Reunião</>}
+                        </button>
+                      )}
                     </div>
                   </div>
 
                   {/* Área de gravação ao vivo */}
-                  {airaStatus === "recording" && (
+                  {(airaStatus === "recording" || airaStatus === "paused") && (
                     <div className="px-6 py-8 flex flex-col items-center gap-5"
-                      style={{ background: "rgba(239,68,68,0.03)" }}>
+                      style={{ background: airaStatus === "paused" ? "rgba(245,158,11,0.03)" : "rgba(239,68,68,0.03)" }}>
                       {/* Waveform */}
                       <div className="flex items-end gap-1" style={{ height: 48 }}>
                         {[18,28,38,44,48,44,38,28,18].map((h, i) => (
-                          <div key={i} className="aira-bar rounded-full"
-                            style={{ width: 5, height: h, background: "linear-gradient(to top, #EF4444, #FCA5A5)", opacity: 0.85 }} />
+                          <div key={i}
+                            className={airaStatus === "recording" ? "aira-bar rounded-full" : "rounded-full"}
+                            style={{ width: 5, height: airaStatus === "paused" ? 8 : h, background: airaStatus === "paused" ? "linear-gradient(to top, #F59E0B, #FCD34D)" : "linear-gradient(to top, #EF4444, #FCA5A5)", opacity: 0.85, transition: "height 0.3s ease" }} />
                         ))}
                       </div>
                       {/* Texto */}
                       <div className="text-center">
-                        <p className="text-lg font-bold mb-1" style={{ color: "#EF4444" }}>Estou ouvindo...</p>
-                        <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
-                          A AIRA está captando tudo. Quando a reunião terminar, clique em <strong style={{ color: "rgba(255,255,255,0.5)" }}>Encerrar</strong> para receber o resumo no WhatsApp.
-                        </p>
+                        {airaStatus === "recording" && (
+                          <>
+                            <p className="text-lg font-bold mb-1" style={{ color: "#EF4444" }}>Estou ouvindo...</p>
+                            <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
+                              A AIRA está captando tudo. Use <strong style={{ color: "rgba(255,255,255,0.5)" }}>Pausar</strong> para interromper ou <strong style={{ color: "rgba(255,255,255,0.5)" }}>Parar</strong> para encerrar e gerar o resumo.
+                            </p>
+                          </>
+                        )}
+                        {airaStatus === "paused" && (
+                          <>
+                            <p className="text-lg font-bold mb-1" style={{ color: "#F59E0B" }}>Pausado</p>
+                            <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
+                              Gravação em pausa. Clique em <strong style={{ color: "rgba(255,255,255,0.5)" }}>Continuar</strong> para retomar ou <strong style={{ color: "rgba(255,255,255,0.5)" }}>Parar</strong> para encerrar.
+                            </p>
+                          </>
+                        )}
                       </div>
                     </div>
                   )}
