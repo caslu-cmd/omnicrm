@@ -105,9 +105,9 @@ const MARKETING_TEAM = [
   },
   {
     id: "designer",
-    name: "Carolina",
+    name: "Marcela",
     role: "Designer",
-    initial: "C",
+    initial: "M",
     skill: "Visual · Social Media · Motion",
     color: "#D946EF",
     description: "Cria peças visuais, templates e identidade visual nas redes",
@@ -681,7 +681,7 @@ export default function ClientWorkspace() {
   const [wpBlastResult, setWpBlastResult] = useState<string | null>(null);
   const [generatedImages, setGeneratedImages] = useState<Array<{id: string, imageData: string, mimeType: string, prompt: string, createdAt: string}>>([]);
   const [marcelaLoading, setMarcelaLoading] = useState(false);
-  const [marcelaError, setIsadoraError] = useState<string | null>(null);
+  const [marcelaError, setMarcelaError] = useState<string | null>(null);
   const [designAspectRatio, setDesignAspectRatio] = useState<"1:1" | "9:16" | "16:9" | "4:3" | "3:4">("1:1");
   const [videoPlatform, setVideoPlatform] = useState<string>("reels");
   const [videoScript, setVideoScript] = useState("");
@@ -1561,7 +1561,7 @@ ${priorBlock}`;
     const direction = agentInstruction.trim();
     setAgentInstruction("");
     setMarcelaLoading(true);
-    setIsadoraError(null);
+    setMarcelaError(null);
     const taskLabel = direction || "Carolina criando autonomamente...";
     const ESTIMATED = 35;
     const startedAt = Date.now();
@@ -1609,7 +1609,7 @@ ${priorBlock}`;
       if (designerIntervalRef.current) clearInterval(designerIntervalRef.current);
       setDesignerTask(null);
       const msg = err instanceof Error ? `${err.name}: ${err.message}` : JSON.stringify(err);
-      setIsadoraError(msg);
+      setMarcelaError(msg);
     } finally {
       setMarcelaLoading(false);
     }
