@@ -1753,13 +1753,14 @@ ${priorBlock}`;
     <div className="min-h-full flex flex-col text-white" style={{ background: "#080810" }}>
 
       {/* ── Top info bar ── */}
-      <div className="flex items-center gap-4 px-8 py-3 flex-shrink-0"
+      {/* ── Top info bar ── */}
+      <div className="flex items-center gap-2 sm:gap-4 px-4 sm:px-8 py-3 flex-shrink-0 flex-wrap"
         style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(8,8,16,0.95)" }}>
-        <div className="flex items-center gap-4 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
-          <div className="flex items-center gap-1.5"><Instagram className="w-3.5 h-3.5" /> {client.followers.instagram}</div>
-          <div className="flex items-center gap-1.5"><Facebook className="w-3.5 h-3.5" /> {client.followers.facebook}</div>
+        <div className="flex items-center gap-3 sm:gap-4 text-xs flex-wrap" style={{ color: "rgba(255,255,255,0.35)" }}>
+          <div className="flex items-center gap-1.5 whitespace-nowrap"><Instagram className="w-3.5 h-3.5" /> {client.followers.instagram}</div>
+          <div className="flex items-center gap-1.5 whitespace-nowrap"><Facebook className="w-3.5 h-3.5" /> {client.followers.facebook}</div>
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2 flex-wrap">
           <button
             onClick={() => setShowClearConfirm(true)}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
