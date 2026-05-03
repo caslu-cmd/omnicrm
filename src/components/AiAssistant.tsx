@@ -102,7 +102,7 @@ const AiAssistant = () => {
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full transition-all"
+            className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full transition-all"
             style={{ background: "#B9FF4B", color: "#07080A", boxShadow: "0 0 24px -4px rgba(185,255,75,0.55), 0 4px 16px rgba(0,0,0,0.4)" }}
           >
             <Sparkles className="h-6 w-6" />
@@ -120,8 +120,8 @@ const AiAssistant = () => {
             className={cn(
               "fixed z-50 flex flex-col rounded-2xl overflow-hidden",
               isExpanded
-                ? "bottom-4 right-4 left-4 top-4 sm:left-auto sm:w-[560px] sm:top-4"
-                : "bottom-6 right-6 w-[400px] h-[560px]"
+                ? "bottom-2 right-2 left-2 top-2 sm:left-auto sm:w-[560px] sm:bottom-4 sm:right-4 sm:top-4"
+                : "bottom-20 md:bottom-6 right-3 md:right-6 left-3 md:left-auto sm:left-auto sm:w-[400px] h-[70vh] sm:h-[560px]"
             )}
             style={{ background: "#0C0D0F", border: "1px solid rgba(185,255,75,0.14)", boxShadow: "0 24px 64px -8px rgba(0,0,0,0.8)" }}
           >

@@ -73,18 +73,18 @@ const SitesPage = () => {
   };
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="p-6 space-y-6 h-full flex flex-col">
-      <motion.div variants={item} className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold font-display text-foreground">Sites & Landing Pages</h1>
-          <p className="text-sm text-muted-foreground mt-1">{sites.length} páginas · {sites.reduce((a, b) => a + b.visits, 0).toLocaleString()} visitas total</p>
+    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-4 md:space-y-6 h-full flex flex-col">
+      <motion.div variants={item} className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-xl md:text-2xl font-bold font-display text-foreground">Sites & Landing Pages</h1>
+          <p className="text-xs md:text-sm text-muted-foreground mt-1">{sites.length} páginas · {sites.reduce((a, b) => a + b.visits, 0).toLocaleString()} visitas</p>
         </div>
-        <button onClick={() => setTab("templates")} className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">
-          <Plus className="h-4 w-4" /> Nova Página
+        <button onClick={() => setTab("templates")} className="flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 rounded-lg bg-primary text-primary-foreground text-xs md:text-sm font-medium hover:bg-primary/90 flex-shrink-0">
+          <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Nova Página</span><span className="sm:hidden">Nova</span>
         </button>
       </motion.div>
 
-      <motion.div variants={item} className="flex gap-1 bg-muted rounded-lg p-1 w-fit">
+      <motion.div variants={item} className="flex gap-1 bg-muted rounded-lg p-1 w-full sm:w-fit overflow-x-auto scrollbar-thin">
         {[{ key: "sites", label: "Minhas Páginas" }, { key: "templates", label: "Templates" }, { key: "editor", label: "Editor" }].map(t => (
           <button key={t.key} onClick={() => setTab(t.key as typeof tab)} className={cn("px-4 py-2 rounded-md text-sm font-medium transition-colors", tab === t.key ? "bg-card text-foreground shadow-card" : "text-muted-foreground hover:text-foreground")}>
             {t.label}
@@ -149,9 +149,9 @@ const SitesPage = () => {
       )}
 
       {tab === "editor" && (
-        <div className="flex-1 flex gap-4 min-h-0">
+        <div className="flex-1 flex flex-col lg:flex-row gap-4 min-h-0">
           {/* Blocks Panel */}
-          <div className="w-56 rounded-xl border border-border bg-card shadow-card p-4 space-y-3 overflow-y-auto scrollbar-thin">
+          <div className="w-full lg:w-56 rounded-xl border border-border bg-card shadow-card p-4 space-y-3 overflow-y-auto scrollbar-thin">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Blocos</h3>
             <div className="grid grid-cols-2 gap-2">
               {editorBlocks.map(b => (
@@ -179,15 +179,15 @@ const SitesPage = () => {
               </div>
             </div>
             <div className="flex-1 flex items-start justify-center p-8 overflow-auto bg-muted/20">
-              <div className={cn("bg-card rounded-lg shadow-elevated border border-border transition-all overflow-hidden", device === "desktop" ? "w-full max-w-4xl" : device === "tablet" ? "w-[768px]" : "w-[375px]")}>
+              <div className={cn("bg-card rounded-lg shadow-elevated border border-border transition-all overflow-hidden", device === "desktop" ? "w-full max-w-4xl" : device === "tablet" ? "w-full max-w-[768px]" : "w-full max-w-[375px]")}>
                 {/* Simulated page */}
                 <div className="bg-primary p-12 text-center">
                   <h2 className="text-2xl font-bold font-display text-primary-foreground mb-2">Black Friday 2026 🔥</h2>
                   <p className="text-primary-foreground/80 text-sm mb-6">Até 60% de desconto em todos os planos</p>
                   <button onClick={() => toast.success("CTA clicado!")} className="px-6 py-3 rounded-lg bg-accent text-accent-foreground font-semibold text-sm">Aproveitar Agora</button>
                 </div>
-                <div className="p-8 space-y-6">
-                  <div className="grid grid-cols-3 gap-4">
+                <div className="p-4 md:p-8 space-y-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     {["✨ Inbox Ilimitado", "🚀 Automações Pro", "📊 Relatórios Full"].map(f => (
                       <div key={f} className="p-4 rounded-lg bg-muted text-center text-sm font-medium text-foreground">{f}</div>
                     ))}

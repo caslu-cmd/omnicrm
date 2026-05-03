@@ -171,11 +171,11 @@ const HelpPage = () => {
 
       {tab === "partners" && (
         <div className="space-y-6">
-          <motion.div variants={item} className="rounded-xl border border-primary/20 bg-primary/5 p-8 shadow-card text-center">
+          <motion.div variants={item} className="rounded-xl border border-primary/20 bg-primary/5 p-5 md:p-8 shadow-card text-center">
             <Award className="h-12 w-12 text-primary mx-auto mb-4" />
             <h2 className="text-xl font-bold font-display text-foreground mb-2">Programa de Parceiros OmniCRM</h2>
             <p className="text-sm text-muted-foreground max-w-lg mx-auto mb-6">Junte-se ao ecossistema de agências, integradores e MSPs que revendem e expandem o OmniCRM para seus clientes.</p>
-            <div className="grid grid-cols-3 gap-4 max-w-md mx-auto mb-6">
+            <div className="grid grid-cols-3 gap-2 md:gap-4 max-w-md mx-auto mb-6">
               {[
                 { label: "Comissão", value: "até 30%" },
                 { label: "Parceiros", value: "120+" },

@@ -122,16 +122,16 @@ const AutomationsPage = () => {
   }
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="p-6 space-y-6 h-full flex flex-col">
-      <motion.div variants={item} className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold font-display text-foreground">Automações</h1>
-          <p className="text-sm text-muted-foreground mt-1">{automations.filter(a => a.status === "active").length} ativas · {automations.reduce((a, b) => a + (b.runs ?? 0), 0).toLocaleString()} execuções total</p>
+    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-4 md:space-y-6 h-full flex flex-col">
+      <motion.div variants={item} className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-xl md:text-2xl font-bold font-display text-foreground">Automações</h1>
+          <p className="text-xs md:text-sm text-muted-foreground mt-1">{automations.filter(a => a.status === "active").length} ativas · {automations.reduce((a, b) => a + (b.runs ?? 0), 0).toLocaleString()} execuções</p>
         </div>
-        <button onClick={() => setTab("builder")} className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"><Plus className="h-4 w-4" /> Nova Automação</button>
+        <button onClick={() => setTab("builder")} className="flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 rounded-lg bg-primary text-primary-foreground text-xs md:text-sm font-medium hover:bg-primary/90 transition-colors flex-shrink-0"><Plus className="h-4 w-4" /> <span className="hidden sm:inline">Nova Automação</span><span className="sm:hidden">Nova</span></button>
       </motion.div>
 
-      <motion.div variants={item} className="flex gap-1 bg-muted rounded-lg p-1 w-fit">
+      <motion.div variants={item} className="flex gap-1 bg-muted rounded-lg p-1 w-full sm:w-fit overflow-x-auto scrollbar-thin">
         {[{ key: "my", label: "Minhas Automações" }, { key: "templates", label: "Templates" }, { key: "builder", label: "Builder Visual" }].map((t) => (
           <button key={t.key} onClick={() => setTab(t.key as typeof tab)} className={cn("px-4 py-2 rounded-md text-sm font-medium transition-colors", tab === t.key ? "bg-card text-foreground shadow-card" : "text-muted-foreground hover:text-foreground")}>{t.label}</button>
         ))}

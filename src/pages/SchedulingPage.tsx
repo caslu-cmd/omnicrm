@@ -95,7 +95,7 @@ const SchedulingPage = () => {
           </motion.div>
 
           <motion.div variants={item} className="rounded-xl border border-border bg-card shadow-card overflow-hidden">
-            <div className="grid grid-cols-5 border-b border-border">
+            <div className="grid grid-cols-5 border-b border-border min-w-[420px]">
               {weekDays.map((d, i) => (
                 <button key={d} onClick={() => setSelectedDay(dates[i])} className={cn("py-3 text-center border-r last:border-r-0 border-border transition-colors", selectedDay === dates[i] ? "bg-primary/5" : "hover:bg-muted/50")}>
                   <p className="text-xs text-muted-foreground">{d}</p>

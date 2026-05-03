@@ -234,9 +234,9 @@ Entregue o calendário completo e detalhado seguindo sua metodologia especializa
         )}
       </div>
 
-      <div className={cn("grid gap-6", result ? "grid-cols-5" : "grid-cols-1 max-w-2xl")}>
+      <div className={cn("grid gap-4 md:gap-6", result ? "grid-cols-1 lg:grid-cols-5" : "grid-cols-1 max-w-2xl")}>
         {/* ── Form ──────────────────────────────────────────── */}
-        <div className={cn("space-y-5", result ? "col-span-2" : "")}>
+        <div className={cn("space-y-5", result ? "lg:col-span-2" : "")}>
           {/* Calendar type */}
           <div
             className="rounded-2xl p-5 space-y-4"

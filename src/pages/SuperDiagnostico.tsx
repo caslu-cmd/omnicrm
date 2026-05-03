@@ -215,7 +215,7 @@ function DiagnosisView({ diagnosis, lead }: { diagnosis: string; lead: LeadData 
             </p>
           </div>
 
-          <div className="grid grid-cols-3 gap-3 py-2">
+          <div className="grid grid-cols-3 gap-2 md:gap-3 py-2">
             {[
               { icon: Zap, label: "Resultados em 30 dias" },
               { icon: Target, label: "Estratégia personalizada" },
