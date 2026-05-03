@@ -572,12 +572,24 @@ export default function ClientWorkspace() {
   const [videoScript, setVideoScript] = useState("");
   const [videoFile, setVideoFile] = useState<File | null>(null);
   // AIRA — ouvir reunião
+  const AIRA_API_URL = (typeof window !== "undefined" && localStorage.getItem("aira-api-url")) || "http://127.0.0.1:8700";
   const [airaStatus, setAiraStatus] = useState<"idle" | "recording" | "paused" | "loading" | "done">("idle");
   const [airaTranscript, setAiraTranscript] = useState<string[]>([]);
   const [airaSummary, setAiraSummary] = useState<string | null>(null);
   const [airaError, setAiraError] = useState<string | null>(null);
+  const [airaDemoMode, setAiraDemoMode] = useState(false);
   const airaTranscriptRef = useRef<HTMLDivElement>(null);
   const airaPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const airaDemoCounterRef = useRef(0);
+
+  const airaSafeFetch = async (path: string, init?: RequestInit) => {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 2500);
+    try {
+      const r = await fetch(`${AIRA_API_URL}${path}`, { ...init, signal: ctrl.signal });
+      return r;
+    } finally { clearTimeout(t); }
+  };
   const [videoFileUrl, setVideoFileUrl] = useState<string | null>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const [designerTask, setDesignerTask] = useState<{prompt: string; progress: number; startedAt: number; estimatedSeconds: number} | null>(null);
@@ -2565,7 +2577,8 @@ ${priorBlock}`;
                       {/* Botão Pausar */}
                       {airaStatus === "recording" && (
                         <button onClick={async () => {
-                          try { await fetch("http://127.0.0.1:8700/reuniao/pausar", { method: "POST" }); setAiraStatus("paused"); } catch {}
+                          if (!airaDemoMode) { try { await airaSafeFetch("/reuniao/pausar", { method: "POST" }); } catch {} }
+                          setAiraStatus("paused");
                         }}
                           className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all"
                           style={{ background: "rgba(245,158,11,0.12)", color: "#F59E0B", border: "1px solid rgba(245,158,11,0.3)" }}>
@@ -2576,7 +2589,8 @@ ${priorBlock}`;
                       {/* Botão Continuar */}
                       {airaStatus === "paused" && (
                         <button onClick={async () => {
-                          try { await fetch("http://127.0.0.1:8700/reuniao/continuar", { method: "POST" }); setAiraStatus("recording"); } catch {}
+                          if (!airaDemoMode) { try { await airaSafeFetch("/reuniao/continuar", { method: "POST" }); } catch {} }
+                          setAiraStatus("recording");
                         }}
                           className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all"
                           style={{ background: "rgba(185,255,75,0.12)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.3)" }}>
@@ -2589,8 +2603,15 @@ ${priorBlock}`;
                         <button onClick={async () => {
                           if (airaPollRef.current) clearInterval(airaPollRef.current);
                           setAiraStatus("loading");
+                          if (airaDemoMode) {
+                            setTimeout(() => {
+                              setAiraSummary("📝 Resumo (modo demo)\n\n• Discussão de pontos da reunião\n• Próximos passos definidos\n• Responsáveis atribuídos\n\nConfigure a URL da secretária para resumos reais.");
+                              setAiraStatus("done");
+                            }, 1200);
+                            return;
+                          }
                           try {
-                            const r = await fetch("http://127.0.0.1:8700/reuniao/encerrar", { method: "POST" });
+                            const r = await airaSafeFetch("/reuniao/encerrar", { method: "POST" });
                             const d = await r.json();
                             setAiraSummary(d.resposta);
                             setAiraStatus("done");
@@ -2612,22 +2633,30 @@ ${priorBlock}`;
                           onClick={async () => {
                             setAiraError(null);
                             setAiraStatus("loading");
+                            setAiraTranscript([]);
+                            setAiraSummary(null);
+                            airaDemoCounterRef.current = 0;
                             try {
-                              await fetch("http://127.0.0.1:8700/reuniao/iniciar", { method: "POST" });
+                              await airaSafeFetch("/reuniao/iniciar", { method: "POST" });
+                              setAiraDemoMode(false);
                               setAiraStatus("recording");
-                              setAiraTranscript([]);
-                              setAiraSummary(null);
                               airaPollRef.current = setInterval(async () => {
                                 try {
-                                  const r = await fetch("http://127.0.0.1:8700/reuniao/status");
+                                  const r = await airaSafeFetch("/reuniao/status");
                                   const d = await r.json();
                                   if (d.falas_captadas > 0)
                                     setAiraTranscript(t => t.length < d.falas_captadas ? [...t, `${d.falas_captadas} fala(s) captada(s)`] : t);
                                 } catch {}
                               }, 10000);
                             } catch {
-                              setAiraError("API indisponível. Verifique se a secretária está rodando em 127.0.0.1:8700.");
-                              setAiraStatus("idle");
+                              // Fallback: modo demo (servidor local indisponível)
+                              setAiraDemoMode(true);
+                              setAiraStatus("recording");
+                              setAiraError("Modo demo ativo — servidor da secretária offline em " + AIRA_API_URL + ".");
+                              airaPollRef.current = setInterval(() => {
+                                airaDemoCounterRef.current += 1;
+                                setAiraTranscript(t => [...t, `${airaDemoCounterRef.current} fala(s) captada(s) (demo)`]);
+                              }, 4000);
                             }
                           }}
                           className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
