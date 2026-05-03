@@ -164,16 +164,16 @@ export default function AgencyDashboard() {
         </motion.div>
 
         {/* ── Section header ── */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <h2 className="text-[11px] font-medium tracking-[0.2em] uppercase"
+        <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+            <h2 className="text-[11px] font-medium tracking-[0.2em] uppercase whitespace-nowrap"
               style={{ color: "rgba(255,255,255,0.35)" }}>Seus Clientes</h2>
-            <div className="h-px w-20" style={{ background: "rgba(185,255,75,0.15)" }} />
-            <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.2)" }}>{CLIENTS.length} clientes</span>
+            <div className="hidden sm:block h-px w-20" style={{ background: "rgba(185,255,75,0.15)" }} />
+            <span className="text-[11px] whitespace-nowrap" style={{ color: "rgba(255,255,255,0.2)" }}>{CLIENTS.length} clientes</span>
           </div>
           <button
             onClick={() => setShowNewClient(true)}
-            className="flex items-center gap-1.5 text-xs font-medium transition-colors"
+            className="flex items-center gap-1.5 text-xs font-medium transition-colors whitespace-nowrap"
             style={{ color: "rgba(185,255,75,0.5)" }}
             onMouseEnter={(e) => (e.currentTarget.style.color = LIME)}
             onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(185,255,75,0.5)")}>
