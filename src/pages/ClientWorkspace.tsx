@@ -572,12 +572,24 @@ export default function ClientWorkspace() {
   const [videoScript, setVideoScript] = useState("");
   const [videoFile, setVideoFile] = useState<File | null>(null);
   // AIRA — ouvir reunião
+  const AIRA_API_URL = (typeof window !== "undefined" && localStorage.getItem("aira-api-url")) || "http://127.0.0.1:8700";
   const [airaStatus, setAiraStatus] = useState<"idle" | "recording" | "paused" | "loading" | "done">("idle");
   const [airaTranscript, setAiraTranscript] = useState<string[]>([]);
   const [airaSummary, setAiraSummary] = useState<string | null>(null);
   const [airaError, setAiraError] = useState<string | null>(null);
+  const [airaDemoMode, setAiraDemoMode] = useState(false);
   const airaTranscriptRef = useRef<HTMLDivElement>(null);
   const airaPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const airaDemoCounterRef = useRef(0);
+
+  const airaSafeFetch = async (path: string, init?: RequestInit) => {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 2500);
+    try {
+      const r = await fetch(`${AIRA_API_URL}${path}`, { ...init, signal: ctrl.signal });
+      return r;
+    } finally { clearTimeout(t); }
+  };
   const [videoFileUrl, setVideoFileUrl] = useState<string | null>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const [designerTask, setDesignerTask] = useState<{prompt: string; progress: number; startedAt: number; estimatedSeconds: number} | null>(null);
