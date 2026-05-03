@@ -188,7 +188,7 @@ export interface Client {
   teamInstructions?: string;
 }
 
-export const CLIENTS: Client[] = [
+export const CLIENTS: Client[] = [];
   // ── GRUPO LICITA ─────────────────────────────────────────────
   {
     id: "grupo-licita",
