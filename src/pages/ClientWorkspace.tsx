@@ -725,11 +725,19 @@ export default function ClientWorkspace() {
         .upload(audioPath, blob, { contentType: blob.type || "audio/webm" });
       if (uploadError) throw new Error("Erro ao salvar áudio: " + uploadError.message);
 
+      const { data: signedAudio, error: signedAudioError } = await supabase.storage
+        .from("aira-recordings")
+        .createSignedUrl(audioPath, 60 * 10);
+      if (signedAudioError || !signedAudio?.signedUrl) {
+        throw new Error("Erro ao preparar áudio: " + (signedAudioError?.message || "URL indisponível"));
+      }
+
       setAiraLiveText("Transcrevendo e resumindo...");
 
       const { data, error } = await supabase.functions.invoke("aira-meeting", {
         body: {
           audioPath,
+          audioUrl: signedAudio.signedUrl,
           clientName: client?.name,
           meetingTitle: airaMeetingTitle || `Reuniao ${new Date().toLocaleString("pt-BR")}`,
           onlyLuana: airaOnlyLuana,
