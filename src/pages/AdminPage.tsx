@@ -204,7 +204,7 @@ const AdminPage = () => {
           {/* ===== DASHBOARD OVERVIEW ===== */}
           {tab === "overview" && (
             <motion.div variants={item} className="space-y-6">
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                 {[
                   { label: "Clientes White-Label", value: totalClients, icon: Palette, color: "text-primary", sub: "total cadastrados" },
                   { label: "Domínios Ativos", value: activeClients, icon: Globe, color: "text-secondary", sub: "com domínio customizado" },
@@ -231,7 +231,7 @@ const AdminPage = () => {
                     <p className="text-xs text-muted-foreground">Estimativa baseada nos clientes ativos</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:gap-6">
                   <div className="text-center">
                     <p className="text-2xl font-bold text-foreground">R$ {(totalClients * 297).toLocaleString("pt-BR")}</p>
                     <p className="text-xs text-muted-foreground">MRR Estimado</p>
@@ -327,7 +327,7 @@ const AdminPage = () => {
                           )}
                         </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-4 text-xs">
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4 text-xs">
                         <div className="p-3 rounded-lg bg-muted/30">
                           <p className="text-muted-foreground mb-0.5">Domínio</p>
                           <p className="font-medium text-foreground">{wl.custom_domain || "Não configurado"}</p>
@@ -629,7 +629,7 @@ const AdminPage = () => {
                     <p className="text-xs text-muted-foreground">Resumo financeiro dos clientes white-label</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                   {[
                     { label: "Clientes Ativos", value: String(totalClients) },
                     { label: "MRR", value: `R$ ${(totalClients * 297).toLocaleString("pt-BR")}` },
