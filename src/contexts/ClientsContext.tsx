@@ -136,6 +136,8 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
         site:       agentTaskTemplate("Editor de Site"),
         briefing:   agentTaskTemplate("Diagnóstico"),
         revisor:    agentTaskTemplate("Revisora"),
+        calendario: agentTaskTemplate("Calendário Editorial"),
+        video:      agentTaskTemplate("Editor de Vídeo"),
       },
       orchestratorStatus: "idle",
       orchestratorPlan: [
