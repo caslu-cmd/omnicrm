@@ -107,20 +107,20 @@ export default function AgencyDashboard() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3 mt-2">
-            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full"
+          <div className="flex items-center gap-2 flex-wrap mt-2">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full"
               style={{ background: "rgba(185,255,75,0.08)", border: "1px solid rgba(185,255,75,0.22)", boxShadow: "0 0 20px -6px rgba(185,255,75,0.25)" }}>
               <span className="relative flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
                   style={{ background: LIME }} />
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: LIME }} />
               </span>
-              <span className="text-xs" style={{ color: LIME }}>
+              <span className="text-[11px] sm:text-xs whitespace-nowrap" style={{ color: LIME }}>
                 {CLIENTS.filter((c) => c.agentActive).length} agentes online
               </span>
             </div>
             <a href="/landing" target="_blank" rel="noreferrer"
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-opacity hover:opacity-75"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] sm:text-xs font-semibold transition-opacity hover:opacity-75 whitespace-nowrap"
               style={{ background: LIME, color: "#07080A" }}>
               🌐 Ver site
             </a>
