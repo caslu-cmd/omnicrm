@@ -56,7 +56,6 @@ serve(async (req) => {
     }
 
     const summary = await resumirComClaude(transcript, clientName ?? "");
-
     const mensagem = `🎙️ *Resumo da Reunião — AIRA*${clientName ? `\nCliente: ${clientName}` : ""}\n\n${summary}`;
     const zap = await enviarWhatsApp(CAROL_PHONE, mensagem);
 
