@@ -5,24 +5,33 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
-const GROQ_API_KEY      = Deno.env.get("GROQ_API_KEY") ?? "";
-const OPENAI_API_KEY    = Deno.env.get("OPENAI_API_KEY") ?? "";
-const ZAPI_INSTANCE     = Deno.env.get("ZAPI_INSTANCE_ID")  ?? "3EBC0C423ACD4164F09A5A0F11A263D4";
-const ZAPI_TOKEN        = Deno.env.get("ZAPI_TOKEN")        ?? "BA4478E497A2E1C9B499C950";
-const ZAPI_CLIENT       = Deno.env.get("ZAPI_CLIENT_TOKEN") ?? "Fabcb22cf9022425ca4fe8f3a4c91a7e9S";
-const CAROL_PHONE       = Deno.env.get("CAROL_PHONE")       ?? "5585986408404";
+const ANTHROPIC_API_KEY   = Deno.env.get("ANTHROPIC_API_KEY")!;
+const GROQ_API_KEY        = Deno.env.get("GROQ_API_KEY") ?? "";
+const OPENAI_API_KEY      = Deno.env.get("OPENAI_API_KEY") ?? "";
+const SUPABASE_URL        = Deno.env.get("SUPABASE_URL")!;
+const SERVICE_ROLE_KEY    = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const ZAPI_INSTANCE       = Deno.env.get("ZAPI_INSTANCE_ID")  ?? "3EBC0C423ACD4164F09A5A0F11A263D4";
+const ZAPI_TOKEN          = Deno.env.get("ZAPI_TOKEN")        ?? "BA4478E497A2E1C9B499C950";
+const ZAPI_CLIENT         = Deno.env.get("ZAPI_CLIENT_TOKEN") ?? "Fabcb22cf9022425ca4fe8f3a4c91a7e9S";
+const CAROL_PHONE         = Deno.env.get("CAROL_PHONE")       ?? "5585986408404";
 
-async function transcrever(audioBase64: string, audioMime: string): Promise<string> {
+async function transcrever(audioPath: string): Promise<string> {
   const key = GROQ_API_KEY || OPENAI_API_KEY;
-  if (!key) throw new Error("Configure GROQ_API_KEY ou OPENAI_API_KEY nas secrets do Supabase");
+  if (!key) throw new Error("Configure GROQ_API_KEY nas secrets do Supabase");
+
+  // Download audio from Supabase Storage
+  const storageUrl = `${SUPABASE_URL}/storage/v1/object/aira-recordings/${audioPath}`;
+  const fileRes = await fetch(storageUrl, {
+    headers: { "Authorization": `Bearer ${SERVICE_ROLE_KEY}` },
+  });
+  if (!fileRes.ok) throw new Error(`Storage error ${fileRes.status}: ${await fileRes.text()}`);
+  const audioBlob = await fileRes.blob();
+
+  console.log("Audio baixado, tamanho:", audioBlob.size, "bytes");
 
   const url = GROQ_API_KEY
     ? "https://api.groq.com/openai/v1/audio/transcriptions"
     : "https://api.openai.com/v1/audio/transcriptions";
-
-  const audioBytes = Uint8Array.from(atob(audioBase64), c => c.charCodeAt(0));
-  const audioBlob = new Blob([audioBytes], { type: audioMime });
 
   const form = new FormData();
   form.append("file", audioBlob, "audio.webm");
@@ -34,8 +43,9 @@ async function transcrever(audioBase64: string, audioMime: string): Promise<stri
     headers: { "Authorization": `Bearer ${key}` },
     body: form,
   });
-  if (!r.ok) throw new Error(`Transcricao error ${r.status}: ${await r.text()}`);
+  if (!r.ok) throw new Error(`Whisper error ${r.status}: ${await r.text()}`);
   const d = await r.json();
+  console.log("Transcript:", d.text);
   return d.text ?? "";
 }
 
@@ -44,19 +54,23 @@ async function resumirComClaude(transcript: string, clientName: string): Promise
     weekday: "long", year: "numeric", month: "long", day: "numeric",
   });
 
-  const systemPrompt = `Voce e a AIRA, secretaria executiva da Calu Agencia. Gere resumos de reuniao claros, objetivos e acionaveis em portugues brasileiro. Use formatacao WhatsApp (*negrito*). A data de hoje e ${today}.`;
+  const systemPrompt = `Voce e a AIRA, secretaria executiva da Calu Agencia. Sua unica funcao e gerar resumos executivos de reunioes. NUNCA faca perguntas. NUNCA peca mais informacoes. Sempre gere o resumo com o que foi fornecido, mesmo que seja pouco. Use formatacao WhatsApp (*negrito*). A data de hoje e ${today}.`;
 
-  const userContent = `Reuniao${clientName ? ` com cliente: ${clientName}` : ""}.
+  const userContent = `Gere AGORA o resumo executivo desta reuniao${clientName ? ` com ${clientName}` : ""}. Use exatamente este formato:
+
+*Resumo da Reuniao — ${today}*${clientName ? `\nCliente: ${clientName}` : ""}
+
+*Decisoes tomadas*
+[liste ou escreva "Nenhuma decisao clara identificada"]
+
+*Tarefas definidas*
+[liste ou escreva "Nenhuma tarefa definida"]
+
+*Proximos passos*
+[liste ou escreva "A definir"]
 
 Transcricao:
-${transcript}
-
-Gere um resumo executivo com:
-* Decisoes tomadas
-* Tarefas definidas (quem faz o que)
-* Proximos passos
-
-Use a data de hoje (${today}) em qualquer referencia de data. Seja direto.`;
+${transcript}`;
 
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -93,11 +107,11 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {
-    const { audioBase64, audioMime, transcript: transcriptRaw, clientName, onlyLuana, groups, participants } = await req.json();
+    const { audioPath, transcript: transcriptRaw, clientName, onlyLuana, groups, participants } = await req.json();
 
     let transcript = transcriptRaw ?? "";
-    if (!transcript && audioBase64) {
-      transcript = await transcrever(audioBase64, audioMime || "audio/webm");
+    if (!transcript && audioPath) {
+      transcript = await transcrever(audioPath);
     }
     if (!transcript?.trim()) {
       return Response.json({ error: "Nenhum audio ou transcricao fornecidos" }, { status: 400, headers: cors });
@@ -106,7 +120,7 @@ serve(async (req) => {
     const summary = await resumirComClaude(transcript, clientName ?? "");
 
     if (onlyLuana) {
-      return Response.json({ summary, whatsapp: null }, { headers: cors });
+      return Response.json({ summary, transcript, whatsapp: null }, { headers: cors });
     }
 
     const mensagem = `Resumo da Reuniao - AIRA${clientName ? `\nCliente: ${clientName}` : ""}\n\n${summary}`;
@@ -120,7 +134,7 @@ serve(async (req) => {
 
     const results = await Promise.all(targets.map((t) => enviarWhatsApp(t, mensagem)));
 
-    return Response.json({ summary, whatsapp: results }, { headers: cors });
+    return Response.json({ summary, transcript, whatsapp: results }, { headers: cors });
   } catch (e) {
     console.error("aira-meeting error:", e);
     return Response.json({ error: String(e) }, { status: 500, headers: cors });

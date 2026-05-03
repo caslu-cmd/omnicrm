@@ -672,7 +672,7 @@ export default function ClientWorkspace() {
 
   const airaFinalize = async () => {
     setAiraStatus("loading");
-    setAiraLiveText("");
+    setAiraLiveText("Salvando áudio...");
     try {
       const blob = await airaStopStream();
       if (blob.size < 1000) {
@@ -680,11 +680,18 @@ export default function ClientWorkspace() {
         setAiraStatus("idle");
         return;
       }
-      const audioBase64 = await blobToBase64(blob);
+
+      const audioPath = `aira/${Date.now()}.webm`;
+      const { error: uploadError } = await supabase.storage
+        .from("aira-recordings")
+        .upload(audioPath, blob, { contentType: blob.type || "audio/webm" });
+      if (uploadError) throw new Error("Erro ao salvar áudio: " + uploadError.message);
+
+      setAiraLiveText("Transcrevendo e resumindo...");
+
       const { data, error } = await supabase.functions.invoke("aira-meeting", {
         body: {
-          audioBase64,
-          audioMime: blob.type || "audio/webm",
+          audioPath,
           clientName: client?.name,
           meetingTitle: airaMeetingTitle || `Reuniao ${new Date().toLocaleString("pt-BR")}`,
           onlyLuana: airaOnlyLuana,
@@ -695,9 +702,12 @@ export default function ClientWorkspace() {
       if (error) throw error;
       setAiraSummary(data?.summary || "Resumo nao disponivel.");
       setAiraStatus("done");
+      setAiraLiveText("");
+      supabase.storage.from("aira-recordings").remove([audioPath]).catch(() => {});
     } catch (e: any) {
       setAiraError("Erro ao processar a reuniao: " + (e?.message || e));
       setAiraStatus("idle");
+      setAiraLiveText("");
     }
   };
 
