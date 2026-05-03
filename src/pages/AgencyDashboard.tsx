@@ -305,7 +305,7 @@ export default function AgencyDashboard() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.18 + CLIENTS.length * 0.07 }}
-            className="rounded-2xl flex items-center justify-center p-8 cursor-pointer transition-all"
+            className="rounded-2xl flex items-center justify-center p-8 cursor-pointer transition-all flex-shrink-0 w-[60vw] sm:w-auto snap-start"
             style={{ border: "1px dashed rgba(185,255,75,0.12)" }}
             onMouseEnter={(e) => {
               e.currentTarget.style.borderColor = "rgba(185,255,75,0.3)";
