@@ -579,20 +579,20 @@ export default function ClientWorkspace() {
   const [airaElapsed, setAiraElapsed] = useState(0);
   const [airaShowSetup, setAiraShowSetup] = useState(false);
   const [airaMeetingTitle, setAiraMeetingTitle] = useState("");
-  const [airaLuana, setAiraLuana] = useState<AiraPerson>(() => {
-    try { return JSON.parse(localStorage.getItem("aira-luana") || "") || { name: "Luana", phone: "" }; }
-    catch { return { name: "Luana", phone: "" }; }
-  });
   const [airaParticipants, setAiraParticipants] = useState<AiraPerson[]>(() => {
     try { return JSON.parse(localStorage.getItem(`aira-participants-${id}`) || "[]"); } catch { return []; }
   });
+  const [airaSelectedGroups, setAiraSelectedGroups] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem(`aira-groups-${id}`) || "[]"); } catch { return []; }
+  });
+  const [airaLoadingGroups, setAiraLoadingGroups] = useState(false);
   const airaRecorderRef = useRef<MediaRecorder | null>(null);
   const airaChunksRef = useRef<Blob[]>([]);
   const airaStreamRef = useRef<MediaStream | null>(null);
   const airaTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const airaSaveLuana = (l: AiraPerson) => { setAiraLuana(l); localStorage.setItem("aira-luana", JSON.stringify(l)); };
   const airaSaveParticipants = (p: AiraPerson[]) => { setAiraParticipants(p); localStorage.setItem(`aira-participants-${id}`, JSON.stringify(p)); };
+  const airaSaveGroups = (g: string[]) => { setAiraSelectedGroups(g); localStorage.setItem(`aira-groups-${id}`, JSON.stringify(g)); };
 
   const airaStartRecording = async () => {
     setAiraError(null);
@@ -645,7 +645,7 @@ export default function ClientWorkspace() {
           audioMime: blob.type,
           clientName: client?.name,
           meetingTitle: airaMeetingTitle || `Reunião ${new Date().toLocaleString("pt-BR")}`,
-          luana: airaLuana.phone ? airaLuana : null,
+          groups: airaSelectedGroups,
           participants: airaParticipants.filter(p => p.phone),
         },
       });
@@ -2678,7 +2678,18 @@ ${priorBlock}`;
                       {(airaStatus === "idle" || airaStatus === "loading") && (
                         <button
                           disabled={airaStatus === "loading"}
-                          onClick={() => setAiraShowSetup(true)}
+                          onClick={async () => {
+                            setAiraShowSetup(true);
+                            if (wpStatus !== "connected") { try { await checkWpStatus(); } catch {} }
+                            else if (wpGroups.length === 0) {
+                              setAiraLoadingGroups(true);
+                              try {
+                                const { data: grps } = await supabase.functions.invoke("whatsapp", { body: { action: "groups" } });
+                                if (Array.isArray(grps)) setWpGroups(grps);
+                              } catch {}
+                              setAiraLoadingGroups(false);
+                            }
+                          }}
                           className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
                           style={{ background: "#B9FF4B", color: "#07080A", boxShadow: "0 0 20px -4px rgba(185,255,75,0.4)" }}>
                           {airaStatus === "loading"
@@ -2778,22 +2789,49 @@ ${priorBlock}`;
                             className="w-full mt-1 px-3 py-2 rounded-lg text-sm" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#F0F0F0" }} />
                         </div>
                         <div className="rounded-xl p-3" style={{ background: "rgba(185,255,75,0.04)", border: "1px solid rgba(185,255,75,0.15)" }}>
-                          <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#B9FF4B" }}>Luana — Orquestradora dos Agentes</label>
-                          <div className="grid grid-cols-2 gap-2 mt-2">
-                            <input value={airaLuana.name} onChange={(e) => airaSaveLuana({ ...airaLuana, name: e.target.value })} placeholder="Nome"
-                              className="px-3 py-2 rounded-lg text-sm" style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", color: "#F0F0F0" }} />
-                            <input value={airaLuana.phone} onChange={(e) => airaSaveLuana({ ...airaLuana, phone: e.target.value.replace(/\D/g,"") })} placeholder="WhatsApp (5511...)"
-                              className="px-3 py-2 rounded-lg text-sm font-mono" style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", color: "#F0F0F0" }} />
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#B9FF4B" }}>Grupos do WhatsApp</label>
+                            <button
+                              onClick={async () => {
+                                setAiraLoadingGroups(true);
+                                try {
+                                  const { data: grps } = await supabase.functions.invoke("whatsapp", { body: { action: "groups" } });
+                                  if (Array.isArray(grps)) setWpGroups(grps);
+                                } catch {}
+                                setAiraLoadingGroups(false);
+                              }}
+                              className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B" }}>
+                              {airaLoadingGroups ? "Carregando..." : "↻ Atualizar"}
+                            </button>
                           </div>
+                          {wpStatus !== "connected" ? (
+                            <p className="text-xs" style={{ color: "#FCA5A5" }}>WhatsApp não conectado. Conecte na aba WhatsApp.</p>
+                          ) : wpGroups.length === 0 ? (
+                            <p className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>{airaLoadingGroups ? "Buscando grupos..." : "Nenhum grupo encontrado. Clique em Atualizar."}</p>
+                          ) : (
+                            <div className="max-h-40 overflow-y-auto space-y-1">
+                              {wpGroups.map((g) => {
+                                const sel = airaSelectedGroups.includes(g.id);
+                                return (
+                                  <label key={g.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg cursor-pointer text-sm"
+                                    style={{ background: sel ? "rgba(185,255,75,0.08)" : "transparent", color: "#F0F0F0" }}>
+                                    <input type="checkbox" checked={sel}
+                                      onChange={() => airaSaveGroups(sel ? airaSelectedGroups.filter(x => x !== g.id) : [...airaSelectedGroups, g.id])} />
+                                    <span className="flex-1 truncate">{g.name}</span>
+                                    <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>{g.participants}</span>
+                                  </label>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
                         <div>
                           <div className="flex items-center justify-between mb-2">
-                            <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.4)" }}>Outros participantes</label>
+                            <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.4)" }}>Participantes individuais (opcional)</label>
                             <button onClick={() => airaSaveParticipants([...airaParticipants, { name: "", phone: "" }])}
                               className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B" }}>+ Adicionar</button>
                           </div>
                           <div className="space-y-2">
-                            {airaParticipants.length === 0 && <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Nenhum participante. Apenas a Luana receberá.</p>}
                             {airaParticipants.map((p, i) => (
                               <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
                                 <input value={p.name} onChange={(e) => { const c = [...airaParticipants]; c[i] = { ...c[i], name: e.target.value }; airaSaveParticipants(c); }} placeholder="Nome"
@@ -2807,13 +2845,13 @@ ${priorBlock}`;
                           </div>
                         </div>
                         <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>
-                          💡 Formato internacional sem símbolos. Ex: <code>5511987654321</code>
+                          💡 Selecione um grupo do WhatsApp e/ou adicione participantes individuais. Telefones em formato internacional: <code>5511987654321</code>
                         </p>
                       </div>
                       <div className="px-6 py-4 flex justify-end gap-2 border-t" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
                         <button onClick={() => setAiraShowSetup(false)} className="px-4 py-2 text-sm rounded-lg" style={{ color: "rgba(255,255,255,0.5)" }}>Cancelar</button>
                         <button onClick={() => { setAiraShowSetup(false); airaStartRecording(); }}
-                          disabled={!airaLuana.phone}
+                          disabled={airaSelectedGroups.length === 0 && airaParticipants.filter(p => p.phone).length === 0}
                           className="px-4 py-2 text-sm font-semibold rounded-lg disabled:opacity-40"
                           style={{ background: "#B9FF4B", color: "#07080A" }}>
                           <Mic className="w-4 h-4 inline mr-1" /> Começar a ouvir
