@@ -37,38 +37,58 @@ async function transcreverUrl(audioUrl: string, headers: Record<string, string> 
 }
 
 async function transcreverBase64(audioBase64: string, mimeType = "audio/webm"): Promise<string> {
-  // Tenta Groq/OpenAI Whisper se chave existir, senão usa Lovable AI (Gemini) com áudio inline
-  if (GROQ_API_KEY || OPENAI_API_KEY) {
-    const bytes = Uint8Array.from(atob(audioBase64), (c) => c.charCodeAt(0));
-    return transcreverWhisper(new Blob([bytes], { type: mimeType }));
-  }
-  if (!LOVABLE_API_KEY) throw new Error("Nenhuma chave de IA configurada (LOVABLE_API_KEY)");
+  const bytes = Uint8Array.from(atob(audioBase64), (c) => c.charCodeAt(0));
+  const blob = new Blob([bytes], { type: mimeType });
 
-  console.log("Transcrevendo via Lovable AI (Gemini), tamanho base64:", audioBase64.length);
-  const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${LOVABLE_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      messages: [
-        {
+  // 1ª opção: Groq ou OpenAI Whisper (mais preciso)
+  if (GROQ_API_KEY || OPENAI_API_KEY) {
+    return transcreverWhisper(blob);
+  }
+
+  // 2ª opção: Lovable AI gateway — endpoint /audio/transcriptions
+  if (LOVABLE_API_KEY) {
+    console.log("Transcrevendo via Lovable AI STT, tamanho:", audioBase64.length);
+    const form = new FormData();
+    form.append("file", blob, "audio.webm");
+    form.append("model", "whisper-1");
+    form.append("language", "pt");
+    const r = await fetch("https://ai.gateway.lovable.dev/v1/audio/transcriptions", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${LOVABLE_API_KEY}` },
+      body: form,
+    });
+    if (r.ok) {
+      const d = await r.json();
+      const text = d.text ?? "";
+      console.log("Transcript len (Lovable STT):", text.length);
+      if (text.trim()) return text;
+    }
+    // Se STT falhar, tenta Gemini com base64 inline
+    console.log("Lovable STT falhou, tentando Gemini inline...");
+    const r2 = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: "google/gemini-2.0-flash",
+        messages: [{
           role: "user",
           content: [
-            { type: "text", text: "Transcreva integralmente o áudio em português. Retorne APENAS a transcrição, sem comentários." },
-            { type: "input_audio", input_audio: { data: audioBase64, format: mimeType.includes("mp3") ? "mp3" : "webm" } },
+            { type: "text", text: "Transcreva integralmente o áudio a seguir em português. Retorne APENAS a transcrição, sem comentários adicionais." },
+            { type: "image_url", image_url: { url: `data:${mimeType};base64,${audioBase64}` } },
           ],
-        },
-      ],
-    }),
-  });
-  if (!r.ok) throw new Error(`Lovable AI STT ${r.status}: ${await r.text()}`);
-  const d = await r.json();
-  const text = d.choices?.[0]?.message?.content ?? "";
-  console.log("Transcript len:", text.length);
-  return text;
+        }],
+        max_tokens: 4096,
+      }),
+    });
+    if (r2.ok) {
+      const d2 = await r2.json();
+      const text2 = d2.choices?.[0]?.message?.content ?? "";
+      console.log("Transcript len (Gemini inline):", text2.length);
+      if (text2.trim()) return text2;
+    }
+  }
+
+  throw new Error("Nenhuma chave de transcrição configurada. Configure GROQ_API_KEY, OPENAI_API_KEY ou LOVABLE_API_KEY no Supabase.");
 }
 
 async function transcreverWhisper(audioBlob: Blob): Promise<string> {
@@ -205,7 +225,11 @@ serve(async (req) => {
 
     return Response.json({ summary, transcript, whatsapp: results }, { headers: cors });
   } catch (e) {
-    console.error("aira-meeting error:", e);
-    return Response.json({ error: String(e) }, { status: 500, headers: cors });
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("aira-meeting error:", msg);
+    return new Response(JSON.stringify({ error: msg }), {
+      status: 500,
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
   }
 });

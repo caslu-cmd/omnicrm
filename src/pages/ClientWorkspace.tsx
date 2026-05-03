@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+﻿import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
@@ -855,7 +855,12 @@ export default function ClientWorkspace() {
           participants: airaOnlyLuana ? [] : airaParticipants.filter(p => p.phone),
         },
       });
-      if (error) throw error;
+      if (error) {
+        // Extrai mensagem real do erro da edge function
+        const detail = (error as any)?.context?.json?.error || (error as any)?.message || String(error);
+        throw new Error(detail);
+      }
+      if (data?.error) throw new Error(data.error);
       setAiraSummary(data?.summary || "Resumo nao disponivel.");
       setAiraStatus("done");
       setAiraLiveText("");
@@ -959,7 +964,7 @@ export default function ClientWorkspace() {
       revenue: editForm.revenue,
       nextAction: editForm.nextAction,
       followers: { instagram: editForm.followersIg, facebook: editForm.followersFb },
-      portalPin: editForm.portalPin,
+      portalPin: editForm.portalPin.trim(),
       siteUrl: editForm.siteUrl.trim() || undefined,
       teamInstructions: editForm.teamInstructions.trim() || undefined,
     });
@@ -1781,7 +1786,7 @@ ${priorBlock}`;
             onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.45)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.09)"; }}>
             <Pencil className="w-3 h-3" /> Editar cliente
           </button>
-          <button onClick={() => navigate("/portal")}
+          <button onClick={() => window.open(`/portal/${client.id}`, "_blank")}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
             style={{ background: `${client.color}18`, color: client.color, border: `1px solid ${client.color}30` }}>
             <ExternalLink className="w-3 h-3" /> Ver portal do cliente

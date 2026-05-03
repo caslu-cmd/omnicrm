@@ -35,6 +35,7 @@ import TermsPage from "@/pages/TermsPage";
 import OAuthCallbackPage from "@/pages/OAuthCallbackPage";
 import NotFound from "@/pages/NotFound";
 import VideoEditorPage from "@/pages/VideoEditorPage";
+import SuperDiagnostico from "@/pages/SuperDiagnostico";
 
 const queryClient = new QueryClient();
 
@@ -122,6 +123,9 @@ const AppRoutes = () => (
     {/* Portal do cliente (link externo enviado ao cliente) */}
     <Route path="/portal" element={<ClientPortal />} />
     <Route path="/portal/:clientId" element={<ClientPortal />} />
+
+    {/* Super Diagnóstico Gratuito — funil de captação de leads */}
+    <Route path="/super-diagnostico" element={<SuperDiagnostico />} />
 
     {/* OAuth callbacks */}
     <Route path="/oauth/meta" element={<OAuthCallbackPage />} />
