@@ -30,38 +30,32 @@ import AgencyDashboard from "@/pages/AgencyDashboard";
 import ClientWorkspace from "@/pages/ClientWorkspace";
 import ClientPortal from "@/pages/ClientPortal";
 import LandingPage from "@/pages/LandingPage";
-import BriefingPage from "@/pages/BriefingPage";
 import PrivacyPage from "@/pages/PrivacyPage";
 import TermsPage from "@/pages/TermsPage";
 import OAuthCallbackPage from "@/pages/OAuthCallbackPage";
 import NotFound from "@/pages/NotFound";
 import VideoEditorPage from "@/pages/VideoEditorPage";
 
-// Singleton QueryClient
 const queryClient = new QueryClient();
 
+// ── Spinner reutilizável ──────────────────────────────────────
+const Spinner = () => (
+  <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#080808" }}>
+    <style>{`@keyframes _sp{to{transform:rotate(360deg)}}`}</style>
+    <div style={{ width: 36, height: 36, border: "3px solid rgba(185,255,75,.15)", borderTopColor: "#B9FF4B", borderRadius: "50%", animation: "_sp .75s linear infinite" }} />
+  </div>
+);
+
+// ── Rotas protegidas — exigem sessão ──────────────────────────
 const ProtectedRoutes = () => {
   const { session, loading } = useAuth();
   const location = useLocation();
 
-  if (loading) {
-    return (
-      <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#080808" }}>
-        <style>{`@keyframes _spin2{to{transform:rotate(360deg)}}`}</style>
-        <div style={{ width: 36, height: 36, border: "3px solid rgba(185,255,75,.15)", borderTopColor: "#B9FF4B", borderRadius: "50%", animation: "_spin2 .75s linear infinite" }} />
-      </div>
-    );
-  }
+  if (loading) return <Spinner />;
 
   if (!session) {
-    // Raiz sem sessão → LandingPage
-    if (location.pathname === "/") return <LandingPage />;
-    // Qualquer outra rota protegida → manda pro login
-    return <Navigate to="/entrar" replace />;
+    return <Navigate to="/entrar" state={{ from: location }} replace />;
   }
-
-  // Logado na raiz → redireciona pro dashboard
-  if (location.pathname === "/") return <Navigate to="/dashboard" replace />;
 
   return (
     <>
@@ -87,6 +81,7 @@ const ProtectedRoutes = () => {
           <Route path="/agency" element={<AgencyDashboard />} />
           <Route path="/agency/clients/:id" element={<ClientWorkspace />} />
           <Route path="/video-editor" element={<VideoEditorPage />} />
+          <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
       <AiAssistant />
@@ -94,49 +89,52 @@ const ProtectedRoutes = () => {
   );
 };
 
+// ── /entrar — redireciona pro dashboard se já logado ─────────
 const EntrarRoute = () => {
   const { session, loading } = useAuth();
-  if (loading) return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#080808" }}>
-      <style>{`@keyframes _spin{to{transform:rotate(360deg)}}`}</style>
-      <div style={{ width: 36, height: 36, border: "3px solid rgba(185,255,75,.15)", borderTopColor: "#B9FF4B", borderRadius: "50%", animation: "_spin .75s linear infinite" }} />
-    </div>
-  );
-  return session ? <Navigate to="/dashboard" replace /> : <AuthPage />;
+  const location = useLocation();
+  if (loading) return <Spinner />;
+  if (session) {
+    const from = (location.state as any)?.from?.pathname || "/dashboard";
+    return <Navigate to={from} replace />;
+  }
+  return <AuthPage />;
 };
 
+// ── /sair ────────────────────────────────────────────────────
 const SairRoute = () => {
   const { signOut } = useAuth();
-  useEffect(() => { signOut().then(() => window.location.replace("/entrar")); }, []);
-  return (
-    <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#080808" }}>
-      <style>{`@keyframes _spin{to{transform:rotate(360deg)}}`}</style>
-      <div style={{ width: 36, height: 36, border: "3px solid rgba(185,255,75,.15)", borderTopColor: "#B9FF4B", borderRadius: "50%", animation: "_spin .75s linear infinite" }} />
-    </div>
-  );
+  useEffect(() => { signOut().then(() => window.location.replace("/")); }, []);
+  return <Spinner />;
 };
 
-const AppRoutes = () => {
-  const { session, loading } = useAuth();
+// ── Roteamento principal ──────────────────────────────────────
+const AppRoutes = () => (
+  <Routes>
+    {/* Única página pública para todos */}
+    <Route path="/" element={<LandingPage />} />
 
-  return (
-    <Routes>
-      <Route path="/auth" element={loading ? null : session ? <Navigate to="/dashboard" replace /> : <AuthPage />} />
-      <Route path="/entrar" element={<EntrarRoute />} />
-      <Route path="/sair" element={<SairRoute />} />
-      {/* Páginas públicas */}
-      <Route path="/portal/:clientId" element={<ClientPortal />} />
-      <Route path="/portal" element={<ClientPortal />} />
-      <Route path="/landing" element={<LandingPage />} />
-      <Route path="/briefing" element={<BriefingPage />} />
-      <Route path="/privacy" element={<PrivacyPage />} />
-      <Route path="/terms" element={<TermsPage />} />
-      <Route path="/oauth/meta" element={<OAuthCallbackPage />} />
-      <Route path="/oauth/linkedin" element={<OAuthCallbackPage />} />
-      <Route path="*" element={<ProtectedRoutes />} />
-    </Routes>
-  );
-};
+    {/* Auth */}
+    <Route path="/entrar" element={<EntrarRoute />} />
+    <Route path="/auth" element={<EntrarRoute />} />
+    <Route path="/sair" element={<SairRoute />} />
+
+    {/* Portal do cliente (link externo enviado ao cliente) */}
+    <Route path="/portal" element={<ClientPortal />} />
+    <Route path="/portal/:clientId" element={<ClientPortal />} />
+
+    {/* OAuth callbacks */}
+    <Route path="/oauth/meta" element={<OAuthCallbackPage />} />
+    <Route path="/oauth/linkedin" element={<OAuthCallbackPage />} />
+
+    {/* Páginas legais */}
+    <Route path="/privacy" element={<PrivacyPage />} />
+    <Route path="/terms" element={<TermsPage />} />
+
+    {/* Tudo mais exige autenticação */}
+    <Route path="*" element={<ProtectedRoutes />} />
+  </Routes>
+);
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
