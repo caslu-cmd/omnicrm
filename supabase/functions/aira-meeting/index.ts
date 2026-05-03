@@ -167,21 +167,26 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {
-    const { audioPath, audioUrl, audioBase64, audioMimeType, transcript: transcriptRaw, clientName, onlyLuana, groups, participants } = await req.json();
+    const { audioPath, audioUrl, audioBase64, audioMimeType, transcript: transcriptRaw, summary: summaryOverride, clientName, onlyLuana, groups, participants } = await req.json();
 
+    // Se um resumo pronto foi fornecido, pula transcrição e sumarização
+    let summary: string;
     let transcript = transcriptRaw ?? "";
-    if (!transcript && audioBase64) {
-      transcript = await transcreverBase64(audioBase64, audioMimeType);
-    } else if (!transcript && audioUrl) {
-      transcript = await transcreverUrl(audioUrl);
-    } else if (!transcript && audioPath) {
-      transcript = await transcrever(audioPath);
+    if (summaryOverride) {
+      summary = summaryOverride;
+    } else {
+      if (!transcript && audioBase64) {
+        transcript = await transcreverBase64(audioBase64, audioMimeType);
+      } else if (!transcript && audioUrl) {
+        transcript = await transcreverUrl(audioUrl);
+      } else if (!transcript && audioPath) {
+        transcript = await transcrever(audioPath);
+      }
+      if (!transcript?.trim()) {
+        return Response.json({ error: "Nenhum audio ou transcricao fornecidos" }, { status: 400, headers: cors });
+      }
+      summary = await resumirComClaude(transcript, clientName ?? "");
     }
-    if (!transcript?.trim()) {
-      return Response.json({ error: "Nenhum audio ou transcricao fornecidos" }, { status: 400, headers: cors });
-    }
-
-    const summary = await resumirComClaude(transcript, clientName ?? "");
 
     if (onlyLuana) {
       return Response.json({ summary, transcript, whatsapp: null }, { headers: cors });

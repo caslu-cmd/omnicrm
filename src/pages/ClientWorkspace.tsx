@@ -670,6 +670,10 @@ export default function ClientWorkspace() {
   const [airaLoadingGroups, setAiraLoadingGroups] = useState(false);
   const [airaOnlyLuana, setAiraOnlyLuana] = useState(false);
   const [airaLiveText, setAiraLiveText] = useState("");
+  const [airaShowShare, setAiraShowShare] = useState(false);
+  const [airaSharePhone, setAiraSharePhone] = useState("");
+  const [airaShareSending, setAiraShareSending] = useState(false);
+  const [airaShareResult, setAiraShareResult] = useState<string | null>(null);
   const [airaSource, setAiraSource] = useState<"system" | "mic" | "both">(() => {
     const v = localStorage.getItem(`aira-source-${id}`);
     return (v === "mic" || v === "both" || v === "system") ? v : "mic";
@@ -844,6 +848,29 @@ export default function ClientWorkspace() {
       setAiraError("Erro ao processar a reuniao: " + (e?.message || e));
       setAiraStatus("idle");
       setAiraLiveText("");
+    }
+  };
+
+  const airaShareNow = async () => {
+    if (!airaSummary || !airaSharePhone.trim()) return;
+    setAiraShareSending(true);
+    setAiraShareResult(null);
+    try {
+      const { data, error } = await supabase.functions.invoke("aira-meeting", {
+        body: {
+          summary: airaSummary,
+          clientName: client?.name,
+          groups: [],
+          participants: [{ phone: airaSharePhone.trim() }],
+        },
+      });
+      if (error) throw error;
+      setAiraShareResult("Enviado com sucesso!");
+      setAiraSharePhone("");
+    } catch (e: any) {
+      setAiraShareResult("Erro ao enviar: " + (e?.message || e));
+    } finally {
+      setAiraShareSending(false);
     }
   };
 
@@ -2964,17 +2991,51 @@ ${priorBlock}`;
                   {/* Resumo pós-reunião */}
                   {airaStatus === "done" && airaSummary && (
                     <div className="px-6 py-5 space-y-3">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4" style={{ color: "#B9FF4B" }} />
-                        <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#B9FF4B" }}>
-                          Resumo da Reunião
-                        </p>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4" style={{ color: "#B9FF4B" }} />
+                          <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#B9FF4B" }}>
+                            Resumo da Reunião
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => { setAiraShowShare(s => !s); setAiraShareResult(null); }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                          style={{ background: airaShowShare ? "rgba(185,255,75,0.15)" : "rgba(255,255,255,0.06)", color: airaShowShare ? "#B9FF4B" : "rgba(255,255,255,0.6)", border: `1px solid ${airaShowShare ? "rgba(185,255,75,0.3)" : "rgba(255,255,255,0.08)"}` }}>
+                          <Send className="w-3 h-3" /> Compartilhar
+                        </button>
                       </div>
                       <div className="rounded-xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
                         <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "rgba(255,255,255,0.7)" }}>
                           {airaSummary}
                         </p>
                       </div>
+                      {airaShowShare && (
+                        <div className="rounded-xl p-4 space-y-3" style={{ background: "rgba(185,255,75,0.04)", border: "1px solid rgba(185,255,75,0.15)" }}>
+                          <p className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.6)" }}>Enviar resumo via WhatsApp</p>
+                          <div className="flex gap-2">
+                            <input
+                              value={airaSharePhone}
+                              onChange={(e) => setAiraSharePhone(e.target.value)}
+                              placeholder="Telefone: 5585987654321"
+                              className="flex-1 px-3 py-2 rounded-lg text-sm"
+                              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0" }}
+                            />
+                            <button
+                              onClick={airaShareNow}
+                              disabled={airaShareSending || !airaSharePhone.trim()}
+                              className="px-4 py-2 rounded-lg text-xs font-bold disabled:opacity-40"
+                              style={{ background: "#B9FF4B", color: "#07080A" }}>
+                              {airaShareSending ? "..." : "Enviar"}
+                            </button>
+                          </div>
+                          {airaShareResult && (
+                            <p className="text-xs" style={{ color: airaShareResult.startsWith("Erro") ? "#FCA5A5" : "#B9FF4B" }}>
+                              {airaShareResult}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </motion.div>
