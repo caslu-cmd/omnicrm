@@ -5,7 +5,8 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const ANTHROPIC_API_KEY   = Deno.env.get("ANTHROPIC_API_KEY")!;
+const ANTHROPIC_API_KEY   = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
+const LOVABLE_API_KEY     = Deno.env.get("LOVABLE_API_KEY") ?? "";
 const GROQ_API_KEY        = Deno.env.get("GROQ_API_KEY") ?? "";
 const OPENAI_API_KEY      = Deno.env.get("OPENAI_API_KEY") ?? "";
 const SUPABASE_URL        = Deno.env.get("SUPABASE_URL")!;
@@ -16,14 +17,15 @@ const ZAPI_CLIENT         = Deno.env.get("ZAPI_CLIENT_TOKEN") ?? "Fabcb22cf90224
 const CAROL_PHONE         = Deno.env.get("CAROL_PHONE")       ?? "5585986408404";
 
 async function transcrever(audioPath: string): Promise<string> {
+  const storageUrl = `${SUPABASE_URL}/storage/v1/object/aira-recordings/${audioPath}`;
+  return transcreverUrl(storageUrl, { "Authorization": `Bearer ${SERVICE_ROLE_KEY}` });
+}
+
+async function transcreverUrl(audioUrl: string, headers: Record<string, string> = {}): Promise<string> {
   const key = GROQ_API_KEY || OPENAI_API_KEY;
   if (!key) throw new Error("Configure GROQ_API_KEY nas secrets do Supabase");
 
-  // Download audio from Supabase Storage
-  const storageUrl = `${SUPABASE_URL}/storage/v1/object/aira-recordings/${audioPath}`;
-  const fileRes = await fetch(storageUrl, {
-    headers: { "Authorization": `Bearer ${SERVICE_ROLE_KEY}` },
-  });
+  const fileRes = await fetch(audioUrl, { headers });
   if (!fileRes.ok) throw new Error(`Storage error ${fileRes.status}: ${await fileRes.text()}`);
   const audioBlob = await fileRes.blob();
 
@@ -72,6 +74,29 @@ async function resumirComClaude(transcript: string, clientName: string): Promise
 Transcricao:
 ${transcript}`;
 
+  if (LOVABLE_API_KEY) {
+    const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${LOVABLE_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userContent },
+        ],
+        max_tokens: 1024,
+      }),
+    });
+    if (!r.ok) throw new Error(`Lovable AI error ${r.status}: ${await r.text()}`);
+    const d = await r.json();
+    return d.choices?.[0]?.message?.content ?? "";
+  }
+
+  if (!ANTHROPIC_API_KEY) throw new Error("LOVABLE_API_KEY nao configurada");
+
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -107,10 +132,12 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {
-    const { audioPath, transcript: transcriptRaw, clientName, onlyLuana, groups, participants } = await req.json();
+    const { audioPath, audioUrl, transcript: transcriptRaw, clientName, onlyLuana, groups, participants } = await req.json();
 
     let transcript = transcriptRaw ?? "";
-    if (!transcript && audioPath) {
+    if (!transcript && audioUrl) {
+      transcript = await transcreverUrl(audioUrl);
+    } else if (!transcript && audioPath) {
       transcript = await transcrever(audioPath);
     }
     if (!transcript?.trim()) {
