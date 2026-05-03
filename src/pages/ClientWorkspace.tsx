@@ -588,6 +588,11 @@ export default function ClientWorkspace() {
   const [airaLoadingGroups, setAiraLoadingGroups] = useState(false);
   const [airaOnlyLuana, setAiraOnlyLuana] = useState(false);
   const [airaLiveText, setAiraLiveText] = useState("");
+  const [airaSource, setAiraSource] = useState<"system" | "mic" | "both">(() => {
+    const v = localStorage.getItem(`aira-source-${id}`);
+    return (v === "mic" || v === "both" || v === "system") ? v : "system";
+  });
+  const airaSaveSource = (s: "system" | "mic" | "both") => { setAiraSource(s); localStorage.setItem(`aira-source-${id}`, s); };
   const airaTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const airaRecorderRef = useRef<MediaRecorder | null>(null);
   const airaChunksRef = useRef<Blob[]>([]);
