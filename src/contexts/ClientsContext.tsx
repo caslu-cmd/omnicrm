@@ -57,8 +57,12 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
     catch { return []; }
   });
 
+  const staticIds = CLIENTS.map((c) => c.id);
   const [deletedIds, setDeletedIds] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem("deleted-clients") ?? "[]") as string[]; }
+    try {
+      const saved = JSON.parse(localStorage.getItem("deleted-clients") ?? "[]") as string[];
+      return saved.filter((id) => !staticIds.includes(id));
+    }
     catch { return []; }
   });
 
