@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
   Users, Megaphone, Calendar, TrendingUp,
-  ArrowRight, MessageSquare, Plus, Zap, X, Trash2, AlertTriangle
+  ArrowRight, MessageSquare, Plus, Zap, X, Trash2, AlertTriangle, ExternalLink
 } from "lucide-react";
 import { useClients } from "@/contexts/ClientsContext";
 import { toast } from "sonner";
@@ -282,6 +282,15 @@ export default function AgencyDashboard() {
                       }}
                     >
                       Ver workspace <ArrowRight className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); window.open(`/portal/${client.id}`, "_blank"); }}
+                      className="w-10 flex items-center justify-center rounded-xl transition-all"
+                      style={{ border: `1px solid ${client.color}25`, color: client.color, background: `${client.color}10` }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = `${client.color}22`; e.currentTarget.style.borderColor = `${client.color}50`; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = `${client.color}10`; e.currentTarget.style.borderColor = `${client.color}25`; }}
+                      title={`Portal do cliente — PIN: ${client.portalPin}`}>
+                      <MessageSquare className="w-3.5 h-3.5" />
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); setConfirmDelete({ id: client.id, name: client.name }); }}

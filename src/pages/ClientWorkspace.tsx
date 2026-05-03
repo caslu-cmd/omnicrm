@@ -1253,7 +1253,19 @@ Responda APENAS JSON:
           .filter((a) => validIds.has(a) && !alreadyRan.has(a))
           .slice(0, MAX_PER_WAVE);
 
-        if (!handoff.continue || nextAgents.length === 0) break;
+        // Wave 2 (first handoff) always runs automatically; from wave 3+ only if AI says so
+        const isFirstHandoff = waveIndex === 1;
+        if (!isFirstHandoff && (!handoff.continue || nextAgents.length === 0)) break;
+        if (nextAgents.length === 0 && isFirstHandoff) {
+          // Auto-select revisor + calendario for mandatory wave 2
+          const fallback = remaining
+            .filter((a) => ["revisor", "calendario", "analyst"].includes(a))
+            .slice(0, MAX_PER_WAVE);
+          if (fallback.length === 0) break;
+          nextAgents.push(...fallback);
+          if (!handoff.reason) handoff.reason = "Revisão e calendário editorial automáticos";
+        }
+        if (nextAgents.length === 0) break;
 
         // ─── Atualiza estado de ondas (onda real = waveIndex + 1) ───
         const realWaveNum = waveIndex + 1;
@@ -3469,7 +3481,7 @@ ${priorBlock}`;
                     <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.2)" }}>{MARKETING_TEAM.length} agentes</span>
                   </div>
 
-                  <div className="grid grid-cols-4 gap-4">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                     {MARKETING_TEAM.map((agent, i) => {
                       const task = client.agentTasks[agent.id];
                       const isWorking = task?.status === "trabalhando";

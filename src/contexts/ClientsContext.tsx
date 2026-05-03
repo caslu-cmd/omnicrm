@@ -210,17 +210,35 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
 
   const allClients = [...CLIENTS, ...extraClients];
 
+  const REQUIRED_AGENTS = ["calendario", "video", "briefing"] as const;
+  const DEFAULT_TASK: AgentTask = { current: "Aguardando instrução", status: "aguardando", recent: [], progress: 0 };
+
   const clients: Client[] = allClients
     .filter((c) => !deletedIds.includes(c.id))
     .map((c) => {
       const edit = allEdits[c.id];
-      if (!edit) return c;
+      const merged = edit
+        ? {
+            ...c,
+            ...edit,
+            followers: {
+              instagram: edit.followers?.instagram ?? c.followers.instagram,
+              facebook: edit.followers?.facebook ?? c.followers.facebook,
+            },
+          }
+        : c;
+      const tasks = merged.agentTasks ?? {};
+      const hasAllAgents = REQUIRED_AGENTS.every((a) => a in tasks);
+      if (hasAllAgents) return merged;
       return {
-        ...c,
-        ...edit,
-        followers: {
-          instagram: edit.followers?.instagram ?? c.followers.instagram,
-          facebook: edit.followers?.facebook ?? c.followers.facebook,
+        ...merged,
+        agentTasks: {
+          ...tasks,
+          ...Object.fromEntries(
+            REQUIRED_AGENTS
+              .filter((a) => !(a in tasks))
+              .map((a) => [a, DEFAULT_TASK])
+          ),
         },
       };
     });

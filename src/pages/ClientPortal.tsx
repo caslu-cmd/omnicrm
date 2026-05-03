@@ -10,7 +10,8 @@ import {
   ThumbsUp, Download, X, ChevronDown, ChevronUp,
   AlertCircle, Lock, RefreshCw,
 } from "lucide-react";
-import { CLIENTS } from "@/data/agencyData";
+import { Client } from "@/data/agencyData";
+import { useClients } from "@/contexts/ClientsContext";
 
 // ── Agent team displayed in portal ───────────────────────────
 const PORTAL_TEAM = [
@@ -78,14 +79,14 @@ const SESSION_KEY = "portal_unlocked";
 // ─────────────────────────────────────────────────────────────
 // PIN LOGIN SCREEN
 // ─────────────────────────────────────────────────────────────
-function PinScreen({ client, onUnlock }: { client: typeof CLIENTS[0]; onUnlock: () => void }) {
+function PinScreen({ client, onUnlock }: { client: Client; onUnlock: () => void }) {
   const [pin, setPin] = useState("");
   const [error, setError] = useState(false);
   const [shake, setShake] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = () => {
-    if (pin.toUpperCase() === client.portalPin.toUpperCase()) {
+    if (pin.trim().toUpperCase() === (client.portalPin ?? "").trim().toUpperCase()) {
       sessionStorage.setItem(SESSION_KEY, client.id);
       onUnlock();
     } else {
@@ -223,7 +224,7 @@ function PinScreen({ client, onUnlock }: { client: typeof CLIENTS[0]; onUnlock: 
 // ─────────────────────────────────────────────────────────────
 // DEMANDS POPUP
 // ─────────────────────────────────────────────────────────────
-function DemandsModal({ client, onClose }: { client: typeof CLIENTS[0]; onClose: () => void }) {
+function DemandsModal({ client, onClose }: { client: Client; onClose: () => void }) {
   const [filter, setFilter] = useState<string>("todos");
   const [expanded, setExpanded] = useState<string | null>(null);
   const [approved, setApproved] = useState<Set<string>>(new Set());
@@ -457,9 +458,10 @@ function DemandsModal({ client, onClose }: { client: typeof CLIENTS[0]; onClose:
 // ─────────────────────────────────────────────────────────────
 export default function ClientPortal() {
   const { clientId } = useParams<{ clientId?: string }>();
+  const { clients } = useClients();
   const client = clientId
-    ? (CLIENTS.find(c => c.id === clientId) ?? CLIENTS[0])
-    : CLIENTS[0];
+    ? (clients.find(c => c.id === clientId) ?? clients[0])
+    : clients[0];
 
   const [unlocked, setUnlocked] = useState(false);
   const [showDemands, setShowDemands] = useState(false);
