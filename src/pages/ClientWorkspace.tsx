@@ -2763,6 +2763,66 @@ ${priorBlock}`;
                   )}
                 </motion.div>
 
+                {/* Modal de setup AIRA */}
+                {airaShowSetup && (
+                  <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)" }} onClick={() => setAiraShowSetup(false)}>
+                    <div onClick={(e) => e.stopPropagation()} className="w-full max-w-lg rounded-2xl overflow-hidden" style={{ background: "#0F1014", border: "1px solid rgba(185,255,75,0.2)" }}>
+                      <div className="px-6 py-4 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+                        <h3 className="text-base font-bold" style={{ color: "#F0F0F0" }}>Quem deve receber o resumo?</h3>
+                        <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>A AIRA vai gravar pelo microfone do seu computador e enviar o resumo no WhatsApp.</p>
+                      </div>
+                      <div className="px-6 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
+                        <div>
+                          <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.4)" }}>Título da reunião (opcional)</label>
+                          <input value={airaMeetingTitle} onChange={(e) => setAiraMeetingTitle(e.target.value)} placeholder="Ex: Alinhamento estratégico"
+                            className="w-full mt-1 px-3 py-2 rounded-lg text-sm" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#F0F0F0" }} />
+                        </div>
+                        <div className="rounded-xl p-3" style={{ background: "rgba(185,255,75,0.04)", border: "1px solid rgba(185,255,75,0.15)" }}>
+                          <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#B9FF4B" }}>Luana — Orquestradora dos Agentes</label>
+                          <div className="grid grid-cols-2 gap-2 mt-2">
+                            <input value={airaLuana.name} onChange={(e) => airaSaveLuana({ ...airaLuana, name: e.target.value })} placeholder="Nome"
+                              className="px-3 py-2 rounded-lg text-sm" style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", color: "#F0F0F0" }} />
+                            <input value={airaLuana.phone} onChange={(e) => airaSaveLuana({ ...airaLuana, phone: e.target.value.replace(/\D/g,"") })} placeholder="WhatsApp (5511...)"
+                              className="px-3 py-2 rounded-lg text-sm font-mono" style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.08)", color: "#F0F0F0" }} />
+                          </div>
+                        </div>
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.4)" }}>Outros participantes</label>
+                            <button onClick={() => airaSaveParticipants([...airaParticipants, { name: "", phone: "" }])}
+                              className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B" }}>+ Adicionar</button>
+                          </div>
+                          <div className="space-y-2">
+                            {airaParticipants.length === 0 && <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Nenhum participante. Apenas a Luana receberá.</p>}
+                            {airaParticipants.map((p, i) => (
+                              <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
+                                <input value={p.name} onChange={(e) => { const c = [...airaParticipants]; c[i] = { ...c[i], name: e.target.value }; airaSaveParticipants(c); }} placeholder="Nome"
+                                  className="px-3 py-2 rounded-lg text-sm" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#F0F0F0" }} />
+                                <input value={p.phone} onChange={(e) => { const c = [...airaParticipants]; c[i] = { ...c[i], phone: e.target.value.replace(/\D/g,"") }; airaSaveParticipants(c); }} placeholder="5511..."
+                                  className="px-3 py-2 rounded-lg text-sm font-mono" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#F0F0F0" }} />
+                                <button onClick={() => airaSaveParticipants(airaParticipants.filter((_, idx) => idx !== i))}
+                                  className="px-2 py-2 rounded-lg text-xs" style={{ color: "#F87171", background: "rgba(239,68,68,0.08)" }}>✕</button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                          💡 Formato internacional sem símbolos. Ex: <code>5511987654321</code>
+                        </p>
+                      </div>
+                      <div className="px-6 py-4 flex justify-end gap-2 border-t" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+                        <button onClick={() => setAiraShowSetup(false)} className="px-4 py-2 text-sm rounded-lg" style={{ color: "rgba(255,255,255,0.5)" }}>Cancelar</button>
+                        <button onClick={() => { setAiraShowSetup(false); airaStartRecording(); }}
+                          disabled={!airaLuana.phone}
+                          className="px-4 py-2 text-sm font-semibold rounded-lg disabled:opacity-40"
+                          style={{ background: "#B9FF4B", color: "#07080A" }}>
+                          <Mic className="w-4 h-4 inline mr-1" /> Começar a ouvir
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* ── Conversa do Time ── */}
                 {agentConversations.length > 0 && (
                   <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)" }}>
