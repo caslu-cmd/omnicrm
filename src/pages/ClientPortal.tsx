@@ -14,12 +14,13 @@ import { CLIENTS } from "@/data/agencyData";
 
 // ── Agent team displayed in portal ───────────────────────────
 const PORTAL_TEAM = [
-  { id: "aria",       name: "ARIA",     role: "Orquestradora Geral",     initial: "A", color: "#B9FF4B" },
+  { id: "luana",      name: "Luana",    role: "Orquestradora Geral",      initial: "Lu", color: "#B9FF4B" },
   { id: "strategist", name: "Carolina", role: "Estrategista de Marca",   initial: "C", color: "#FBBF24" },
   { id: "copywriter", name: "Beatriz",  role: "Copywriter",              initial: "B", color: "#A78BFA" },
   { id: "designer",   name: "Isadora",  role: "Designer Visual",         initial: "I", color: "#D946EF" },
   { id: "traffic",    name: "Rafaela",  role: "Gestora de Tráfego",      initial: "R", color: "#F97316" },
   { id: "social",     name: "Marina",   role: "Social Media Manager",    initial: "M", color: "#60A5FA" },
+  { id: "calendario", name: "Pedro",    role: "Calendário Editorial",     initial: "P", color: "#2DD4BF" },
   { id: "analyst",    name: "Lucas",    role: "Analista de Dados",       initial: "L", color: "#34D399" },
   { id: "sales",      name: "Eduardo",  role: "Agente de Vendas",        initial: "E", color: "#F59E0B" },
   { id: "site",       name: "Teo",      role: "Editor de Site",          initial: "T", color: "#06B6D4" },
@@ -27,7 +28,7 @@ const PORTAL_TEAM = [
 ];
 
 const TEAM_DESCS: Record<string, string> = {
-  aria:       "Coordena todo o time e garante que a estratégia seja executada no prazo certo.",
+  luana:      "Coordena todo o time e garante que a estratégia seja executada no prazo certo.",
   strategist: "Define seu posicionamento, pauta editorial e direção criativa.",
   copywriter: "Escreve cada texto, legenda, artigo e anúncio com foco em conversão.",
   designer:   "Cria todos os visuais alinhados ao manual de marca da sua empresa.",
@@ -36,6 +37,7 @@ const TEAM_DESCS: Record<string, string> = {
   analyst:    "Monitora métricas e entrega relatórios com insights acionáveis.",
   sales:      "Qualifica leads via WhatsApp e alimenta seu CRM para fechar negócios.",
   site:       "Atualiza seu site, publica no blog e otimiza páginas para SEO.",
+  calendario: "Planeja o calendário editorial, pilares de conteúdo e cronograma de campanhas do mês.",
   revisor:    "Revisa e corrige 100% do conteúdo antes de publicar.",
 };
 

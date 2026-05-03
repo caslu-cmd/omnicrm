@@ -21,6 +21,7 @@ import PostCanvas from "@/components/PostCanvas";
 import SocialMediaTab from "@/components/SocialMediaTab";
 import ContactActivityPanel from "@/components/ContactActivityPanel";
 import SiteEditorPanel from "@/components/SiteEditorPanel";
+import LiaBriefingPanel from "@/components/LiaBriefingPanel";
 
 const SOURCES: Record<string, { label: string; color: string; bg: string }> = {
   instagram: { label: "Instagram", color: "#E1306C", bg: "rgba(225,48,108,0.1)" },
@@ -146,6 +147,24 @@ const MARKETING_TEAM = [
     skill: "Corte · Efeitos · Legendas · Color Grade",
     color: "#B9FF4B",
     description: "Edita vídeos com IA — cortes, efeitos cinematográficos, legendas animadas e color grade profissional",
+  },
+  {
+    id: "calendario",
+    name: "Pedro",
+    role: "Calendário Editorial",
+    initial: "P",
+    skill: "Editorial · Datas · Planejamento",
+    color: "#2DD4BF",
+    description: "Planeja calendários editoriais, pilares de conteúdo e cronogramas estratégicos por plataforma",
+  },
+  {
+    id: "luana",
+    name: "Luana",
+    role: "Orquestradora Geral",
+    initial: "Lu",
+    skill: "Coordenação · Briefing · Estratégia",
+    color: "#B9FF4B",
+    description: "Coordena todo o time em tempo real, define prioridades, delega tarefas e garante que cada entrega saia no prazo e com qualidade",
   },
 ];
 
@@ -511,7 +530,8 @@ type AgentMsg = {
 };
 
 const AGENT_META: Record<string, { initial: string; color: string; name: string }> = {
-  aria:      { initial: "A", color: "#B9FF4B", name: "ARIA" },
+  aria:      { initial: "Lu", color: "#B9FF4B", name: "Luana" },
+  luana:     { initial: "Lu", color: "#B9FF4B", name: "Luana" },
   beatriz:   { initial: "B", color: "#A78BFA", name: "Beatriz" },
   isadora:   { initial: "I", color: "#F472B6", name: "Isadora" },
   rafaela:   { initial: "R", color: "#F97316", name: "Rafaela" },
@@ -537,6 +557,8 @@ const AGENT_META: Record<string, { initial: string; color: string; name: string 
   eduardo:    { initial: "E", color: "#F59E0B", name: "Eduardo" },
   vitoria:    { initial: "V", color: "#EC4899", name: "Vitória" },
   bobby:      { initial: "🎬", color: "#B9FF4B", name: "Bobby" },
+  pedro:      { initial: "P", color: "#2DD4BF", name: "Pedro" },
+  calendario: { initial: "P", color: "#2DD4BF", name: "Pedro" },
 };
 
 const normalizeImageAspectRatio = (ratio?: string) => {
@@ -3523,19 +3545,21 @@ ${priorBlock}`;
                                   color: agent.color,
                                   border: `1px solid ${isSelected ? `${agent.color}45` : `${agent.color}20`}`,
                                 }}>
-                                {isSelected ? "▲ Fechar" : "Dar instrução"}
+                                {isSelected ? "▲ Fechar" : agent.id === "briefing" ? "Iniciar Briefing" : "Dar instrução"}
                               </button>
                             </div>
-                            <button
-                              onClick={() => {
-                                setDraftAgent(agent);
-                                setDraftForm({ platforms: [], tone: "profissional e envolvente", topic: "" });
-                                setShowDraftModal(true);
-                              }}
-                              className="w-full py-1.5 rounded-lg text-[10px] font-semibold transition-all flex items-center justify-center gap-1"
-                              style={{ background: `${agent.color}12`, color: agent.color, border: `1px solid ${agent.color}25` }}>
-                              <Send className="w-3 h-3" /> Gerar post para aprovação
-                            </button>
+                            {agent.id !== "briefing" && (
+                              <button
+                                onClick={() => {
+                                  setDraftAgent(agent);
+                                  setDraftForm({ platforms: [], tone: "profissional e envolvente", topic: "" });
+                                  setShowDraftModal(true);
+                                }}
+                                className="w-full py-1.5 rounded-lg text-[10px] font-semibold transition-all flex items-center justify-center gap-1"
+                                style={{ background: `${agent.color}12`, color: agent.color, border: `1px solid ${agent.color}25` }}>
+                                <Send className="w-3 h-3" /> Gerar post para aprovação
+                              </button>
+                            )}
                           </div>
                         </motion.div>
                       );
@@ -3569,7 +3593,7 @@ ${priorBlock}`;
                               </div>
                               <div>
                                 <div className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>
-                                  Instrução para {selectedAgent.name}
+                                  {selectedAgent.id === "briefing" ? "Briefing de Marketing" : `Instrução para ${selectedAgent.name}`}
                                 </div>
                                 <div className="text-[10px]" style={{ color: selectedAgent.color }}>{selectedAgent.role} · {selectedAgent.skill}</div>
                               </div>
@@ -3581,6 +3605,16 @@ ${priorBlock}`;
                                 <X className="w-4 h-4" />
                               </button>
                             </div>
+
+                            {/* Lia: briefing interativo + diagnóstico + PDF */}
+                            {selectedAgent.id === "briefing" && (
+                              <LiaBriefingPanel
+                                clientId={client.id}
+                                clientName={client.name}
+                                clientIndustry={client.industry}
+                                onClose={() => setSelectedAgentId(null)}
+                              />
+                            )}
 
                             {/* Formato (só Carolina) */}
                             {/* Bobby: painel completo de plataforma + roteiro */}
@@ -3706,8 +3740,8 @@ ${priorBlock}`;
                               </div>
                             )}
 
-                            {/* Textarea — oculto para Bobby (tem painel próprio) */}
-                            {selectedAgent.id !== "video" && (
+                            {/* Textarea — oculto para Bobby e Lia (têm painéis próprios) */}
+                            {selectedAgent.id !== "video" && selectedAgent.id !== "briefing" && (
                             <textarea
                               value={agentInstruction}
                               onChange={(e) => setAgentInstruction(e.target.value)}
@@ -3724,8 +3758,8 @@ ${priorBlock}`;
                               </div>
                             )}
 
-                            {/* Attach + Send row — oculto para Bobby */}
-                            {selectedAgent.id !== "video" && <div className="flex items-center gap-3">
+                            {/* Attach + Send row — oculto para Bobby e Lia */}
+                            {selectedAgent.id !== "video" && selectedAgent.id !== "briefing" && <div className="flex items-center gap-3">
                               {agentFile ? (
                                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg flex-shrink-0"
                                   style={{ background: `${selectedAgent.color}12`, border: `1px solid ${selectedAgent.color}28` }}>
@@ -3776,7 +3810,7 @@ ${priorBlock}`;
                               </button>
                             </div>}
 
-                            {selectedAgent.id !== "video" && agentFile && renderFilePreview(agentFile, agentFileUrl, agentFileText, selectedAgent.color)}
+                            {selectedAgent.id !== "video" && selectedAgent.id !== "briefing" && agentFile && renderFilePreview(agentFile, agentFileUrl, agentFileText, selectedAgent.color)}
                           </div>
                         </motion.div>
                       )}

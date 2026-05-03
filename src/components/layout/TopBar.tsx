@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Bell, Plus, X } from "lucide-react";
+import { Search, Bell, Plus, X, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
@@ -9,9 +9,10 @@ import { useAuth } from "@/hooks/useAuth";
 
 interface TopBarProps {
   onToggleSidebar: () => void;
+  onOpenMobileSidebar: () => void;
 }
 
-export const TopBar = ({ onToggleSidebar }: TopBarProps) => {
+export const TopBar = ({ onToggleSidebar, onOpenMobileSidebar }: TopBarProps) => {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showNewContact, setShowNewContact] = useState(false);
   const [searchValue, setSearchValue] = useState("");
@@ -85,24 +86,43 @@ export const TopBar = ({ onToggleSidebar }: TopBarProps) => {
 
   return (
     <>
-      <header className="flex h-16 items-center justify-between border-b border-border bg-card px-6">
-        <div className="flex items-center gap-3 flex-1 max-w-md">
-          <div className="relative flex-1">
+      <header className="flex h-16 items-center justify-between border-b border-border bg-card px-3 md:px-6">
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {/* Hamburger — mobile only */}
+          <button
+            onClick={onOpenMobileSidebar}
+            className="md:hidden flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground transition-colors flex-shrink-0"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+
+          {/* Search */}
+          <div className="relative flex-1 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               type="text"
               value={searchValue}
               onChange={e => setSearchValue(e.target.value)}
               onKeyDown={handleSearch}
-              placeholder="Buscar contatos, conversas, pipelines..."
+              placeholder="Buscar..."
               className="w-full rounded-lg border border-input bg-background py-2 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary transition-colors"
             />
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <Button variant="default" size="sm" className="gap-2" onClick={() => setShowNewContact(true)}>
-            <Plus className="h-4 w-4" /> Novo Contato
+
+        <div className="flex items-center gap-2 ml-2 flex-shrink-0">
+          {/* Novo Contato — ícone no mobile, botão completo no desktop */}
+          <Button
+            variant="default"
+            size="sm"
+            className="gap-2"
+            onClick={() => setShowNewContact(true)}
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Novo Contato</span>
           </Button>
+
+          {/* Bell */}
           <div className="relative">
             <button
               onClick={() => setShowNotifications(!showNotifications)}
@@ -114,7 +134,7 @@ export const TopBar = ({ onToggleSidebar }: TopBarProps) => {
               )}
             </button>
             {showNotifications && (
-              <div className="absolute right-0 top-11 w-80 rounded-xl border border-border bg-card shadow-elevated z-50">
+              <div className="absolute right-0 top-11 w-[calc(100vw-1.5rem)] sm:w-80 rounded-xl border border-border bg-card shadow-elevated z-50">
                 <div className="flex items-center justify-between px-4 py-3 border-b border-border">
                   <h3 className="text-sm font-semibold text-foreground">Notificações</h3>
                   <button onClick={markAllRead} className="text-xs text-primary hover:underline">Marcar todas como lidas</button>
@@ -145,13 +165,14 @@ export const TopBar = ({ onToggleSidebar }: TopBarProps) => {
               </div>
             )}
           </div>
+
           <ProfileMenu />
         </div>
       </header>
 
       {/* New Contact Modal */}
       {showNewContact && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm p-4">
           <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-elevated space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold font-display text-foreground">Novo Contato</h2>

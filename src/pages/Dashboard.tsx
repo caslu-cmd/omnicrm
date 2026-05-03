@@ -66,7 +66,7 @@ const Dashboard = () => {
   };
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="p-6 space-y-6">
+    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6">
       {/* Header */}
       <motion.div variants={item}>
         <h1 className="text-2xl font-bold font-display text-foreground">Dashboard</h1>

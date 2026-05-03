@@ -68,14 +68,14 @@ export default function AgencyDashboard() {
           style={{ background: "radial-gradient(circle, rgba(185,255,75,0.04) 0%, transparent 70%)" }} />
       </div>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-8 py-10">
+      <div className="relative z-10 max-w-7xl mx-auto px-4 py-6 md:px-8 md:py-10">
 
         {/* ── Header ── */}
         <motion.div
           initial={{ opacity: 0, y: -16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: [0.2, 0.8, 0.2, 1] }}
-          className="flex items-start justify-between mb-12"
+          className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between mb-6 md:mb-12"
         >
           <div>
             <div className="flex items-center gap-2.5 mb-3">
@@ -89,7 +89,7 @@ export default function AgencyDashboard() {
               </span>
             </div>
             <h1
-              className="text-5xl tracking-tight leading-none mb-2"
+              className="text-3xl md:text-5xl tracking-tight leading-none mb-2"
               style={{ fontWeight: 700, letterSpacing: "-0.03em" }}
             >
               Calu{" "}
@@ -132,7 +132,7 @@ export default function AgencyDashboard() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1, duration: 0.5 }}
-          className="grid grid-cols-4 gap-4 mb-12"
+          className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 md:mb-12"
         >
           {stats.map((stat, i) => (
             <div key={stat.label} className="rounded-2xl p-5 group transition-all duration-300"
@@ -155,7 +155,7 @@ export default function AgencyDashboard() {
                 <stat.icon className="w-3.5 h-3.5 transition-all duration-300 group-hover:drop-shadow-[0_0_6px_rgba(185,255,75,0.6)]"
                   style={{ color: "rgba(185,255,75,0.5)" }} />
               </div>
-              <div className="text-4xl leading-none font-bold tracking-tight"
+              <div className="text-2xl md:text-4xl leading-none font-bold tracking-tight"
                 style={{ color: "#F0F0F0" }}>
                 {stat.value}
               </div>
@@ -182,7 +182,7 @@ export default function AgencyDashboard() {
         </div>
 
         {/* ── Client Grid ── */}
-        <div className="grid grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
           {CLIENTS.map((client, i) => {
             const isHovered = hoveredId === client.id;
             const s = STATUS_STYLES[client.status];

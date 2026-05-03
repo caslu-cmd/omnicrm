@@ -62,7 +62,7 @@ const CampaignsPage = () => {
   };
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="p-6 space-y-6">
+    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6">
       <motion.div variants={item} className="flex items-center justify-between">
         <div><h1 className="text-2xl font-bold font-display text-foreground">Campanhas</h1><p className="text-sm text-muted-foreground mt-1">{campaigns.length} campanhas · {avgOpenRate}% taxa de abertura média</p></div>
         <button onClick={() => setTab("compose")} className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"><Plus className="h-4 w-4" /> Nova Campanha</button>

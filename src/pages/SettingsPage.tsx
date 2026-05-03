@@ -23,7 +23,7 @@ const SettingsPage = () => {
   const [tab, setTab] = useState("org");
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="p-6 space-y-6">
+    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6">
       <motion.div variants={item}>
         <h1 className="text-2xl font-bold font-display text-foreground">Configurações</h1>
         <p className="text-sm text-muted-foreground mt-1">Gerencie sua organização, segurança e compliance</p>

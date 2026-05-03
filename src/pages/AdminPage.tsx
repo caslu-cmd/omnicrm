@@ -182,7 +182,7 @@ const AdminPage = () => {
   };
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="p-6 space-y-6">
+    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6">
       <motion.div variants={item}>
         <h1 className="text-2xl font-bold font-display text-foreground flex items-center gap-2">
           <Shield className="h-6 w-6 text-primary" /> Super Admin

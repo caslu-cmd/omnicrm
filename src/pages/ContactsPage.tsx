@@ -162,20 +162,29 @@ const ContactsPage = () => {
   );
 
   return (
-    <motion.div variants={anim} initial="hidden" animate="show" className="p-6 space-y-6">
+    <motion.div variants={anim} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6">
 
       {/* Header */}
-      <motion.div variants={row} className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold font-display text-foreground">Contatos</h1>
+      <motion.div variants={row} className="flex items-center justify-between gap-2">
+        <div className="min-w-0">
+          <h1 className="text-xl md:text-2xl font-bold font-display text-foreground">Contatos</h1>
           <p className="text-sm text-muted-foreground mt-1">
             {contacts.length} contatos · {activeCount} ativos · <span style={{ color: HEAT_CFG.hot.color }}>{hotCount} quentes 🔥</span>
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-2" onClick={() => toast.info("Selecione um arquivo CSV")}><Upload className="h-4 w-4" /> Importar</Button>
-          <Button variant="outline" size="sm" className="gap-2" onClick={() => toast.success("Exportando...")}><Download className="h-4 w-4" /> Exportar</Button>
-          <Button variant="default" size="sm" className="gap-2" onClick={() => setShowNew(true)}><Plus className="h-4 w-4" /> Novo Contato</Button>
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => toast.info("Selecione um arquivo CSV")}>
+            <Upload className="h-4 w-4" />
+            <span className="hidden sm:inline">Importar</span>
+          </Button>
+          <Button variant="outline" size="sm" className="gap-2" onClick={() => toast.success("Exportando...")}>
+            <Download className="h-4 w-4" />
+            <span className="hidden sm:inline">Exportar</span>
+          </Button>
+          <Button variant="default" size="sm" className="gap-2" onClick={() => setShowNew(true)}>
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Novo Contato</span>
+          </Button>
         </div>
       </motion.div>
 

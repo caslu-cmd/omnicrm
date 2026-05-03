@@ -30,7 +30,7 @@ Deno.serve(async (req) => {
   }
 
   try {
-    const { messages, systemPrompt, maxTokens, model } = await req.json();
+    const { messages, systemPrompt, maxTokens, model, enableThinking, thinkingBudget } = await req.json();
 
     if (!messages || !Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "messages array required" }), {
@@ -50,10 +50,26 @@ Deno.serve(async (req) => {
       });
     }
 
-    // LOVABLE_API_KEY só suporta modelos que Lovable liberou — usar sonnet como fallback seguro
     const selectedModel = anthropicKey
       ? (model ?? "claude-sonnet-4-6")
       : "claude-sonnet-4-6";
+
+    // Extended thinking requer tokens extras além do budget
+    const budget = thinkingBudget ?? 8000;
+    const resolvedMaxTokens = enableThinking
+      ? Math.max(maxTokens ?? 8000, budget + 2000)
+      : (maxTokens ?? 1024);
+
+    const body: Record<string, unknown> = {
+      model: selectedModel,
+      max_tokens: resolvedMaxTokens,
+      system: systemPrompt ?? SYSTEM_PROMPT,
+      messages,
+    };
+
+    if (enableThinking) {
+      body.thinking = { type: "enabled", budget_tokens: budget };
+    }
 
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -62,12 +78,7 @@ Deno.serve(async (req) => {
         "x-api-key": apiKey,
         "anthropic-version": "2023-06-01",
       },
-      body: JSON.stringify({
-        model: selectedModel,
-        max_tokens: maxTokens ?? 1024,
-        system: systemPrompt ?? SYSTEM_PROMPT,
-        messages,
-      }),
+      body: JSON.stringify(body),
     });
 
     if (!response.ok) {
@@ -79,7 +90,12 @@ Deno.serve(async (req) => {
     }
 
     const data = await response.json();
-    const content = data.content?.[0]?.text ?? "";
+
+    // Extrai apenas o bloco de texto (ignora thinking blocks)
+    const content = data.content
+      ?.filter((b: { type: string }) => b.type === "text")
+      ?.map((b: { text: string }) => b.text)
+      ?.join("") ?? "";
 
     return new Response(JSON.stringify({ content }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },

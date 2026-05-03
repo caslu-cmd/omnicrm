@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import {
   Search, Filter, MessageSquare, Phone, Mail, Instagram, Send,
-  Paperclip, Smile, MoreVertical, Tag, Clock, User, Star
+  Paperclip, Smile, MoreVertical, Tag, Clock, User, Star, ArrowLeft
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -48,6 +48,7 @@ const InboxPage = () => {
   const [messages, setMessages] = useState(initialMessages);
   const [messageInput, setMessageInput] = useState("");
   const [starred, setStarred] = useState<number[]>([]);
+  const [mobileView, setMobileView] = useState<"list" | "thread">("list");
 
   const conv = conversations[selected];
 
@@ -73,15 +74,25 @@ const InboxPage = () => {
     toast.success(starred.includes(conversations[selected].id) ? "Removido dos favoritos" : "Adicionado aos favoritos");
   };
 
+  const handleSelectConversation = (origIndex: number) => {
+    setSelected(origIndex);
+    setMobileView("thread");
+  };
+
   return (
     <div className="flex h-full">
-      <div className="w-80 border-r border-border flex flex-col bg-card">
+      {/* Conversation list — full width on mobile (list view), fixed width on desktop */}
+      <div className={cn(
+        "border-r border-border flex flex-col bg-card",
+        "w-full md:w-80",
+        mobileView === "thread" ? "hidden md:flex" : "flex"
+      )}>
         <div className="p-4 border-b border-border space-y-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar conversas..." className="w-full rounded-lg border border-input bg-background py-2 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20" />
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {["Todos", "WhatsApp", "E-mail", "Instagram"].map((f) => (
               <button key={f} onClick={() => setChannelFilter(f)} className={cn("px-2.5 py-1 rounded-md text-xs font-medium transition-colors", channelFilter === f ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary")}>
                 {f}
@@ -94,7 +105,7 @@ const InboxPage = () => {
             const origIndex = conversations.findIndex(x => x.id === c.id);
             const Icon = channelIcon[c.channel];
             return (
-              <button key={c.id} onClick={() => setSelected(origIndex)} className={cn("w-full flex items-start gap-3 p-4 text-left border-b border-border transition-colors", selected === origIndex ? "bg-primary/5" : "hover:bg-muted/50")}>
+              <button key={c.id} onClick={() => handleSelectConversation(origIndex)} className={cn("w-full flex items-start gap-3 p-4 text-left border-b border-border transition-colors", selected === origIndex ? "bg-primary/5" : "hover:bg-muted/50")}>
                 <div className="relative">
                   <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-sm font-semibold text-foreground">{c.avatar}</div>
                   <Icon className={cn("absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full bg-card p-[1px]", channelColor[c.channel])} />
@@ -116,9 +127,21 @@ const InboxPage = () => {
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col min-w-0">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card">
+      {/* Thread view — full width on mobile (thread view), flex-1 on desktop */}
+      <div className={cn(
+        "flex flex-col min-w-0",
+        "flex-1",
+        mobileView === "list" ? "hidden md:flex" : "flex"
+      )}>
+        <div className="flex items-center justify-between px-4 md:px-6 py-4 border-b border-border bg-card">
           <div className="flex items-center gap-3">
+            {/* Back button — mobile only */}
+            <button
+              onClick={() => setMobileView("list")}
+              className="md:hidden flex h-8 w-8 items-center justify-center rounded-lg hover:bg-muted text-muted-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
             <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">{conv.avatar}</div>
             <div>
               <h3 className="text-sm font-semibold text-foreground">{conv.name}</h3>
@@ -132,10 +155,10 @@ const InboxPage = () => {
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto scrollbar-thin p-6 space-y-4 bg-background">
+        <div className="flex-1 overflow-y-auto scrollbar-thin p-4 md:p-6 space-y-4 bg-background">
           {messages.map((m) => (
             <motion.div key={m.id} initial={{ opacity: 0, x: m.from === "client" ? -10 : 10 }} animate={{ opacity: 1, x: 0 }} transition={{ duration: 0.2 }} className={cn("flex", m.from === "agent" ? "justify-end" : "justify-start")}>
-              <div className={cn("max-w-md rounded-2xl px-4 py-3 text-sm whitespace-pre-line", m.from === "agent" ? "bg-primary text-primary-foreground rounded-br-md" : "bg-card border border-border text-foreground rounded-bl-md")}>
+              <div className={cn("max-w-[85%] md:max-w-md rounded-2xl px-4 py-3 text-sm whitespace-pre-line", m.from === "agent" ? "bg-primary text-primary-foreground rounded-br-md" : "bg-card border border-border text-foreground rounded-bl-md")}>
                 {m.text}
                 <p className={cn("text-[10px] mt-1.5", m.from === "agent" ? "text-primary-foreground/60" : "text-muted-foreground")}>{m.time}</p>
               </div>
@@ -143,7 +166,7 @@ const InboxPage = () => {
           ))}
         </div>
 
-        <div className="border-t border-border bg-card p-4">
+        <div className="border-t border-border bg-card p-3 md:p-4">
           <div className="flex items-end gap-3">
             <div className="flex-1 rounded-xl border border-input bg-background p-3">
               <textarea value={messageInput} onChange={e => setMessageInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }} placeholder="Digite sua mensagem..." rows={1} className="w-full resize-none text-sm bg-transparent placeholder:text-muted-foreground focus:outline-none" />
@@ -159,6 +182,7 @@ const InboxPage = () => {
         </div>
       </div>
 
+      {/* Contact info panel — only on xl screens */}
       <div className="w-72 border-l border-border bg-card p-5 space-y-5 overflow-y-auto scrollbar-thin hidden xl:block">
         <div className="text-center">
           <div className="flex h-16 w-16 mx-auto items-center justify-center rounded-full bg-primary/10 text-lg font-bold text-primary">{conv.avatar}</div>

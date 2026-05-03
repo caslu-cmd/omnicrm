@@ -6,7 +6,7 @@ import {
   HelpCircle, Shield, ChevronLeft, ChevronRight, Phone,
   Palette, Bell, Crown, ArrowLeftRight, Star,
   ArrowLeft, Megaphone, BarChart2, ExternalLink,
-  Bot, Activity, Link2, ListTodo, Share2, Clapperboard, Mic
+  Bot, Activity, Link2, ListTodo, Share2, Clapperboard, Mic, CalendarDays
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useIsAdmin } from "@/hooks/useAdmin";
@@ -15,6 +15,7 @@ import { useClients } from "@/contexts/ClientsContext";
 interface AppSidebarProps {
   collapsed: boolean;
   onToggle: () => void;
+  hideToggle?: boolean;
 }
 
 // ── CRM default nav ───────────────────────────────────────────
@@ -57,11 +58,12 @@ const clientTools = [
   { tab: "agents",       icon: Bot,             label: "Agentes IA" },
   { tab: "activities",   icon: Activity,        label: "Atividades" },
   { tab: "tasks",        icon: ListTodo,        label: "O que fazer" },
-  { tab: "social",       icon: Share2,          label: "Redes Sociais" },
-  { tab: "integrations", icon: Link2,           label: "Integrações" },
+  { tab: "social",      icon: Share2,       label: "Redes Sociais" },
+  { tab: "calendario",  icon: CalendarDays, label: "Calendário Editorial" },
+  { tab: "integrations", icon: Link2,        label: "Integrações" },
 ];
 
-export const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
+export const AppSidebar = ({ collapsed, onToggle, hideToggle }: AppSidebarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
   const { isAdmin } = useIsAdmin();
@@ -383,13 +385,15 @@ export const AppSidebar = ({ collapsed, onToggle }: AppSidebarProps) => {
           : renderCrmSidebar()}
       </div>
 
-      {/* Collapse toggle */}
-      <button
-        onClick={onToggle}
-        className="absolute top-5 -right-3 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-card border border-border shadow-card text-muted-foreground hover:text-foreground transition-colors"
-      >
-        {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
-      </button>
+      {/* Collapse toggle (desktop only) */}
+      {!hideToggle && (
+        <button
+          onClick={onToggle}
+          className="absolute top-5 -right-3 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-card border border-border shadow-card text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronLeft className="h-3.5 w-3.5" />}
+        </button>
+      )}
     </motion.aside>
   );
 };

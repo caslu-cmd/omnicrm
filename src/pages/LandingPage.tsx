@@ -46,12 +46,13 @@ const PRODUCTS = [
 ];
 
 const TEAM = [
-  { i: "A", name: "ARIA",     role: "Orquestradora Geral",      color: LIME,      desc: "Coordena todo o time em tempo real, define prioridades e garante que cada entrega saia no prazo e com qualidade. É o cérebro que conecta todos os agentes.", tasks: ["Orquestração do time", "Controle de prazos", "Briefing automatizado", "Relatório executivo"] },
+  { i: "Lu", name: "Luana",   role: "Orquestradora Geral",      color: LIME,      desc: "Coordena todo o time em tempo real, define prioridades e garante que cada entrega saia no prazo e com qualidade. É o cérebro que conecta todos os agentes.", tasks: ["Orquestração do time", "Controle de prazos", "Briefing automatizado", "Relatório executivo"] },
   { i: "C", name: "Carolina", role: "Estrategista de Marca",    color: "#FBBF24", desc: "Define o posicionamento, a pauta editorial e a direção criativa da marca. Cria o mapa de conteúdo mensal e garante consistência de mensagem em todos os canais.", tasks: ["Pauta editorial mensal", "Posicionamento de marca", "Análise de concorrência", "Direção criativa"] },
   { i: "B", name: "Beatriz",  role: "Copywriter & Redatora",    color: "#A78BFA", desc: "Escreve cada legenda, artigo, e-mail e anúncio com foco em conversão. Seu copy tem personalidade, clareza e intenção — porque cada palavra tem um objetivo.", tasks: ["Legendas e posts", "Artigos e blog", "Roteiros de vídeo", "Copy de anúncios"] },
   { i: "I", name: "Isadora",  role: "Designer Visual",          color: "#D946EF", desc: "Cria todos os visuais da marca — posts, stories, banners, apresentações e peças de campanha. Cada pixel alinhado ao manual de identidade da empresa.", tasks: ["Posts e stories", "Banners e anúncios", "Apresentações", "Identidade visual"] },
   { i: "R", name: "Rafaela",  role: "Gestora de Tráfego Pago",  color: "#F97316", desc: "Gerencia campanhas no Meta Ads e Google Ads com foco em ROAS alto e CPA que faz sentido. Testa, otimiza e escala o que funciona — todos os dias.", tasks: ["Meta Ads (FB/IG)", "Google Ads", "Remarketing", "Otimização de verba"] },
   { i: "M", name: "Marina",   role: "Social Media Manager",     color: "#60A5FA", desc: "Agenda, publica e monitora todo o conteúdo orgânico. Responde comentários, monitora menções e mantém sua marca ativa e presente em todos os momentos.", tasks: ["Agendamento de posts", "Engajamento", "Monitoramento", "Relatório semanal"] },
+  { i: "P", name: "Pedro",    role: "Calendário Editorial",     color: "#2DD4BF", desc: "Planeja e organiza todo o calendário editorial — semanas, meses e campanhas sazonais. Cada post no lugar certo, na hora certa, com o pilar de conteúdo adequado.", tasks: ["Calendário mensal", "Pilares de conteúdo", "Datas estratégicas", "Cronograma de campanhas"] },
   { i: "L", name: "Lucas",    role: "Analista de Dados",        color: "#34D399", desc: "Transforma números em decisões. Monitora métricas de tráfego, engajamento e vendas, e entrega relatórios com insights claros e ações recomendadas.", tasks: ["Dashboards de resultado", "Google Analytics", "Relatórios semanais", "Insights estratégicos"] },
   { i: "E", name: "Eduardo",  role: "Agente de Vendas & CRM",   color: "#F59E0B", desc: "Qualifica leads via WhatsApp, alimenta o CRM e garante que nenhum contato seja perdido. Do primeiro 'oi' até o fechamento do contrato.", tasks: ["Qualificação de leads", "Follow-up automatizado", "Gestão do CRM", "Relatório de pipeline"] },
   { i: "T", name: "Teo",      role: "Web Designer & SEO",       color: "#06B6D4", desc: "Mantém seu site atualizado, publica no blog e otimiza cada página para os buscadores. Mais visibilidade orgânica, mais clientes chegando até você.", tasks: ["Atualização de site", "SEO on-page", "Blog e artigos", "Landing pages"] },
@@ -119,10 +120,10 @@ const PROCESS = [
   },
   {
     n: "02", title: "Estratégia",
-    agents: [{ i: "C", color: "#FBBF24", name: "Carolina" }, { i: "A", color: "#B9FF4B", name: "ARIA" }],
+    agents: [{ i: "C", color: "#FBBF24", name: "Carolina" }, { i: "P", color: "#2DD4BF", name: "Pedro" }],
     duration: "2h",
     output: "Pauta editorial mensal",
-    desc: "Carolina define posicionamento, pauta editorial e direção criativa. ARIA coordena e garante que tudo esteja alinhado ao objetivo do cliente.",
+    desc: "Carolina define posicionamento, pauta editorial e direção criativa. Pedro monta o calendário editorial completo com pilares, datas e cronograma estratégico para o mês.",
     details: ["Pauta editorial 30 dias", "Posicionamento e tom de voz", "Calendário de campanhas", "Direção criativa aprovada"],
     color: "#FBBF24",
   },
@@ -146,10 +147,10 @@ const PROCESS = [
   },
   {
     n: "05", title: "Aprovação",
-    agents: [{ i: "A", color: "#B9FF4B", name: "ARIA" }],
+    agents: [{ i: "Lu", color: LIME, name: "Luana" }],
     duration: "24h",
     output: "Feedback do cliente",
-    desc: "O cliente aprova tudo via portal exclusivo — vê os posts, sugere ajustes e aprova com um clique. ARIA gerencia o fluxo de aprovação.",
+    desc: "O cliente aprova tudo via portal exclusivo — vê os posts, sugere ajustes e aprova com um clique. Luana gerencia o fluxo de aprovação e sincroniza o time.",
     details: ["Portal de aprovação do cliente", "Comentários inline em cada peça", "Histórico de revisões", "Aprovação com um clique"],
     color: "#B9FF4B",
   },
@@ -173,10 +174,10 @@ const PROCESS = [
   },
   {
     n: "08", title: "Relatório",
-    agents: [{ i: "L", color: "#34D399", name: "Lucas" }, { i: "A", color: "#B9FF4B", name: "ARIA" }],
+    agents: [{ i: "L", color: "#34D399", name: "Lucas" }, { i: "Lu", color: LIME, name: "Luana" }],
     duration: "semanal",
     output: "Insights + próximos passos",
-    desc: "Lucas entrega relatório semanal com métricas reais. ARIA consolida os dados e gera recomendações estratégicas para o próximo ciclo.",
+    desc: "Lucas entrega relatório semanal com métricas reais. Luana consolida os dados e gera recomendações estratégicas para o próximo ciclo.",
     details: ["Dashboard de performance em tempo real", "Relatório PDF semanal", "Análise de ROI por canal", "Recomendações para o próximo mês"],
     color: "#34D399",
   },
