@@ -2549,13 +2549,13 @@ ${priorBlock}`;
                           if (airaStatus === "idle") {
                             setAiraStatus("loading");
                             try {
-                              await fetch("http://localhost:8700/reuniao/iniciar", { method: "POST" });
+                              await fetch("http://127.0.0.1:8700/reuniao/iniciar", { method: "POST" });
                               setAiraStatus("recording");
                               setAiraTranscript([]);
                               setAiraSummary(null);
                               airaPollRef.current = setInterval(async () => {
                                 try {
-                                  const r = await fetch("http://localhost:8700/reuniao/status");
+                                  const r = await fetch("http://127.0.0.1:8700/reuniao/status");
                                   const d = await r.json();
                                   if (d.falas_captadas > 0)
                                     setAiraTranscript(t => t.length < d.falas_captadas ? [...t, `${d.falas_captadas} fala(s) captada(s)`] : t);
@@ -2569,7 +2569,7 @@ ${priorBlock}`;
                             if (airaPollRef.current) clearInterval(airaPollRef.current);
                             setAiraStatus("loading");
                             try {
-                              const r = await fetch("http://localhost:8700/reuniao/encerrar", { method: "POST" });
+                              const r = await fetch("http://127.0.0.1:8700/reuniao/encerrar", { method: "POST" });
                               const d = await r.json();
                               setAiraSummary(d.resposta);
                               setAiraStatus("done");
