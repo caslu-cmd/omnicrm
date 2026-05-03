@@ -588,83 +588,115 @@ export default function ClientWorkspace() {
   const [airaLoadingGroups, setAiraLoadingGroups] = useState(false);
   const [airaOnlyLuana, setAiraOnlyLuana] = useState(false);
   const [airaLiveText, setAiraLiveText] = useState("");
-  const [airaMicActive, setAiraMicActive] = useState(false);
   const airaTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const airaTranscriptRef = useRef<string>("");
-  const airaInterimRef = useRef<string>("");
-  const airaRecognitionRef = useRef<any>(null);
-  const airaPausedRef = useRef(false);
+  const airaRecorderRef = useRef<MediaRecorder | null>(null);
+  const airaChunksRef = useRef<Blob[]>([]);
+  const airaStreamRef = useRef<MediaStream | null>(null);
 
   const airaSaveParticipants = (p: AiraPerson[]) => { setAiraParticipants(p); localStorage.setItem(`aira-participants-${id}`, JSON.stringify(p)); };
   const airaSaveGroups = (g: string[]) => { setAiraSelectedGroups(g); localStorage.setItem(`aira-groups-${id}`, JSON.stringify(g)); };
 
-  const airaStartRecording = () => {
+  const airaStartRecording = async () => {
     setAiraError(null);
-    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SR) { setAiraError("Use o Chrome — reconhecimento de voz não suportado neste navegador."); return; }
-    airaTranscriptRef.current = "";
-    airaInterimRef.current = "";
-    airaPausedRef.current = false;
     setAiraLiveText("");
-    const rec = new SR();
-    rec.lang = "pt-BR"; rec.continuous = true; rec.interimResults = true;
-    rec.onresult = (e: any) => {
-      let interim = "";
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        const text = e.results[i][0].transcript;
-        if (e.results[i].isFinal) {
-          airaTranscriptRef.current += text + " ";
-        } else {
-          interim += text;
+    try {
+      // Enumera dispositivos e busca Stereo Mix / loopback de áudio do sistema
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const loopback = devices.find(d =>
+        d.kind === "audioinput" &&
+        /stereo mix|mistura est|what you hear|loopback|wave out|output mix/i.test(d.label)
+      );
+
+      let stream: MediaStream;
+      if (loopback) {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: { deviceId: { exact: loopback.deviceId }, echoCancellation: false, noiseSuppression: false },
+        });
+        setAiraLiveText(`Capturando via: ${loopback.label}`);
+      } else {
+        // Fallback: getDisplayMedia captura áudio do sistema via compartilhamento de tela
+        const display = await (navigator.mediaDevices as any).getDisplayMedia({
+          video: { width: 1, height: 1, frameRate: 1 },
+          audio: { echoCancellation: false, noiseSuppression: false },
+        });
+        display.getVideoTracks().forEach((t: MediaStreamTrack) => t.stop());
+        const audioTracks = display.getAudioTracks();
+        if (audioTracks.length === 0) {
+          setAiraError("Nenhum áudio capturado. Ao compartilhar, marque 'Compartilhar áudio do sistema'.");
+          setAiraStatus("idle");
+          return;
         }
+        stream = new MediaStream(audioTracks);
+        setAiraLiveText("Capturando áudio via compartilhamento de tela...");
       }
-      airaInterimRef.current = interim;
-      setAiraLiveText(airaTranscriptRef.current + interim);
-    };
-    rec.onstart = () => setAiraMicActive(true);
-    rec.onerror = (e: any) => {
-      if (e.error !== "no-speech" && e.error !== "aborted") setAiraError("Erro no microfone: " + e.error);
-    };
-    rec.onend = () => {
-      setAiraMicActive(false);
-      if (airaRecognitionRef.current === rec && !airaPausedRef.current) {
-        setTimeout(() => { try { rec.start(); } catch {} }, 200);
-      }
-    };
-    rec.start();
-    airaRecognitionRef.current = rec;
-    setAiraStatus("recording");
-    setAiraElapsed(0);
-    airaTimerRef.current = setInterval(() => setAiraElapsed(s => s + 1), 1000);
+
+      airaStreamRef.current = stream;
+      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm";
+      const rec = new MediaRecorder(stream, { mimeType: mime });
+      airaChunksRef.current = [];
+      rec.ondataavailable = (e) => { if (e.data.size > 0) airaChunksRef.current.push(e.data); };
+      rec.start(1000);
+      airaRecorderRef.current = rec;
+      setAiraStatus("recording");
+      setAiraElapsed(0);
+      airaTimerRef.current = setInterval(() => setAiraElapsed(s => s + 1), 1000);
+    } catch (e: any) {
+      const msg = e?.name === "NotAllowedError" || e?.name === "AbortError"
+        ? "Acesso negado ou cancelado. Permita o acesso ao áudio e tente novamente."
+        : "Erro ao capturar áudio: " + (e?.message || e);
+      setAiraError(msg);
+      setAiraStatus("idle");
+    }
   };
 
-  const airaFinalize = async () => {
+  const airaStopStream = (): Promise<Blob> => new Promise((resolve) => {
     if (airaTimerRef.current) clearInterval(airaTimerRef.current);
-    const rec = airaRecognitionRef.current;
-    airaRecognitionRef.current = null;
-    airaPausedRef.current = false;
-    try { rec?.stop(); } catch {}
+    const rec = airaRecorderRef.current;
+    if (!rec || rec.state === "inactive") {
+      airaStreamRef.current?.getTracks().forEach(t => t.stop());
+      return resolve(new Blob(airaChunksRef.current));
+    }
+    rec.onstop = () => {
+      airaStreamRef.current?.getTracks().forEach(t => t.stop());
+      resolve(new Blob(airaChunksRef.current, { type: rec.mimeType }));
+    };
+    rec.stop();
+  });
+
+  const blobToBase64 = (blob: Blob): Promise<string> => new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onloadend = () => { const s = r.result as string; resolve(s.split(",")[1] || ""); };
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
+
+  const airaFinalize = async () => {
     setAiraStatus("loading");
-
-    const transcript = (airaTranscriptRef.current + " " + airaInterimRef.current).trim();
-    if (!transcript) { setAiraError("Nenhuma fala foi detectada. Verifique se o microfone está funcionando e tente novamente."); setAiraStatus("idle"); return; }
-
+    setAiraLiveText("");
     try {
+      const blob = await airaStopStream();
+      if (blob.size < 1000) {
+        setAiraError("Gravação muito curta ou sem áudio detectado.");
+        setAiraStatus("idle");
+        return;
+      }
+      const audioBase64 = await blobToBase64(blob);
       const { data, error } = await supabase.functions.invoke("aira-meeting", {
         body: {
-          transcript,
+          audioBase64,
+          audioMime: blob.type || "audio/webm",
           clientName: client?.name,
-          meetingTitle: airaMeetingTitle || `Reunião ${new Date().toLocaleString("pt-BR")}`,
+          meetingTitle: airaMeetingTitle || `Reuniao ${new Date().toLocaleString("pt-BR")}`,
           onlyLuana: airaOnlyLuana,
           groups: airaOnlyLuana ? [] : airaSelectedGroups,
           participants: airaOnlyLuana ? [] : airaParticipants.filter(p => p.phone),
         },
       });
       if (error) throw error;
-      setAiraSummary(data?.summary || "Resumo não disponível.");
+      setAiraSummary(data?.summary || "Resumo nao disponivel.");
       setAiraStatus("done");
     } catch (e: any) {
-      setAiraError("Erro ao processar a reunião: " + (e?.message || e));
+      setAiraError("Erro ao processar a reuniao: " + (e?.message || e));
       setAiraStatus("idle");
     }
   };
@@ -2656,8 +2688,7 @@ ${priorBlock}`;
 
                       {airaStatus === "recording" && (
                         <button onClick={() => {
-                          airaPausedRef.current = true;
-                          try { airaRecognitionRef.current?.stop(); } catch {}
+                          try { airaRecorderRef.current?.pause(); } catch {}
                           if (airaTimerRef.current) clearInterval(airaTimerRef.current);
                           setAiraStatus("paused");
                         }}
@@ -2669,8 +2700,7 @@ ${priorBlock}`;
 
                       {airaStatus === "paused" && (
                         <button onClick={() => {
-                          airaPausedRef.current = false;
-                          try { airaRecognitionRef.current?.start(); } catch {}
+                          try { airaRecorderRef.current?.resume(); } catch {}
                           airaTimerRef.current = setInterval(() => setAiraElapsed(s => s + 1), 1000);
                           setAiraStatus("recording");
                         }}
@@ -2737,8 +2767,8 @@ ${priorBlock}`;
                           <>
                             <p className="text-lg font-bold mb-1" style={{ color: "#EF4444" }}>
                               Estou ouvindo...
-                              <span className="ml-2 text-xs font-normal px-2 py-0.5 rounded-full" style={{ background: airaMicActive ? "rgba(34,197,94,0.15)" : "rgba(255,255,255,0.06)", color: airaMicActive ? "#4ade80" : "rgba(255,255,255,0.3)" }}>
-                                {airaMicActive ? "● mic ativo" : "○ aguardando mic"}
+                              <span className="ml-2 text-xs font-normal px-2 py-0.5 rounded-full" style={{ background: "rgba(34,197,94,0.15)", color: "#4ade80" }}>
+                                ● gravando
                               </span>
                             </p>
                             <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>

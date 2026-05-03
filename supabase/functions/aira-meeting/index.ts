@@ -6,10 +6,38 @@ const cors = {
 };
 
 const ANTHROPIC_API_KEY = Deno.env.get("ANTHROPIC_API_KEY")!;
-const ZAPI_INSTANCE    = Deno.env.get("ZAPI_INSTANCE_ID")  ?? "3EBC0C423ACD4164F09A5A0F11A263D4";
-const ZAPI_TOKEN       = Deno.env.get("ZAPI_TOKEN")        ?? "BA4478E497A2E1C9B499C950";
-const ZAPI_CLIENT      = Deno.env.get("ZAPI_CLIENT_TOKEN") ?? "Fabcb22cf9022425ca4fe8f3a4c91a7e9S";
-const CAROL_PHONE      = Deno.env.get("CAROL_PHONE")       ?? "5585986408404";
+const GROQ_API_KEY      = Deno.env.get("GROQ_API_KEY") ?? "";
+const OPENAI_API_KEY    = Deno.env.get("OPENAI_API_KEY") ?? "";
+const ZAPI_INSTANCE     = Deno.env.get("ZAPI_INSTANCE_ID")  ?? "3EBC0C423ACD4164F09A5A0F11A263D4";
+const ZAPI_TOKEN        = Deno.env.get("ZAPI_TOKEN")        ?? "BA4478E497A2E1C9B499C950";
+const ZAPI_CLIENT       = Deno.env.get("ZAPI_CLIENT_TOKEN") ?? "Fabcb22cf9022425ca4fe8f3a4c91a7e9S";
+const CAROL_PHONE       = Deno.env.get("CAROL_PHONE")       ?? "5585986408404";
+
+async function transcrever(audioBase64: string, audioMime: string): Promise<string> {
+  const key = GROQ_API_KEY || OPENAI_API_KEY;
+  if (!key) throw new Error("Configure GROQ_API_KEY ou OPENAI_API_KEY nas secrets do Supabase");
+
+  const url = GROQ_API_KEY
+    ? "https://api.groq.com/openai/v1/audio/transcriptions"
+    : "https://api.openai.com/v1/audio/transcriptions";
+
+  const audioBytes = Uint8Array.from(atob(audioBase64), c => c.charCodeAt(0));
+  const audioBlob = new Blob([audioBytes], { type: audioMime });
+
+  const form = new FormData();
+  form.append("file", audioBlob, "audio.webm");
+  form.append("model", GROQ_API_KEY ? "whisper-large-v3" : "whisper-1");
+  form.append("language", "pt");
+
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${key}` },
+    body: form,
+  });
+  if (!r.ok) throw new Error(`Transcricao error ${r.status}: ${await r.text()}`);
+  const d = await r.json();
+  return d.text ?? "";
+}
 
 async function resumirComClaude(transcript: string, clientName: string): Promise<string> {
   const today = new Date().toLocaleDateString("pt-BR", {
@@ -65,9 +93,14 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {
-    const { transcript, clientName, onlyLuana, groups, participants } = await req.json();
+    const { audioBase64, audioMime, transcript: transcriptRaw, clientName, onlyLuana, groups, participants } = await req.json();
+
+    let transcript = transcriptRaw ?? "";
+    if (!transcript && audioBase64) {
+      transcript = await transcrever(audioBase64, audioMime || "audio/webm");
+    }
     if (!transcript?.trim()) {
-      return Response.json({ error: "transcript obrigatorio" }, { status: 400, headers: cors });
+      return Response.json({ error: "Nenhum audio ou transcricao fornecidos" }, { status: 400, headers: cors });
     }
 
     const summary = await resumirComClaude(transcript, clientName ?? "");
