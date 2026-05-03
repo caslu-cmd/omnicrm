@@ -571,25 +571,94 @@ export default function ClientWorkspace() {
   const [videoPlatform, setVideoPlatform] = useState<string>("reels");
   const [videoScript, setVideoScript] = useState("");
   const [videoFile, setVideoFile] = useState<File | null>(null);
-  // AIRA — ouvir reunião
-  const AIRA_API_URL = (typeof window !== "undefined" && localStorage.getItem("aira-api-url")) || "http://127.0.0.1:8700";
+  // AIRA — ouvir reunião (captura no browser, transcreve via IA, envia WhatsApp)
+  type AiraPerson = { name: string; phone: string };
   const [airaStatus, setAiraStatus] = useState<"idle" | "recording" | "paused" | "loading" | "done">("idle");
-  const [airaTranscript, setAiraTranscript] = useState<string[]>([]);
   const [airaSummary, setAiraSummary] = useState<string | null>(null);
   const [airaError, setAiraError] = useState<string | null>(null);
-  const [airaDemoMode, setAiraDemoMode] = useState(false);
-  const airaTranscriptRef = useRef<HTMLDivElement>(null);
-  const airaPollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const airaDemoCounterRef = useRef(0);
+  const [airaElapsed, setAiraElapsed] = useState(0);
+  const [airaShowSetup, setAiraShowSetup] = useState(false);
+  const [airaMeetingTitle, setAiraMeetingTitle] = useState("");
+  const [airaLuana, setAiraLuana] = useState<AiraPerson>(() => {
+    try { return JSON.parse(localStorage.getItem("aira-luana") || "") || { name: "Luana", phone: "" }; }
+    catch { return { name: "Luana", phone: "" }; }
+  });
+  const [airaParticipants, setAiraParticipants] = useState<AiraPerson[]>(() => {
+    try { return JSON.parse(localStorage.getItem(`aira-participants-${id}`) || "[]"); } catch { return []; }
+  });
+  const airaRecorderRef = useRef<MediaRecorder | null>(null);
+  const airaChunksRef = useRef<Blob[]>([]);
+  const airaStreamRef = useRef<MediaStream | null>(null);
+  const airaTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const airaSafeFetch = async (path: string, init?: RequestInit) => {
-    const ctrl = new AbortController();
-    const t = setTimeout(() => ctrl.abort(), 2500);
+  const airaSaveLuana = (l: AiraPerson) => { setAiraLuana(l); localStorage.setItem("aira-luana", JSON.stringify(l)); };
+  const airaSaveParticipants = (p: AiraPerson[]) => { setAiraParticipants(p); localStorage.setItem(`aira-participants-${id}`, JSON.stringify(p)); };
+
+  const airaStartRecording = async () => {
+    setAiraError(null);
     try {
-      const r = await fetch(`${AIRA_API_URL}${path}`, { ...init, signal: ctrl.signal });
-      return r;
-    } finally { clearTimeout(t); }
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+      airaStreamRef.current = stream;
+      const mime = MediaRecorder.isTypeSupported("audio/webm;codecs=opus") ? "audio/webm;codecs=opus" : "audio/webm";
+      const rec = new MediaRecorder(stream, { mimeType: mime });
+      airaChunksRef.current = [];
+      rec.ondataavailable = (e) => { if (e.data.size > 0) airaChunksRef.current.push(e.data); };
+      rec.start(1000);
+      airaRecorderRef.current = rec;
+      setAiraStatus("recording");
+      setAiraElapsed(0);
+      airaTimerRef.current = setInterval(() => setAiraElapsed(s => s + 1), 1000);
+    } catch (e: any) {
+      setAiraError("Não foi possível acessar o microfone. Verifique as permissões do navegador.");
+      setAiraStatus("idle");
+    }
   };
+
+  const airaStopRecording = (): Promise<Blob> => new Promise((resolve) => {
+    const rec = airaRecorderRef.current;
+    if (!rec) return resolve(new Blob());
+    rec.onstop = () => {
+      const blob = new Blob(airaChunksRef.current, { type: rec.mimeType });
+      airaStreamRef.current?.getTracks().forEach(t => t.stop());
+      if (airaTimerRef.current) clearInterval(airaTimerRef.current);
+      resolve(blob);
+    };
+    if (rec.state !== "inactive") rec.stop();
+  });
+
+  const blobToBase64 = (blob: Blob): Promise<string> => new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onloadend = () => { const s = r.result as string; resolve(s.split(",")[1] || ""); };
+    r.onerror = reject;
+    r.readAsDataURL(blob);
+  });
+
+  const airaFinalize = async () => {
+    setAiraStatus("loading");
+    try {
+      const blob = await airaStopRecording();
+      if (blob.size < 500) { setAiraError("Áudio muito curto."); setAiraStatus("idle"); return; }
+      const audioBase64 = await blobToBase64(blob);
+      const { data, error } = await supabase.functions.invoke("aira-meeting", {
+        body: {
+          audioBase64,
+          audioMime: blob.type,
+          clientName: client?.name,
+          meetingTitle: airaMeetingTitle || `Reunião ${new Date().toLocaleString("pt-BR")}`,
+          luana: airaLuana.phone ? airaLuana : null,
+          participants: airaParticipants.filter(p => p.phone),
+        },
+      });
+      if (error) throw error;
+      setAiraSummary(data?.summary || "Resumo não disponível.");
+      setAiraStatus("done");
+    } catch (e: any) {
+      setAiraError("Erro ao processar a reunião: " + (e?.message || e));
+      setAiraStatus("idle");
+    }
+  };
+
+  const fmtTime = (s: number) => `${String(Math.floor(s/60)).padStart(2,"0")}:${String(s%60).padStart(2,"0")}`;
   const [videoFileUrl, setVideoFileUrl] = useState<string | null>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
   const [designerTask, setDesignerTask] = useState<{prompt: string; progress: number; startedAt: number; estimatedSeconds: number} | null>(null);
