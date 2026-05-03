@@ -89,7 +89,7 @@ export default function AgencyDashboard() {
               </span>
             </div>
             <h1
-              className="text-3xl md:text-5xl tracking-tight leading-none mb-2"
+              className="text-[28px] sm:text-4xl md:text-5xl tracking-tight leading-none mb-2 break-words"
               style={{ fontWeight: 700, letterSpacing: "-0.03em" }}
             >
               Calu{" "}
@@ -107,20 +107,20 @@ export default function AgencyDashboard() {
             </p>
           </div>
 
-          <div className="flex items-center gap-3 mt-2">
-            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full"
+          <div className="flex items-center gap-2 flex-wrap mt-2">
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full"
               style={{ background: "rgba(185,255,75,0.08)", border: "1px solid rgba(185,255,75,0.22)", boxShadow: "0 0 20px -6px rgba(185,255,75,0.25)" }}>
               <span className="relative flex h-1.5 w-1.5">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
                   style={{ background: LIME }} />
                 <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: LIME }} />
               </span>
-              <span className="text-xs" style={{ color: LIME }}>
+              <span className="text-[11px] sm:text-xs whitespace-nowrap" style={{ color: LIME }}>
                 {CLIENTS.filter((c) => c.agentActive).length} agentes online
               </span>
             </div>
             <a href="/landing" target="_blank" rel="noreferrer"
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-opacity hover:opacity-75"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] sm:text-xs font-semibold transition-opacity hover:opacity-75 whitespace-nowrap"
               style={{ background: LIME, color: "#07080A" }}>
               🌐 Ver site
             </a>
@@ -164,16 +164,16 @@ export default function AgencyDashboard() {
         </motion.div>
 
         {/* ── Section header ── */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-4">
-            <h2 className="text-[11px] font-medium tracking-[0.2em] uppercase"
+        <div className="flex items-center justify-between gap-3 mb-6 flex-wrap">
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+            <h2 className="text-[11px] font-medium tracking-[0.2em] uppercase whitespace-nowrap"
               style={{ color: "rgba(255,255,255,0.35)" }}>Seus Clientes</h2>
-            <div className="h-px w-20" style={{ background: "rgba(185,255,75,0.15)" }} />
-            <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.2)" }}>{CLIENTS.length} clientes</span>
+            <div className="hidden sm:block h-px w-20" style={{ background: "rgba(185,255,75,0.15)" }} />
+            <span className="text-[11px] whitespace-nowrap" style={{ color: "rgba(255,255,255,0.2)" }}>{CLIENTS.length} clientes</span>
           </div>
           <button
             onClick={() => setShowNewClient(true)}
-            className="flex items-center gap-1.5 text-xs font-medium transition-colors"
+            className="flex items-center gap-1.5 text-xs font-medium transition-colors whitespace-nowrap"
             style={{ color: "rgba(185,255,75,0.5)" }}
             onMouseEnter={(e) => (e.currentTarget.style.color = LIME)}
             onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(185,255,75,0.5)")}>
