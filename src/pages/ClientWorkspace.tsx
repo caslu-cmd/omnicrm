@@ -2780,50 +2780,51 @@ ${priorBlock}`;
                     boxShadow: "0 0 48px -16px rgba(185,255,75,0.15)",
                   }}>
 
-                  {/* Status row */}
-                  <div className="flex items-start gap-5 p-6 pb-5">
+                  {/* Status row — tudo em linha, com wrap */}
+                  <div className="flex items-center gap-3 sm:gap-4 p-4 sm:p-6 pb-4 flex-wrap">
                     <div className="flex-shrink-0">
-                      <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+                      <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl flex items-center justify-center"
                         style={{ background: "#B9FF4B", boxShadow: "0 0 24px -4px rgba(185,255,75,0.55)" }}>
-                        <Zap className="w-7 h-7" style={{ color: "#07080A" }} />
+                        <Zap className="w-6 h-6 sm:w-7 sm:h-7" style={{ color: "#07080A" }} />
                       </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-1">
-                        <h3 className="text-base font-bold" style={{ color: "#F0F0F0" }}>Luana</h3>
-                        <span className="text-[10px] px-2.5 py-0.5 rounded-full font-semibold"
-                          style={{ background: "rgba(185,255,75,0.12)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.25)" }}>
-                          Orquestradora
-                        </span>
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#B9FF4B" }} />
-                          <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "#B9FF4B" }} />
-                        </span>
-                        <span className="text-xs" style={{ color: "rgba(185,255,75,0.7)" }}>Coordenando o time</span>
-                      </div>
-                      <p className="text-sm mb-4" style={{ color: "rgba(255,255,255,0.45)" }}>
-                        {client.orchestratorStatus}
-                      </p>
-                      <div className="grid grid-cols-3 gap-2">
-                        {client.orchestratorPlan.map((step, i) => (
-                          <div key={i} className="flex items-start gap-2 px-3 py-2 rounded-xl"
-                            style={{
-                              background: step.done ? "rgba(52,211,153,0.07)" : step.active ? "rgba(185,255,75,0.08)" : "rgba(255,255,255,0.03)",
-                              border: `1px solid ${step.done ? "rgba(52,211,153,0.2)" : step.active ? "rgba(185,255,75,0.2)" : "rgba(255,255,255,0.06)"}`,
-                            }}>
-                            {step.done
-                              ? <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: "#34D399" }} />
-                              : step.active
-                              ? <Zap className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: "#B9FF4B" }} />
-                              : <Circle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" style={{ color: "rgba(255,255,255,0.15)" }} />
-                            }
-                            <span className="text-[11px] leading-relaxed"
-                              style={{ color: step.done ? "rgba(52,211,153,0.8)" : step.active ? "#B9FF4B" : "rgba(255,255,255,0.3)" }}>
-                              {step.step}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+
+                    <div className="flex items-center gap-2 flex-wrap min-w-0">
+                      <h3 className="text-base font-bold" style={{ color: "#F0F0F0" }}>Luana</h3>
+                      <span className="text-[10px] px-2.5 py-0.5 rounded-full font-semibold whitespace-nowrap"
+                        style={{ background: "rgba(185,255,75,0.12)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.25)" }}>
+                        Orquestradora
+                      </span>
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#B9FF4B" }} />
+                        <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "#B9FF4B" }} />
+                      </span>
+                      <span className="text-xs whitespace-nowrap" style={{ color: "rgba(185,255,75,0.7)" }}>Coordenando o time</span>
+                      <span className="text-sm break-words min-w-0" style={{ color: "rgba(255,255,255,0.45)" }}>
+                        · {client.orchestratorStatus}
+                      </span>
+                    </div>
+
+                    {/* Plano — chips em linha com wrap */}
+                    <div className="flex flex-wrap gap-2 w-full">
+                      {client.orchestratorPlan.map((step, i) => (
+                        <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-xl"
+                          style={{
+                            background: step.done ? "rgba(52,211,153,0.07)" : step.active ? "rgba(185,255,75,0.08)" : "rgba(255,255,255,0.03)",
+                            border: `1px solid ${step.done ? "rgba(52,211,153,0.2)" : step.active ? "rgba(185,255,75,0.2)" : "rgba(255,255,255,0.06)"}`,
+                          }}>
+                          {step.done
+                            ? <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#34D399" }} />
+                            : step.active
+                            ? <Zap className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#B9FF4B" }} />
+                            : <Circle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "rgba(255,255,255,0.15)" }} />
+                          }
+                          <span className="text-[11px] leading-tight break-words"
+                            style={{ color: step.done ? "rgba(52,211,153,0.8)" : step.active ? "#B9FF4B" : "rgba(255,255,255,0.3)" }}>
+                            {step.step}
+                          </span>
+                        </div>
+                      ))}
                     </div>
                   </div>
 
