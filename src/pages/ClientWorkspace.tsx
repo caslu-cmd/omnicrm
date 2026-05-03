@@ -605,34 +605,62 @@ export default function ClientWorkspace() {
     setAiraError(null);
     setAiraLiveText("");
     try {
-      // Enumera dispositivos e busca Stereo Mix / loopback de áudio do sistema
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const loopback = devices.find(d =>
-        d.kind === "audioinput" &&
-        /stereo mix|mistura est|what you hear|loopback|wave out|output mix/i.test(d.label)
-      );
-
       let stream: MediaStream;
-      if (loopback) {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: { deviceId: { exact: loopback.deviceId }, echoCancellation: false, noiseSuppression: false },
-        });
-        setAiraLiveText(`Capturando via: ${loopback.label}`);
-      } else {
-        // Fallback: getDisplayMedia captura áudio do sistema via compartilhamento de tela
+
+      const captureSystem = async (): Promise<MediaStream> => {
+        // Tenta loopback nativo (Stereo Mix / What U Hear) sem prompt de tela
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const loopback = devices.find(d =>
+            d.kind === "audioinput" &&
+            /stereo mix|mistura est|what you hear|loopback|wave out|output mix/i.test(d.label)
+          );
+          if (loopback) {
+            const s = await navigator.mediaDevices.getUserMedia({
+              audio: { deviceId: { exact: loopback.deviceId }, echoCancellation: false, noiseSuppression: false },
+            });
+            setAiraLiveText(`Capturando áudio do PC via: ${loopback.label}`);
+            return s;
+          }
+        } catch {}
+        // Fallback: compartilhamento de tela com áudio do sistema
         const display = await (navigator.mediaDevices as any).getDisplayMedia({
           video: { width: 1, height: 1, frameRate: 1 },
-          audio: { echoCancellation: false, noiseSuppression: false },
+          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
         });
         display.getVideoTracks().forEach((t: MediaStreamTrack) => t.stop());
         const audioTracks = display.getAudioTracks();
         if (audioTracks.length === 0) {
-          setAiraError("Nenhum áudio capturado. Ao compartilhar, marque 'Compartilhar áudio do sistema'.");
-          setAiraStatus("idle");
-          return;
+          throw new Error("Nenhum áudio capturado. Ao compartilhar a tela, marque 'Compartilhar áudio do sistema' (no Chrome, escolha 'Aba' ou 'Tela inteira' e ative a caixinha de áudio).");
         }
-        stream = new MediaStream(audioTracks);
-        setAiraLiveText("Capturando áudio via compartilhamento de tela...");
+        setAiraLiveText("Capturando áudio do PC via compartilhamento de tela...");
+        return new MediaStream(audioTracks);
+      };
+
+      const captureMic = async (): Promise<MediaStream> => {
+        const s = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true },
+        });
+        setAiraLiveText("Capturando microfone...");
+        return s;
+      };
+
+      if (airaSource === "mic") {
+        stream = await captureMic();
+      } else if (airaSource === "system") {
+        stream = await captureSystem();
+      } else {
+        // both: mistura áudio do sistema + microfone num único stream
+        const sys = await captureSystem();
+        const mic = await captureMic();
+        const ctx = new AudioContext();
+        const dest = ctx.createMediaStreamDestination();
+        ctx.createMediaStreamSource(sys).connect(dest);
+        ctx.createMediaStreamSource(mic).connect(dest);
+        stream = dest.stream;
+        // mantém referências para parar depois
+        (stream as any)._extraTracks = [...sys.getTracks(), ...mic.getTracks()];
+        setAiraLiveText("Capturando áudio do PC + microfone...");
       }
 
       airaStreamRef.current = stream;
