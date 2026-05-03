@@ -588,6 +588,11 @@ export default function ClientWorkspace() {
   const [airaLoadingGroups, setAiraLoadingGroups] = useState(false);
   const [airaOnlyLuana, setAiraOnlyLuana] = useState(false);
   const [airaLiveText, setAiraLiveText] = useState("");
+  const [airaSource, setAiraSource] = useState<"system" | "mic" | "both">(() => {
+    const v = localStorage.getItem(`aira-source-${id}`);
+    return (v === "mic" || v === "both" || v === "system") ? v : "system";
+  });
+  const airaSaveSource = (s: "system" | "mic" | "both") => { setAiraSource(s); localStorage.setItem(`aira-source-${id}`, s); };
   const airaTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const airaRecorderRef = useRef<MediaRecorder | null>(null);
   const airaChunksRef = useRef<Blob[]>([]);
@@ -600,34 +605,62 @@ export default function ClientWorkspace() {
     setAiraError(null);
     setAiraLiveText("");
     try {
-      // Enumera dispositivos e busca Stereo Mix / loopback de áudio do sistema
-      const devices = await navigator.mediaDevices.enumerateDevices();
-      const loopback = devices.find(d =>
-        d.kind === "audioinput" &&
-        /stereo mix|mistura est|what you hear|loopback|wave out|output mix/i.test(d.label)
-      );
-
       let stream: MediaStream;
-      if (loopback) {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: { deviceId: { exact: loopback.deviceId }, echoCancellation: false, noiseSuppression: false },
-        });
-        setAiraLiveText(`Capturando via: ${loopback.label}`);
-      } else {
-        // Fallback: getDisplayMedia captura áudio do sistema via compartilhamento de tela
+
+      const captureSystem = async (): Promise<MediaStream> => {
+        // Tenta loopback nativo (Stereo Mix / What U Hear) sem prompt de tela
+        try {
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const loopback = devices.find(d =>
+            d.kind === "audioinput" &&
+            /stereo mix|mistura est|what you hear|loopback|wave out|output mix/i.test(d.label)
+          );
+          if (loopback) {
+            const s = await navigator.mediaDevices.getUserMedia({
+              audio: { deviceId: { exact: loopback.deviceId }, echoCancellation: false, noiseSuppression: false },
+            });
+            setAiraLiveText(`Capturando áudio do PC via: ${loopback.label}`);
+            return s;
+          }
+        } catch {}
+        // Fallback: compartilhamento de tela com áudio do sistema
         const display = await (navigator.mediaDevices as any).getDisplayMedia({
           video: { width: 1, height: 1, frameRate: 1 },
-          audio: { echoCancellation: false, noiseSuppression: false },
+          audio: { echoCancellation: false, noiseSuppression: false, autoGainControl: false },
         });
         display.getVideoTracks().forEach((t: MediaStreamTrack) => t.stop());
         const audioTracks = display.getAudioTracks();
         if (audioTracks.length === 0) {
-          setAiraError("Nenhum áudio capturado. Ao compartilhar, marque 'Compartilhar áudio do sistema'.");
-          setAiraStatus("idle");
-          return;
+          throw new Error("Nenhum áudio capturado. Ao compartilhar a tela, marque 'Compartilhar áudio do sistema' (no Chrome, escolha 'Aba' ou 'Tela inteira' e ative a caixinha de áudio).");
         }
-        stream = new MediaStream(audioTracks);
-        setAiraLiveText("Capturando áudio via compartilhamento de tela...");
+        setAiraLiveText("Capturando áudio do PC via compartilhamento de tela...");
+        return new MediaStream(audioTracks);
+      };
+
+      const captureMic = async (): Promise<MediaStream> => {
+        const s = await navigator.mediaDevices.getUserMedia({
+          audio: { echoCancellation: true, noiseSuppression: true },
+        });
+        setAiraLiveText("Capturando microfone...");
+        return s;
+      };
+
+      if (airaSource === "mic") {
+        stream = await captureMic();
+      } else if (airaSource === "system") {
+        stream = await captureSystem();
+      } else {
+        // both: mistura áudio do sistema + microfone num único stream
+        const sys = await captureSystem();
+        const mic = await captureMic();
+        const ctx = new AudioContext();
+        const dest = ctx.createMediaStreamDestination();
+        ctx.createMediaStreamSource(sys).connect(dest);
+        ctx.createMediaStreamSource(mic).connect(dest);
+        stream = dest.stream;
+        // mantém referências para parar depois
+        (stream as any)._extraTracks = [...sys.getTracks(), ...mic.getTracks()];
+        setAiraLiveText("Capturando áudio do PC + microfone...");
       }
 
       airaStreamRef.current = stream;
@@ -652,12 +685,17 @@ export default function ClientWorkspace() {
   const airaStopStream = (): Promise<Blob> => new Promise((resolve) => {
     if (airaTimerRef.current) clearInterval(airaTimerRef.current);
     const rec = airaRecorderRef.current;
-    if (!rec || rec.state === "inactive") {
+    const stopAll = () => {
       airaStreamRef.current?.getTracks().forEach(t => t.stop());
+      const extra = (airaStreamRef.current as any)?._extraTracks as MediaStreamTrack[] | undefined;
+      extra?.forEach(t => { try { t.stop(); } catch {} });
+    };
+    if (!rec || rec.state === "inactive") {
+      stopAll();
       return resolve(new Blob(airaChunksRef.current));
     }
     rec.onstop = () => {
-      airaStreamRef.current?.getTracks().forEach(t => t.stop());
+      stopAll();
       resolve(new Blob(airaChunksRef.current, { type: rec.mimeType }));
     };
     rec.stop();
@@ -2858,6 +2896,31 @@ ${priorBlock}`;
                           <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.4)" }}>Título da reunião (opcional)</label>
                           <input value={airaMeetingTitle} onChange={(e) => setAiraMeetingTitle(e.target.value)} placeholder="Ex: Alinhamento estratégico"
                             className="w-full mt-1 px-3 py-2 rounded-lg text-sm" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#F0F0F0" }} />
+                        </div>
+                        <div>
+                          <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.4)" }}>Fonte de áudio</label>
+                          <div className="grid grid-cols-3 gap-2 mt-1">
+                            {([
+                              { v: "system", t: "Áudio do PC", d: "Som da reunião" },
+                              { v: "mic", t: "Microfone", d: "Sua voz/ambiente" },
+                              { v: "both", t: "PC + Mic", d: "Tudo junto" },
+                            ] as const).map(opt => {
+                              const sel = airaSource === opt.v;
+                              return (
+                                <button key={opt.v} onClick={() => airaSaveSource(opt.v)} type="button"
+                                  className="p-2 rounded-lg text-left transition-all"
+                                  style={{ background: sel ? "rgba(185,255,75,0.1)" : "rgba(255,255,255,0.03)", border: `1px solid ${sel ? "rgba(185,255,75,0.4)" : "rgba(255,255,255,0.08)"}` }}>
+                                  <div className="text-xs font-semibold" style={{ color: sel ? "#B9FF4B" : "#F0F0F0" }}>{opt.t}</div>
+                                  <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.4)" }}>{opt.d}</div>
+                                </button>
+                              );
+                            })}
+                          </div>
+                          {airaSource !== "mic" && (
+                            <p className="text-[11px] mt-2" style={{ color: "rgba(255,255,255,0.4)" }}>
+                              💡 Para capturar o áudio do PC, o navegador pedirá para compartilhar uma aba ou tela — <strong style={{ color: "#B9FF4B" }}>marque "Compartilhar áudio do sistema/aba"</strong>. Funciona melhor no Chrome/Edge.
+                            </p>
+                          )}
                         </div>
                         {!airaOnlyLuana && <div className="rounded-xl p-3" style={{ background: "rgba(185,255,75,0.04)", border: "1px solid rgba(185,255,75,0.15)" }}>
                           <div className="flex items-center justify-between mb-2">
