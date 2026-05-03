@@ -3912,7 +3912,8 @@ ${priorBlock}`;
                       <div className="rounded-2xl overflow-hidden"
                         style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
                         {/* Header */}
-                        <div className="grid px-5 py-2.5 text-[10px] uppercase tracking-wider"
+                        {/* Header — esconde em mobile */}
+                        <div className="hidden md:grid px-5 py-2.5 text-[10px] uppercase tracking-wider"
                           style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 100px", color: "rgba(255,255,255,0.25)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                           <span>Página</span><span>URL</span><span>Última edição</span><span>Status</span><span></span>
                         </div>
@@ -3922,35 +3923,32 @@ ${priorBlock}`;
                           const isEditing  = editingPage === p.page;
                           return (
                             <div key={p.page}>
-                              <div className="grid px-5 py-3 items-center transition-colors"
-                                style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 100px", borderBottom: i < pages.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}
-                                onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
-                                onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                                <div className="flex items-center gap-2">
+                              <div className="flex items-center gap-x-3 gap-y-1.5 flex-wrap px-4 sm:px-5 py-3 transition-colors"
+                                style={{ borderBottom: i < pages.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+                                <div className="flex items-center gap-2 min-w-0 flex-wrap">
                                   <Globe className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "rgba(6,182,212,0.5)" }} />
-                                  <span className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.8)" }}>{p.page}</span>
+                                  <span className="text-sm font-medium break-words" style={{ color: "rgba(255,255,255,0.8)" }}>{p.page}</span>
                                   {p.changes > 0 && (
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full"
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full whitespace-nowrap"
                                       style={{ background: "rgba(6,182,212,0.12)", color: "#06B6D4" }}>
                                       {p.changes} edições
                                     </span>
                                   )}
                                 </div>
-                                <span className="text-xs font-mono" style={{ color: "rgba(255,255,255,0.3)" }}>{p.url}</span>
-                                <span className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>{p.lastEdit}</span>
-                                <span className="text-[10px] px-2 py-0.5 rounded-full w-fit font-medium"
+                                <span className="text-xs font-mono break-all min-w-0" style={{ color: "rgba(255,255,255,0.4)" }}>{p.url}</span>
+                                <span className="text-xs whitespace-nowrap" style={{ color: "rgba(255,255,255,0.35)" }}>{p.lastEdit}</span>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap"
                                   style={{ background: statusBg, color: statusColor }}>
                                   {p.status}
                                 </span>
-                                <div className="flex items-center justify-end gap-1.5">
-                                  <button
-                                    onClick={() => setEditingPage(isEditing ? null : p.page)}
-                                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all"
-                                    style={{ background: isEditing ? "rgba(6,182,212,0.2)" : "rgba(6,182,212,0.08)", color: "#06B6D4", border: "1px solid rgba(6,182,212,0.2)" }}>
-                                    <Pencil className="w-2.5 h-2.5" />
-                                    {isEditing ? "Fechar" : "Editar"}
-                                  </button>
-                                </div>
+                                <div className="flex-1 min-w-0" />
+                                <button
+                                  onClick={() => setEditingPage(isEditing ? null : p.page)}
+                                  className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all whitespace-nowrap"
+                                  style={{ background: isEditing ? "rgba(6,182,212,0.2)" : "rgba(6,182,212,0.08)", color: "#06B6D4", border: "1px solid rgba(6,182,212,0.2)" }}>
+                                  <Pencil className="w-2.5 h-2.5" />
+                                  {isEditing ? "Fechar" : "Editar"}
+                                </button>
                               </div>
                               {/* Inline edit panel */}
                               <AnimatePresence>
