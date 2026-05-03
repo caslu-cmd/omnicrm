@@ -182,7 +182,8 @@ export default function AgencyDashboard() {
         </div>
 
         {/* ── Client Grid ── */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="flex sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 overflow-x-auto sm:overflow-visible -mx-4 px-4 sm:mx-0 sm:px-0 snap-x snap-mandatory scrollbar-thin pb-2 sm:pb-0">
+          {/* mobile: cards horizontais; desktop: grid */}
           {CLIENTS.map((client, i) => {
             const isHovered = hoveredId === client.id;
             const s = STATUS_STYLES[client.status];
