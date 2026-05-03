@@ -2500,17 +2500,34 @@ ${priorBlock}`;
                 </motion.div>
 
                 {/* ── AIRA — Ouvir Reunião ── */}
+                <style>{`
+                  @keyframes aira-bar { 0%,100%{transform:scaleY(.3)} 50%{transform:scaleY(1)} }
+                  .aira-bar { transform-origin: bottom; animation: aira-bar 1s ease-in-out infinite; }
+                  .aira-bar:nth-child(1){animation-delay:0s}
+                  .aira-bar:nth-child(2){animation-delay:.1s}
+                  .aira-bar:nth-child(3){animation-delay:.2s}
+                  .aira-bar:nth-child(4){animation-delay:.3s}
+                  .aira-bar:nth-child(5){animation-delay:.4s}
+                  .aira-bar:nth-child(6){animation-delay:.3s}
+                  .aira-bar:nth-child(7){animation-delay:.2s}
+                  .aira-bar:nth-child(8){animation-delay:.1s}
+                  .aira-bar:nth-child(9){animation-delay:0s}
+                `}</style>
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
                   className="rounded-2xl overflow-hidden"
-                  style={{ background: "rgba(185,255,75,0.03)", border: "1px solid rgba(185,255,75,0.15)" }}>
+                  style={{
+                    background: airaStatus === "recording" ? "rgba(239,68,68,0.04)" : "rgba(185,255,75,0.03)",
+                    border: `1px solid ${airaStatus === "recording" ? "rgba(239,68,68,0.25)" : "rgba(185,255,75,0.15)"}`,
+                    transition: "all 0.4s ease",
+                  }}>
+
+                  {/* Header */}
                   <div className="flex items-center justify-between px-6 py-4"
-                    style={{ borderBottom: "1px solid rgba(185,255,75,0.08)" }}>
+                    style={{ borderBottom: `1px solid ${airaStatus === "recording" ? "rgba(239,68,68,0.1)" : "rgba(185,255,75,0.08)"}` }}>
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl flex items-center justify-center"
                         style={{ background: airaStatus === "recording" ? "rgba(239,68,68,0.12)" : "rgba(185,255,75,0.1)", border: `1px solid ${airaStatus === "recording" ? "rgba(239,68,68,0.3)" : "rgba(185,255,75,0.2)"}` }}>
-                        {airaStatus === "recording"
-                          ? <MicOff className="w-5 h-5" style={{ color: "#EF4444" }} />
-                          : <Mic className="w-5 h-5" style={{ color: "#B9FF4B" }} />}
+                        <Mic className="w-5 h-5" style={{ color: airaStatus === "recording" ? "#EF4444" : "#B9FF4B" }} />
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
@@ -2528,8 +2545,8 @@ ${priorBlock}`;
                         </div>
                         <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>
                           {airaStatus === "idle" && "Escuta a reunião e gera resumo no WhatsApp"}
-                          {airaStatus === "loading" && "Aguarde..."}
-                          {airaStatus === "recording" && "Gravando — clique para encerrar e resumir"}
+                          {airaStatus === "loading" && "Processando..."}
+                          {airaStatus === "recording" && "Ao vivo — clique em Encerrar quando terminar"}
                           {airaStatus === "done" && "Resumo enviado para o WhatsApp ✓"}
                         </p>
                       </div>
@@ -2562,7 +2579,7 @@ ${priorBlock}`;
                                 } catch {}
                               }, 10000);
                             } catch {
-                              setAiraError("API indisponível. Verifique se a secretária está rodando em localhost:8700.");
+                              setAiraError("API indisponível. Verifique se a secretária está rodando em 127.0.0.1:8700.");
                               setAiraStatus("idle");
                             }
                           } else if (airaStatus === "recording") {
@@ -2581,28 +2598,71 @@ ${priorBlock}`;
                         }}
                         className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
                         style={{
-                          background: airaStatus === "recording" ? "rgba(239,68,68,0.15)" : "#B9FF4B",
-                          color: airaStatus === "recording" ? "#EF4444" : "#07080A",
-                          border: airaStatus === "recording" ? "1px solid rgba(239,68,68,0.3)" : "none",
-                          boxShadow: airaStatus === "recording" ? "none" : "0 0 20px -4px rgba(185,255,75,0.4)",
+                          background: airaStatus === "recording" ? "rgba(239,68,68,0.15)" : airaStatus === "loading" ? "rgba(185,255,75,0.15)" : "#B9FF4B",
+                          color: airaStatus === "recording" ? "#EF4444" : airaStatus === "loading" ? "#B9FF4B" : "#07080A",
+                          border: airaStatus === "recording" ? "1px solid rgba(239,68,68,0.3)" : airaStatus === "loading" ? "1px solid rgba(185,255,75,0.2)" : "none",
+                          boxShadow: airaStatus === "idle" ? "0 0 20px -4px rgba(185,255,75,0.4)" : "none",
                         }}>
                         {airaStatus === "loading"
-                          ? <><RefreshCw className="w-4 h-4 animate-spin" /> Aguarde</>
+                          ? <><RefreshCw className="w-4 h-4 animate-spin" /> Processando</>
                           : airaStatus === "recording"
                           ? <><StopCircle className="w-4 h-4" /> Encerrar</>
                           : <><Mic className="w-4 h-4" /> Ouvir Reunião</>}
                       </button>
                     </div>
                   </div>
+
+                  {/* Área de gravação ao vivo */}
+                  {airaStatus === "recording" && (
+                    <div className="px-6 py-8 flex flex-col items-center gap-5"
+                      style={{ background: "rgba(239,68,68,0.03)" }}>
+                      {/* Waveform */}
+                      <div className="flex items-end gap-1" style={{ height: 48 }}>
+                        {[18,28,38,44,48,44,38,28,18].map((h, i) => (
+                          <div key={i} className="aira-bar rounded-full"
+                            style={{ width: 5, height: h, background: "linear-gradient(to top, #EF4444, #FCA5A5)", opacity: 0.85 }} />
+                        ))}
+                      </div>
+                      {/* Texto */}
+                      <div className="text-center">
+                        <p className="text-lg font-bold mb-1" style={{ color: "#EF4444" }}>Estou ouvindo...</p>
+                        <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
+                          A AIRA está captando tudo. Quando a reunião terminar, clique em <strong style={{ color: "rgba(255,255,255,0.5)" }}>Encerrar</strong> para receber o resumo no WhatsApp.
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Processando resumo */}
+                  {airaStatus === "loading" && (
+                    <div className="px-6 py-8 flex flex-col items-center gap-3">
+                      <RefreshCw className="w-8 h-8 animate-spin" style={{ color: "#B9FF4B" }} />
+                      <p className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.55)" }}>Gerando resumo da reunião...</p>
+                      <p className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>Você receberá no WhatsApp em instantes</p>
+                    </div>
+                  )}
+
+                  {/* Erro */}
                   {airaError && (
-                    <div className="px-6 py-3 text-xs" style={{ color: "#FCA5A5", background: "rgba(239,68,68,0.06)", borderBottom: "1px solid rgba(239,68,68,0.12)" }}>
+                    <div className="px-6 py-3 text-xs" style={{ color: "#FCA5A5", background: "rgba(239,68,68,0.06)", borderTop: "1px solid rgba(239,68,68,0.12)" }}>
                       {airaError}
                     </div>
                   )}
-                  {airaSummary && (
-                    <div className="px-6 py-5 space-y-2">
-                      <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(185,255,75,0.6)" }}>Resumo da Reunião</p>
-                      <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "rgba(255,255,255,0.65)" }}>{airaSummary}</p>
+
+                  {/* Resumo pós-reunião */}
+                  {airaStatus === "done" && airaSummary && (
+                    <div className="px-6 py-5 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4" style={{ color: "#B9FF4B" }} />
+                        <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#B9FF4B" }}>
+                          Resumo da Reunião
+                        </p>
+                      </div>
+                      <div className="rounded-xl p-4" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: "rgba(255,255,255,0.7)" }}>
+                          {airaSummary}
+                        </p>
+                      </div>
                     </div>
                   )}
                 </motion.div>
