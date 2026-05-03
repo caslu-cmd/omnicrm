@@ -276,7 +276,7 @@ export default function SuperDiagnostico() {
         const parsed = JSON.parse(jsonStr);
         setLeadData(parsed);
 
-        // Salva lead
+        // Salva lead no CRM
         supabase.from("contacts").insert({
           name: parsed.nome ?? "",
           phone: parsed.whatsapp ?? "",
@@ -285,6 +285,13 @@ export default function SuperDiagnostico() {
           channel: "Super Diagnóstico",
           status: "Novo",
           notes: `Segmento: ${parsed.segmento} | Meta: ${parsed.meta90dias} | Budget: ${parsed.budgetMarketing}`,
+        }).then(() => {});
+
+        // Notifica Carol via WhatsApp
+        const waLead = parsed.whatsapp ? `55${parsed.whatsapp.replace(/\D/g,"")}` : "";
+        const notificacao = `🔔 *Novo Lead — Super Diagnóstico*\n\n👤 *Nome:* ${parsed.nome}\n🏢 *Empresa:* ${parsed.empresa}\n📱 *WhatsApp:* ${parsed.whatsapp}${waLead ? `\n👉 wa.me/${waLead}` : ""}\n🎯 *Segmento:* ${parsed.segmento}\n📊 *Faturamento:* ${parsed.faturamento}\n💡 *Meta 90 dias:* ${parsed.meta90dias}\n💰 *Budget marketing:* ${parsed.budgetMarketing}\n\n✅ O diagnóstico foi gerado automaticamente. Entre em contato para fechar!`;
+        supabase.functions.invoke("aira-meeting", {
+          body: { summary: notificacao, groups: [], participants: [] },
         }).then(() => {});
 
         // Gera diagnóstico
