@@ -291,14 +291,13 @@ export default function SuperDiagnostico() {
     setError(null);
     try {
       // Save lead to contacts
-      supabase.from("contacts").insert({
+      (supabase.from("contacts") as any).insert({
         name: data.nome,
         phone: data.whatsapp,
         email: data.email || null,
         company: data.empresa,
         channel: "Super Diagnóstico",
         status: "Novo",
-        notes: `Segmento: ${data.segmento} | Meta: ${data.meta90dias} | Budget: ${data.budgetMarketing}`,
       }).then(() => {});
 
       const { data: res, error: err } = await supabase.functions.invoke("chat-ai", {
