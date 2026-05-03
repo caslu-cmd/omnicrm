@@ -89,7 +89,7 @@ export default function AgencyDashboard() {
               </span>
             </div>
             <h1
-              className="text-3xl md:text-5xl tracking-tight leading-none mb-2"
+              className="text-[28px] sm:text-4xl md:text-5xl tracking-tight leading-none mb-2 break-words"
               style={{ fontWeight: 700, letterSpacing: "-0.03em" }}
             >
               Calu{" "}
