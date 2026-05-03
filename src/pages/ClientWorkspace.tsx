@@ -2636,17 +2636,17 @@ ${priorBlock}`;
                     <div className="flex items-center gap-2">
                       {/* Botão Nova reunião */}
                       {airaStatus === "done" && (
-                        <button onClick={() => { setAiraStatus("idle"); setAiraSummary(null); setAiraTranscript([]); }}
+                        <button onClick={() => { setAiraStatus("idle"); setAiraSummary(null); setAiraElapsed(0); }}
                           className="text-xs px-3 py-1.5 rounded-lg transition-all"
                           style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.08)" }}>
                           Nova reunião
                         </button>
                       )}
 
-                      {/* Botão Pausar */}
                       {airaStatus === "recording" && (
-                        <button onClick={async () => {
-                          if (!airaDemoMode) { try { await airaSafeFetch("/reuniao/pausar", { method: "POST" }); } catch {} }
+                        <button onClick={() => {
+                          try { airaRecorderRef.current?.pause(); } catch {}
+                          if (airaTimerRef.current) clearInterval(airaTimerRef.current);
                           setAiraStatus("paused");
                         }}
                           className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all"
@@ -2655,10 +2655,10 @@ ${priorBlock}`;
                         </button>
                       )}
 
-                      {/* Botão Continuar */}
                       {airaStatus === "paused" && (
-                        <button onClick={async () => {
-                          if (!airaDemoMode) { try { await airaSafeFetch("/reuniao/continuar", { method: "POST" }); } catch {} }
+                        <button onClick={() => {
+                          try { airaRecorderRef.current?.resume(); } catch {}
+                          airaTimerRef.current = setInterval(() => setAiraElapsed(s => s + 1), 1000);
                           setAiraStatus("recording");
                         }}
                           className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all"
@@ -2667,76 +2667,33 @@ ${priorBlock}`;
                         </button>
                       )}
 
-                      {/* Botão Parar (encerra e gera resumo) */}
                       {(airaStatus === "recording" || airaStatus === "paused") && (
-                        <button onClick={async () => {
-                          if (airaPollRef.current) clearInterval(airaPollRef.current);
-                          setAiraStatus("loading");
-                          if (airaDemoMode) {
-                            setTimeout(() => {
-                              setAiraSummary("📝 Resumo (modo demo)\n\n• Discussão de pontos da reunião\n• Próximos passos definidos\n• Responsáveis atribuídos\n\nConfigure a URL da secretária para resumos reais.");
-                              setAiraStatus("done");
-                            }, 1200);
-                            return;
-                          }
-                          try {
-                            const r = await airaSafeFetch("/reuniao/encerrar", { method: "POST" });
-                            const d = await r.json();
-                            setAiraSummary(d.resposta);
-                            setAiraStatus("done");
-                          } catch {
-                            setAiraError("Erro ao encerrar a reunião.");
-                            setAiraStatus("idle");
-                          }
-                        }}
+                        <button onClick={airaFinalize}
                           className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition-all"
                           style={{ background: "rgba(239,68,68,0.12)", color: "#EF4444", border: "1px solid rgba(239,68,68,0.3)" }}>
-                          <StopCircle className="w-4 h-4" /> Parar
+                          <StopCircle className="w-4 h-4" /> Parar e enviar
                         </button>
                       )}
 
-                      {/* Botão Ouvir Reunião (idle ou loading) */}
                       {(airaStatus === "idle" || airaStatus === "loading") && (
                         <button
                           disabled={airaStatus === "loading"}
-                          onClick={async () => {
-                            setAiraError(null);
-                            setAiraStatus("loading");
-                            setAiraTranscript([]);
-                            setAiraSummary(null);
-                            airaDemoCounterRef.current = 0;
-                            try {
-                              await airaSafeFetch("/reuniao/iniciar", { method: "POST" });
-                              setAiraDemoMode(false);
-                              setAiraStatus("recording");
-                              airaPollRef.current = setInterval(async () => {
-                                try {
-                                  const r = await airaSafeFetch("/reuniao/status");
-                                  const d = await r.json();
-                                  if (d.falas_captadas > 0)
-                                    setAiraTranscript(t => t.length < d.falas_captadas ? [...t, `${d.falas_captadas} fala(s) captada(s)`] : t);
-                                } catch {}
-                              }, 10000);
-                            } catch {
-                              // Fallback: modo demo (servidor local indisponível)
-                              setAiraDemoMode(true);
-                              setAiraStatus("recording");
-                              setAiraError("Modo demo ativo — servidor da secretária offline em " + AIRA_API_URL + ".");
-                              airaPollRef.current = setInterval(() => {
-                                airaDemoCounterRef.current += 1;
-                                setAiraTranscript(t => [...t, `${airaDemoCounterRef.current} fala(s) captada(s) (demo)`]);
-                              }, 4000);
-                            }
-                          }}
+                          onClick={() => setAiraShowSetup(true)}
                           className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
                           style={{ background: "#B9FF4B", color: "#07080A", boxShadow: "0 0 20px -4px rgba(185,255,75,0.4)" }}>
                           {airaStatus === "loading"
-                            ? <><RefreshCw className="w-4 h-4 animate-spin" /> Conectando</>
+                            ? <><RefreshCw className="w-4 h-4 animate-spin" /> Processando</>
                             : <><Mic className="w-4 h-4" /> Ouvir Reunião</>}
                         </button>
                       )}
                     </div>
                   </div>
+
+                  {(airaStatus === "recording" || airaStatus === "paused") && (
+                    <div className="px-6 pt-3 text-center text-xs font-mono" style={{ color: airaStatus === "paused" ? "#F59E0B" : "#EF4444" }}>
+                      {fmtTime(airaElapsed)}
+                    </div>
+                  )}
 
                   {/* Área de gravação ao vivo */}
                   {(airaStatus === "recording" || airaStatus === "paused") && (
