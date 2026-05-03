@@ -579,20 +579,20 @@ export default function ClientWorkspace() {
   const [airaElapsed, setAiraElapsed] = useState(0);
   const [airaShowSetup, setAiraShowSetup] = useState(false);
   const [airaMeetingTitle, setAiraMeetingTitle] = useState("");
-  const [airaLuana, setAiraLuana] = useState<AiraPerson>(() => {
-    try { return JSON.parse(localStorage.getItem("aira-luana") || "") || { name: "Luana", phone: "" }; }
-    catch { return { name: "Luana", phone: "" }; }
-  });
   const [airaParticipants, setAiraParticipants] = useState<AiraPerson[]>(() => {
     try { return JSON.parse(localStorage.getItem(`aira-participants-${id}`) || "[]"); } catch { return []; }
   });
+  const [airaSelectedGroups, setAiraSelectedGroups] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem(`aira-groups-${id}`) || "[]"); } catch { return []; }
+  });
+  const [airaLoadingGroups, setAiraLoadingGroups] = useState(false);
   const airaRecorderRef = useRef<MediaRecorder | null>(null);
   const airaChunksRef = useRef<Blob[]>([]);
   const airaStreamRef = useRef<MediaStream | null>(null);
   const airaTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const airaSaveLuana = (l: AiraPerson) => { setAiraLuana(l); localStorage.setItem("aira-luana", JSON.stringify(l)); };
   const airaSaveParticipants = (p: AiraPerson[]) => { setAiraParticipants(p); localStorage.setItem(`aira-participants-${id}`, JSON.stringify(p)); };
+  const airaSaveGroups = (g: string[]) => { setAiraSelectedGroups(g); localStorage.setItem(`aira-groups-${id}`, JSON.stringify(g)); };
 
   const airaStartRecording = async () => {
     setAiraError(null);
