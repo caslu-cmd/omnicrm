@@ -556,7 +556,7 @@ Retorne SOMENTE um JSON válido, sem markdown, sem explicação. Array com 3 a 5
         briefing_context: data as any,
       }));
 
-      const { error: insErr } = await supabase.from("agent_proposals").insert(rows);
+      const { error: insErr } = await (supabase as any).from("agent_proposals").insert(rows);
       if (insErr) throw insErr;
 
       setTeamProposed(true);

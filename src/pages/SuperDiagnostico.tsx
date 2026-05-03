@@ -277,7 +277,7 @@ export default function SuperDiagnostico() {
         setLeadData(parsed);
 
         // Salva lead no CRM
-        supabase.from("contacts").insert({
+        (supabase.from("contacts") as any).insert({
           name: parsed.nome ?? "",
           phone: parsed.whatsapp ?? "",
           email: null,
