@@ -645,7 +645,7 @@ export default function ClientWorkspace() {
           audioMime: blob.type,
           clientName: client?.name,
           meetingTitle: airaMeetingTitle || `Reunião ${new Date().toLocaleString("pt-BR")}`,
-          luana: airaLuana.phone ? airaLuana : null,
+          groups: airaSelectedGroups,
           participants: airaParticipants.filter(p => p.phone),
         },
       });
