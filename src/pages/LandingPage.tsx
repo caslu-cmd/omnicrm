@@ -103,6 +103,115 @@ const CSS = `
   .cl-tl-node{transition:background .35s,border-color .35s,box-shadow .35s}
   .cl-agent-btn{transition:all .2s;cursor:pointer}
   .cl-agent-btn:hover{transform:scale(1.12)}
+
+  @media (max-width: 900px) {
+    .cl nav { padding: 0 14px !important; height: 54px !important; gap: 8px !important; }
+    .cl nav > div:nth-child(2) { gap: 10px !important; }
+    .cl nav > div:nth-child(2) > a:not(.cl-pill) { display: none !important; }
+    .cl nav .cl-pill[href="/briefing"] { display: none !important; }
+
+    .cl section { padding-left: 16px !important; padding-right: 16px !important; padding-top: 56px !important; padding-bottom: 56px !important; }
+    .cl section[style*="100vh"] { padding-top: 88px !important; padding-bottom: 48px !important; min-height: auto !important; }
+    .cl footer { padding: 24px 16px !important; }
+    .cl footer > div { flex-wrap: wrap !important; gap: 14px !important; justify-content: flex-start !important; }
+
+    /* Collapse multi-col grids to single column */
+    .cl [style*="grid-template-columns: repeat(3"],
+    .cl [style*="grid-template-columns: repeat(5"],
+    .cl [style*="grid-template-columns: 1fr 400px"],
+    .cl [style*="grid-template-columns: 1fr 1fr"][style*="gap: 72"] {
+      grid-template-columns: 1fr !important;
+      gap: 16px !important;
+    }
+
+    /* 4-col grids → 2-col */
+    .cl [style*="grid-template-columns: repeat(4"] {
+      grid-template-columns: 1fr 1fr !important;
+      gap: 16px 20px !important;
+    }
+
+    /* Process zigzag spine → stack cards */
+    .cl [style*="grid-template-columns: 1fr 100px 1fr"] {
+      grid-template-columns: 1fr !important;
+    }
+    .cl [style*="grid-template-columns: 1fr 100px 1fr"] > div { padding: 0 0 18px !important; }
+    .cl [style*="grid-template-columns: 1fr 100px 1fr"] > div:nth-child(2) { display: none !important; }
+    .cl [style*="grid-template-columns: 1fr 100px 1fr"] > div:empty { display: none !important; }
+
+    /* Marketing flow connectors between cards */
+    .cl [style*="grid-template-columns: repeat(5"] > div > div[style*="top: 28px"] { display: none !important; }
+
+    /* Services grid borders */
+    .cl [style*="grid-template-columns: repeat(3"][style*="border-radius: 18"] > div {
+      border-right: none !important;
+      border-bottom: 1px solid rgba(255,255,255,.07) !important;
+    }
+
+    /* Section headers w/ flex justify-between */
+    .cl section[id="servicos"] > div > div:first-child,
+    .cl section[id="time"] > div:first-child {
+      flex-direction: column !important;
+      align-items: flex-start !important;
+      gap: 16px !important;
+      padding-left: 0 !important;
+      padding-right: 0 !important;
+      text-align: left !important;
+    }
+    .cl section[id="servicos"] > div > div:first-child p,
+    .cl section[id="servicos"] > div > div:first-child > p { text-align: left !important; max-width: 100% !important; }
+    .cl section[id="time"] .cl-track { padding: 4px 16px 36px !important; }
+    .cl section[id="time"] > div:first-child > div:last-child { flex-wrap: wrap !important; gap: 8px !important; }
+
+    /* Hero stats */
+    .cl section[style*="100vh"] [style*="border-top: 1px solid"][style*="paddingTop"],
+    .cl section[style*="100vh"] [style*="border-top: 1px solid rgba(255,255,255,.06)"] {
+      flex-wrap: wrap !important; gap: 12px 0 !important;
+    }
+
+    /* Results bar */
+    .cl section[id="resultados"] { padding: 48px 16px !important; }
+    .cl section[id="resultados"] > div > div {
+      padding: 8px 12px !important;
+      border-right: none !important;
+      border-bottom: 1px solid rgba(8,8,8,.12) !important;
+    }
+
+    /* CTA card */
+    .cl section[id="contato"] > div {
+      flex-direction: column !important;
+      padding: 36px 24px !important;
+      gap: 24px !important;
+      align-items: stretch !important;
+    }
+    .cl section[id="contato"] > div > div:last-child a { justify-content: center !important; }
+
+    /* Team carousel cards narrower */
+    .cl section[id="time"] .cl-track > div { width: 280px !important; min-height: auto !important; padding: 26px 22px !important; }
+
+    /* Hero agent card padding */
+    .cl section[style*="100vh"] [style*="border-radius: 26"] { padding: 22px !important; }
+    .cl section[style*="100vh"] [style*="border-radius: 26"] [style*="grid-template-columns: repeat(5, 1fr)"] {
+      grid-template-columns: repeat(5, 1fr) !important;
+      gap: 6px !important;
+    }
+
+    /* Process timeline cards padding */
+    .cl section[id="processo"] [style*="border-radius: 24"] { padding: 22px 20px !important; }
+    .cl section[id="processo"] [style*="border-radius: 24"] h3 { font-size: 22px !important; }
+    .cl section[id="processo"] [style*="grid-template-columns: 1fr 1fr"][style*="gap: \\\"12px 28px\\\""],
+    .cl section[id="processo"] [style*="grid-template-columns: 1fr 1fr"] { grid-template-columns: 1fr !important; gap: 10px !important; }
+
+    /* Sub-grids in product cards & misc 1fr 1fr stay if narrow */
+    .cl [style*="grid-template-columns: 1fr 1fr"]:not([style*="gap: 72"]) {
+      grid-template-columns: 1fr !important;
+      gap: 10px !important;
+    }
+  }
+
+  @media (max-width: 480px) {
+    .cl section { padding-top: 44px !important; padding-bottom: 44px !important; }
+    .cl section[id="resultados"] > div { grid-template-columns: 1fr 1fr !important; }
+  }
 `;
 
 function fmt(n: number) { return n.toLocaleString("pt-BR"); }
