@@ -157,15 +157,6 @@ const MARKETING_TEAM = [
     color: "#2DD4BF",
     description: "Planeja calendários editoriais, pilares de conteúdo e cronogramas estratégicos por plataforma",
   },
-  {
-    id: "luana",
-    name: "Luana",
-    role: "Orquestradora Geral",
-    initial: "Lu",
-    skill: "Coordenação · Briefing · Estratégia",
-    color: "#B9FF4B",
-    description: "Coordena todo o time em tempo real, define prioridades, delega tarefas e garante que cada entrega saia no prazo e com qualidade",
-  },
 ];
 
 // ── Prompts individuais por agente (orquestração sequencial) ─────────────
