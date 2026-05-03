@@ -620,7 +620,7 @@ export default function ClientWorkspace() {
       airaInterimRef.current = interim;
       setAiraLiveText(airaTranscriptRef.current + interim);
     };
-    rec.onerror = (e: any) => { if (e.error !== "no-speech") setAiraError("Erro no microfone: " + e.error); };
+    rec.onerror = (e: any) => { if (e.error !== "no-speech" && e.error !== "aborted") setAiraError("Erro no microfone: " + e.error); };
     rec.onend = () => { if (airaRecognitionRef.current === rec && !airaPausedRef.current) try { rec.start(); } catch {} };
     rec.start();
     airaRecognitionRef.current = rec;
