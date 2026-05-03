@@ -685,12 +685,17 @@ export default function ClientWorkspace() {
   const airaStopStream = (): Promise<Blob> => new Promise((resolve) => {
     if (airaTimerRef.current) clearInterval(airaTimerRef.current);
     const rec = airaRecorderRef.current;
-    if (!rec || rec.state === "inactive") {
+    const stopAll = () => {
       airaStreamRef.current?.getTracks().forEach(t => t.stop());
+      const extra = (airaStreamRef.current as any)?._extraTracks as MediaStreamTrack[] | undefined;
+      extra?.forEach(t => { try { t.stop(); } catch {} });
+    };
+    if (!rec || rec.state === "inactive") {
+      stopAll();
       return resolve(new Blob(airaChunksRef.current));
     }
     rec.onstop = () => {
-      airaStreamRef.current?.getTracks().forEach(t => t.stop());
+      stopAll();
       resolve(new Blob(airaChunksRef.current, { type: rec.mimeType }));
     };
     rec.stop();
