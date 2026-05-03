@@ -2633,22 +2633,30 @@ ${priorBlock}`;
                           onClick={async () => {
                             setAiraError(null);
                             setAiraStatus("loading");
+                            setAiraTranscript([]);
+                            setAiraSummary(null);
+                            airaDemoCounterRef.current = 0;
                             try {
-                              await fetch("http://127.0.0.1:8700/reuniao/iniciar", { method: "POST" });
+                              await airaSafeFetch("/reuniao/iniciar", { method: "POST" });
+                              setAiraDemoMode(false);
                               setAiraStatus("recording");
-                              setAiraTranscript([]);
-                              setAiraSummary(null);
                               airaPollRef.current = setInterval(async () => {
                                 try {
-                                  const r = await fetch("http://127.0.0.1:8700/reuniao/status");
+                                  const r = await airaSafeFetch("/reuniao/status");
                                   const d = await r.json();
                                   if (d.falas_captadas > 0)
                                     setAiraTranscript(t => t.length < d.falas_captadas ? [...t, `${d.falas_captadas} fala(s) captada(s)`] : t);
                                 } catch {}
                               }, 10000);
                             } catch {
-                              setAiraError("API indisponível. Verifique se a secretária está rodando em 127.0.0.1:8700.");
-                              setAiraStatus("idle");
+                              // Fallback: modo demo (servidor local indisponível)
+                              setAiraDemoMode(true);
+                              setAiraStatus("recording");
+                              setAiraError("Modo demo ativo — servidor da secretária offline em " + AIRA_API_URL + ".");
+                              airaPollRef.current = setInterval(() => {
+                                airaDemoCounterRef.current += 1;
+                                setAiraTranscript(t => [...t, `${airaDemoCounterRef.current} fala(s) captada(s) (demo)`]);
+                              }, 4000);
                             }
                           }}
                           className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-50"
