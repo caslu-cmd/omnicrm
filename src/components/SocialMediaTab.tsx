@@ -50,10 +50,7 @@ interface Metric {
 // ── Meta OAuth ─────────────────────────────────────────────────
 const META_APP_ID = "1480117656994046";
 const META_SCOPE = "pages_show_list,pages_read_engagement,pages_manage_posts,public_profile";
-
-function getMetaRedirectUri() {
-  return `${window.location.origin}/oauth/meta`;
-}
+const META_REDIRECT_URI = "https://caluagencia.com.br/oauth/meta";
 
 // ── Config ─────────────────────────────────────────────────────
 const PLATFORM_CFG = {
@@ -218,11 +215,10 @@ export default function SocialMediaTab({
       const state = btoa(JSON.stringify({ userId: session.user.id, clientId, platform, ts: Date.now() }))
         .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
       pendingOAuthStateRef.current = state;
-      const metaRedirectUri = getMetaRedirectUri();
       const oauthUrl =
         `https://www.facebook.com/v22.0/dialog/oauth` +
         `?client_id=${META_APP_ID}` +
-        `&redirect_uri=${encodeURIComponent(metaRedirectUri)}` +
+        `&redirect_uri=${encodeURIComponent(META_REDIRECT_URI)}` +
         `&scope=${encodeURIComponent(META_SCOPE)}` +
         `&state=${encodeURIComponent(state)}` +
         `&response_type=code`;
@@ -239,7 +235,7 @@ export default function SocialMediaTab({
           clearInterval(timer);
           const { code, state: receivedState } = event.data as { code: string; state: string };
           const resolvedState = receivedState || pendingOAuthStateRef.current;
-          const usedRedirectUri = metaRedirectUri;
+          const usedRedirectUri = META_REDIRECT_URI;
           pendingOAuthStateRef.current = "";
           try {
             const { data, error } = await supabase.functions.invoke("smm", {
