@@ -39,7 +39,7 @@ export default function TermsPage() {
             <li><strong>Agendamento de Posts:</strong> publicação automática no Facebook e Instagram.</li>
             <li><strong>Campanhas:</strong> gestão de anúncios no Facebook Ads e Google Ads.</li>
             <li><strong>Relatórios:</strong> dashboards de desempenho e métricas.</li>
-            <li><strong>Caroline IA:</strong> assistente de inteligência artificial para operações da agência.</li>
+            <li><strong>Calu IA:</strong> assistente de inteligência artificial para operações da agência.</li>
             <li><strong>Portal do Cliente:</strong> interface de aprovação de conteúdo para clientes da agência.</li>
           </ul>
         </Section>

@@ -6,7 +6,7 @@ import {
   HelpCircle, Shield, ChevronLeft, ChevronRight, Phone,
   Palette, Bell, Crown, ArrowLeftRight, Star,
   ArrowLeft, Megaphone, BarChart2, ExternalLink,
-  Bot, Activity, Link2, ListTodo, Share2, Clapperboard, Mic, CalendarDays
+  Bot, Activity, Link2, ListTodo, Share2, Clapperboard, Mic, CalendarDays, Webhook
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useIsAdmin } from "@/hooks/useAdmin";
@@ -61,6 +61,7 @@ const clientTools = [
   { tab: "social",      icon: Share2,       label: "Redes Sociais" },
   { tab: "calendario",  icon: CalendarDays, label: "Calendário Editorial" },
   { tab: "integrations", icon: Link2,        label: "Integrações" },
+  { tab: "webhooks",     icon: Webhook,      label: "Webhooks" },
 ];
 
 export const AppSidebar = ({ collapsed, onToggle, hideToggle }: AppSidebarProps) => {

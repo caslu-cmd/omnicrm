@@ -19,6 +19,7 @@ import { useClients } from "@/contexts/ClientsContext";
 import { supabase } from "@/integrations/supabase/client";
 import PostCanvas from "@/components/PostCanvas";
 import SocialMediaTab from "@/components/SocialMediaTab";
+import WebhooksTab from "@/components/WebhooksTab";
 import ContactActivityPanel from "@/components/ContactActivityPanel";
 import SiteEditorPanel from "@/components/SiteEditorPanel";
 import LiaBriefingPanel from "@/components/LiaBriefingPanel";
@@ -634,6 +635,7 @@ export default function ClientWorkspace() {
   const [tasks, setTasks] = useState(MOCK_TASKS_TEMPLATE);
   const [crmView, setCrmView] = useState<"contacts" | "pipeline" | "approvals" | "insights">("contacts");
   const [contactSearch, setContactSearch] = useState("");
+  const [activeSegment, setActiveSegment] = useState<string>("Todos");
   const [dbContacts, setDbContacts] = useState<any[]>([]);
   const [contactsLoading, setContactsLoading] = useState(false);
   const [activeContact, setActiveContact] = useState<any | null>(null);
@@ -873,8 +875,11 @@ export default function ClientWorkspace() {
         },
       });
       if (error) {
-        // Extrai mensagem real do erro da edge function
-        const detail = (error as any)?.context?.json?.error || (error as any)?.message || String(error);
+        let detail = (error as any)?.message || String(error);
+        try {
+          const body = await (error as any)?.context?.json?.();
+          if (body?.error) detail = body.error;
+        } catch {}
         throw new Error(detail);
       }
       if (data?.error) throw new Error(data.error);
@@ -1642,10 +1647,19 @@ ${priorBlock}`;
     c.company.toLowerCase().includes(contactSearch.toLowerCase())
   );
 
-  const filteredDbContacts = dbContacts.filter((c) =>
-    c.name.toLowerCase().includes(contactSearch.toLowerCase()) ||
-    (c.company || "").toLowerCase().includes(contactSearch.toLowerCase())
-  );
+  const crmSegments: string[] = ["Todos", ...Array.from(
+    new Set(dbContacts.map((c) => c.source).filter(Boolean))
+  ).sort()];
+
+  const filteredDbContacts = dbContacts.filter((c) => {
+    const matchSegment = activeSegment === "Todos" || c.source === activeSegment;
+    const q = contactSearch.toLowerCase();
+    const matchSearch = !q ||
+      c.name.toLowerCase().includes(q) ||
+      (c.company || "").toLowerCase().includes(q) ||
+      (c.email || "").toLowerCase().includes(q);
+    return matchSegment && matchSearch;
+  });
 
   const loadDbContacts = async () => {
     setContactsLoading(true);
@@ -2237,6 +2251,31 @@ ${priorBlock}`;
                 {/* ── CONTATOS ── */}
                 {crmView === "contacts" && (
                   <div className="space-y-3">
+
+                    {/* Segment tabs (Airtable tables) */}
+                    {crmSegments.length > 1 && (
+                      <div className="flex gap-1.5 flex-wrap pb-1 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                        {crmSegments.map((seg) => {
+                          const count = seg === "Todos"
+                            ? dbContacts.length
+                            : dbContacts.filter((c) => c.source === seg).length;
+                          const active = activeSegment === seg;
+                          return (
+                            <button
+                              key={seg}
+                              onClick={() => setActiveSegment(seg)}
+                              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap"
+                              style={active
+                                ? { background: `${client.color}22`, color: client.color, border: `1px solid ${client.color}40` }
+                                : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.07)" }}
+                            >
+                              {seg} <span className="ml-1 opacity-60">({count})</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+
                     {/* Search + New */}
                     <div className="flex gap-2">
                       <div className="relative flex-1">
@@ -2244,7 +2283,7 @@ ${priorBlock}`;
                         <input
                           value={contactSearch}
                           onChange={(e) => setContactSearch(e.target.value)}
-                          placeholder="Buscar por nome ou empresa..."
+                          placeholder="Buscar por nome, empresa ou e-mail..."
                           className="w-full pl-9 pr-4 py-2.5 rounded-xl text-sm"
                           style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#F0F0F0" }}
                         />
@@ -3339,7 +3378,7 @@ ${priorBlock}`;
                         {/* Toggle: Somente para Luna */}
                         <label className="flex items-center justify-between p-3 rounded-xl cursor-pointer" style={{ background: airaOnlyLuana ? "rgba(185,255,75,0.08)" : "rgba(255,255,255,0.03)", border: `1px solid ${airaOnlyLuana ? "rgba(185,255,75,0.3)" : "rgba(255,255,255,0.08)"}` }}>
                           <div>
-                            <p className="text-sm font-semibold" style={{ color: airaOnlyLuana ? "#B9FF4B" : "#F0F0F0" }}>Somente para Luana</p>
+                            <p className="text-sm font-semibold" style={{ color: airaOnlyLuana ? "#B9FF4B" : "#F0F0F0" }}>Somente para Luna</p>
                             <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>O resumo fica só na plataforma, sem envio por WhatsApp</p>
                           </div>
                           <input type="checkbox" checked={airaOnlyLuana} onChange={(e) => setAiraOnlyLuana(e.target.checked)} className="w-4 h-4 accent-lime-400" />
@@ -3646,7 +3685,7 @@ ${priorBlock}`;
                     </button>
                   </div>
 
-                  <div className="flex flex-col gap-2.5">
+                  <div className="flex flex-col gap-2.5 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:gap-3">
                     {MARKETING_TEAM.map((agent, i) => {
                       const task = client.agentTasks[agent.id];
                       const isWorking = task?.status === "trabalhando";
@@ -3665,15 +3704,15 @@ ${priorBlock}`;
                         <motion.div key={agent.id}
                           initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                           transition={{ delay: i * 0.04 }}
-                          className="rounded-2xl px-3 py-3 sm:px-4"
+                          className="rounded-2xl px-3 py-3 sm:px-4 sm:flex sm:flex-col"
                           style={{
                             background: isActive ? `${agent.color}0d` : "rgba(255,255,255,0.025)",
                             border: `1px solid ${isActive ? `${agent.color}40` : isWorking ? `${agent.color}28` : "rgba(255,255,255,0.07)"}`,
                             boxShadow: isActive ? `0 0 32px -10px ${agent.color}40` : isWorking ? `0 0 28px -10px ${agent.color}30` : "none",
                           }}>
 
-                          {/* Tudo em linha — wrap automático */}
-                          <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                          {/* Mobile: em linha com wrap | Desktop: coluna (quadrado) */}
+                          <div className="flex items-center gap-2 flex-wrap sm:flex-col sm:items-start sm:gap-2 sm:flex-nowrap sm:h-full">
                             {/* Avatar + nome + role */}
                             <div className="flex items-center gap-2.5 min-w-0">
                               <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
@@ -3753,11 +3792,11 @@ ${priorBlock}`;
                               </button>
                             )}
 
-                            {/* Spacer para empurrar botões à direita quando couber */}
-                            <div className="flex-1 min-w-0" />
+                            {/* Spacer: mobile → empurra botões à direita | desktop → oculto */}
+                            <div className="flex-1 min-w-0 sm:hidden" />
 
                             {/* Ações inline */}
-                            <div className="flex items-center gap-1.5 flex-wrap">
+                            <div className="flex items-center gap-1.5 flex-wrap sm:w-full sm:mt-auto">
                               <button
                                 onClick={() => {
                                   setViewingAgentId(isViewing ? null : agent.id);
@@ -4779,6 +4818,13 @@ ${priorBlock}`;
             ══════════════════════════════════════════════════════ */}
             {activeTab === "social" && (
               <SocialMediaTab clientId={client.id} clientColor={client.color} />
+            )}
+
+            {/* ══════════════════════════════════════════════════════
+                WEBHOOKS
+            ══════════════════════════════════════════════════════ */}
+            {activeTab === "webhooks" && (
+              <WebhooksTab clientId={client.id} />
             )}
 
             {/* ══════════════════════════════════════════════════════

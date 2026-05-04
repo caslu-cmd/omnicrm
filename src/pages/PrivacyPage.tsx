@@ -38,7 +38,7 @@ export default function PrivacyPage() {
             <li><strong>Dados de negócio:</strong> informações de clientes, contatos, campanhas e conteúdos cadastrados na plataforma.</li>
             <li><strong>Tokens de acesso às redes sociais:</strong> tokens OAuth do Facebook e Instagram fornecidos pelo usuário para integração com as APIs da Meta — usados exclusivamente para realizar ações autorizadas pelo próprio usuário (publicar posts, agendar conteúdos, ler métricas e gerenciar anúncios).</li>
             <li><strong>Dados de uso:</strong> logs de acesso, interações com a plataforma e informações de sessão para segurança e melhorias do serviço.</li>
-            <li><strong>Dados de Inteligência Artificial:</strong> mensagens trocadas com a assistente Caroline IA, processadas pela API da Anthropic (Claude), sem armazenamento permanente pela Anthropic.</li>
+            <li><strong>Dados de Inteligência Artificial:</strong> mensagens trocadas com a assistente Calu IA, processadas pela API da Anthropic (Claude), sem armazenamento permanente pela Anthropic.</li>
           </ul>
         </Section>
 
@@ -63,7 +63,7 @@ export default function PrivacyPage() {
           <ul className="list-disc list-inside space-y-2 text-white/80">
             <li><strong>Meta (Facebook & Instagram):</strong> para publicação, agendamento e relatórios via Graph API.</li>
             <li><strong>Supabase:</strong> banco de dados e autenticação, hospedado em infraestrutura segura.</li>
-            <li><strong>Anthropic (Claude):</strong> processamento de linguagem natural para a Caroline IA.</li>
+            <li><strong>Anthropic (Claude):</strong> processamento de linguagem natural para a Calu IA.</li>
             <li><strong>Google Ads (futuro):</strong> gestão de campanhas de anúncios no Google.</li>
           </ul>
         </Section>

@@ -19,7 +19,7 @@ const initialMessages: Message[] = [
   {
     id: 1,
     role: "assistant",
-    content: "Olá! Sou a Caroline IA, sua assistente de marketing e CRM.\n\nPosso ajudar com:\n\n• **Estratégia de conteúdo** para seus clientes\n• **Copy pronto** para posts, stories e campanhas\n• **Análise de clientes** e próximos passos\n• **Briefing e posicionamento** de marca\n\nComo posso ajudar?",
+    content: "Olá! Sou a Calu IA, sua assistente de marketing e CRM.\n\nPosso ajudar com:\n\n• **Estratégia de conteúdo** para seus clientes\n• **Copy pronto** para posts, stories e campanhas\n• **Análise de clientes** e próximos passos\n• **Briefing e posicionamento** de marca\n\nComo posso ajudar?",
     timestamp: "Agora",
   },
 ];
@@ -134,7 +134,7 @@ const AiAssistant = () => {
                   <Sparkles className="h-4 w-4" style={{ color: "#07080A" }} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold" style={{ color: "#F0F0F0" }}>Caroline IA</h3>
+                  <h3 className="text-sm font-semibold" style={{ color: "#F0F0F0" }}>Calu IA</h3>
                   <p className="text-[10px]" style={{ color: "#B9FF4B", opacity: 0.7 }}>Powered by Claude · Online</p>
                 </div>
               </div>
@@ -263,7 +263,7 @@ const AiAssistant = () => {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-                  placeholder="Pergunte algo à Caroline IA..."
+                  placeholder="Pergunte algo à Calu IA..."
                   disabled={isTyping}
                   className="flex-1 rounded-xl border border-input bg-background py-2.5 px-3.5 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 disabled:opacity-50"
                 />
