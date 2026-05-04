@@ -1,3 +1,4 @@
+import caluLogo from "@/assets/calu-logo.png";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -49,9 +50,7 @@ const AuthPage = () => {
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 36 }}>
           <div style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 20 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 9, background: "#B9FF4B", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Zap size={16} color="#080808" strokeWidth={2.5} />
-            </div>
+            <img src={caluLogo} alt="Calu Agência" style={{ width: 32, height: 32, borderRadius: 9, objectFit: "cover" }} />
             <span style={{ fontSize: 16, fontWeight: 700, color: "#F0EFE8", letterSpacing: "-0.02em" }}>Calu Agência</span>
           </div>
           <h1 style={{ fontSize: 28, fontWeight: 800, color: "#F0EFE8", letterSpacing: "-0.04em", marginBottom: 8 }}>

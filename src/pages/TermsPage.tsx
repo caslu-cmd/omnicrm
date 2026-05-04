@@ -1,10 +1,12 @@
+import caluLogo from "@/assets/calu-logo.png";
 import { Link } from "react-router-dom";
 
 export default function TermsPage() {
   return (
     <div className="min-h-screen bg-[#07080A] text-white">
       <header className="border-b border-white/10 px-6 py-4 flex items-center justify-between">
-        <Link to="/landing" className="text-[#B9FF4B] font-bold text-xl tracking-tight">
+        <Link to="/landing" className="flex items-center gap-2 text-[#B9FF4B] font-bold text-xl tracking-tight">
+          <img src={caluLogo} alt="Calu Agência" className="h-8 w-8 rounded-md object-cover" />
           Calu Agência
         </Link>
         <Link to="/landing" className="text-sm text-white/50 hover:text-white transition-colors">

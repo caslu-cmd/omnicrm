@@ -1,3 +1,4 @@
+import caluLogo from "@/assets/calu-logo.png";
 import { useState, useEffect, useRef } from "react";
 import { Zap, ArrowUpRight, MessageCircle, Instagram, Linkedin, ArrowRight, Check } from "lucide-react";
 
@@ -671,9 +672,7 @@ export default function LandingPage() {
         transition: "background .3s",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-          <div style={{ width: 28, height: 28, borderRadius: 7, background: LIME, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Zap size={14} color={BLACK} strokeWidth={2.5} />
-          </div>
+          <img src={caluLogo} alt="Calu Agência" style={{ width: 28, height: 28, borderRadius: 7, objectFit: "cover" }} />
           <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-0.02em" }}>Calu Agência</span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
@@ -999,9 +998,7 @@ export default function LandingPage() {
       <footer style={{ padding: "32px 64px", borderTop: "1px solid rgba(255,255,255,.06)" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-            <div style={{ width: 26, height: 26, borderRadius: 7, background: LIME, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Zap size={13} color={BLACK} strokeWidth={2.5} />
-            </div>
+            <img src={caluLogo} alt="Calu Agência" style={{ width: 26, height: 26, borderRadius: 7, objectFit: "cover" }} />
             <div>
               <div style={{ fontSize: 13, fontWeight: 700, letterSpacing: "-0.02em" }}>Calu Agência</div>
               <div style={{ fontFamily: mono, fontSize: 9, color: MUTED }}>Publicidade · Tecnologia · IA · São Paulo</div>
