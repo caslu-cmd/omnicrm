@@ -50,7 +50,8 @@ interface Metric {
 // ── Meta OAuth ─────────────────────────────────────────────────
 const META_APP_ID = "1480117656994046";
 const META_SCOPE = "pages_show_list,pages_read_engagement,pages_manage_posts,public_profile";
-const META_REDIRECT_URI = "https://caluagencia.com.br/oauth/meta";
+// Redirect goes through Supabase edge function (trusted domain — avoids browser security warnings)
+const META_REDIRECT_URI = "https://proldgiyterqhthludlp.supabase.co/functions/v1/meta-callback";
 
 // ── Config ─────────────────────────────────────────────────────
 const PLATFORM_CFG = {
@@ -139,6 +140,7 @@ export default function SocialMediaTab({
   const [linkedinStep, setLinkedinStep] = useState<null | "enter-url" | "oauth">(null);
   const [linkedinOrgUrl, setLinkedinOrgUrl] = useState("");
   const pendingOAuthStateRef = useRef<string>("");
+  const userIdRef = useRef<string>("");
 
   const [composer, setComposer] = useState({
     platforms: [] as string[],
@@ -188,6 +190,29 @@ export default function SocialMediaTab({
     setMetricsLoading(false);
   }, [clientId]);
 
+  // Pre-fetch userId so handleConnect can be fully synchronous
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) userIdRef.current = session.user.id;
+    });
+  }, []);
+
+  // Detect meta_connected / meta_error params on return from Supabase callback redirect
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const connected = params.get("meta_connected");
+    const metaError = params.get("meta_error");
+    if (connected === "1") {
+      toast.success("Facebook conectado!");
+      loadConnections();
+      loadMetrics();
+      window.history.replaceState({}, "", window.location.pathname);
+    } else if (metaError) {
+      toast.error(decodeURIComponent(metaError));
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
   // Complete pending OAuth exchange stored by OAuthCallbackPage (new-tab flow)
   useEffect(() => {
     const raw = sessionStorage.getItem("meta-oauth-pending");
@@ -223,22 +248,25 @@ export default function SocialMediaTab({
   }, [clientId]);
 
   // ── OAuth connect ──────────────────────────────────────────
-  const handleConnect = async (platform: "instagram" | "facebook") => {
+  const handleConnect = (platform: "instagram" | "facebook") => {
+    if (!userIdRef.current) {
+      toast.error("Sessão expirada. Recarregue a página.");
+      return;
+    }
     setConnecting(platform);
-    try {
-      // Build state synchronously — userId not needed here (smm extracts it from JWT)
-      const state = btoa(JSON.stringify({ clientId, platform, ts: Date.now() }))
-        .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-      pendingOAuthStateRef.current = state;
-      const oauthUrl =
-        `https://www.facebook.com/v22.0/dialog/oauth` +
-        `?client_id=${META_APP_ID}` +
-        `&redirect_uri=${encodeURIComponent(META_REDIRECT_URI)}` +
-        `&scope=${encodeURIComponent(META_SCOPE)}` +
-        `&state=${encodeURIComponent(state)}` +
-        `&response_type=code`;
+    // Fully synchronous — no await — preserves user-gesture context for window.open
+    const state = btoa(JSON.stringify({ userId: userIdRef.current, clientId, platform, ts: Date.now() }))
+      .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+    pendingOAuthStateRef.current = state;
+    const oauthUrl =
+      `https://www.facebook.com/v22.0/dialog/oauth` +
+      `?client_id=${META_APP_ID}` +
+      `&redirect_uri=${encodeURIComponent(META_REDIRECT_URI)}` +
+      `&scope=${encodeURIComponent(META_SCOPE)}` +
+      `&state=${encodeURIComponent(state)}` +
+      `&response_type=code`;
 
-      // Open directly to the OAuth URL — no about:blank intermediate that blocks navigation
+    try {
       const popup = window.open(oauthUrl, "meta-oauth", "width=620,height=720,left=200,top=100");
 
       const onMessage = async (event: MessageEvent) => {
