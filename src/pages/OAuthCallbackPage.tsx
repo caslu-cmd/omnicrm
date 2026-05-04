@@ -1,13 +1,12 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 
 const META_REDIRECT_URI = "https://caluagencia.com.br/oauth/meta";
 
 export default function OAuthCallbackPage() {
   const [searchParams] = useSearchParams();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState("Processando…");
 
   useEffect(() => {
     const isLinkedIn = window.location.pathname.includes("/oauth/linkedin");
@@ -40,7 +39,7 @@ export default function OAuthCallbackPage() {
       return;
     }
 
-    // If there's an opener (normal popup flow), delegate to it and close
+    // Normal popup flow — delegate to opener and close
     if (window.opener) {
       window.opener.postMessage({
         type: isLinkedIn ? "linkedin-oauth-exchange" : "meta-oauth-exchange",
@@ -53,47 +52,34 @@ export default function OAuthCallbackPage() {
       return;
     }
 
-    // No opener — page opened in a new tab. Complete the exchange directly.
-    if (isLinkedIn) {
-      setStatus("error");
-      setMessage("Abra a conexão LinkedIn pelo workspace do cliente.");
+    // No opener (new tab) — store data and redirect back to workspace
+    if (!isLinkedIn) {
+      try {
+        sessionStorage.setItem("meta-oauth-pending", JSON.stringify({
+          code,
+          state: state ?? "",
+          redirect_uri: META_REDIRECT_URI,
+        }));
+      } catch { /* ignore storage errors */ }
+
+      setStatus("success");
+      setMessage("Conectando… redirecionando");
+
+      // Decode clientId from state to redirect to the right workspace
+      let redirectTo = "/agency";
+      try {
+        const b64 = (state ?? "").replace(/-/g, "+").replace(/_/g, "/");
+        const padded = b64 + "=".repeat((4 - b64.length % 4) % 4);
+        const { clientId } = JSON.parse(atob(padded));
+        if (clientId) redirectTo = `/agency/clients/${clientId}`;
+      } catch { /* use default */ }
+
+      setTimeout(() => { window.location.href = redirectTo; }, 1200);
       return;
     }
 
-    (async () => {
-      setMessage("Finalizando conexão…");
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) {
-          setStatus("error");
-          setMessage("Sessão expirada. Faça login novamente.");
-          return;
-        }
-        const { data, error: fnErr } = await supabase.functions.invoke("smm", {
-          body: { action: "oauth-callback", code, state: state ?? "", redirect_uri: META_REDIRECT_URI },
-        });
-        if (fnErr || data?.error) {
-          const msg = data?.error ?? fnErr?.message ?? "Erro ao conectar.";
-          setStatus("error");
-          setMessage(msg);
-          return;
-        }
-        setStatus("success");
-        setMessage("Conta conectada com sucesso! Redirecionando…");
-        // Navigate back to the client workspace
-        try {
-          const b64 = (state ?? "").replace(/-/g, "+").replace(/_/g, "/");
-          const padded = b64 + "=".repeat((4 - b64.length % 4) % 4);
-          const { clientId } = JSON.parse(atob(padded));
-          setTimeout(() => { window.location.href = `/agency/clients/${clientId}`; }, 2000);
-        } catch {
-          setTimeout(() => { window.location.href = "/agency"; }, 2000);
-        }
-      } catch (e) {
-        setStatus("error");
-        setMessage(e instanceof Error ? e.message : "Erro ao conectar.");
-      }
-    })();
+    setStatus("error");
+    setMessage("Abra a conexão LinkedIn pelo workspace do cliente.");
   }, []);
 
   return (
@@ -102,16 +88,18 @@ export default function OAuthCallbackPage() {
         {status === "loading" && (
           <>
             <div className="mb-4 flex justify-center">
-              <div className="h-10 w-10 rounded-full border-4 border-t-transparent animate-spin" style={{ borderColor: "#B9FF4B", borderTopColor: "transparent" }} />
+              <div className="h-10 w-10 rounded-full border-4 animate-spin" style={{ borderColor: "#B9FF4B", borderTopColor: "transparent" }} />
             </div>
-            <p style={{ color: "rgba(255,255,255,0.7)" }} className="text-sm">{message || "Aguardando…"}</p>
+            <p style={{ color: "rgba(255,255,255,0.7)" }} className="text-sm">{message}</p>
           </>
         )}
         {status === "success" && (
           <>
-            <div className="mb-4 text-4xl">✅</div>
+            <div className="mb-4 flex justify-center">
+              <div className="h-10 w-10 rounded-full border-4 animate-spin" style={{ borderColor: "#B9FF4B", borderTopColor: "transparent" }} />
+            </div>
             <p className="text-base font-semibold mb-1" style={{ color: "#B9FF4B" }}>{message}</p>
-            <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>Esta janela será fechada automaticamente.</p>
+            <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>Aguarde…</p>
           </>
         )}
         {status === "error" && (

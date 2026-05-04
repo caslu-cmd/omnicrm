@@ -188,6 +188,31 @@ export default function SocialMediaTab({
     setMetricsLoading(false);
   }, [clientId]);
 
+  // Complete pending OAuth exchange stored by OAuthCallbackPage (new-tab flow)
+  useEffect(() => {
+    const raw = sessionStorage.getItem("meta-oauth-pending");
+    if (!raw) return;
+    try {
+      const { code, state, redirect_uri } = JSON.parse(raw) as { code: string; state: string; redirect_uri: string };
+      const b64 = state.replace(/-/g, "+").replace(/_/g, "/");
+      const padded = b64 + "=".repeat((4 - b64.length % 4) % 4);
+      const { clientId: pendingClientId } = JSON.parse(atob(padded));
+      if (pendingClientId !== clientId) return;
+      sessionStorage.removeItem("meta-oauth-pending");
+      supabase.functions.invoke("smm", {
+        body: { action: "oauth-callback", code, state, redirect_uri },
+      }).then(({ data, error }) => {
+        if (error || data?.error) {
+          toast.error(data?.error ?? error?.message ?? "Erro ao conectar Facebook.");
+        } else {
+          toast.success("Facebook conectado!");
+          loadConnections();
+          loadMetrics();
+        }
+      }).catch((e) => toast.error(e instanceof Error ? e.message : "Erro ao conectar."));
+    } catch { /* ignore parse errors */ }
+  }, [clientId]);
+
   useEffect(() => {
     const init = async () => {
       setLoading(true);
