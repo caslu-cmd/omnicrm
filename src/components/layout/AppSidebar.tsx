@@ -353,19 +353,16 @@ export const AppSidebar = ({ collapsed, onToggle, hideToggle }: AppSidebarProps)
     >
       {/* Logo */}
       <div className="flex h-16 items-center gap-3 px-4 border-b border-sidebar-border flex-shrink-0">
-        <div
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-          style={isClientWorkspace && client
-            ? { background: `${client.color}22`, border: `1px solid ${client.color}40` }
-            : { background: "#B9FF4B" }
-          }
-        >
-          {isClientWorkspace && client ? (
+        {isClientWorkspace && client ? (
+          <div
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
+            style={{ background: `${client.color}22`, border: `1px solid ${client.color}40` }}
+          >
             <span className="text-xs font-bold" style={{ color: client.color }}>{client.initials}</span>
-          ) : (
-            <Zap className="h-5 w-5" style={{ color: "#07080A" }} />
-          )}
-        </div>
+          </div>
+        ) : (
+          <img src={caluLogo} alt="Calu Agência" className="h-9 w-9 shrink-0 rounded-lg object-cover" />
+        )}
         {!collapsed && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
             <div className="text-sm font-bold tracking-tight truncate" style={{ color: "#F0F0F0" }}>
