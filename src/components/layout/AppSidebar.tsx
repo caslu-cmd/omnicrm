@@ -1,3 +1,4 @@
+import caluLogo from "@/assets/calu-logo.png";
 import { useLocation, useNavigate, NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {

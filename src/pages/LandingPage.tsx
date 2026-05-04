@@ -1,3 +1,4 @@
+import caluLogo from "@/assets/calu-logo.png";
 import { useState, useEffect, useRef } from "react";
 import { Zap, ArrowUpRight, MessageCircle, Instagram, Linkedin, ArrowRight, Check } from "lucide-react";
 
