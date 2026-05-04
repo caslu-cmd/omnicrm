@@ -36,6 +36,8 @@ import OAuthCallbackPage from "@/pages/OAuthCallbackPage";
 import NotFound from "@/pages/NotFound";
 import VideoEditorPage from "@/pages/VideoEditorPage";
 import SuperDiagnostico from "@/pages/SuperDiagnostico";
+import InvitePage from "@/pages/InvitePage";
+import TeamPortalPage from "@/pages/TeamPortalPage";
 
 const queryClient = new QueryClient();
 
@@ -126,6 +128,12 @@ const AppRoutes = () => (
 
     {/* Super Diagnóstico Gratuito — funil de captação de leads */}
     <Route path="/super-diagnostico" element={<SuperDiagnostico />} />
+
+    {/* Convite para membros do time do cliente */}
+    <Route path="/invite/:token" element={<InvitePage />} />
+
+    {/* Portal do time do cliente (pós-aceite) */}
+    <Route path="/team-portal/:clientId" element={<TeamPortalPage />} />
 
     {/* OAuth callbacks */}
     <Route path="/oauth/meta" element={<OAuthCallbackPage />} />

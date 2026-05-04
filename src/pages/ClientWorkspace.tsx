@@ -20,6 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import PostCanvas from "@/components/PostCanvas";
 import SocialMediaTab from "@/components/SocialMediaTab";
 import WebhooksTab from "@/components/WebhooksTab";
+import TeamMembersPanel from "@/components/TeamMembersPanel";
 import ContactActivityPanel from "@/components/ContactActivityPanel";
 import SiteEditorPanel from "@/components/SiteEditorPanel";
 import LiaBriefingPanel from "@/components/LiaBriefingPanel";
@@ -3685,6 +3686,38 @@ ${priorBlock}`;
                     </button>
                   </div>
 
+                  {/* ── Barra de progresso do time ── */}
+                  {(() => {
+                    const done = MARKETING_TEAM.filter(a => client.agentTasks[a.id]?.status === "concluído").length;
+                    const working = MARKETING_TEAM.filter(a => client.agentTasks[a.id]?.status === "trabalhando").length;
+                    const pct = Math.round((done / MARKETING_TEAM.length) * 100);
+                    return (
+                      <div className="mb-4 rounded-xl px-3 py-2.5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-3 text-[10px]">
+                            <span className="font-bold" style={{ color: "#B9FF4B" }}>{done} concluídos</span>
+                            {working > 0 && (
+                              <span className="flex items-center gap-1" style={{ color: "rgba(255,255,255,0.5)" }}>
+                                <span className="relative flex h-1.5 w-1.5">
+                                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75" />
+                                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-yellow-400" />
+                                </span>
+                                {working} trabalhando
+                              </span>
+                            )}
+                            <span style={{ color: "rgba(255,255,255,0.25)" }}>{MARKETING_TEAM.length - done - working} aguardando</span>
+                          </div>
+                          <span className="text-[10px] font-bold" style={{ color: pct === 100 ? "#34D399" : "#B9FF4B" }}>{pct}%</span>
+                        </div>
+                        <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.06)" }}>
+                          <motion.div className="h-full rounded-full" style={{ background: pct === 100 ? "#34D399" : "#B9FF4B" }}
+                            initial={{ width: 0 }} animate={{ width: `${pct}%` }}
+                            transition={{ duration: 0.8, ease: "easeOut" }} />
+                        </div>
+                      </div>
+                    );
+                  })()}
+
                   <div className="flex flex-col gap-2.5 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:gap-3">
                     {MARKETING_TEAM.map((agent, i) => {
                       const task = client.agentTasks[agent.id];
@@ -4825,6 +4858,13 @@ ${priorBlock}`;
             ══════════════════════════════════════════════════════ */}
             {activeTab === "webhooks" && (
               <WebhooksTab clientId={client.id} />
+            )}
+
+            {/* ══════════════════════════════════════════════════════
+                TIME DO CLIENTE
+            ══════════════════════════════════════════════════════ */}
+            {activeTab === "time" && (
+              <TeamMembersPanel clientId={client.id} />
             )}
 
             {/* ══════════════════════════════════════════════════════

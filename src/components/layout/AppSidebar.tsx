@@ -62,6 +62,7 @@ const clientTools = [
   { tab: "calendario",  icon: CalendarDays, label: "Calendário Editorial" },
   { tab: "integrations", icon: Link2,        label: "Integrações" },
   { tab: "webhooks",     icon: Webhook,      label: "Webhooks" },
+  { tab: "time",         icon: Users,        label: "Time do Cliente" },
 ];
 
 export const AppSidebar = ({ collapsed, onToggle, hideToggle }: AppSidebarProps) => {
