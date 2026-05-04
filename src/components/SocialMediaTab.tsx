@@ -51,7 +51,7 @@ interface Metric {
 const META_APP_ID = "1480117656994046";
 const META_SCOPE = "pages_show_list,pages_read_engagement,pages_manage_posts,public_profile";
 // Redirect goes through Supabase edge function (trusted domain — avoids browser security warnings)
-const META_REDIRECT_URI = "https://proldgiyterqhthludlp.supabase.co/functions/v1/meta-callback";
+const META_REDIRECT_URI = "https://caluagencia.com.br/oauth/meta";
 
 // ── Config ─────────────────────────────────────────────────────
 const PLATFORM_CFG = {
