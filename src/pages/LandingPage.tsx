@@ -683,7 +683,7 @@ export default function LandingPage() {
             style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, padding: "7px 16px", borderRadius: 100, background: LIME, color: BLACK, whiteSpace: "nowrap" }}>
             <Zap size={11} /> Diagnóstico IA
           </a>
-          <a href="https://wa.me/5511999999999" target="_blank" rel="noreferrer" className="cl-pill"
+          <a href="https://wa.me/5585986408404" target="_blank" rel="noreferrer" className="cl-pill"
             style={{ fontSize: 13, fontWeight: 700, color: BLACK, background: LIME, padding: "7px 18px", borderRadius: 100 }}>
             Começar agora
           </a>
@@ -710,7 +710,7 @@ export default function LandingPage() {
             </p>
 
             <div className="cl-a4" style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 52 }}>
-              <a href="https://wa.me/5511999999999" target="_blank" rel="noreferrer" className="cl-pill"
+              <a href="https://wa.me/5585986408404" target="_blank" rel="noreferrer" className="cl-pill"
                 style={{ display: "inline-flex", alignItems: "center", gap: 8, background: LIME, color: BLACK, fontWeight: 700, fontSize: 14, padding: "13px 26px", borderRadius: 100, boxShadow: "0 0 28px rgba(185,255,75,.2)" }}>
                 <MessageCircle size={15} /> Fale conosco
               </a>
@@ -870,7 +870,7 @@ export default function LandingPage() {
                     </div>
                   ))}
                 </div>
-                <a href="https://wa.me/5511999999999" target="_blank" rel="noreferrer" className="cl-pill"
+                <a href="https://wa.me/5585986408404" target="_blank" rel="noreferrer" className="cl-pill"
                   style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 700, color: p.color, background: `${p.color}10`, border: `1px solid ${p.color}28`, padding: "9px 18px", borderRadius: 100 }}>
                   Saber mais <ArrowUpRight size={13} />
                 </a>
@@ -922,7 +922,7 @@ export default function LandingPage() {
             <p style={{ fontSize: 15, color: DIM, lineHeight: 1.65, marginBottom: 28 }}>
               Uma equipe completa custa entre <strong style={{ color: OFF }}>R$ {fmt(39500)}</strong> e <strong style={{ color: OFF }}>R$ {fmt(79500)}</strong>/mês em salários — sem contar encargos e ferramentas.
             </p>
-            <a href="https://wa.me/5511999999999" target="_blank" rel="noreferrer" className="cl-pill"
+            <a href="https://wa.me/5585986408404" target="_blank" rel="noreferrer" className="cl-pill"
               style={{ display: "inline-flex", alignItems: "center", gap: 7, background: LIME, color: BLACK, fontWeight: 700, fontSize: 14, padding: "11px 22px", borderRadius: 100 }}>
               Quero saber o valor <ArrowUpRight size={14} />
             </a>
@@ -986,7 +986,7 @@ export default function LandingPage() {
               style={{ display: "inline-flex", alignItems: "center", gap: 9, background: BLACK, color: LIME, fontWeight: 700, fontSize: 14, padding: "13px 26px", borderRadius: 100, whiteSpace: "nowrap" }}>
               <Zap size={15} /> Diagnóstico gratuito com IA
             </a>
-            <a href="https://wa.me/5511999999999" target="_blank" rel="noreferrer" className="cl-pill"
+            <a href="https://wa.me/5585986408404" target="_blank" rel="noreferrer" className="cl-pill"
               style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, background: "rgba(8,8,8,.1)", color: BLACK, fontWeight: 600, fontSize: 13, padding: "11px 26px", borderRadius: 100 }}>
               <MessageCircle size={14} /> Falar no WhatsApp
             </a>

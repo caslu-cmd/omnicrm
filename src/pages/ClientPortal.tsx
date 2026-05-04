@@ -1064,7 +1064,7 @@ export default function ClientPortal() {
                 style={{ background: "#F2F1EE", color: "#444", border: "1px solid rgba(0,0,0,0.1)" }}>
                 <Mail className="w-4 h-4" /> E-mail
               </a>
-              <a href="https://wa.me/5511999999999" target="_blank" rel="noreferrer"
+              <a href="https://wa.me/5585986408404" target="_blank" rel="noreferrer"
                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white transition-all"
                 style={{ background: "#25D366", boxShadow: "0 4px 16px rgba(37,211,102,0.3)" }}>
                 <MessageCircle className="w-4 h-4" /> WhatsApp
