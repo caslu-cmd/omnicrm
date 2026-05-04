@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+
+const META_REDIRECT_URI = "https://caluagencia.com.br/oauth/meta";
 
 export default function OAuthCallbackPage() {
   const [searchParams] = useSearchParams();
@@ -37,15 +40,60 @@ export default function OAuthCallbackPage() {
       return;
     }
 
-    window.opener?.postMessage({
-      type: isLinkedIn ? "linkedin-oauth-exchange" : "meta-oauth-exchange",
-      code,
-      state: state ?? "",
-    }, "*");
+    // If there's an opener (normal popup flow), delegate to it and close
+    if (window.opener) {
+      window.opener.postMessage({
+        type: isLinkedIn ? "linkedin-oauth-exchange" : "meta-oauth-exchange",
+        code,
+        state: state ?? "",
+      }, "*");
+      setStatus("success");
+      setMessage(isLinkedIn ? "Conectando LinkedIn…" : "Conectando conta Meta…");
+      setTimeout(() => window.close(), 3000);
+      return;
+    }
 
-    setStatus("success");
-    setMessage(isLinkedIn ? "Conectando LinkedIn…" : "Conectando conta Meta…");
-    setTimeout(() => window.close(), 3000);
+    // No opener — page opened in a new tab. Complete the exchange directly.
+    if (isLinkedIn) {
+      setStatus("error");
+      setMessage("Abra a conexão LinkedIn pelo workspace do cliente.");
+      return;
+    }
+
+    (async () => {
+      setMessage("Finalizando conexão…");
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          setStatus("error");
+          setMessage("Sessão expirada. Faça login novamente.");
+          return;
+        }
+        const { data, error: fnErr } = await supabase.functions.invoke("smm", {
+          body: { action: "oauth-callback", code, state: state ?? "", redirect_uri: META_REDIRECT_URI },
+        });
+        if (fnErr || data?.error) {
+          const msg = data?.error ?? fnErr?.message ?? "Erro ao conectar.";
+          setStatus("error");
+          setMessage(msg);
+          return;
+        }
+        setStatus("success");
+        setMessage("Conta conectada com sucesso! Redirecionando…");
+        // Navigate back to the client workspace
+        try {
+          const b64 = (state ?? "").replace(/-/g, "+").replace(/_/g, "/");
+          const padded = b64 + "=".repeat((4 - b64.length % 4) % 4);
+          const { clientId } = JSON.parse(atob(padded));
+          setTimeout(() => { window.location.href = `/agency/clients/${clientId}`; }, 2000);
+        } catch {
+          setTimeout(() => { window.location.href = "/agency"; }, 2000);
+        }
+      } catch (e) {
+        setStatus("error");
+        setMessage(e instanceof Error ? e.message : "Erro ao conectar.");
+      }
+    })();
   }, []);
 
   return (
@@ -56,14 +104,12 @@ export default function OAuthCallbackPage() {
             <div className="mb-4 flex justify-center">
               <div className="h-10 w-10 rounded-full border-4 border-t-transparent animate-spin" style={{ borderColor: "#B9FF4B", borderTopColor: "transparent" }} />
             </div>
-            <p style={{ color: "rgba(255,255,255,0.7)" }} className="text-sm">Aguardando…</p>
+            <p style={{ color: "rgba(255,255,255,0.7)" }} className="text-sm">{message || "Aguardando…"}</p>
           </>
         )}
         {status === "success" && (
           <>
-            <div className="mb-4 flex justify-center">
-              <div className="h-10 w-10 rounded-full border-4 border-t-transparent animate-spin" style={{ borderColor: "#B9FF4B", borderTopColor: "transparent" }} />
-            </div>
+            <div className="mb-4 text-4xl">✅</div>
             <p className="text-base font-semibold mb-1" style={{ color: "#B9FF4B" }}>{message}</p>
             <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>Esta janela será fechada automaticamente.</p>
           </>
