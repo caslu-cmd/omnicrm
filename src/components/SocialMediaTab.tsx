@@ -223,6 +223,8 @@ export default function SocialMediaTab({
         `&state=${encodeURIComponent(state)}` +
         `&response_type=code`;
 
+      toast.info(`Redirect URI: ${META_REDIRECT_URI}`, { duration: 8000 });
+
       if (popup) {
         popup.location.href = oauthUrl;
       } else {
