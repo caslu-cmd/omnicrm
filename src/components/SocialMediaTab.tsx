@@ -200,19 +200,9 @@ export default function SocialMediaTab({
   // ── OAuth connect ──────────────────────────────────────────
   const handleConnect = async (platform: "instagram" | "facebook") => {
     setConnecting(platform);
-    // Open popup synchronously (before any await) to preserve the user-gesture context.
-    // Browsers block window.open() called after an await as an unauthorized popup.
-    const popup = window.open("about:blank", "meta-oauth", "width=620,height=720,left=200,top=100");
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        popup?.close();
-        toast.error("Sessão expirada. Faça login novamente.");
-        setConnecting(null);
-        return;
-      }
-
-      const state = btoa(JSON.stringify({ userId: session.user.id, clientId, platform, ts: Date.now() }))
+      // Build state synchronously — userId not needed here (smm extracts it from JWT)
+      const state = btoa(JSON.stringify({ clientId, platform, ts: Date.now() }))
         .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
       pendingOAuthStateRef.current = state;
       const oauthUrl =
@@ -223,13 +213,8 @@ export default function SocialMediaTab({
         `&state=${encodeURIComponent(state)}` +
         `&response_type=code`;
 
-      toast.info(`Redirect URI: ${META_REDIRECT_URI}`, { duration: 8000 });
-
-      if (popup) {
-        popup.location.href = oauthUrl;
-      } else {
-        window.open(oauthUrl, "meta-oauth", "width=620,height=720,left=200,top=100");
-      }
+      // Open directly to the OAuth URL — no about:blank intermediate that blocks navigation
+      const popup = window.open(oauthUrl, "meta-oauth", "width=620,height=720,left=200,top=100");
 
       const onMessage = async (event: MessageEvent) => {
         if (event.data?.type === "meta-oauth-exchange") {
