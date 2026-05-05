@@ -11,10 +11,16 @@ const FrozenOutlet = () => {
   return <>{outlet}</>;
 };
 
+const FULL_SCREEN_PATHS = ["/conta-report", "/conta-colaborador"];
+
 export const AppLayout = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const location = useLocation();
+
+  if (FULL_SCREEN_PATHS.includes(location.pathname)) {
+    return <main className="h-screen overflow-auto bg-gray-950"><FrozenOutlet /></main>;
+  }
 
   // Close mobile sidebar on navigation
   useEffect(() => {
