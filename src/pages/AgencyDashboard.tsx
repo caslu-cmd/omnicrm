@@ -6,6 +6,8 @@ import {
   ArrowRight, MessageSquare, Plus, Zap, X, Trash2, AlertTriangle, ExternalLink
 } from "lucide-react";
 import { useClients } from "@/contexts/ClientsContext";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const LIME = "#B9FF4B";
@@ -23,7 +25,9 @@ const COLOR_OPTIONS = [
 
 export default function AgencyDashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
+  const [openingPortal, setOpeningPortal] = useState<string | null>(null);
   const { clients: CLIENTS, addClient, deleteClient } = useClients();
   const [showNewClient, setShowNewClient] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
@@ -32,6 +36,43 @@ export default function AgencyDashboard() {
     revenue: "", color: "#B9FF4B",
   });
   const [saving, setSaving] = useState(false);
+
+  const openPortal = async (clientId: string, clientName: string, clientIndustry: string, clientStatus: string) => {
+    if (!user) { toast.error("Você precisa estar logado."); return; }
+    setOpeningPortal(clientId);
+    try {
+      const { data: existing } = await supabase
+        .from("clients")
+        .select("portal_token")
+        .eq("user_id", user.id)
+        .eq("name", clientName)
+        .maybeSingle();
+
+      if (existing?.portal_token) {
+        window.open(`/portal/${existing.portal_token}`, "_blank");
+        return;
+      }
+
+      const { data: created, error } = await supabase
+        .from("clients")
+        .insert({
+          user_id: user.id,
+          name: clientName,
+          segment: clientIndustry ?? null,
+          status: clientStatus === "Ativo" ? "active" : "onboarding",
+        })
+        .select("portal_token")
+        .single();
+
+      if (error || !created?.portal_token) {
+        toast.error("Erro ao gerar link do portal.");
+        return;
+      }
+      window.open(`/portal/${created.portal_token}`, "_blank");
+    } finally {
+      setOpeningPortal(null);
+    }
+  };
 
   const handleAddClient = async () => {
     if (!form.name.trim()) { toast.error("Nome do cliente é obrigatório."); return; }
@@ -284,13 +325,16 @@ export default function AgencyDashboard() {
                       Ver workspace <ArrowRight className="w-3 h-3" />
                     </button>
                     <button
-                      onClick={(e) => { e.stopPropagation(); window.open(`/portal/${client.id}`, "_blank"); }}
+                      onClick={(e) => { e.stopPropagation(); openPortal(client.id, client.name, client.industry, client.status); }}
+                      disabled={openingPortal === client.id}
                       className="w-10 flex items-center justify-center rounded-xl transition-all"
-                      style={{ border: `1px solid ${client.color}25`, color: client.color, background: `${client.color}10` }}
+                      style={{ border: `1px solid ${client.color}25`, color: client.color, background: `${client.color}10`, opacity: openingPortal === client.id ? 0.6 : 1 }}
                       onMouseEnter={(e) => { e.currentTarget.style.background = `${client.color}22`; e.currentTarget.style.borderColor = `${client.color}50`; }}
                       onMouseLeave={(e) => { e.currentTarget.style.background = `${client.color}10`; e.currentTarget.style.borderColor = `${client.color}25`; }}
-                      title={`Portal do cliente — PIN: ${client.portalPin}`}>
-                      <MessageSquare className="w-3.5 h-3.5" />
+                      title="Abrir portal do cliente">
+                      {openingPortal === client.id
+                        ? <div className="w-3.5 h-3.5 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                        : <MessageSquare className="w-3.5 h-3.5" />}
                     </button>
                     <button
                       onClick={(e) => { e.stopPropagation(); setConfirmDelete({ id: client.id, name: client.name }); }}
