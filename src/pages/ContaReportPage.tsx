@@ -4,7 +4,7 @@ import {
   TrendingUp, TrendingDown, Receipt, Wallet, Plus, Trash2,
   FileBarChart, Bot, Loader2, Send, RefreshCw, ChevronDown,
   Users, Calendar, BarChart3, AlertCircle, CheckCircle2,
-  Lock, Eye, EyeOff, UserCircle2, ArrowLeft, Sparkles,
+  Lock, Eye, EyeOff, UserCircle2, Sparkles, Paperclip, X, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -508,24 +508,57 @@ function Td({ children, className = "" }: { children?: React.ReactNode; classNam
 // ── Chat do Agente Rico ───────────────────────────────────────────────────────
 interface ChatMsg { role: "user" | "assistant"; text: string; }
 
+interface AttachedFile { name: string; text: string; size: number; }
+
 function AgentChat() {
   const [history, setHistory] = useState<ChatMsg[]>([]);
   const [rawHistory, setRawHistory] = useState<object[]>([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [toolRunning, setToolRunning] = useState("");
+  const [attached, setAttached] = useState<AttachedFile | null>(null);
+  const [uploading, setUploading] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [history, toolRunning]);
 
+  const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`${API}/api/upload`, { method: "POST", body: fd });
+      if (!res.ok) throw new Error("Falha no upload");
+      const data = await res.json();
+      setAttached({ name: data.filename, text: data.text, size: data.size });
+      toast.success(`${data.filename} carregado (${data.chars.toLocaleString()} chars)`);
+    } catch {
+      toast.error("Erro ao carregar arquivo. Verifique se a API está online.");
+    } finally {
+      setUploading(false);
+    }
+  };
+
   const send = async () => {
-    const msg = input.trim();
-    if (!msg || loading) return;
+    const userText = input.trim();
+    if (!userText && !attached) return;
+    if (loading) return;
+
+    const displayMsg = attached ? `📎 ${attached.name}${userText ? `\n${userText}` : ""}` : userText;
+    const apiMsg = attached
+      ? `[ARQUIVO ANEXADO: ${attached.name}]\n---\n${attached.text}\n---\n\n${userText || "Analise este arquivo e me ajude a registrar os lançamentos relevantes."}`
+      : userText;
+
     setInput("");
+    setAttached(null);
     setLoading(true);
-    setHistory(h => [...h, { role: "user", text: msg }]);
+    setHistory(h => [...h, { role: "user", text: displayMsg }]);
     let assistantText = "";
     setHistory(h => [...h, { role: "assistant", text: "" }]);
 
@@ -533,7 +566,7 @@ function AgentChat() {
       const res = await fetch(`${API}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ history: rawHistory, message: msg }),
+        body: JSON.stringify({ history: rawHistory, message: apiMsg }),
       });
       if (!res.body) throw new Error("no body");
       const reader = res.body.getReader();
@@ -568,7 +601,7 @@ function AgentChat() {
     } finally {
       setLoading(false);
       setToolRunning("");
-      setRawHistory(h => [...h, { role: "user", content: msg }, { role: "assistant", content: assistantText }]);
+      setRawHistory(h => [...h, { role: "user", content: apiMsg }, { role: "assistant", content: assistantText }]);
     }
   };
 
@@ -646,11 +679,36 @@ function AgentChat() {
       </div>
 
       {/* Input */}
-      <div className="p-3 border-t border-gray-800 bg-gray-900/80">
-        <div className="flex items-end gap-2">
+      <div className="border-t border-gray-800 bg-gray-900/80">
+        {/* Arquivo anexado */}
+        {attached && (
+          <div className="flex items-center gap-2 px-3 pt-2.5">
+            <div className="flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/20 rounded-lg px-3 py-1.5 text-xs text-emerald-400 max-w-xs">
+              <FileText className="w-3.5 h-3.5 flex-shrink-0" />
+              <span className="truncate">{attached.name}</span>
+              <span className="text-gray-600 flex-shrink-0">({(attached.size / 1024).toFixed(1)} KB)</span>
+            </div>
+            <button onClick={() => setAttached(null)} className="text-gray-600 hover:text-red-400 transition-colors">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        )}
+        <div className="flex items-end gap-2 p-3">
+          {/* Upload */}
+          <input ref={fileRef} type="file" className="hidden"
+            accept=".pdf,.csv,.txt,.xlsx,.xls,.tsv,.ofx"
+            onChange={handleFile} />
+          <button
+            onClick={() => fileRef.current?.click()}
+            disabled={uploading || loading}
+            title="Anexar arquivo (PDF, CSV, Excel, TXT)"
+            className="p-2.5 text-gray-500 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed transition-all flex-shrink-0"
+          >
+            {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+          </button>
           <textarea
             className="flex-1 resize-none bg-gray-800 border border-gray-700 rounded-xl px-3.5 py-2.5 text-sm text-white placeholder:text-gray-600 focus:outline-none focus:border-emerald-500 min-h-[42px] max-h-32 transition-colors"
-            placeholder="Pergunte ao Rico…"
+            placeholder={attached ? "Mensagem sobre o arquivo (opcional)…" : "Pergunte ao Rico…"}
             rows={1}
             value={input}
             onChange={e => setInput(e.target.value)}
@@ -658,12 +716,13 @@ function AgentChat() {
           />
           <button
             onClick={send}
-            disabled={loading || !input.trim()}
-            className="p-2.5 bg-emerald-500 hover:bg-emerald-400 text-gray-950 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed transition-all"
+            disabled={loading || (!input.trim() && !attached)}
+            className="p-2.5 bg-emerald-500 hover:bg-emerald-400 text-gray-950 rounded-xl disabled:opacity-30 disabled:cursor-not-allowed transition-all flex-shrink-0"
           >
             <Send className="w-4 h-4" />
           </button>
         </div>
+        <p className="text-center text-xs text-gray-700 pb-2">PDF · CSV · Excel · TXT · OFX</p>
       </div>
     </div>
   );
@@ -775,14 +834,6 @@ function ContaReportContent() {
       {/* ── Header fixo ── */}
       <header className="sticky top-0 z-10 bg-gray-950/95 backdrop-blur border-b border-gray-800">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
-          {/* Back */}
-          <button
-            onClick={() => navigate(-1)}
-            className="w-8 h-8 rounded-lg bg-gray-900 border border-gray-800 hover:border-gray-700 flex items-center justify-center text-gray-500 hover:text-white transition-all flex-shrink-0"
-          >
-            <ArrowLeft className="w-4 h-4" />
-          </button>
-
           {/* Brand */}
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center flex-shrink-0">
