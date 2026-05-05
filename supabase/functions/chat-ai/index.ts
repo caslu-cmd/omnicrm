@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -24,13 +25,53 @@ Regras de comportamento:
 - Formate respostas com markdown quando ajudar na leitura
 - Sugira próximos passos sempre que relevante`;
 
+const DRAFT_POST_TOOL = {
+  name: "draft_post",
+  description: "Salva um rascunho de post para revisão e publicação nas redes sociais do cliente. Use esta ferramenta para cada post completo criado — caption pronto para publicar, informando as plataformas desejadas.",
+  input_schema: {
+    type: "object",
+    properties: {
+      caption: {
+        type: "string",
+        description: "Texto/legenda completo do post, pronto para publicar (com emojis, hashtags e CTA se aplicável)",
+      },
+      platforms: {
+        type: "array",
+        items: { type: "string", enum: ["instagram", "facebook", "linkedin"] },
+        description: "Plataformas onde publicar: instagram, facebook, linkedin",
+      },
+      media_description: {
+        type: "string",
+        description: "Descrição da imagem ou vídeo sugerido para acompanhar este post (opcional)",
+      },
+      scheduled_at: {
+        type: "string",
+        description: "Data e hora ISO 8601 para agendar o post (opcional — deixe em branco para rascunho sem data)",
+      },
+    },
+    required: ["caption", "platforms"],
+  },
+};
+
+type ContentBlock = { type: string; text?: string; id?: string; name?: string; input?: Record<string, unknown> };
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const { messages, systemPrompt, maxTokens, model, enableThinking, thinkingBudget } = await req.json();
+    const {
+      messages,
+      systemPrompt,
+      maxTokens,
+      model,
+      enableThinking,
+      thinkingBudget,
+      enableDraftTool,
+      client_id,
+      user_id,
+    } = await req.json();
 
     if (!messages || !Array.isArray(messages)) {
       return new Response(JSON.stringify({ error: "messages array required" }), {
@@ -50,56 +91,131 @@ Deno.serve(async (req) => {
       });
     }
 
-    const selectedModel = anthropicKey
-      ? (model ?? "claude-sonnet-4-6")
-      : "claude-sonnet-4-6";
+    const selectedModel = anthropicKey ? (model ?? "claude-sonnet-4-6") : "claude-sonnet-4-6";
 
-    // Extended thinking requer tokens extras além do budget
     const budget = thinkingBudget ?? 8000;
     const resolvedMaxTokens = enableThinking
       ? Math.max(maxTokens ?? 8000, budget + 2000)
       : (maxTokens ?? 1024);
 
-    const body: Record<string, unknown> = {
-      model: selectedModel,
-      max_tokens: resolvedMaxTokens,
-      system: systemPrompt ?? SYSTEM_PROMPT,
-      messages,
+    const useToolUse = enableDraftTool === true && !!client_id && !!user_id;
+    const tools = useToolUse ? [DRAFT_POST_TOOL] : undefined;
+
+    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+    const serviceKey  = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+    const callClaude = async (msgs: unknown[]) => {
+      const body: Record<string, unknown> = {
+        model: selectedModel,
+        max_tokens: resolvedMaxTokens,
+        system: systemPrompt ?? SYSTEM_PROMPT,
+        messages: msgs,
+      };
+      if (enableThinking) {
+        body.thinking = { type: "enabled", budget_tokens: budget };
+      }
+      if (tools) {
+        body.tools = tools;
+      }
+      const response = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify(body),
+      });
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(errText);
+      }
+      return response.json() as Promise<{ stop_reason: string; content: ContentBlock[] }>;
     };
 
-    if (enableThinking) {
-      body.thinking = { type: "enabled", budget_tokens: budget };
+    let currentMessages: unknown[] = [...messages];
+    const postsCreated: unknown[] = [];
+    let finalContent = "";
+
+    let data = await callClaude(currentMessages);
+    let iterations = 0;
+
+    while (data.stop_reason === "tool_use" && iterations < 5) {
+      iterations++;
+
+      const toolUseBlocks = data.content.filter((b) => b.type === "tool_use");
+      const textBlocks    = data.content.filter((b) => b.type === "text");
+      const roundText     = textBlocks.map((b) => b.text ?? "").join("");
+      if (roundText) finalContent += roundText + "\n\n";
+
+      currentMessages = [...currentMessages, { role: "assistant", content: data.content }];
+
+      const toolResults: unknown[] = [];
+      for (const block of toolUseBlocks) {
+        if (block.name === "draft_post") {
+          const input = block.input as { caption?: string; platforms?: string[]; scheduled_at?: string };
+          try {
+            const sb = createClient(supabaseUrl, serviceKey);
+            const { data: post, error: insertError } = await sb
+              .from("scheduled_posts")
+              .insert({
+                user_id,
+                client_id,
+                platforms: input.platforms ?? [],
+                caption:   input.caption ?? "",
+                media_url: null,
+                media_type: "text",
+                scheduled_at: input.scheduled_at || null,
+                status: "pending_approval",
+              })
+              .select()
+              .single();
+
+            if (insertError) {
+              toolResults.push({
+                type: "tool_result",
+                tool_use_id: block.id,
+                content: JSON.stringify({ success: false, error: insertError.message }),
+              });
+            } else {
+              postsCreated.push(post);
+              toolResults.push({
+                type: "tool_result",
+                tool_use_id: block.id,
+                content: JSON.stringify({ success: true, message: "Rascunho salvo! Será exibido na aba Social para aprovação." }),
+              });
+            }
+          } catch (e) {
+            toolResults.push({
+              type: "tool_result",
+              tool_use_id: block.id,
+              content: JSON.stringify({ success: false, error: String(e) }),
+            });
+          }
+        } else {
+          toolResults.push({
+            type: "tool_result",
+            tool_use_id: block.id,
+            content: JSON.stringify({ success: false, error: "Ferramenta não reconhecida" }),
+          });
+        }
+      }
+
+      currentMessages = [...currentMessages, { role: "user", content: toolResults }];
+      data = await callClaude(currentMessages);
     }
 
-    const response = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      return new Response(JSON.stringify({ error }), {
-        status: response.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const data = await response.json();
-
-    // Extrai apenas o bloco de texto (ignora thinking blocks)
-    const content = data.content
-      ?.filter((b: { type: string }) => b.type === "text")
-      ?.map((b: { text: string }) => b.text)
+    const lastText = data.content
+      ?.filter((b) => b.type === "text")
+      ?.map((b) => b.text ?? "")
       ?.join("") ?? "";
 
-    return new Response(JSON.stringify({ content }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    finalContent += lastText;
+
+    return new Response(
+      JSON.stringify({ content: finalContent.trim(), posts_created: postsCreated }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   } catch (error) {
     return new Response(JSON.stringify({ error: String(error) }), {
       status: 500,

@@ -244,7 +244,9 @@ SUAS SKILLS — detecte automaticamente qual aplicar:
 
 • COPY GERAL → entregue o formato mais adequado ao que foi pedido, completo e pronto para publicar
 
-Referencie a estratégia da Queila quando disponível no contexto. NUNCA esboço. Português brasileiro.`,
+Referencie a estratégia da Queila quando disponível no contexto. NUNCA esboço. Português brasileiro.
+
+IMPORTANTE: Sempre que criar legendas ou copies completos prontos para publicar em redes sociais, use a ferramenta draft_post para salvar cada post individualmente (um por chamada). Informe caption completo e as platforms correspondentes.`,
 
   traffic: `Você é RAFAELA, Especialista em Tráfego Pago da Calu Agência.
 Domina Meta Ads, Google Ads, LinkedIn Ads, TikTok Ads. Foco em ROI, CPA e ROAS.
@@ -291,7 +293,9 @@ SUAS SKILLS — detecte automaticamente qual aplicar:
 
 • PLANEJAMENTO SOCIAL → entregue o que for mais adequado ao que foi pedido
 
-Pronto para executar. Português brasileiro.`,
+Pronto para executar. Português brasileiro.
+
+IMPORTANTE: Quando a demanda envolver criação de posts prontos para publicar (não apenas planejamento), use a ferramenta draft_post para salvar cada post individualmente (um por chamada), com caption completo, hashtags incluídas, e as platforms corretas. Crie posts reais, não apenas resumos.`,
 
   site: `Você é TEO, Especialista em SEO e Sites da Calu Agência.
 Domina SEO on-page, off-page, semântico e para buscas por IA.
@@ -1305,6 +1309,10 @@ Responda APENAS JSON válido, sem markdown, sem texto extra:
       // ━━━━━━━━━━ PASSO 3 — Execução sequencial ━━━━━━━━━━
       const accumulated: Record<string, string> = {};
 
+      // Session necessária para que agentes salvem posts no Supabase
+      const { data: { session: _agentSession } } = await supabase.auth.getSession();
+      const agentUserId = _agentSession?.user?.id ?? null;
+
       for (const agentId of agents) {
         // (a) marca como trabalhando
         const workingTasks = { ...client.agentTasks, ...baseTasks };
@@ -1326,12 +1334,16 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
         let outputText = "";
         try {
           const agCfg = AGENT_CONFIG[agentId] ?? { maxTokens: 5000, thinking: false };
+          const isPostAgent = ["social", "copywriter"].includes(agentId);
           const { data: agData, error: agErr } = await supabase.functions.invoke("chat-ai", {
             body: {
               systemPrompt: AGENT_PROMPTS[agentId],
               maxTokens: agCfg.maxTokens,
               enableThinking: agCfg.thinking,
               thinkingBudget: agCfg.thinkingBudget,
+              ...(isPostAgent && agentUserId && id
+                ? { enableDraftTool: true, client_id: id, user_id: agentUserId }
+                : {}),
               messages: [{
                 role: "user",
                 content: `Demanda do cliente: "${demand}"\n\n${ctxBlock}`,
@@ -1340,6 +1352,17 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
           });
           if (agErr) throw agErr;
           outputText = (agData?.content ?? "").trim();
+
+          const agentPosts: unknown[] = agData?.posts_created ?? [];
+          if (agentPosts.length > 0) {
+            loadPendingPosts();
+            addConvMsgs([{
+              id: `${agentId}-drafted-${Date.now()}`,
+              from: agentId, to: "aria",
+              content: `📝 Criei ${agentPosts.length} post${agentPosts.length > 1 ? "s" : ""} e salvei para aprovação — veja na aba Social.`,
+              action: "respond", timestamp: nowTs(), status: "done",
+            }]);
+          }
         } catch (e) {
           outputText = `*Erro ao executar este agente: ${e instanceof Error ? e.message : String(e)}*`;
         }
@@ -1507,12 +1530,16 @@ ${priorBlock}`;
           let outText = "";
           try {
             const agCfg2 = AGENT_CONFIG[agentId] ?? { maxTokens: 5000, thinking: false };
+            const isPostAgent2 = ["social", "copywriter"].includes(agentId);
             const { data: agData, error: agErr } = await supabase.functions.invoke("chat-ai", {
               body: {
                 systemPrompt: AGENT_PROMPTS[agentId],
                 maxTokens: agCfg2.maxTokens,
                 enableThinking: agCfg2.thinking,
                 thinkingBudget: agCfg2.thinkingBudget,
+                ...(isPostAgent2 && agentUserId && id
+                  ? { enableDraftTool: true, client_id: id, user_id: agentUserId }
+                  : {}),
                 messages: [{
                   role: "user",
                   content: `Demanda original: "${demand}"\n\n${ctx2}\n\nEntregue sua parte dando continuidade ao que o time já produziu.`,
@@ -1521,6 +1548,17 @@ ${priorBlock}`;
             });
             if (agErr) throw agErr;
             outText = (agData?.content ?? "").trim();
+
+            const wavePosts: unknown[] = agData?.posts_created ?? [];
+            if (wavePosts.length > 0) {
+              loadPendingPosts();
+              addConvMsgs([{
+                id: `${agentId}-w${waveIndex}-drafted-${Date.now()}`,
+                from: agentId, to: "aria",
+                content: `📝 Criei ${wavePosts.length} post${wavePosts.length > 1 ? "s" : ""} e salvei para aprovação — veja na aba Social.`,
+                action: "respond", timestamp: nowTs(), status: "done",
+              }]);
+            }
           } catch (e) {
             outText = `*Erro: ${e instanceof Error ? e.message : String(e)}*`;
           }
