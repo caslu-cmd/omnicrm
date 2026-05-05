@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const INSTANCE     = Deno.env.get("ZAPI_INSTANCE_ID")!;
 const TOKEN        = Deno.env.get("ZAPI_TOKEN")!;
-const CLIENT_TOKEN = Deno.env.get("ZAPI_CLIENT_TOKEN") ?? TOKEN;
+const CLIENT_TOKEN = Deno.env.get("ZAPI_CLIENT_TOKEN") ?? "";
 const BASE         = `https://api.z-api.io/instances/${INSTANCE}/token/${TOKEN}`;
 const HEADERS      = { "Content-Type": "application/json", "Client-Token": CLIENT_TOKEN };
 
@@ -11,50 +11,44 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const b64   = (s: string)  => s.startsWith("data:") ? s.split(",")[1] : s;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {
-    const { action, phone, message, groups } = await req.json();
+    const body = await req.json();
+    const { action, phone, message, groups } = body;
 
-    // ── Status de conexão ──────────────────────────────────────
+    // ── Status ─────────────────────────────────────────────────
     if (action === "status") {
-      const r = await fetch(`${BASE}/status`, { headers: HEADERS });
+      const r    = await fetch(`${BASE}/status`, { headers: HEADERS });
       const data = await r.json();
-      console.log("ZAPI status response:", JSON.stringify(data));
-      if (!r.ok) {
-        return Response.json({ connected: false, error: data?.error ?? `Z-API retornou ${r.status}` }, { headers: cors });
-      }
+      if (!r.ok) return Response.json({ connected: false, error: data?.error }, { headers: cors });
       return Response.json({ connected: data.connected ?? false, phone: data.phone }, { headers: cors });
     }
 
-    // ── QR Code para conectar ──────────────────────────────────
+    // ── QR Code ────────────────────────────────────────────────
     if (action === "qrcode") {
-      const r = await fetch(`${BASE}/qr-code/image`, { headers: HEADERS });
+      const r    = await fetch(`${BASE}/qr-code/image`, { headers: HEADERS });
       const text = await r.text();
-      console.log("ZAPI qrcode raw:", text.slice(0, 300));
-
       let qrcode: string | null = null;
       try {
         const data = JSON.parse(text);
-        // Z-API retorna { value: "data:image/png;base64,..." } ou { value: "base64..." }
-        const raw = data.value ?? data.qrcode ?? data.base64 ?? null;
-        if (raw) {
-          qrcode = raw.startsWith("data:image") ? raw : `data:image/png;base64,${raw}`;
-        }
+        const raw  = data.value ?? data.qrcode ?? data.base64 ?? null;
+        if (raw) qrcode = raw.startsWith("data:image") ? raw : `data:image/png;base64,${raw}`;
       } catch {
-        // Resposta não é JSON — pode ser base64 direta ou URL
         const t = text.trim();
         if (t.startsWith("data:image")) qrcode = t;
         else if (t.length > 100) qrcode = `data:image/png;base64,${t}`;
       }
-
       return Response.json({ qrcode }, { headers: cors });
     }
 
     // ── Lista de grupos ────────────────────────────────────────
     if (action === "groups") {
-      const r = await fetch(`${BASE}/chats`, { headers: HEADERS });
+      const r   = await fetch(`${BASE}/chats`, { headers: HEADERS });
       const all = await r.json();
       const grps = (Array.isArray(all) ? all : [])
         .filter((c: any) => String(c.id).endsWith("@g.us"))
@@ -62,52 +56,77 @@ serve(async (req) => {
       return Response.json(grps, { headers: cors });
     }
 
-    // ── Disparo para um número ou grupo ───────────────────────
+    // ── Envio único (texto ou mídia) ───────────────────────────
     if (action === "send") {
-      if (!phone || !message) {
-        return Response.json({ error: "phone e message são obrigatórios" }, { status: 400, headers: cors });
+      if (!phone) return Response.json({ error: "phone obrigatório" }, { status: 400, headers: cors });
+      const { mediaType, mediaData, caption } = body;
+
+      if (mediaType && mediaData) {
+        const ep: Record<string, string> = { image: "send-image", video: "send-video", audio: "send-audio", document: "send-document" };
+        const payloads: Record<string, object> = {
+          image:    { phone, image:    b64(mediaData), caption: caption ?? message ?? "" },
+          video:    { phone, video:    b64(mediaData), caption: caption ?? message ?? "" },
+          audio:    { phone, audio:    b64(mediaData) },
+          document: { phone, document: b64(mediaData), fileName: caption ?? "arquivo", caption: message ?? "" },
+        };
+        const mt = mediaType in ep ? mediaType : "image";
+        const r  = await fetch(`${BASE}/${ep[mt]}`, { method: "POST", headers: HEADERS, body: JSON.stringify(payloads[mt]) });
+        return Response.json(await r.json(), { headers: cors });
       }
-      const r = await fetch(`${BASE}/send-text`, {
-        method: "POST",
-        headers: HEADERS,
-        body: JSON.stringify({ phone, message }),
-      });
+
+      if (!message) return Response.json({ error: "message obrigatório" }, { status: 400, headers: cors });
+      const r = await fetch(`${BASE}/send-text`, { method: "POST", headers: HEADERS, body: JSON.stringify({ phone, message }) });
       return Response.json(await r.json(), { headers: cors });
     }
 
-    // ── Disparo em massa para múltiplos grupos ─────────────────
+    // ── Disparo em massa (grupos + contatos, texto ou mídia) ───
     if (action === "blast") {
-      if (!groups?.length || !message) {
-        return Response.json({ error: "groups e message são obrigatórios" }, { status: 400, headers: cors });
+      const { targets, mediaType, mediaData, caption } = body;
+      const allTargets: string[] = targets?.length ? targets : (groups ?? []);
+      if (!allTargets.length) return Response.json({ error: "targets obrigatório" }, { status: 400, headers: cors });
+
+      const hasMedia = !!(mediaType && mediaData);
+      if (!hasMedia && !message) return Response.json({ error: "message obrigatório para texto" }, { status: 400, headers: cors });
+
+      const ep: Record<string, string> = { image: "send-image", video: "send-video", audio: "send-audio", document: "send-document" };
+      const results: { target: string; ok: boolean; status?: number }[] = [];
+
+      for (const target of allTargets) {
+        try {
+          let r: Response;
+          if (hasMedia) {
+            const mt  = mediaType in ep ? mediaType : "image";
+            const payloads: Record<string, object> = {
+              image:    { phone: target, image:    b64(mediaData), caption: caption ?? message ?? "" },
+              video:    { phone: target, video:    b64(mediaData), caption: caption ?? message ?? "" },
+              audio:    { phone: target, audio:    b64(mediaData) },
+              document: { phone: target, document: b64(mediaData), fileName: caption ?? "arquivo", caption: message ?? "" },
+            };
+            r = await fetch(`${BASE}/${ep[mt]}`, { method: "POST", headers: HEADERS, body: JSON.stringify(payloads[mt]) });
+          } else {
+            r = await fetch(`${BASE}/send-text`, { method: "POST", headers: HEADERS, body: JSON.stringify({ phone: target, message }) });
+          }
+          results.push({ target, ok: r.ok, status: r.status });
+        } catch (e) {
+          results.push({ target, ok: false });
+        }
+        await sleep(1200);
       }
-      const results = [];
-      for (const gid of groups) {
-        const r = await fetch(`${BASE}/send-text`, {
-          method: "POST",
-          headers: HEADERS,
-          body: JSON.stringify({ phone: gid, message }),
-        });
-        results.push({ group: gid, ok: r.ok });
-        // Pausa entre disparos para evitar bloqueio
-        await new Promise((res) => setTimeout(res, 1500));
-      }
-      return Response.json({ results }, { headers: cors });
+
+      const okCount = results.filter((r) => r.ok).length;
+      return Response.json({ results, ok: okCount, total: allTargets.length }, { headers: cors });
     }
 
-    // ── Debug: retorna response bruta da Z-API ────────────────
+    // ── Debug ──────────────────────────────────────────────────
     if (action === "debug") {
-      const statusR = await fetch(`${BASE}/status`, { headers: HEADERS });
-      const statusText = await statusR.text();
-      const qrR = await fetch(`${BASE}/qr-code/image`, { headers: HEADERS });
-      const qrText = await qrR.text();
+      const statusR  = await fetch(`${BASE}/status`, { headers: HEADERS });
+      const statusTx = await statusR.text();
+      const qrR      = await fetch(`${BASE}/qr-code/image`, { headers: HEADERS });
+      const qrTx     = await qrR.text();
       return Response.json({
-        base: BASE,
-        instance: INSTANCE,
-        has_client_token: !!CLIENT_TOKEN,
-        status_http: statusR.status,
-        status_body: statusText.slice(0, 500),
-        qr_http: qrR.status,
-        qr_body: qrText.slice(0, 500),
+        base: BASE, instance: INSTANCE, has_client_token: !!CLIENT_TOKEN,
+        status_http: statusR.status, status_body: statusTx.slice(0, 500),
+        qr_http: qrR.status,        qr_body:     qrTx.slice(0, 500),
       }, { headers: cors });
     }
 

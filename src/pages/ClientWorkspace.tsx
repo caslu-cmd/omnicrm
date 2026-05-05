@@ -1752,24 +1752,39 @@ ${priorBlock}`;
     setWpGroups(Array.isArray(data) ? data : []);
   };
 
+
   const doWpBlast = async () => {
-    if (!wpSelectedGroups.length || !wpMessage.trim()) return;
+    const allTargets = [...wpSelectedGroups, ...wpSelectedContacts];
+    const hasMedia = wpMediaType !== "text" && !!wpMediaData;
+    if (!allTargets.length || (!hasMedia && !wpMessage.trim())) return;
     setWpBlasting(true);
     setWpBlastResult(null);
     try {
-      const { data } = await supabase.functions.invoke("whatsapp", {
-        body: { action: "blast", groups: wpSelectedGroups, message: wpMessage },
-      });
-      const ok = (data?.results ?? []).filter((r: { ok: boolean }) => r.ok).length;
-      setWpBlastResult(`${ok} de ${wpSelectedGroups.length} grupos receberam a mensagem`);
+      const body: Record<string, any> = { action: "blast", targets: allTargets, message: wpMessage };
+      if (hasMedia) { body.mediaType = wpMediaType; body.mediaData = wpMediaData; body.caption = wpCaption || wpMessage; }
+      const { data } = await supabase.functions.invoke("whatsapp", { body });
+      setWpBlastResult(`${data?.ok ?? 0} de ${allTargets.length} destinos receberam a mensagem`);
     } catch {
       setWpBlastResult("Erro ao enviar. Verifique a conexão Z-API.");
     }
     setWpBlasting(false);
   };
 
+  const handleWpFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setWpMediaName(file.name);
+    const reader = new FileReader();
+    reader.onload = (ev) => setWpMediaData(ev.target?.result as string);
+    reader.readAsDataURL(file);
+  };
+
   const toggleGroup = (gid: string) =>
     setWpSelectedGroups((prev) => prev.includes(gid) ? prev.filter((g) => g !== gid) : [...prev, gid]);
+
+  const toggleWpContact = (phone: string) =>
+    setWpSelectedContacts((prev) => prev.includes(phone) ? prev.filter((p) => p !== phone) : [...prev, phone]);
+
 
   const selectedAgent = selectedAgentId
     ? (MARKETING_TEAM.find((a) => a.id === selectedAgentId) ?? null)

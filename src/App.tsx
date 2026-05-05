@@ -41,6 +41,7 @@ import SuperDiagnostico from "@/pages/SuperDiagnostico";
 import InvitePage from "@/pages/InvitePage";
 import TeamPortalPage from "@/pages/TeamPortalPage";
 import WhatsAppPage from "@/pages/WhatsAppPage";
+import BriefingPage from "@/pages/BriefingPage";
 
 const queryClient = new QueryClient();
 
@@ -134,6 +135,9 @@ const AppRoutes = () => (
 
     {/* Super Diagnóstico Gratuito — funil de captação de leads */}
     <Route path="/super-diagnostico" element={<SuperDiagnostico />} />
+
+    {/* Briefing interativo — captação de leads via Lia */}
+    <Route path="/briefing" element={<BriefingPage />} />
 
     {/* Convite para membros do time do cliente */}
     <Route path="/invite/:token" element={<InvitePage />} />
