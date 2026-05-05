@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Zap, Users, TrendingUp, Crown, LogOut, Search, Phone, Mail, Building2 } from "lucide-react";
 
@@ -33,6 +33,7 @@ interface MemberInfo {
 export default function TeamPortalPage() {
   const { clientId } = useParams<{ clientId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [member, setMember]     = useState<MemberInfo | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -42,7 +43,7 @@ export default function TeamPortalPage() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) { navigate(`/entrar`); return; }
+      if (!session) { navigate(`/entrar`, { state: { from: location } }); return; }
       setAuthLoading(false);
       loadMember(session.user.id);
       loadContacts();
