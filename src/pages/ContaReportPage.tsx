@@ -596,8 +596,15 @@ function AgentChat() {
     if (loading) return;
 
     const displayMsg = attached ? `📎 ${attached.name}${userText ? `\n${userText}` : ""}` : userText;
+    const defaultFileInstruction =
+      "Leia o arquivo acima e faça o seguinte:\n" +
+      "1. Identifique TODOS os lançamentos (despesas, receitas, impostos, adiantamentos).\n" +
+      "2. Apresente uma tabela com: descrição, valor (R$) e tipo de cada item.\n" +
+      "3. Calcule o total por categoria.\n" +
+      "4. Pergunte em qual período devo registrar e aguarde minha confirmação antes de gravar qualquer coisa.";
+
     const apiMsg = attached
-      ? `[ARQUIVO ANEXADO: ${attached.name}]\n---\n${attached.text}\n---\n\n${userText || "Analise este arquivo e me ajude a registrar os lançamentos relevantes."}`
+      ? `[ARQUIVO ANEXADO: ${attached.name}]\n---\n${attached.text}\n---\n\n${userText || defaultFileInstruction}`
       : userText;
 
     setInput("");
