@@ -37,6 +37,7 @@ import NotFound from "@/pages/NotFound";
 import VideoEditorPage from "@/pages/VideoEditorPage";
 import TomasPage from "@/pages/TomasPage";
 import BenPage from "@/pages/BenPage";
+import ContaReportPage from "@/pages/ContaReportPage";
 import SuperDiagnostico from "@/pages/SuperDiagnostico";
 import InvitePage from "@/pages/InvitePage";
 import TeamPortalPage from "@/pages/TeamPortalPage";
@@ -93,6 +94,7 @@ const ProtectedRoutes = () => {
           <Route path="/video-editor" element={<VideoEditorPage />} />
           <Route path="/tomas" element={<TomasPage />} />
           <Route path="/ben" element={<BenPage />} />
+          <Route path="/conta-report" element={<ContaReportPage />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

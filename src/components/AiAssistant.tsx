@@ -80,7 +80,7 @@ const AiAssistant = () => {
       setMessages((prev) => [...prev, assistantMessage]);
       setHistory((prev) => [...prev, { role: "assistant", content: data.content }]);
     } catch (err) {
-      setError("Não consegui me conectar. Verifique a configuração da chave da API.");
+      setError(`Erro: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
       setIsTyping(false);
     }
