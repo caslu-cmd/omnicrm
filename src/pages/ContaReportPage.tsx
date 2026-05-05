@@ -15,21 +15,18 @@ const SESSION_KEY = "rico_auth_gnx";
 
 // ── Leitura de arquivos no browser (sem depender da API) ──────────────────────
 async function extractFileText(file: File): Promise<string> {
-  const ext = file.name.toLowerCase().split(".").pop() ?? "";
   const MAX = 20000;
+  const mime = file.type.toLowerCase();
+  // Pega a última parte após ponto SOMENTE se parecer extensão real (≤5 chars, sem espaço)
+  const parts = file.name.split(".");
+  const lastPart = parts[parts.length - 1] ?? "";
+  const ext = lastPart.length <= 5 && !/\s/.test(lastPart) ? lastPart.toLowerCase() : "";
 
-  // Texto puro: CSV, TXT, OFX, QIF, TSV
-  if (["csv", "txt", "tsv", "ofx", "qif", "xml"].includes(ext)) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = e => resolve(((e.target?.result as string) ?? "").slice(0, MAX));
-      reader.onerror = () => reject(new Error("Falha ao ler arquivo de texto."));
-      reader.readAsText(file, "UTF-8");
-    });
-  }
+  const isText  = ["csv", "txt", "tsv", "ofx", "qif", "xml"].includes(ext) || mime.startsWith("text/");
+  const isExcel = ["xlsx", "xls"].includes(ext) || mime.includes("spreadsheet") || mime.includes("excel");
+  const isPdf   = ext === "pdf" || mime === "application/pdf";
 
-  // Excel: XLSX / XLS
-  if (["xlsx", "xls"].includes(ext)) {
+  if (isExcel) {
     const { read, utils } = await import("xlsx");
     const buf = await file.arrayBuffer();
     const wb = read(buf, { type: "array" });
@@ -42,8 +39,7 @@ async function extractFileText(file: File): Promise<string> {
     return lines.join("\n").slice(0, MAX);
   }
 
-  // PDF
-  if (ext === "pdf") {
+  if (isPdf) {
     const pdfjsLib = await import("pdfjs-dist");
     pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
       "pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url
@@ -59,7 +55,26 @@ async function extractFileText(file: File): Promise<string> {
     return pages.join("\n\n").slice(0, MAX);
   }
 
-  throw new Error(`.${ext} não suportado. Use CSV, TXT, XLSX ou PDF.`);
+  if (isText) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(((e.target?.result as string) ?? "").slice(0, MAX));
+      reader.onerror = () => reject(new Error("Falha ao ler arquivo de texto."));
+      reader.readAsText(file, "UTF-8");
+    });
+  }
+
+  // Último recurso: tenta ler como texto (cobre arquivos sem extensão)
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const text = (e.target?.result as string) ?? "";
+      if (!text.trim()) reject(new Error("Arquivo vazio ou formato não reconhecido. Use PDF, Excel, CSV ou TXT."));
+      else resolve(text.slice(0, MAX));
+    };
+    reader.onerror = () => reject(new Error("Não foi possível ler o arquivo."));
+    reader.readAsText(file, "UTF-8");
+  });
 }
 
 // ── Tela de bloqueio ──────────────────────────────────────────────────────────
