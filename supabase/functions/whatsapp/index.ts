@@ -1,9 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const INSTANCE = Deno.env.get("ZAPI_INSTANCE_ID")!;
-const TOKEN    = Deno.env.get("ZAPI_TOKEN")!;
-const BASE     = `https://api.z-api.io/instances/${INSTANCE}/token/${TOKEN}`;
-const HEADERS  = { "Content-Type": "application/json", "Client-Token": TOKEN };
+const INSTANCE     = Deno.env.get("ZAPI_INSTANCE_ID")!;
+const TOKEN        = Deno.env.get("ZAPI_TOKEN")!;
+const CLIENT_TOKEN = Deno.env.get("ZAPI_CLIENT_TOKEN") ?? "";
+const BASE         = `https://api.z-api.io/instances/${INSTANCE}/token/${TOKEN}`;
+const HEADERS      = { "Content-Type": "application/json", "Client-Token": CLIENT_TOKEN };
 
 const cors = {
   "Access-Control-Allow-Origin":  "*",
