@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Users, Plus, Trash2, Search, X, Check,
   ChevronRight, Edit2, MessageCircle, Loader2,
+  BookOpen, ChevronDown, Mail,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -32,6 +33,23 @@ type Contact = {
   company: string | null;
 };
 
+type Course = {
+  id: string;
+  title: string;
+  description: string | null;
+  status: string;
+  level: string | null;
+  modules_count: number | null;
+};
+
+type CourseStudent = {
+  id: string;
+  student_name: string;
+  student_email: string | null;
+  progress: number | null;
+  enrolled_at: string;
+};
+
 export default function GroupsPage() {
   const [groups, setGroups]           = useState<Group[]>([]);
   const [loading, setLoading]         = useState(true);
@@ -57,6 +75,17 @@ export default function GroupsPage() {
 
   // Delete confirm
   const [deleting, setDeleting]       = useState(false);
+
+  // Tabs
+  const [activeTab, setActiveTab]     = useState<"membros" | "cursos">("membros");
+
+  // Cursos tab
+  const [courses, setCourses]         = useState<Course[]>([]);
+  const [coursesLoading, setCoursesLoading] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [courseStudents, setCourseStudents] = useState<CourseStudent[]>([]);
+  const [studentsLoading, setStudentsLoading] = useState(false);
+  const [expandedCourses, setExpandedCourses] = useState<Set<string>>(new Set());
 
   // ── Load groups ────────────────────────────────────────────────
   const loadGroups = async () => {
@@ -89,10 +118,59 @@ export default function GroupsPage() {
 
   useEffect(() => { loadGroups(); }, []);
 
+  // ── Load courses ───────────────────────────────────────────────
+  const loadCourses = async () => {
+    setCoursesLoading(true);
+    setSelectedCourse(null);
+    setCourseStudents([]);
+    setExpandedCourses(new Set());
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("courses")
+        .select("id, title, description, status, level, modules_count")
+        .eq("user_id", user.id)
+        .order("title");
+      setCourses(data ?? []);
+    } finally {
+      setCoursesLoading(false);
+    }
+  };
+
+  const toggleCourse = async (course: Course) => {
+    const isExpanded = expandedCourses.has(course.id);
+    if (isExpanded) {
+      setExpandedCourses(prev => { const n = new Set(prev); n.delete(course.id); return n; });
+      return;
+    }
+    setExpandedCourses(prev => new Set([...prev, course.id]));
+    setSelectedCourse(course);
+    setStudentsLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("course_enrollments")
+        .select("id, student_name, student_email, progress, enrolled_at")
+        .eq("course_id", course.id)
+        .eq("user_id", user.id)
+        .order("student_name");
+      setCourseStudents(data ?? []);
+    } finally {
+      setStudentsLoading(false);
+    }
+  };
+
   // ── Load members of selected group ────────────────────────────
   const loadMembers = async (group: Group) => {
     setSelected(group);
     setEditMode(false);
+    setActiveTab("membros");
+    setCourses([]);
+    setSelectedCourse(null);
+    setCourseStudents([]);
+    setExpandedCourses(new Set());
     setMembersLoading(true);
     try {
       const { data } = await supabase
@@ -362,56 +440,208 @@ export default function GroupsPage() {
               )}
             </div>
 
-            {/* Lista de membros */}
-            <div className="flex-1 overflow-y-auto p-6">
-              {membersLoading ? (
-                <div className="flex items-center justify-center py-16">
-                  <Loader2 className="w-5 h-5 animate-spin text-white/30" />
-                </div>
-              ) : members.length === 0 ? (
-                <div className="text-center py-16">
-                  <Users className="w-10 h-10 mx-auto mb-4 text-white/10" />
-                  <p className="text-white/30 text-sm">Nenhum contato neste grupo</p>
-                  <button onClick={openAddContacts}
-                    className="mt-4 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold mx-auto transition-all"
-                    style={{ background: "rgba(185,255,75,0.1)", color: LIME, border: "1px solid rgba(185,255,75,0.2)" }}>
-                    <Plus className="w-4 h-4" /> Adicionar contatos
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <p className="text-xs text-white/30 mb-4 font-semibold uppercase tracking-widest">
-                    {members.length} contato(s)
-                  </p>
-                  {members.map(c => (
-                    <div key={c.id} className="flex items-center gap-3 px-4 py-3 rounded-2xl group"
-                      style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                      <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0"
-                        style={{ background: `${selected.color}14`, color: selected.color }}>
-                        {c.name?.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-white truncate">{c.name}</p>
-                        <p className="text-xs text-white/35 truncate">
-                          {c.phone || c.email || "Sem contato"}
-                        </p>
-                      </div>
-                      {c.status && (
-                        <span className="text-[10px] px-2 py-0.5 rounded-full font-medium flex-shrink-0"
-                          style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)" }}>
-                          {c.status}
-                        </span>
-                      )}
-                      <button onClick={() => removeMember(c.id)}
-                        className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg transition-all hover:bg-red-500/10"
-                        style={{ color: "rgba(239,68,68,0.5)" }}>
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+            {/* Tabs */}
+            <div className="flex gap-0 px-6 border-b flex-shrink-0"
+              style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+              {(["membros", "cursos"] as const).map(tab => (
+                <button key={tab} onClick={() => {
+                  setActiveTab(tab);
+                  if (tab === "cursos" && courses.length === 0) loadCourses();
+                }}
+                  className="px-4 py-3 text-xs font-semibold uppercase tracking-widest transition-colors relative"
+                  style={{ color: activeTab === tab ? LIME : "rgba(255,255,255,0.3)" }}>
+                  {tab === "membros" ? `Membros (${members.length})` : "Por Curso"}
+                  {activeTab === tab && (
+                    <span className="absolute bottom-0 left-0 right-0 h-0.5 rounded-t"
+                      style={{ background: LIME }} />
+                  )}
+                </button>
+              ))}
             </div>
+
+            {/* Conteúdo da aba Membros */}
+            {activeTab === "membros" && (
+              <div className="flex-1 overflow-y-auto p-6">
+                {membersLoading ? (
+                  <div className="flex items-center justify-center py-16">
+                    <Loader2 className="w-5 h-5 animate-spin text-white/30" />
+                  </div>
+                ) : members.length === 0 ? (
+                  <div className="text-center py-16">
+                    <Users className="w-10 h-10 mx-auto mb-4 text-white/10" />
+                    <p className="text-white/30 text-sm">Nenhum contato neste grupo</p>
+                    <button onClick={openAddContacts}
+                      className="mt-4 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold mx-auto transition-all"
+                      style={{ background: "rgba(185,255,75,0.1)", color: LIME, border: "1px solid rgba(185,255,75,0.2)" }}>
+                      <Plus className="w-4 h-4" /> Adicionar contatos
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-2">
+                    <p className="text-xs text-white/30 mb-4 font-semibold uppercase tracking-widest">
+                      {members.length} contato(s)
+                    </p>
+                    {members.map(c => (
+                      <div key={c.id} className="flex items-center gap-3 px-4 py-3 rounded-2xl group"
+                        style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0"
+                          style={{ background: `${selected.color}14`, color: selected.color }}>
+                          {c.name?.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-white truncate">{c.name}</p>
+                          <p className="text-xs text-white/35 truncate">
+                            {c.phone || c.email || "Sem contato"}
+                          </p>
+                        </div>
+                        {c.status && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-medium flex-shrink-0"
+                            style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)" }}>
+                            {c.status}
+                          </span>
+                        )}
+                        <button onClick={() => removeMember(c.id)}
+                          className="opacity-0 group-hover:opacity-100 p-1.5 rounded-lg transition-all hover:bg-red-500/10"
+                          style={{ color: "rgba(239,68,68,0.5)" }}>
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Conteúdo da aba Por Curso */}
+            {activeTab === "cursos" && (
+              <div className="flex-1 overflow-y-auto p-6">
+                {coursesLoading ? (
+                  <div className="flex items-center justify-center py-16">
+                    <Loader2 className="w-5 h-5 animate-spin text-white/30" />
+                  </div>
+                ) : courses.length === 0 ? (
+                  <div className="text-center py-16">
+                    <BookOpen className="w-10 h-10 mx-auto mb-4 text-white/10" />
+                    <p className="text-white/30 text-sm">Nenhum curso cadastrado</p>
+                    <p className="text-xs text-white/20 mt-1">Crie cursos na aba Cursos do workspace do cliente</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-xs text-white/30 mb-4 font-semibold uppercase tracking-widest">
+                      {courses.length} curso(s) — clique para ver alunos
+                    </p>
+                    {courses.map(course => {
+                      const isExpanded = expandedCourses.has(course.id);
+                      const isThisLoading = studentsLoading && selectedCourse?.id === course.id;
+                      return (
+                        <div key={course.id} className="rounded-2xl overflow-hidden"
+                          style={{ border: `1px solid ${isExpanded ? "rgba(185,255,75,0.2)" : "rgba(255,255,255,0.06)"}` }}>
+
+                          {/* Cabeçalho do curso */}
+                          <button onClick={() => toggleCourse(course)}
+                            className="w-full flex items-center gap-3 px-4 py-3 transition-all text-left"
+                            style={{ background: isExpanded ? "rgba(185,255,75,0.05)" : "rgba(255,255,255,0.02)" }}>
+                            <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                              style={{ background: isExpanded ? "rgba(185,255,75,0.15)" : "rgba(255,255,255,0.06)" }}>
+                              <BookOpen className="w-4 h-4" style={{ color: isExpanded ? LIME : "rgba(255,255,255,0.4)" }} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-white truncate">{course.title}</p>
+                              <div className="flex items-center gap-2 mt-0.5">
+                                {course.level && (
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full"
+                                    style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)" }}>
+                                    {course.level}
+                                  </span>
+                                )}
+                                <span className="text-[10px] px-2 py-0.5 rounded-full"
+                                  style={{
+                                    background: course.status === "active" ? "rgba(52,211,153,0.12)" : "rgba(255,255,255,0.06)",
+                                    color: course.status === "active" ? "#34D399" : "rgba(255,255,255,0.35)"
+                                  }}>
+                                  {course.status === "active" ? "Ativo" : course.status === "draft" ? "Rascunho" : course.status}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {isExpanded && !isThisLoading && (
+                                <a href="/whatsapp"
+                                  onClick={e => e.stopPropagation()}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all"
+                                  style={{ background: "rgba(37,211,102,0.12)", color: "#25D366", border: "1px solid rgba(37,211,102,0.25)" }}>
+                                  <MessageCircle className="w-3 h-3" /> Disparar WA
+                                </a>
+                              )}
+                              <ChevronDown className="w-4 h-4 transition-transform"
+                                style={{ color: "rgba(255,255,255,0.25)", transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)" }} />
+                            </div>
+                          </button>
+
+                          {/* Lista de alunos */}
+                          <AnimatePresence>
+                            {isExpanded && (
+                              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }}
+                                style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+                                {isThisLoading ? (
+                                  <div className="flex items-center justify-center py-8">
+                                    <Loader2 className="w-4 h-4 animate-spin text-white/30" />
+                                  </div>
+                                ) : courseStudents.length === 0 ? (
+                                  <p className="text-center text-xs text-white/25 py-6">
+                                    Nenhum aluno matriculado ainda
+                                  </p>
+                                ) : (
+                                  <div className="p-3 space-y-1.5">
+                                    <p className="text-[10px] text-white/25 px-1 mb-2 font-semibold uppercase tracking-widest">
+                                      {courseStudents.length} aluno(s)
+                                    </p>
+                                    {courseStudents.map(student => (
+                                      <div key={student.id}
+                                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+                                        style={{ background: "rgba(255,255,255,0.02)" }}>
+                                        <div className="w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+                                          style={{ background: "rgba(185,255,75,0.1)", color: LIME }}>
+                                          {student.student_name?.charAt(0).toUpperCase()}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <p className="text-sm font-semibold text-white truncate">{student.student_name}</p>
+                                          {student.student_email && (
+                                            <div className="flex items-center gap-1 mt-0.5">
+                                              <Mail className="w-3 h-3 text-white/25" />
+                                              <p className="text-xs text-white/35 truncate">{student.student_email}</p>
+                                            </div>
+                                          )}
+                                        </div>
+                                        {student.progress != null && (
+                                          <div className="flex-shrink-0 text-right">
+                                            <p className="text-xs font-bold" style={{ color: student.progress >= 100 ? "#34D399" : LIME }}>
+                                              {student.progress}%
+                                            </p>
+                                            <div className="w-16 h-1 rounded-full mt-1 overflow-hidden"
+                                              style={{ background: "rgba(255,255,255,0.08)" }}>
+                                              <div className="h-full rounded-full transition-all"
+                                                style={{
+                                                  width: `${student.progress}%`,
+                                                  background: student.progress >= 100 ? "#34D399" : LIME
+                                                }} />
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
           </>
         )}
       </div>
