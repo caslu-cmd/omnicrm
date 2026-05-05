@@ -6,10 +6,29 @@ import { Mail, Lock, User, ArrowRight, Zap } from "lucide-react";
 
 const AuthPage = () => {
   const [isLogin, setIsLogin] = useState(true);
+  const [isForgot, setIsForgot] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const handleForgot = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) { toast.error("Digite seu e-mail primeiro."); return; }
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/entrar`,
+      });
+      if (error) throw error;
+      toast.success("Link de redefinição enviado! Verifique seu e-mail.");
+      setIsForgot(false);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao enviar e-mail");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -69,6 +88,35 @@ const AuthPage = () => {
           padding: "32px 28px",
           boxShadow: "0 24px 64px rgba(0,0,0,.4), inset 0 1px 0 rgba(255,255,255,.06)",
         }}>
+          {/* Esqueci minha senha */}
+          {isForgot ? (
+            <form onSubmit={handleForgot}>
+              <p style={{ fontSize: 13, color: "rgba(240,239,232,.5)", marginBottom: 20, lineHeight: 1.6 }}>
+                Digite seu e-mail e enviaremos um link para redefinir sua senha.
+              </p>
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: "block", fontSize: 12, fontWeight: 600, color: "rgba(240,239,232,.5)", marginBottom: 6 }}>E-mail</label>
+                <div style={{ position: "relative" }}>
+                  <Mail size={15} color="rgba(240,239,232,.3)" style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }} />
+                  <input
+                    type="email" value={email} onChange={e => setEmail(e.target.value)}
+                    placeholder="seu@email.com" required
+                    style={{ width: "100%", boxSizing: "border-box", background: "rgba(255,255,255,.05)", border: "1px solid rgba(255,255,255,.1)", borderRadius: 10, padding: "12px 14px 12px 42px", fontSize: 14, color: "#F0EFE8", outline: "none" }}
+                  />
+                </div>
+              </div>
+              <button type="submit" disabled={loading}
+                style={{ width: "100%", background: loading ? "rgba(185,255,75,.6)" : "#B9FF4B", color: "#080808", border: "none", borderRadius: 10, padding: "13px", fontSize: 14, fontWeight: 700, cursor: loading ? "not-allowed" : "pointer" }}>
+                {loading ? "Enviando..." : "Enviar link de redefinição"}
+              </button>
+              <div style={{ textAlign: "center", marginTop: 16 }}>
+                <button onClick={() => setIsForgot(false)} type="button"
+                  style={{ fontSize: 13, color: "#B9FF4B", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>
+                  ← Voltar ao login
+                </button>
+              </div>
+            </form>
+          ) : (
           <form onSubmit={handleSubmit}>
 
             {!isLogin && (
@@ -149,7 +197,13 @@ const AuthPage = () => {
             </button>
           </form>
 
-          <div style={{ textAlign: "center", marginTop: 20 }}>
+          <div style={{ textAlign: "center", marginTop: 20, display: "flex", flexDirection: "column", gap: 10 }}>
+            {isLogin && (
+              <button onClick={() => setIsForgot(true)} type="button"
+                style={{ fontSize: 12, color: "rgba(240,239,232,.35)", background: "none", border: "none", cursor: "pointer" }}>
+                Esqueci minha senha
+              </button>
+            )}
             <button
               onClick={() => setIsLogin(!isLogin)}
               style={{ fontSize: 13, color: "rgba(240,239,232,.4)", background: "none", border: "none", cursor: "pointer" }}
@@ -158,6 +212,8 @@ const AuthPage = () => {
               <span style={{ color: "#B9FF4B", fontWeight: 600 }}>{isLogin ? "Criar conta" : "Entrar"}</span>
             </button>
           </div>
+          </form>
+          )}
         </div>
 
       </div>
