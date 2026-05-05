@@ -132,8 +132,7 @@ const AppRoutes = () => (
     <Route path="/sair" element={<SairRoute />} />
 
     {/* Portal do cliente (link externo enviado ao cliente) */}
-    <Route path="/portal" element={<ClientPortal />} />
-    <Route path="/portal/:clientId" element={<ClientPortal />} />
+    <Route path="/portal/:token" element={<ClientPortal />} />
 
     {/* Super Diagnóstico Gratuito — funil de captação de leads */}
     <Route path="/super-diagnostico" element={<SuperDiagnostico />} />
