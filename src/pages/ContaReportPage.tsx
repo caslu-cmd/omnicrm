@@ -574,7 +574,7 @@ interface ChatMsg { role: "user" | "assistant"; text: string; }
 
 interface AttachedFile { name: string; text: string; size: number; }
 
-function AgentChat() {
+function AgentChat({ onDataSaved }: { onDataSaved?: () => void }) {
   const [history, setHistory] = useState<ChatMsg[]>([]);
   const [rawHistory, setRawHistory] = useState<object[]>([]);
   const [input, setInput] = useState("");
@@ -582,6 +582,7 @@ function AgentChat() {
   const [toolRunning, setToolRunning] = useState("");
   const [attached, setAttached] = useState<AttachedFile | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [savedCount, setSavedCount] = useState(0);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -656,7 +657,10 @@ function AgentChat() {
               setToolRunning("");
             } else if (ev.type === "tool_call") {
               setToolRunning(ev.name);
-            } else if (ev.type === "tool_result" || ev.type === "done") {
+            } else if (ev.type === "tool_result") {
+              setToolRunning("");
+              if (ev.name?.startsWith("criar_")) setSavedCount(n => n + 1);
+            } else if (ev.type === "done") {
               setToolRunning("");
             }
           } catch { /* ignore */ }
@@ -685,9 +689,20 @@ function AgentChat() {
           <p className="text-sm font-semibold text-white">Rico · Agente IA</p>
           <p className="text-xs text-gray-500">Especialista em prestação de contas GNX</p>
         </div>
-        <div className="ml-auto flex items-center gap-1.5">
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-xs text-emerald-500">online</span>
+        <div className="ml-auto flex items-center gap-2">
+          {savedCount > 0 && (
+            <button
+              onClick={() => { setSavedCount(0); onDataSaved?.(); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-500/20 transition-all animate-pulse"
+            >
+              <RefreshCw className="w-3 h-3" />
+              Atualizar dashboard ({savedCount})
+            </button>
+          )}
+          <div className="flex items-center gap-1.5">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="text-xs text-emerald-500">online</span>
+          </div>
         </div>
       </div>
 
@@ -1354,7 +1369,16 @@ function ContaReportContent() {
         )}
 
         {/* ── AGENTE IA ── */}
-        {tab === "agente" && <AgentChat />}
+        {tab === "agente" && (
+          <AgentChat onDataSaved={() => {
+            refetchReceitas();
+            refetchDespesas();
+            refetchImpostos();
+            refetchAdiant();
+            loadRelatorio();
+            toast.success("Dashboard atualizado!");
+          }} />
+        )}
 
       </main>
     </div>
