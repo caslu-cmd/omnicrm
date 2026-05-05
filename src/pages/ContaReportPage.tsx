@@ -13,6 +13,55 @@ const API = "http://localhost:8900";
 const RICO_PIN = "GN5247";
 const SESSION_KEY = "rico_auth_gnx";
 
+// ── Leitura de arquivos no browser (sem depender da API) ──────────────────────
+async function extractFileText(file: File): Promise<string> {
+  const ext = file.name.toLowerCase().split(".").pop() ?? "";
+  const MAX = 20000;
+
+  // Texto puro: CSV, TXT, OFX, QIF, TSV
+  if (["csv", "txt", "tsv", "ofx", "qif", "xml"].includes(ext)) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = e => resolve(((e.target?.result as string) ?? "").slice(0, MAX));
+      reader.onerror = () => reject(new Error("Falha ao ler arquivo de texto."));
+      reader.readAsText(file, "UTF-8");
+    });
+  }
+
+  // Excel: XLSX / XLS
+  if (["xlsx", "xls"].includes(ext)) {
+    const { read, utils } = await import("xlsx");
+    const buf = await file.arrayBuffer();
+    const wb = read(buf, { type: "array" });
+    const lines: string[] = [];
+    for (const sheetName of wb.SheetNames) {
+      lines.push(`=== ${sheetName} ===`);
+      const rows: string[][] = utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, defval: "" });
+      rows.forEach(r => { if (r.some(c => c !== "")) lines.push(r.join("\t")); });
+    }
+    return lines.join("\n").slice(0, MAX);
+  }
+
+  // PDF
+  if (ext === "pdf") {
+    const pdfjsLib = await import("pdfjs-dist");
+    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+      "pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url
+    ).toString();
+    const buf = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+    const pages: string[] = [];
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+      pages.push(content.items.map((it: { str?: string }) => it.str ?? "").join(" "));
+    }
+    return pages.join("\n\n").slice(0, MAX);
+  }
+
+  throw new Error(`.${ext} não suportado. Use CSV, TXT, XLSX ou PDF.`);
+}
+
 // ── Tela de bloqueio ──────────────────────────────────────────────────────────
 function PinLock({ onUnlock }: { onUnlock: () => void }) {
   const navigate = useNavigate();
@@ -531,26 +580,11 @@ function AgentChat() {
     e.target.value = "";
     setUploading(true);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const res = await fetch(`${API}/api/upload`, { method: "POST", body: fd });
-      if (!res.ok) {
-        const body = await res.text().catch(() => "");
-        if (res.status === 422 && body.includes("multipart")) {
-          throw new Error("Instale python-multipart: pip install python-multipart e reinicie a API");
-        }
-        throw new Error(`HTTP ${res.status}${body ? ": " + body.slice(0, 120) : ""}`);
-      }
-      const data = await res.json();
-      setAttached({ name: data.filename, text: data.text, size: data.size });
-      toast.success(`${data.filename} carregado (${data.chars.toLocaleString()} chars)`);
+      const text = await extractFileText(file);
+      setAttached({ name: file.name, text, size: file.size });
+      toast.success(`${file.name} carregado`);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Erro desconhecido";
-      if (msg.includes("fetch") || msg.includes("Failed")) {
-        toast.error("API offline — inicie iniciar_api.bat");
-      } else {
-        toast.error(msg, { duration: 8000 });
-      }
+      toast.error(err instanceof Error ? err.message : "Erro ao ler arquivo", { duration: 6000 });
     } finally {
       setUploading(false);
     }
