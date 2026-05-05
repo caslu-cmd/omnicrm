@@ -534,12 +534,23 @@ function AgentChat() {
       const fd = new FormData();
       fd.append("file", file);
       const res = await fetch(`${API}/api/upload`, { method: "POST", body: fd });
-      if (!res.ok) throw new Error("Falha no upload");
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        if (res.status === 422 && body.includes("multipart")) {
+          throw new Error("Instale python-multipart: pip install python-multipart e reinicie a API");
+        }
+        throw new Error(`HTTP ${res.status}${body ? ": " + body.slice(0, 120) : ""}`);
+      }
       const data = await res.json();
       setAttached({ name: data.filename, text: data.text, size: data.size });
       toast.success(`${data.filename} carregado (${data.chars.toLocaleString()} chars)`);
-    } catch {
-      toast.error("Erro ao carregar arquivo. Verifique se a API está online.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Erro desconhecido";
+      if (msg.includes("fetch") || msg.includes("Failed")) {
+        toast.error("API offline — inicie iniciar_api.bat");
+      } else {
+        toast.error(msg, { duration: 8000 });
+      }
     } finally {
       setUploading(false);
     }
