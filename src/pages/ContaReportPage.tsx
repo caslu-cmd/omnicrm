@@ -1,8 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   TrendingUp, TrendingDown, Receipt, Wallet, Plus, Trash2,
   FileBarChart, Bot, Loader2, Send, RefreshCw, ChevronDown,
-  Users, Calendar, BarChart3, AlertCircle, CheckCircle2, Lock, Eye, EyeOff
+  Users, Calendar, BarChart3, AlertCircle, CheckCircle2, Lock, Eye, EyeOff, UserCircle2
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -13,6 +14,7 @@ const SESSION_KEY = "rico_auth_gnx";
 
 // ── Tela de bloqueio ──────────────────────────────────────────────────────────
 function PinLock({ onUnlock }: { onUnlock: () => void }) {
+  const navigate = useNavigate();
   const [pin, setPin] = useState("");
   const [show, setShow] = useState(false);
   const [shake, setShake] = useState(false);
@@ -86,6 +88,16 @@ function PinLock({ onUnlock }: { onUnlock: () => void }) {
         >
           Entrar
         </button>
+
+        <div className="border-t border-gray-800 pt-4">
+          <button
+            onClick={() => navigate("/conta-colaborador")}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm text-gray-400 hover:text-emerald-400 hover:bg-emerald-500/5 border border-gray-800 hover:border-emerald-500/30 transition-all"
+          >
+            <UserCircle2 className="w-4 h-4" />
+            Sou colaborador — acessar meus honorários
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -593,6 +605,7 @@ export default function ContaReportPage() {
 }
 
 function ContaReportContent() {
+  const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("dashboard");
   const [selectedPeriod, setSelectedPeriod] = useState<number | null>(null);
   const [showNewPeriod, setShowNewPeriod] = useState(false);
@@ -695,6 +708,12 @@ function ContaReportContent() {
           <p className="text-sm text-gray-500 mt-0.5">Gestão financeira e relatórios mensais</p>
         </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => navigate("/conta-colaborador")}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100 transition-colors"
+          >
+            <UserCircle2 className="w-3.5 h-3.5" /> Acesso Colaboradores
+          </button>
           {apiOnline === false && (
             <span className="flex items-center gap-1.5 text-xs text-red-600 bg-red-50 px-2 py-1 rounded-full">
               <AlertCircle className="w-3 h-3" /> API offline — rode iniciar_api.bat
