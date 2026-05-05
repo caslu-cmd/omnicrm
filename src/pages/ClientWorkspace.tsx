@@ -806,6 +806,8 @@ export default function ClientWorkspace() {
   // Real courses from DB
   const [dbCourses, setDbCourses] = useState<any[]>([]);
   const [dbEnrollments, setDbEnrollments] = useState<Record<string, any[]>>({});
+  const [dbCrmGroups, setDbCrmGroups] = useState<any[]>([]);
+  const [dbGroupMembers, setDbGroupMembers] = useState<Record<string, any[]>>({});
   const [coursesLoading, setCoursesLoading] = useState(false);
   const [showNewCourse, setShowNewCourse] = useState(false);
   const [newCourseForm, setNewCourseForm] = useState({ title: "", description: "", level: "Básico" });

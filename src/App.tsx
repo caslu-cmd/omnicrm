@@ -95,10 +95,10 @@ const ProtectedRoutes = () => {
           <Route path="/video-editor" element={<VideoEditorPage />} />
           <Route path="/tomas" element={<TomasPage />} />
           <Route path="/ben" element={<BenPage />} />
-          <Route path="/conta-report" element={<ContaReportPage />} />
-          <Route path="/conta-colaborador" element={<ContaColaboradorPage />} />
           <Route path="*" element={<NotFound />} />
         </Route>
+        <Route path="/conta-report" element={<ContaReportPage />} />
+        <Route path="/conta-colaborador" element={<ContaColaboradorPage />} />
       </Routes>
       <AiAssistant />
     </>
