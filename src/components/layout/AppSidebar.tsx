@@ -2,7 +2,7 @@ import caluLogo from "@/assets/calu-logo.png";
 import { useLocation, useNavigate, NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
-  LayoutDashboard, Inbox, Users, GitBranch, Zap, Send, Calendar,
+  LayoutDashboard, Inbox, Users, GitBranch, Zap, Send, Calendar, MessageSquare,
   Globe, GraduationCap, CreditCard, BarChart3, Puzzle, Settings,
   HelpCircle, Shield, ChevronLeft, ChevronRight, Phone,
   Palette, Bell, Crown, ArrowLeftRight, Star,
@@ -24,6 +24,7 @@ const crmItems = [
   { to: "/agency", icon: Star, label: "Minha Agência" },
   { to: "/", icon: LayoutDashboard, label: "Dashboard" },
   { to: "/inbox", icon: Inbox, label: "Inbox", badge: 12 },
+  { to: "/whatsapp", icon: MessageSquare, label: "WhatsApp" },
   { to: "/contacts", icon: Users, label: "Contatos" },
   { to: "/pipelines", icon: GitBranch, label: "Pipelines" },
   { to: "/automations", icon: Zap, label: "Automações" },

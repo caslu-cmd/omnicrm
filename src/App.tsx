@@ -40,6 +40,7 @@ import BenPage from "@/pages/BenPage";
 import SuperDiagnostico from "@/pages/SuperDiagnostico";
 import InvitePage from "@/pages/InvitePage";
 import TeamPortalPage from "@/pages/TeamPortalPage";
+import WhatsAppPage from "@/pages/WhatsAppPage";
 
 const queryClient = new QueryClient();
 
@@ -73,6 +74,7 @@ const ProtectedRoutes = () => {
           <Route path="/automations" element={<AutomationsPage />} />
           <Route path="/campaigns" element={<CampaignsPage />} />
           <Route path="/scheduling" element={<SchedulingPage />} />
+          <Route path="/whatsapp" element={<WhatsAppPage />} />
           <Route path="/voice" element={<VoicePage />} />
           <Route path="/sites" element={<SitesPage />} />
           <Route path="/members" element={<MembersPage />} />
