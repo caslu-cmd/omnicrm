@@ -908,16 +908,16 @@ function ContaReportContent() {
   const { data: periods, refetch: refetchPeriods } = useApi<Period[]>(`${API}/api/periods`, []);
   const { data: members, refetch: refetchMembers } = useApi<Member[]>(`${API}/api/members`, []);
   const { data: receitas, refetch: refetchReceitas } = useApi<Receita[]>(
-    selectedPeriod ? `${API}/api/receitas?period_id=${selectedPeriod}` : "", [selectedPeriod]
+    selectedPeriod && tab === "receitas" ? `${API}/api/receitas?period_id=${selectedPeriod}` : "", [selectedPeriod, tab]
   );
   const { data: despesas, refetch: refetchDespesas } = useApi<Despesa[]>(
-    selectedPeriod ? `${API}/api/despesas?period_id=${selectedPeriod}` : "", [selectedPeriod]
+    selectedPeriod && tab === "despesas" ? `${API}/api/despesas?period_id=${selectedPeriod}` : "", [selectedPeriod, tab]
   );
   const { data: impostos, refetch: refetchImpostos } = useApi<Imposto[]>(
-    selectedPeriod ? `${API}/api/impostos?period_id=${selectedPeriod}` : "", [selectedPeriod]
+    selectedPeriod && tab === "impostos" ? `${API}/api/impostos?period_id=${selectedPeriod}` : "", [selectedPeriod, tab]
   );
   const { data: adiantamentos, refetch: refetchAdiant } = useApi<Adiantamento[]>(
-    selectedPeriod ? `${API}/api/adiantamentos?period_id=${selectedPeriod}` : "", [selectedPeriod]
+    selectedPeriod && tab === "adiantamentos" ? `${API}/api/adiantamentos?period_id=${selectedPeriod}` : "", [selectedPeriod, tab]
   );
   const [relatorio, setRelatorio] = useState<Relatorio | null>(null);
   const [loadingRel, setLoadingRel] = useState(false);
