@@ -12,7 +12,9 @@ import {
   UserCheck, PhoneCall, MessageSquare as MsgSq, BadgeCheck,
   Paperclip, X, Palette, PenLine, BarChart3, Layout, Table2, AtSign,
   Target, ArrowRight, Repeat2, MousePointerClick, Filter, Trash2, Mic, MicOff, StopCircle,
+  Save, Settings2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { CLIENTS, GeneratedOutput } from "@/data/agencyData";
 import { useClients } from "@/contexts/ClientsContext";
@@ -151,6 +153,15 @@ const MARKETING_TEAM = [
     description: "Edita vídeos com IA — cortes, efeitos cinematográficos, legendas animadas e color grade profissional",
   },
   {
+    id: "tomas",
+    name: "Tomás",
+    role: "Criador de Landing Pages",
+    initial: "🖥️",
+    skill: "Copy · Design · HTML · Conversão",
+    color: "#34D399",
+    description: "Transforma briefings em landing pages completas — consulta a Redatora e a Designer e entrega o HTML pronto",
+  },
+  {
     id: "calendario",
     name: "Pedro",
     role: "Calendário Editorial",
@@ -158,6 +169,15 @@ const MARKETING_TEAM = [
     skill: "Editorial · Datas · Planejamento",
     color: "#2DD4BF",
     description: "Planeja calendários editoriais, pilares de conteúdo e cronogramas estratégicos por plataforma",
+  },
+  {
+    id: "ben",
+    name: "Ben",
+    role: "Especialista em Tendências",
+    initial: "🔍",
+    skill: "Google Trends · Pesquisa · Ideação",
+    color: "#B9FF4B",
+    description: "Pesquisa tendências no Google Trends Brasil em tempo real — queries em alta, tópicos virais e ideias de conteúdo baseadas em dados reais",
   },
 ];
 
@@ -174,6 +194,7 @@ const AGENT_OUTPUT_TYPE: Record<string, GeneratedOutput["type"]> = {
   video:      "copy",
   calendario: "plan",
   sales:      "report",
+  ben:        "report",
 };
 
 // ── Prompts individuais por agente (orquestração sequencial) ─────────────
@@ -191,6 +212,7 @@ const AGENT_CONFIG: Record<string, { maxTokens: number; thinking: boolean; think
   revisor:     { maxTokens: 5000,  thinking: false },
   video:       { maxTokens: 6000,  thinking: false },
   calendario:  { maxTokens: 10000, thinking: true,  thinkingBudget: 6000  },
+  tomas:       { maxTokens: 8000,  thinking: true,  thinkingBudget: 5000  },
 };
 
 const AGENT_PROMPTS: Record<string, string> = {
@@ -353,6 +375,23 @@ SUAS SKILLS — detecte automaticamente qual aplicar:
 
 Português brasileiro.`,
 
+  tomas: `Você é TOMÁS, especialista em Landing Pages de alta conversão da Calu Agência.
+Seu papel no time: transformar briefings e estratégias em estrutura completa de landing page — copy, design e diretrizes de conversão.
+
+SUAS SKILLS — detecte automaticamente qual aplicar:
+
+• ESTRUTURA DE LP → entregue: mapa completo das seções (Hero, Benefícios, Como Funciona, Prova Social, CTA, Rodapé) com objetivo de cada seção, copy sugerido, elemento visual principal e CTA
+
+• COPY DA LP → entregue: headline principal + subtítulo do hero + 3-5 benefícios (título + descrição) + 3 passos do "como funciona" + 2 depoimentos verossímeis + CTA principal e secundário + frase final do rodapé
+
+• DESIGN SPEC → entregue: paleta de cores (hex) + tipografia (Google Fonts) + estilo visual + estrutura de layout por seção + animações e elementos especiais
+
+• AUDITORIA DE LP → entregue: score de conversão X/10 + pontos fortes + problemas críticos com solução específica + checklist CRO completo + reescrita do hero
+
+• LP COMPLETA → integre copy + design spec prontos para usar no criador de landing pages
+
+Use frameworks de conversão: PAS, AIDA, StoryBrand, Jobs-to-be-Done. Foque em clareza, urgência e prova social. Entrega completa em markdown. Português brasileiro.`,
+
   calendario: `Você é PEDRO, Especialista em Calendário Editorial da Calu Agência.
 Metodologia: pilares de conteúdo, frequência por plataforma, temas mensais, datas estratégicas, mix 70-20-10.
 
@@ -504,24 +543,28 @@ const INTEGRATIONS_BASE = [
     Icon: Instagram, color: "#E1306C", bg: "rgba(225,48,108,0.1)", border: "rgba(225,48,108,0.2)",
     connected: false, account: null, followers: null,
     features: ["Publicar posts e stories", "Agendar conteúdo", "Métricas de alcance", "Responder comentários"],
+    configFields: [{ key: "page_id", label: "Page ID" }, { key: "token", label: "Access Token", type: "password" }],
   },
   {
     id: "facebook", name: "Facebook", description: "Página, Grupos e Facebook Ads",
     Icon: Facebook, color: "#1877F2", bg: "rgba(24,119,242,0.1)", border: "rgba(24,119,242,0.2)",
     connected: false, account: null, followers: null,
     features: ["Publicar na Página", "Gerenciar Facebook Ads", "Métricas da Página", "Responder mensagens"],
+    configFields: [{ key: "ad_account_id", label: "Ad Account ID" }, { key: "token", label: "Access Token", type: "password" }],
   },
   {
     id: "linkedin", name: "LinkedIn", description: "Página empresarial e conteúdo B2B",
     Icon: Linkedin, color: "#0A66C2", bg: "rgba(10,102,194,0.1)", border: "rgba(10,102,194,0.2)",
     connected: false, account: null, followers: null,
     features: ["Publicar na Página", "Artigos e newsletters", "Métricas de engajamento", "Geração de leads B2B"],
+    configFields: [{ key: "page_id", label: "Page ID" }, { key: "token", label: "Access Token", type: "password" }],
   },
   {
     id: "whatsapp", name: "WhatsApp Business", description: "Mensagens, automações e atendimento",
     Icon: MessageCircle, color: "#25D366", bg: "rgba(37,211,102,0.1)", border: "rgba(37,211,102,0.2)",
     connected: false, account: null, followers: null,
     features: ["Enviar mensagens em massa", "Chatbot de atendimento", "Templates aprovados", "Relatório de entrega"],
+    configFields: [],
   },
 ];
 
@@ -710,6 +753,11 @@ export default function ClientWorkspace() {
   const [airaSharePhone, setAiraSharePhone] = useState("");
   const [airaShareSending, setAiraShareSending] = useState(false);
   const [airaShareResult, setAiraShareResult] = useState<string | null>(null);
+  // ── Social integrations per client ─────────────────────────
+  const [socialConnected, setSocialConnected] = useState<Record<string, boolean>>({});
+  const [socialConfigModal, setSocialConfigModal] = useState<string | null>(null);
+  const [socialConfigValues, setSocialConfigValues] = useState<Record<string, string>>({});
+  const [socialConfigSaving, setSocialConfigSaving] = useState(false);
   const [airaSource, setAiraSource] = useState<"system" | "mic" | "both">(() => {
     const v = localStorage.getItem(`aira-source-${id}`);
     return (v === "mic" || v === "both" || v === "system") ? v : "mic";
@@ -981,6 +1029,78 @@ export default function ClientWorkspace() {
     } catch {
       setWpStatus("disconnected");
     }
+  };
+
+  // ── Social integrations helpers ─────────────────────────────
+  const invokeMgmt = async (action: string, method: "GET" | "POST" = "GET", body?: unknown) => {
+    const projectId = import.meta.env.VITE_SUPABASE_URL?.replace("https://", "").replace(".supabase.co", "") || "";
+    const baseUrl = `https://${projectId}.supabase.co/functions/v1/manage-integrations`;
+    const session = (await supabase.auth.getSession()).data.session;
+    const res = await fetch(`${baseUrl}?action=${action}`, {
+      method,
+      headers: {
+        "Authorization": `Bearer ${session?.access_token}`,
+        "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        "Content-Type": "application/json",
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Request failed"); }
+    return res.json();
+  };
+
+  const fetchSocialIntegrations = async () => {
+    if (!id) return;
+    try {
+      const data: { connector_name: string; connected: boolean }[] = await invokeMgmt("list");
+      const map: Record<string, boolean> = {};
+      for (const row of data) {
+        const prefix = `social_${id}_`;
+        if (row.connector_name.startsWith(prefix)) {
+          const platform = row.connector_name.replace(prefix, "");
+          map[platform] = row.connected;
+        }
+      }
+      setSocialConnected(map);
+    } catch { /* silent */ }
+  };
+
+  const handleSocialToggle = async (platformId: string, connect: boolean) => {
+    if (!id) return;
+    const name = `social_${id}_${platformId}`;
+    try {
+      await invokeMgmt("toggle", "POST", { connector_name: name, connected: connect });
+      setSocialConnected(prev => ({ ...prev, [platformId]: connect }));
+      toast.success(connect ? `${platformId} conectado!` : `${platformId} desconectado`);
+    } catch { toast.error("Erro ao atualizar integração"); }
+  };
+
+  const openSocialConfig = async (platformId: string) => {
+    if (!id) return;
+    const name = `social_${id}_${platformId}`;
+    try {
+      const data = await invokeMgmt(`get-config&connector=${encodeURIComponent(name)}`);
+      setSocialConfigValues(data?.config || {});
+    } catch { setSocialConfigValues({}); }
+    setSocialConfigModal(platformId);
+  };
+
+  const saveSocialConfig = async () => {
+    if (!socialConfigModal || !id) return;
+    setSocialConfigSaving(true);
+    const name = `social_${id}_${socialConfigModal}`;
+    try {
+      await invokeMgmt("save-config", "POST", {
+        connector_name: name,
+        config: socialConfigValues,
+        connected: true,
+        status: "active",
+      });
+      setSocialConnected(prev => ({ ...prev, [socialConfigModal]: true }));
+      toast.success("Integração salva e conectada!");
+      setSocialConfigModal(null);
+    } catch { toast.error("Erro ao salvar configurações"); }
+    setSocialConfigSaving(false);
   };
 
   const handleSaveClient = () => {
@@ -1693,6 +1813,8 @@ ${priorBlock}`;
   };
 
   useEffect(() => { if (id) loadDbContacts(); }, [id]);
+
+  useEffect(() => { if (activeTab === "integrations" && id) fetchSocialIntegrations(); }, [activeTab, id]);
 
   const loadPendingPosts = async () => {
     setPendingLoading(true);
@@ -3072,7 +3194,7 @@ ${priorBlock}`;
                     {/* File preview */}
                     {attachedFile && renderFilePreview(attachedFile, attachedFileUrl, attachedFileText, "#B9FF4B")}
 
-                    <div className="flex items-center gap-3 mt-3">
+                    <div className="flex flex-wrap items-center gap-2 mt-3">
                       {attachedFile ? (
                         <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg flex-shrink-0"
                           style={{ background: "rgba(185,255,75,0.08)", border: "1px solid rgba(185,255,75,0.2)" }}>
@@ -3080,7 +3202,7 @@ ${priorBlock}`;
                             ? <Image className="w-3 h-3 flex-shrink-0" style={{ color: "#B9FF4B" }} />
                             : <FileText className="w-3 h-3 flex-shrink-0" style={{ color: "#B9FF4B" }} />
                           }
-                          <span className="text-[11px] font-medium max-w-[160px] truncate" style={{ color: "rgba(255,255,255,0.7)" }}>
+                          <span className="text-[11px] font-medium max-w-[140px] truncate" style={{ color: "rgba(255,255,255,0.7)" }}>
                             {attachedFile.name}
                           </span>
                           <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>
@@ -3100,7 +3222,7 @@ ${priorBlock}`;
                             style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.35)", border: "1px dashed rgba(255,255,255,0.14)" }}
                             onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(185,255,75,0.35)"; e.currentTarget.style.color = "rgba(185,255,75,0.75)"; }}
                             onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)"; e.currentTarget.style.color = "rgba(255,255,255,0.35)"; }}>
-                            <Paperclip className="w-3 h-3" /> Anexar referência
+                            <Paperclip className="w-3 h-3" /> Anexar
                           </button>
                           <button
                             onClick={() => setShowSiteInput(true)}
@@ -3115,15 +3237,14 @@ ${priorBlock}`;
                               e.currentTarget.style.borderColor = siteUrl ? "rgba(185,255,75,0.3)" : "rgba(255,255,255,0.14)";
                               e.currentTarget.style.color = siteUrl ? "#B9FF4B" : "rgba(255,255,255,0.35)";
                             }}>
-                            <Globe className="w-3 h-3" /> {siteUrl ? "Site anexado" : "Anexar site"}
+                            <Globe className="w-3 h-3" /> {siteUrl ? "Site ✓" : "Site"}
                           </button>
                         </>
                       )}
-                      <div className="flex-1" />
                       <button
                         onClick={handleSendToAria}
                         disabled={(!agentCommand.trim() && !attachedFile) || ariaLoading}
-                        className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
+                        className="flex items-center justify-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 w-full sm:w-auto sm:ml-auto"
                         style={{ background: "#B9FF4B", color: "#07080A", boxShadow: (agentCommand || attachedFile) ? "0 0 20px -4px rgba(185,255,75,0.5)" : "none" }}>
                         {ariaLoading ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Orquestrando...</> : <><Send className="w-3.5 h-3.5" /> Enviar para Luna</>}
                       </button>
@@ -3858,7 +3979,7 @@ ${priorBlock}`;
                                 }}>
                                 {isSelected ? "▲ Fechar" : agent.id === "briefing" ? "Briefing" : "Instruir"}
                               </button>
-                              {agent.id !== "briefing" && (
+                              {agent.id !== "briefing" && agent.id !== "tomas" && (
                                 <button
                                   onClick={() => {
                                     setDraftAgent(agent);
@@ -3868,6 +3989,14 @@ ${priorBlock}`;
                                   className="px-2.5 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1 whitespace-nowrap"
                                   style={{ background: `${agent.color}12`, color: agent.color, border: `1px solid ${agent.color}25` }}>
                                   <Send className="w-3 h-3" /> Gerar post
+                                </button>
+                              )}
+                              {agent.id === "tomas" && (
+                                <button
+                                  onClick={() => navigate("/tomas")}
+                                  className="px-2.5 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1 whitespace-nowrap"
+                                  style={{ background: `${agent.color}12`, color: agent.color, border: `1px solid ${agent.color}25` }}>
+                                  🖥️ Criar LP
                                 </button>
                               )}
                             </div>
@@ -4030,6 +4159,39 @@ ${priorBlock}`;
                               </div>
                             )}
 
+                            {/* Tomás: briefing rápido → abre criador de LP */}
+                            {selectedAgent.id === "tomas" && (
+                              <div className="space-y-4 mb-2">
+                                <div>
+                                  <div className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>Briefing da Landing Page</div>
+                                  <textarea
+                                    value={agentInstruction}
+                                    onChange={e => setAgentInstruction(e.target.value)}
+                                    placeholder={"Descreva o produto, público-alvo, objetivo e tom de voz.\n\nEx: Curso de gestão financeira para MEIs, público 30-50 anos, objetivo: inscrições, tom direto e motivador."}
+                                    rows={4}
+                                    className="w-full rounded-xl px-4 py-3 text-sm resize-none"
+                                    style={{ background: "rgba(255,255,255,0.05)", border: "1px solid #34D39928", color: "#F0F0F0", outline: "none" }}
+                                  />
+                                  <p className="text-[10px] mt-1.5" style={{ color: "rgba(255,255,255,0.2)" }}>
+                                    O Tomás consulta a Redatora e a Designer antes de gerar o HTML completo.
+                                  </p>
+                                </div>
+                                <button
+                                  onClick={() => {
+                                    const params = new URLSearchParams();
+                                    params.set("clientName", client.name);
+                                    if (agentInstruction.trim()) params.set("briefing", agentInstruction.trim());
+                                    setSelectedAgentId(null);
+                                    navigate(`/tomas?${params.toString()}`);
+                                  }}
+                                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all"
+                                  style={{ background: "#34D399", color: "#07080A", boxShadow: "0 0 20px -4px #34D39960" }}
+                                >
+                                  <span>🖥️</span> Abrir Tomás
+                                </button>
+                              </div>
+                            )}
+
                             {selectedAgent.id === "designer" && (
                               <div className="mb-3">
                                 <div className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>Formato</div>
@@ -4051,8 +4213,8 @@ ${priorBlock}`;
                               </div>
                             )}
 
-                            {/* Textarea — oculto para Bobby e Lia (têm painéis próprios) */}
-                            {selectedAgent.id !== "video" && selectedAgent.id !== "briefing" && (
+                            {/* Textarea — oculto para Bobby, Lia e Tomás (têm painéis próprios) */}
+                            {selectedAgent.id !== "video" && selectedAgent.id !== "briefing" && selectedAgent.id !== "tomas" && (
                             <textarea
                               value={agentInstruction}
                               onChange={(e) => setAgentInstruction(e.target.value)}
@@ -4879,44 +5041,61 @@ ${priorBlock}`;
 
                 {/* Social media cards */}
                 <div className="grid grid-cols-3 gap-4">
-                  {INTEGRATIONS_BASE.filter((i) => i.id !== "whatsapp").map((integ) => (
-                    <motion.div key={integ.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                      className="rounded-2xl p-5"
-                      style={{ background: "rgba(255,255,255,0.025)", border: `1px solid ${integ.connected ? integ.border : "rgba(255,255,255,0.07)"}` }}>
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-                            style={{ background: integ.bg, border: `1px solid ${integ.border}` }}>
-                            <integ.Icon className="w-5 h-5" style={{ color: integ.color }} />
+                  {INTEGRATIONS_BASE.filter((i) => i.id !== "whatsapp").map((integ) => {
+                    const isConn = socialConnected[integ.id] ?? false;
+                    return (
+                      <motion.div key={integ.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                        className="rounded-2xl p-5"
+                        style={{ background: "rgba(255,255,255,0.025)", border: `1px solid ${isConn ? integ.border : "rgba(255,255,255,0.07)"}` }}>
+                        <div className="flex items-start justify-between mb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                              style={{ background: integ.bg, border: `1px solid ${integ.border}` }}>
+                              <integ.Icon className="w-5 h-5" style={{ color: integ.color }} />
+                            </div>
+                            <div>
+                              <div className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.9)" }}>{integ.name}</div>
+                              <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>{integ.description}</div>
+                            </div>
                           </div>
-                          <div>
-                            <div className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.9)" }}>{integ.name}</div>
-                            <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>{integ.description}</div>
-                          </div>
+                          {isConn && (
+                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                              style={{ background: `${integ.color}18`, color: integ.color }}>
+                              <CheckCircle2 className="w-3 h-3" /> Ativo
+                            </span>
+                          )}
                         </div>
-                      </div>
-                      {integ.connected && integ.account && (
-                        <div className="mb-3 px-3 py-2 rounded-lg" style={{ background: `${integ.color}10`, border: `1px solid ${integ.color}20` }}>
-                          <div className="text-[11px] font-medium" style={{ color: integ.color }}>{integ.account}</div>
-                          {integ.followers && <div className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>{integ.followers}</div>}
+                        <div className="mb-3 space-y-1.5">
+                          {integ.features.slice(0, 3).map((f) => (
+                            <div key={f} className="flex items-center gap-2">
+                              <CheckCircle2 className="w-3 h-3 flex-shrink-0" style={{ color: isConn ? "#34D399" : "rgba(255,255,255,0.15)" }} />
+                              <span className="text-[10px]" style={{ color: isConn ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.2)" }}>{f}</span>
+                            </div>
+                          ))}
                         </div>
-                      )}
-                      <div className="mb-3 space-y-1.5">
-                        {integ.features.slice(0, 3).map((f) => (
-                          <div key={f} className="flex items-center gap-2">
-                            <CheckCircle2 className="w-3 h-3 flex-shrink-0" style={{ color: integ.connected ? "#34D399" : "rgba(255,255,255,0.15)" }} />
-                            <span className="text-[10px]" style={{ color: integ.connected ? "rgba(255,255,255,0.5)" : "rgba(255,255,255,0.2)" }}>{f}</span>
+                        {isConn ? (
+                          <div className="flex gap-2">
+                            <button onClick={() => openSocialConfig(integ.id)}
+                              className="flex-1 py-2 rounded-xl text-[11px] font-medium flex items-center justify-center gap-1 transition-all"
+                              style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                              <Settings2 className="w-3 h-3" /> Gerenciar
+                            </button>
+                            <button onClick={() => handleSocialToggle(integ.id, false)}
+                              className="py-2 px-3 rounded-xl text-[11px] font-medium transition-all"
+                              style={{ background: "rgba(239,68,68,0.08)", color: "#F87171", border: "1px solid rgba(239,68,68,0.2)" }}>
+                              <X className="w-3 h-3" />
+                            </button>
                           </div>
-                        ))}
-                      </div>
-                      <button className="w-full py-2 rounded-xl text-[11px] font-medium transition-all"
-                        style={integ.connected
-                          ? { background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.08)" }
-                          : { background: integ.bg, color: integ.color, border: `1px solid ${integ.border}` }}>
-                        {integ.connected ? "Gerenciar" : `Conectar`}
-                      </button>
-                    </motion.div>
-                  ))}
+                        ) : (
+                          <button onClick={() => openSocialConfig(integ.id)}
+                            className="w-full py-2 rounded-xl text-[11px] font-medium transition-all"
+                            style={{ background: integ.bg, color: integ.color, border: `1px solid ${integ.border}` }}>
+                            Conectar
+                          </button>
+                        )}
+                      </motion.div>
+                    );
+                  })}
                 </div>
 
                 {/* ── Card de Site / Teo ─────────────────────────────── */}
@@ -5783,6 +5962,68 @@ ${priorBlock}`;
           </div>
         </div>
       )}
+
+      {/* ── Social Integration Config Modal ──────────────────── */}
+      {socialConfigModal && (() => {
+        const def = INTEGRATIONS_BASE.find(i => i.id === socialConfigModal);
+        if (!def) return null;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}>
+            <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
+              className="w-full max-w-md rounded-2xl p-6 space-y-4"
+              style={{ background: "#13131A", border: "1px solid rgba(255,255,255,0.1)" }}>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                    style={{ background: def.bg, border: `1px solid ${def.border}` }}>
+                    <def.Icon className="w-5 h-5" style={{ color: def.color }} />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold" style={{ color: "rgba(255,255,255,0.9)" }}>{def.name}</h2>
+                    <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.35)" }}>Configurações da integração</p>
+                  </div>
+                </div>
+                <button onClick={() => setSocialConfigModal(null)}
+                  className="p-1.5 rounded-lg transition-colors"
+                  style={{ color: "rgba(255,255,255,0.3)" }}
+                  onMouseEnter={e => (e.currentTarget.style.color = "rgba(255,255,255,0.7)")}
+                  onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}>
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {def.configFields.map(field => (
+                <div key={field.key}>
+                  <label className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.5)" }}>{field.label}</label>
+                  <input
+                    type={field.type || "text"}
+                    value={socialConfigValues[field.key] || ""}
+                    onChange={e => setSocialConfigValues(prev => ({ ...prev, [field.key]: e.target.value }))}
+                    placeholder={`Insira ${field.label.toLowerCase()}`}
+                    className="w-full mt-1 rounded-xl py-2.5 px-3 text-sm focus:outline-none"
+                    style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.85)" }}
+                  />
+                </div>
+              ))}
+
+              <div className="flex gap-3 pt-1">
+                <button onClick={() => setSocialConfigModal(null)}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-all"
+                  style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  Cancelar
+                </button>
+                <button onClick={saveSocialConfig} disabled={socialConfigSaving}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
+                  style={{ background: def.color, color: "#fff" }}>
+                  {socialConfigSaving
+                    ? <><RefreshCw className="w-4 h-4 animate-spin" /> Salvando…</>
+                    : <><Save className="w-4 h-4" /> Salvar e Conectar</>}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

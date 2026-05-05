@@ -76,6 +76,11 @@ const ContactsPage = () => {
   const [menuId, setMenuId]             = useState<string | null>(null);
   const [activeContact, setActiveContact] = useState<Contact | null>(null);
 
+  // WhatsApp
+  const [waContact, setWaContact]   = useState<Contact | null>(null);
+  const [waMessage, setWaMessage]   = useState("");
+  const [waSending, setWaSending]   = useState(false);
+
   // New
   const [showNew, setShowNew]   = useState(false);
   const [newForm, setNewForm]   = useState({ name: "", email: "", phone: "", company: "", channel: "" });
@@ -150,6 +155,25 @@ const ContactsPage = () => {
     setMenuId(null);
     toast.success("Contato excluído!");
     fetch();
+  };
+
+  const sendWhatsApp = async () => {
+    if (!waContact?.phone) { toast.error("Contato sem telefone cadastrado."); return; }
+    if (!waMessage.trim()) { toast.error("Digite uma mensagem."); return; }
+    setWaSending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("send-whatsapp", {
+        body: { phone: waContact.phone, message: waMessage.trim() },
+      });
+      if (error || !data?.ok) throw new Error(data?.data?.message ?? error?.message ?? "Erro ao enviar");
+      toast.success(`Mensagem enviada para ${waContact.name}!`);
+      setWaContact(null);
+      setWaMessage("");
+    } catch (e: any) {
+      toast.error(e?.message ?? "Falha ao enviar mensagem.");
+    } finally {
+      setWaSending(false);
+    }
   };
 
   const activeCount = contacts.filter(c => c.status === "Ativo").length;
@@ -336,6 +360,14 @@ const ContactsPage = () => {
                       <div className="flex items-center gap-1 relative">
                         <button onClick={() => toast.info(`Enviando e-mail para ${c.name}…`)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground"><Mail className="h-4 w-4" /></button>
                         <button onClick={() => toast.info(`Ligando para ${c.name}…`)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground"><Phone className="h-4 w-4" /></button>
+                        <button
+                          onClick={() => { setWaContact(c); setWaMessage(""); }}
+                          className="p-1.5 rounded-md hover:bg-muted transition-colors"
+                          title="Enviar WhatsApp"
+                          style={{ color: "#25D366" }}
+                        >
+                          <MessageCircle className="h-4 w-4" />
+                        </button>
                         <div className="relative">
                           <button onClick={() => setMenuId(menuId === c.id ? null : c.id)} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground"><MoreHorizontal className="h-4 w-4" /></button>
                           {menuId === c.id && (
@@ -357,6 +389,60 @@ const ContactsPage = () => {
           </table>
         </div>
       </motion.div>
+
+      {/* WhatsApp Modal */}
+      {waContact && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-elevated space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(37,211,102,0.12)" }}>
+                  <MessageCircle className="h-5 w-5" style={{ color: "#25D366" }} />
+                </div>
+                <div>
+                  <h2 className="text-sm font-bold text-foreground">Enviar WhatsApp</h2>
+                  <p className="text-xs text-muted-foreground">{waContact.name} · {waContact.phone || "sem telefone"}</p>
+                </div>
+              </div>
+              <button onClick={() => setWaContact(null)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground">
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {!waContact.phone && (
+              <p className="text-xs text-destructive bg-destructive/10 rounded-lg px-3 py-2">
+                Este contato não tem telefone cadastrado. Edite o contato para adicionar antes de enviar.
+              </p>
+            )}
+
+            <div>
+              <label className="text-xs font-medium text-muted-foreground">Mensagem</label>
+              <textarea
+                value={waMessage}
+                onChange={e => setWaMessage(e.target.value)}
+                rows={4}
+                placeholder={`Olá ${waContact.name.split(" ")[0]}, tudo bem? Aqui é da Calu Agência...`}
+                className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20 resize-none"
+              />
+              <p className="text-[11px] text-muted-foreground mt-1">{waMessage.length} caracteres</p>
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={() => setWaContact(null)} className="flex-1 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:text-foreground">
+                Cancelar
+              </button>
+              <button
+                onClick={sendWhatsApp}
+                disabled={waSending || !waContact.phone || !waMessage.trim()}
+                className="flex-1 py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-all"
+                style={{ background: "#25D366", color: "#fff", opacity: waSending || !waContact.phone || !waMessage.trim() ? 0.6 : 1 }}
+              >
+                {waSending ? <><div className="h-4 w-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Enviando...</> : <><MessageCircle className="h-4 w-4" /> Enviar</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* New Contact Modal */}
       {showNew && (

@@ -15,10 +15,10 @@ import { useClients } from "@/contexts/ClientsContext";
 
 // ── Agent team displayed in portal ───────────────────────────
 const PORTAL_TEAM = [
-  { id: "aria",       name: "Luana",    role: "Orquestradora Geral",      initial: "Lu", color: "#B9FF4B" },
+  { id: "aria",       name: "Luna",     role: "Orquestradora Geral",      initial: "Lu", color: "#B9FF4B" },
   { id: "strategist", name: "Queila",   role: "Estrategista-Chefe",       initial: "Q",  color: "#FBBF24" },
   { id: "copywriter", name: "Beatriz",  role: "Copywriter",               initial: "B",  color: "#A78BFA" },
-  { id: "designer",   name: "Carolina", role: "Designer",                 initial: "C",  color: "#D946EF" },
+  { id: "designer",   name: "Marcela",  role: "Designer",                 initial: "M",  color: "#D946EF" },
   { id: "traffic",    name: "Rafaela",  role: "Gestora de Tráfego",       initial: "R",  color: "#F97316" },
   { id: "social",     name: "Marina",   role: "Social Media",             initial: "M",  color: "#60A5FA" },
   { id: "calendario", name: "Pedro",    role: "Calendário Editorial",      initial: "P",  color: "#2DD4BF" },
@@ -792,9 +792,40 @@ export default function ClientPortal() {
           <div className="rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.07)" }}>
             <div className="px-6 py-5" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
               <h2 className="text-base font-bold mb-0.5" style={{ color: "#111" }}>Seu time de especialistas</h2>
-              <p className="text-xs" style={{ color: "#888" }}>
+              <p className="text-xs mb-3" style={{ color: "#888" }}>
                 {PORTAL_TEAM.length} profissionais dedicados exclusivamente à {client.name} todos os dias
               </p>
+              {/* Progresso geral do time */}
+              {(() => {
+                const members = PORTAL_TEAM.slice(1);
+                const done = members.filter(m => client.agentTasks[m.id]?.status === "concluído").length;
+                const working = members.filter(m => client.agentTasks[m.id]?.status === "trabalhando").length;
+                const pct = Math.round((done / members.length) * 100);
+                return (
+                  <div>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center gap-3 text-[10px]">
+                        <span className="font-semibold" style={{ color: "#3a6e00" }}>✓ {done} concluídos</span>
+                        {working > 0 && (
+                          <span className="flex items-center gap-1" style={{ color: "#888" }}>
+                            <span className="relative flex h-1.5 w-1.5">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#B9FF4B" }} />
+                              <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: "#B9FF4B" }} />
+                            </span>
+                            {working} em andamento
+                          </span>
+                        )}
+                        <span style={{ color: "#bbb" }}>{members.length - done - working} aguardando</span>
+                      </div>
+                      <span className="text-[10px] font-bold" style={{ color: pct === 100 ? "#10B981" : "#3a6e00" }}>{pct}%</span>
+                    </div>
+                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(0,0,0,0.07)" }}>
+                      <div className="h-full rounded-full transition-all duration-700"
+                        style={{ width: `${pct}%`, background: pct === 100 ? "#10B981" : "#B9FF4B" }} />
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* ARIA destaque */}
@@ -806,7 +837,7 @@ export default function ClientPortal() {
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm font-bold" style={{ color: "#111" }}>Luana</span>
+                    <span className="text-sm font-bold" style={{ color: "#111" }}>Luna</span>
                     <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
                       style={{ background: "rgba(185,255,75,0.2)", color: "#3a6e00" }}>
                       Orquestradora Geral
@@ -867,13 +898,27 @@ export default function ClientPortal() {
                     </div>
                     <p className="text-[10px] leading-relaxed mb-2" style={{ color: "#777" }}>{TEAM_DESCS[member.id]}</p>
                     {task && (
-                      <div className="text-[10px] px-2 py-1.5 rounded-lg leading-snug"
-                        style={{ background: `${member.color}08`, border: `1px solid ${member.color}15`, color: "#555" }}>
-                        <span className="font-medium" style={{ color: member.color }}>
-                          {task.status === "trabalhando" ? "Agora: " : "Concluiu: "}
-                        </span>
-                        {task.status === "trabalhando" ? task.current : (task.recent[0] ?? task.current)}
-                      </div>
+                      <>
+                        <div className="text-[10px] px-2 py-1.5 rounded-lg leading-snug mb-2"
+                          style={{ background: `${member.color}08`, border: `1px solid ${member.color}15`, color: "#555" }}>
+                          <span className="font-medium" style={{ color: member.color }}>
+                            {task.status === "trabalhando" ? "Agora: " : "Concluiu: "}
+                          </span>
+                          {task.status === "trabalhando" ? task.current : (task.recent[0] ?? task.current)}
+                        </div>
+                        {task.progress > 0 && (
+                          <div>
+                            <div className="flex items-center justify-between mb-0.5">
+                              <span className="text-[9px]" style={{ color: "#bbb" }}>Progresso</span>
+                              <span className="text-[9px] font-bold" style={{ color: member.color }}>{task.progress}%</span>
+                            </div>
+                            <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(0,0,0,0.07)" }}>
+                              <div className="h-full rounded-full transition-all duration-500"
+                                style={{ width: `${task.progress}%`, background: member.color }} />
+                            </div>
+                          </div>
+                        )}
+                      </>
                     )}
                   </motion.div>
                 );

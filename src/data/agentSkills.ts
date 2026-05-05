@@ -1258,6 +1258,197 @@ Português brasileiro.`,
 ];
 
 // ─────────────────────────────────────────────────────────────────
+// TOMÁS — Criador de Landing Pages
+// ─────────────────────────────────────────────────────────────────
+const tomasSkills: AgentSkill[] = [
+  {
+    id: "landing-page-completa",
+    name: "Landing Page Completa",
+    emoji: "🖥️",
+    description: "HTML completo e responsivo gerado a partir do briefing — copy, design e código",
+    thinking: false,
+    maxTokens: 8000,
+    fields: [
+      { id: "produto", label: "Produto / Serviço", type: "textarea", placeholder: "o que está sendo vendido, benefícios principais...", required: true },
+      { id: "publico", label: "Público-alvo", type: "text", placeholder: "ex: empreendedores 30-50 anos, MEIs..." },
+      { id: "objetivo", label: "Objetivo da LP", type: "select", options: ["Captar leads", "Venda direta", "Inscrições em evento/curso", "Download de material", "Agendamento"] },
+      { id: "tom", label: "Tom de voz", type: "select", options: ["Direto e objetivo", "Inspirador e motivador", "Profissional e confiável", "Descontraído e próximo", "Urgente e escasso"] },
+      { id: "cores", label: "Cores da marca (opcional)", type: "text", placeholder: "ex: azul-marinho #1E3A8A e laranja #F97316" },
+    ],
+    systemPrompt: `Você é o TOMÁS, especialista em landing pages de alta conversão da Calu Agência.
+Gere o HTML completo e funcional da landing page com base nas informações fornecidas.
+Use Tailwind CSS via CDN, Google Fonts e JavaScript inline para interações.
+Seções obrigatórias: Hero, Benefícios, Como Funciona, Depoimentos, CTA Final, Rodapé.
+Entregue APENAS o código HTML, sem explicações.`,
+  },
+  {
+    id: "copy-lp",
+    name: "Copy da Landing Page",
+    emoji: "✍️",
+    description: "Todos os textos da LP — headline, benefícios, depoimentos e CTAs",
+    thinking: false,
+    maxTokens: 4000,
+    fields: [
+      { id: "produto", label: "Produto / Serviço", type: "textarea", placeholder: "o que está sendo vendido...", required: true },
+      { id: "publico", label: "Público-alvo", type: "text", placeholder: "quem vai ler a LP" },
+      { id: "dores", label: "Principais dores do público", type: "textarea", placeholder: "o que tira o sono do seu cliente..." },
+      { id: "tom", label: "Tom de voz", type: "select", options: ["Direto", "Inspirador", "Profissional", "Urgente"] },
+    ],
+    systemPrompt: `Você é o TOMÁS da Calu Agência, com foco em copy de alta conversão para landing pages.
+Use frameworks PAS, AIDA e StoryBrand. Entregue textos completos para cada seção:
+headline hero, subtítulo, 3-5 benefícios, 3 passos do "como funciona", 2 depoimentos, CTA principal e secundário, frase do rodapé.
+Responda em português brasileiro.`,
+  },
+  {
+    id: "auditoria-lp",
+    name: "Auditoria de LP",
+    emoji: "🔍",
+    description: "Análise de uma landing page existente com pontos de melhoria e score de conversão",
+    thinking: true,
+    maxTokens: 5000,
+    fields: [
+      { id: "url_ou_conteudo", label: "URL ou conteúdo da LP", type: "textarea", placeholder: "cole a URL ou o texto completo da landing page...", required: true },
+      { id: "objetivo", label: "Objetivo da LP", type: "text", placeholder: "ex: captar leads para consultoria" },
+      { id: "publico", label: "Público-alvo", type: "text", placeholder: "para quem a LP foi criada" },
+    ],
+    systemPrompt: `Você é o TOMÁS da Calu Agência, especialista em otimização de landing pages.
+Analise profundamente a landing page fornecida.
+
+## SCORE DE CONVERSÃO: X/10
+Justificativa do score.
+
+## PONTOS FORTES
+O que está funcionando bem e por quê.
+
+## PROBLEMAS CRÍTICOS
+O que está impedindo conversões — priorize por impacto.
+
+## MELHORIAS RECOMENDADAS
+Para cada problema: diagnóstico + solução específica + texto alternativo sugerido.
+
+## CHECKLIST CRO
+- [ ] Headline clara e orientada a benefício
+- [ ] CTA visível above the fold
+- [ ] Prova social presente
+- [ ] Proposta de valor única
+- [ ] Mobile responsivo
+- [ ] Velocidade de carregamento
+- [ ] Formulário simples (poucos campos)
+- [ ] Urgência / escassez
+
+## REESCRITA DO HERO
+Nova versão da seção principal.
+
+Português brasileiro.`,
+  },
+];
+
+// ─────────────────────────────────────────────────────────────────
+// BEN — Especialista em Tendências
+// ─────────────────────────────────────────────────────────────────
+const benSkills: AgentSkill[] = [
+  {
+    id: "analise-tendencias",
+    name: "Análise de Tendências",
+    emoji: "🔥",
+    description: "Mapa de tendências do nicho com ideias de conteúdo baseadas no que está em alta",
+    thinking: true,
+    maxTokens: 6000,
+    fields: [
+      { id: "nicho", label: "Nicho / Segmento", type: "text", placeholder: "ex: moda fitness, alimentação saudável, tecnologia...", required: true },
+      { id: "plataforma", label: "Plataforma", type: "select", options: ["Instagram", "TikTok", "LinkedIn", "YouTube", "Todas"] },
+      { id: "periodo", label: "Período de análise", type: "select", options: ["Última semana", "Último mês", "Últimos 3 meses", "Último ano"] },
+    ],
+    systemPrompt: `Você é o BEN, Especialista em Tendências Digitais da Calu Agência.
+
+Analise profundamente as tendências do nicho e entregue um relatório completo.
+
+### 🔥 TENDÊNCIAS DO MOMENTO
+Liste 6-8 tendências atuais do nicho. Para cada uma: nome, por que está em alta, e urgência (alta/média/baixa) para aproveitar agora.
+
+### 💡 IDEIAS DE CONTEÚDO
+8-10 ideias específicas baseadas nas tendências. Para cada ideia: título, formato sugerido (reel, carrossel, story) e gancho principal.
+
+### #️⃣ HASHTAGS & ESTRATÉGIA
+15-20 hashtags estratégicas divididas por volume (alto/médio/nicho) + melhores horários de publicação por plataforma.
+
+### ⚡ QUICK WINS
+3 ideias de conteúdo para publicar ESTA SEMANA que têm alto potencial de engajamento.
+
+Português brasileiro. Baseie na realidade atual do mercado digital brasileiro.`,
+  },
+  {
+    id: "ideias-virais",
+    name: "Ideias de Conteúdo Viral",
+    emoji: "💡",
+    description: "10 ideias de conteúdo com alto potencial viral baseadas em formatos que estão performando",
+    thinking: false,
+    maxTokens: 5000,
+    fields: [
+      { id: "nicho", label: "Nicho do cliente", type: "text", placeholder: "ex: advocacia, clínica de estética, moda...", required: true },
+      { id: "plataforma", label: "Plataforma foco", type: "select", options: ["Instagram Reels", "TikTok", "LinkedIn", "YouTube Shorts", "Instagram Feed"] },
+      { id: "objetivo", label: "Objetivo do conteúdo", type: "select", options: ["Viralizar / alcance", "Gerar leads", "Construir autoridade", "Engajar seguidores"] },
+      { id: "referencias", label: "Referências (opcional)", type: "textarea", placeholder: "perfis ou conteúdos que você acha que performam bem no nicho..." },
+    ],
+    systemPrompt: `Você é o BEN, Especialista em Tendências Digitais da Calu Agência. Especialista em formatos virais e padrões de engajamento.
+
+Entregue 10 IDEIAS DE CONTEÚDO com alto potencial viral:
+
+Para cada ideia:
+## IDEIA [N]: [Título chamativo]
+- **Formato:** [Reel / Carrossel / Story / Live]
+- **Gancho (primeiros 3 segundos):** [o que acontece para parar o scroll]
+- **Desenvolvimento:** [estrutura do conteúdo em 3-4 linhas]
+- **CTA:** [o que pedir ao final]
+- **Por que vai viralizar:** [gatilho psicológico ou formato em alta]
+- **Legenda sugerida:** [primeira linha da legenda]
+
+## PADRÕES DE PERFORMANCE
+Explique os 3 padrões de formato que mais engajam nesta plataforma agora.
+
+## MELHOR HORÁRIO
+Por dia da semana e faixa horária para publicar no nicho.
+
+Português brasileiro.`,
+  },
+  {
+    id: "sazonalidade",
+    name: "Calendário de Sazonalidade",
+    emoji: "📅",
+    description: "Mapa de tendências sazonais e oportunidades de pauta para os próximos 3 meses",
+    thinking: true,
+    maxTokens: 6000,
+    fields: [
+      { id: "nicho", label: "Nicho do cliente", type: "text", placeholder: "ex: moda, gastronomia, educação...", required: true },
+      { id: "periodo", label: "Período", type: "text", placeholder: "ex: Junho, Julho e Agosto 2026", required: true },
+      { id: "plataformas", label: "Plataformas", type: "multiselect", options: ["Instagram", "TikTok", "LinkedIn", "YouTube", "Facebook"] },
+    ],
+    systemPrompt: `Você é o BEN, Especialista em Tendências Digitais da Calu Agência.
+
+Analise profundamente a sazonalidade do nicho para o período e crie um mapa estratégico.
+
+### 📈 TENDÊNCIAS SAZONAIS DO PERÍODO
+Tópicos e temas que historicamente performam bem neste nicho durante o período.
+
+### 🗓️ MAPA DE OPORTUNIDADES
+Tabela: Data | Evento/Tendência | Tipo de Conteúdo | Urgência | Plataforma ideal
+
+Inclua: feriados nacionais, datas comemorativas do nicho, eventos culturais e tendências recorrentes.
+
+### 💡 IDEIAS DE CAMPANHA
+3 ideias de campanhas de conteúdo completas para o período, cada uma com tema, duração e série de posts.
+
+### ⚠️ DATAS PARA NÃO PERDER
+Top 5 datas de maior oportunidade com justificativa e ideia de conteúdo pronta.
+
+### 🎯 ESTRATÉGIA DE ANTECIPAÇÃO
+Quanto antes de cada data começar a produzir e publicar conteúdo relacionado.
+
+Português brasileiro. Foco no Brasil.`,
+  },
+];
+
+// ─────────────────────────────────────────────────────────────────
 // EXPORT — Skills por agente
 // ─────────────────────────────────────────────────────────────────
 export const ALL_AGENT_SKILLS: AgentSkillSet[] = [
@@ -1273,6 +1464,8 @@ export const ALL_AGENT_SKILLS: AgentSkillSet[] = [
   { agentId: "revisor",     skills: vitoriaSkills },
   { agentId: "site",        skills: teoSkills },
   { agentId: "video",       skills: bobbySkills },
+  { agentId: "tomas",      skills: tomasSkills },
+  { agentId: "ben",        skills: benSkills },
 ];
 
 export function getAgentSkills(agentId: string): AgentSkill[] {

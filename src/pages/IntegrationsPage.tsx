@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Search, CheckCircle2, Plus, Settings2,
-  RefreshCw, X, Save
+  RefreshCw, X, Save, Wifi, WifiOff, Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -18,6 +18,7 @@ interface ConnectorDef {
 }
 
 const connectorDefs: ConnectorDef[] = [
+  { name: "Zapi — WhatsApp", category: "Mensageria", description: "Envie mensagens WhatsApp para leads diretamente do CRM via número conectado", icon: "🟢", configFields: [] },
   { name: "WhatsApp Business", category: "Mensageria", description: "Meta Business API para envio e recebimento de mensagens", icon: "💬", configFields: [{ key: "phone_id", label: "Phone Number ID" }, { key: "token", label: "Access Token", type: "password" }] },
   { name: "Google Calendar", category: "Produtividade", description: "Sincronize agendamentos e reuniões automaticamente", icon: "📅", configFields: [{ key: "calendar_id", label: "Calendar ID" }] },
   { name: "Stripe", category: "Pagamentos", description: "Cobranças, assinaturas e gestão de pagamentos", icon: "💳", configFields: [{ key: "api_key", label: "API Key", type: "password" }, { key: "webhook_secret", label: "Webhook Secret", type: "password" }] },
@@ -66,6 +67,8 @@ const IntegrationsPage = () => {
   const [loading, setLoading] = useState(true);
   const [configModal, setConfigModal] = useState<string | null>(null);
   const [configValues, setConfigValues] = useState<Record<string, string>>({});
+  const [zapiStatus, setZapiStatus] = useState<"idle" | "checking" | "ok" | "error">("idle");
+  const [zapiDetail, setZapiDetail] = useState("");
 
   const invoke = async (action: string, method: "GET" | "POST" = "GET", body?: unknown) => {
     const projectId = import.meta.env.VITE_SUPABASE_URL?.replace("https://", "").replace(".supabase.co", "") || "";
@@ -161,6 +164,25 @@ const IntegrationsPage = () => {
     } catch { toast.error("Erro ao salvar configurações"); }
   };
 
+  const checkZapi = async () => {
+    setZapiStatus("checking");
+    setZapiDetail("");
+    try {
+      const { data, error } = await supabase.functions.invoke("send-whatsapp", { body: { action: "check" } });
+      if (error) throw new Error(error.message);
+      if (data?.ok) {
+        setZapiStatus("ok");
+        setZapiDetail(data?.status?.connected ? "Número conectado ✓" : "Instância ativa, mas número não conectado — escaneie o QR no painel Zapi.");
+      } else {
+        setZapiStatus("error");
+        setZapiDetail("Instância não encontrada. Verifique Instance ID e Token.");
+      }
+    } catch (e: any) {
+      setZapiStatus("error");
+      setZapiDetail(e?.message ?? "Erro ao verificar conexão.");
+    }
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center h-64"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" /></div>;
   }
@@ -193,6 +215,53 @@ const IntegrationsPage = () => {
         {filtered.map(c => {
           const integration = getIntegration(c.name);
           const isConnected = integration?.connected;
+
+          // Card especial do Zapi
+          if (c.name === "Zapi — WhatsApp") {
+            const ok = zapiStatus === "ok";
+            return (
+              <motion.div key={c.name} variants={item} whileHover={{ y: -2 }}
+                className={cn("rounded-xl border bg-card p-5 shadow-card hover:shadow-elevated transition-all", ok ? "border-green-500/30" : "border-border")}>
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{c.icon}</span>
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground">{c.name}</h3>
+                      <span className="text-[11px] font-medium text-muted-foreground">{c.category}</span>
+                    </div>
+                  </div>
+                  {ok && (
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-500/10 text-green-500">
+                      <Wifi className="h-3 w-3" /> Ativo
+                    </span>
+                  )}
+                  {zapiStatus === "error" && (
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-red-500/10 text-red-400">
+                      <WifiOff className="h-3 w-3" /> Erro
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mb-3">{c.description}</p>
+                <p className="text-[11px] text-muted-foreground/60 mb-3">
+                  Credenciais configuradas via Supabase Secrets.
+                </p>
+                {zapiDetail && (
+                  <p className={cn("text-[11px] mb-3 font-medium", ok ? "text-green-500" : "text-red-400")}>{zapiDetail}</p>
+                )}
+                <button
+                  onClick={checkZapi}
+                  disabled={zapiStatus === "checking"}
+                  className="w-full py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
+                  style={{ background: ok ? "rgba(34,197,94,0.12)" : "rgba(185,255,75,0.15)", color: ok ? "#22c55e" : "#B9FF4B", border: `1px solid ${ok ? "rgba(34,197,94,0.3)" : "rgba(185,255,75,0.3)"}` }}
+                >
+                  {zapiStatus === "checking"
+                    ? <><Loader2 className="h-3 w-3 animate-spin" /> Verificando...</>
+                    : <><Wifi className="h-3 w-3" /> Verificar conexão</>}
+                </button>
+              </motion.div>
+            );
+          }
+
           return (
             <motion.div key={c.name} variants={item} whileHover={{ y: -2 }} className={cn("rounded-xl border bg-card p-5 shadow-card hover:shadow-elevated transition-all", isConnected ? "border-secondary/30" : "border-border")}>
               <div className="flex items-start justify-between mb-3">

@@ -250,6 +250,7 @@ export const CLIENTS: Client[] = [
       briefing:   { current: "Diagnóstico inicial concluído", status: "concluído", recent: ["Briefing coletado", "Cenário de mercado analisado"], progress: 100 },
       calendario: { current: "Planejando calendário editorial de maio", status: "trabalhando", recent: ["Pilares de conteúdo definidos", "Mix 70-20-10 configurado"], progress: 60 },
       video:      { current: "Aguardando roteiros aprovados", status: "aguardando", recent: [], progress: 0 },
+      tomas:      { current: "LP de captação de leads para cursos aguardando briefing", status: "aguardando", recent: [], progress: 0 },
     },
     orchestratorStatus: "Coordenando publicação do artigo sobre nova lei e otimização das campanhas LinkedIn",
     orchestratorPlan: [
@@ -347,6 +348,7 @@ export const CLIENTS: Client[] = [
       designer:   { current: "Produzindo artes para os cases de obra", status: "trabalhando", recent: ["Templates institucionais criados", "Banners LinkedIn prontos"], progress: 45 },
       site:       { current: "Publicando cases no blog/portfólio", status: "trabalhando", recent: ["Artigo publicado", "SEO otimizado para 8 palavras-chave"], progress: 55 },
       revisor:    { current: "Revisando copy das campanhas de maio", status: "concluído", recent: ["Artigo revisado e aprovado", "Anúncios corrigidos"], progress: 100 },
+      tomas:      { current: "Estruturando LP de captação para projetos residenciais", status: "aguardando", recent: [], progress: 0 },
     },
     orchestratorStatus: "Coordenando publicação dos cases de obra e otimização das campanhas B2B no LinkedIn",
     orchestratorPlan: [
@@ -443,6 +445,7 @@ export const CLIENTS: Client[] = [
       designer:   { current: "Produzindo assets para lançamento do produto", status: "trabalhando", recent: ["UI screenshots editados", "Infográficos de ROI criados"], progress: 40 },
       site:       { current: "Otimizando landing page de conversão", status: "trabalhando", recent: ["Blog post publicado", "Taxa de conversão da LP: 8,4%"], progress: 65 },
       revisor:    { current: "Revisando e-book e conteúdo do lançamento", status: "trabalhando", recent: ["Case revisado e publicado", "Anúncios aprovados"], progress: 55 },
+      tomas:      { current: "Criando LP de lançamento da nova funcionalidade", status: "trabalhando", recent: ["Estrutura de seções definida"], progress: 30 },
     },
     orchestratorStatus: "Preparando o lançamento da nova funcionalidade e escalando as campanhas de captação B2B",
     orchestratorPlan: [
@@ -539,6 +542,7 @@ export const CLIENTS: Client[] = [
       designer:   { current: "Criando materiais de apresentação para clientes", status: "trabalhando", recent: ["Deck de vendas atualizado", "Portfólio de cases criado"], progress: 45 },
       site:       { current: "Atualizando cases e depoimentos no site", status: "trabalhando", recent: ["3 cases novos publicados", "SEO para agência de marketing com IA"], progress: 60 },
       revisor:    { current: "Revisando proposta comercial para novos clientes", status: "concluído", recent: ["Deck revisado e aprovado", "E-mails de nurturing revisados"], progress: 100 },
+      tomas:      { current: "LP de captação pronta — aguardando aprovação", status: "concluído", recent: ["Copy escrito pela Beatriz", "Design spec definido", "HTML gerado e entregue"], progress: 100 },
     },
     orchestratorStatus: "Coordenando produção de conteúdo sobre IA e campanhas de captação de novos clientes para a agência",
     orchestratorPlan: [

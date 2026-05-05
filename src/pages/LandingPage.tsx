@@ -59,6 +59,7 @@ const TEAM = [
   { i: "T", name: "Teo",      role: "Web Designer & SEO",       color: "#06B6D4", desc: "Mantém seu site atualizado, publica no blog e otimiza cada página para os buscadores. Mais visibilidade orgânica, mais clientes chegando até você.", tasks: ["Atualização de site", "SEO on-page", "Blog e artigos", "Landing pages"] },
   { i: "V", name: "Vitória",  role: "Revisora de Conteúdo",     color: "#EC4899", desc: "Revisa e corrige 100% do conteúdo antes de publicar. Gramática, tom de voz, consistência de marca — zero erros, zero vergonha.", tasks: ["Revisão gramatical", "Tom de voz", "Checagem de fatos", "Aprovação final"] },
   { i: "A", name: "Aira",     role: "Secretária IA",             color: "#FB7185", desc: "Gerencia a agenda, organiza reuniões, responde comunicações administrativas e cuida do dia a dia do time. Nada passa despercebido, tudo é acompanhado com precisão.", tasks: ["Gestão de agenda", "Comunicação administrativa", "Coordenação de reuniões", "Suporte ao time"] },
+  { i: "🔍", name: "Ben",   role: "Especialista em Tendências", color: "#B9FF4B", desc: "Pesquisa o Google Trends Brasil em tempo real e entrega tendências do momento, queries em crescimento e ideias de conteúdo baseadas em dados reais — antes de qualquer produção.", tasks: ["Google Trends em tempo real", "Queries em crescimento", "Ideias de conteúdo viral", "Hashtags estratégicas"] },
 ];
 
 const TICKER = [
@@ -122,11 +123,11 @@ const PROCESS = [
   },
   {
     n: "02", title: "Estratégia",
-    agents: [{ i: "Q", color: "#FBBF24", name: "Queila" }, { i: "P", color: "#2DD4BF", name: "Pedro" }],
+    agents: [{ i: "🔍", color: "#B9FF4B", name: "Ben" }, { i: "Q", color: "#FBBF24", name: "Queila" }, { i: "P", color: "#2DD4BF", name: "Pedro" }],
     duration: "2h",
     output: "Pauta editorial mensal",
-    desc: "Queila define posicionamento, pauta editorial e direção criativa. Pedro monta o calendário editorial completo com pilares, datas e cronograma estratégico para o mês.",
-    details: ["Pauta editorial 30 dias", "Posicionamento e tom de voz", "Calendário de campanhas", "Direção criativa aprovada"],
+    desc: "Ben pesquisa o Google Trends Brasil e entrega as tendências do momento. Queila usa esses dados para definir posicionamento e direção criativa. Pedro monta o calendário editorial estratégico para o mês.",
+    details: ["Tendências reais do Google Trends", "Pauta editorial 30 dias", "Posicionamento e tom de voz", "Calendário de campanhas"],
     color: "#FBBF24",
   },
   {

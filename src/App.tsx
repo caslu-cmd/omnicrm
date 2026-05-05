@@ -35,6 +35,8 @@ import TermsPage from "@/pages/TermsPage";
 import OAuthCallbackPage from "@/pages/OAuthCallbackPage";
 import NotFound from "@/pages/NotFound";
 import VideoEditorPage from "@/pages/VideoEditorPage";
+import TomasPage from "@/pages/TomasPage";
+import BenPage from "@/pages/BenPage";
 import SuperDiagnostico from "@/pages/SuperDiagnostico";
 import InvitePage from "@/pages/InvitePage";
 import TeamPortalPage from "@/pages/TeamPortalPage";
@@ -84,6 +86,8 @@ const ProtectedRoutes = () => {
           <Route path="/agency" element={<AgencyDashboard />} />
           <Route path="/agency/clients/:id" element={<ClientWorkspace />} />
           <Route path="/video-editor" element={<VideoEditorPage />} />
+          <Route path="/tomas" element={<TomasPage />} />
+          <Route path="/ben" element={<BenPage />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

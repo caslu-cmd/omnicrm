@@ -499,7 +499,7 @@ export default function LiaBriefingPanel({ clientId, clientName, clientIndustry,
         { id: "traffic",     name: "Rafaela",   color: "#F472B6", role: "Gestora de Tráfego Pago" },
         { id: "social",      name: "Marina",    color: "#34D399", role: "Social Media" },
         { id: "calendario",  name: "Pedro",     color: "#2DD4BF", role: "Planejamento Editorial" },
-        { id: "designer",    name: "Carolina",  color: "#FB923C", role: "Designer Visual" },
+        { id: "designer",    name: "Marcela",   color: "#D946EF", role: "Designer Visual" },
         { id: "analyst",     name: "Lucas",     color: "#60A5FA", role: "Analista de Dados" },
       ];
 

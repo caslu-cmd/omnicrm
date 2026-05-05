@@ -86,6 +86,7 @@ async function transcreverBase64(audioBase64: string, mimeType = "audio/webm"): 
       console.log("Transcript len (Gemini inline):", text2.length);
       if (text2.trim()) return text2;
     }
+    throw new Error("Transcrição via Lovable falhou (STT e Gemini). Verifique a LOVABLE_API_KEY ou configure GROQ_API_KEY no Supabase.");
   }
 
   throw new Error("Nenhuma chave de transcrição configurada. Configure GROQ_API_KEY, OPENAI_API_KEY ou LOVABLE_API_KEY no Supabase.");
@@ -145,12 +146,15 @@ ${transcript}`;
         max_tokens: 1024,
       }),
     });
-    if (!r.ok) throw new Error(`Lovable AI error ${r.status}: ${await r.text()}`);
-    const d = await r.json();
-    return d.choices?.[0]?.message?.content ?? "";
+    if (r.ok) {
+      const d = await r.json();
+      const text = d.choices?.[0]?.message?.content ?? "";
+      if (text.trim()) return text;
+    }
+    console.log("Lovable AI falhou no resumo, usando Claude como fallback...");
   }
 
-  if (!ANTHROPIC_API_KEY) throw new Error("LOVABLE_API_KEY nao configurada");
+  if (!ANTHROPIC_API_KEY) throw new Error("Nenhuma chave de IA configurada. Configure LOVABLE_API_KEY ou ANTHROPIC_API_KEY no Supabase.");
 
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",

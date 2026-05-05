@@ -138,6 +138,7 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
         revisor:    agentTaskTemplate("Revisora"),
         calendario: agentTaskTemplate("Calendário Editorial"),
         video:      agentTaskTemplate("Editor de Vídeo"),
+        tomas:      agentTaskTemplate("Criador de Landing Pages"),
       },
       orchestratorStatus: "idle",
       orchestratorPlan: [
@@ -211,7 +212,7 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
   const staticIdSet = new Set(CLIENTS.map((c) => c.id));
   const allClients = [...CLIENTS, ...extraClients.filter((c) => !staticIdSet.has(c.id))];
 
-  const REQUIRED_AGENTS = ["calendario", "video", "briefing"] as const;
+  const REQUIRED_AGENTS = ["calendario", "video", "briefing", "tomas"] as const;
   const DEFAULT_TASK: AgentTask = { current: "Aguardando instrução", status: "aguardando", recent: [], progress: 0 };
 
   const clients: Client[] = allClients
