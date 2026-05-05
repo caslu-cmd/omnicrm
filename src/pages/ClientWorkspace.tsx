@@ -1846,6 +1846,15 @@ ${priorBlock}`;
 
   useEffect(() => { if (activeTab === "integrations" && id) fetchSocialIntegrations(); }, [activeTab, id]);
 
+  // Manter WhatsApp conectado: verifica status ao abrir a aba e a cada 30s
+  useEffect(() => {
+    if (activeTab !== "integrations" || !id) return;
+    checkWpStatus();
+    const interval = setInterval(() => { checkWpStatus(); }, 30000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, id]);
+
   const loadPendingPosts = async () => {
     setPendingLoading(true);
     const { data } = await supabase.from("scheduled_posts").select("*")
