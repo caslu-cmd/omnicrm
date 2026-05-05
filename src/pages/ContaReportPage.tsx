@@ -9,7 +9,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-const API = "http://localhost:8900";
+const API = "https://rico-api-production-b072.up.railway.app";
 const RICO_PIN = "GN5247";
 const SESSION_KEY = "rico_auth_gnx";
 

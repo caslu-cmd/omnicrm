@@ -6,7 +6,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-const API = "http://localhost:8900";
+const API = "https://rico-api-production-b072.up.railway.app";
 
 interface Period  { id: number; mes: number; ano: number; descricao: string; }
 interface Member  { id: number; nome: string; ativo: boolean; }
