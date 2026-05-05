@@ -1896,6 +1896,8 @@ ${priorBlock}`;
     setCoursesLoading(true);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { setCoursesLoading(false); return; }
+
+    // Courses table (scoped by client)
     const { data: courses } = await (supabase as any)
       .from("courses").select("*")
       .eq("user_id", session.user.id).eq("client_id", id ?? "")
@@ -1910,6 +1912,25 @@ ${priorBlock}`;
       }));
       setDbEnrollments(map);
     }
+
+    // CRM contact_groups (user-level, all groups)
+    const { data: groups } = await (supabase as any)
+      .from("contact_groups").select("*")
+      .eq("user_id", session.user.id)
+      .order("created_at", { ascending: false });
+    if (groups) {
+      setDbCrmGroups(groups);
+      const gmap: Record<string, any[]> = {};
+      await Promise.all(groups.map(async (g: any) => {
+        const { data: members } = await (supabase as any)
+          .from("contact_group_members")
+          .select("contact_id, contacts(id, name, phone, email, status, company)")
+          .eq("group_id", g.id);
+        gmap[g.id] = (members ?? []).map((m: any) => m.contacts).filter(Boolean);
+      }));
+      setDbGroupMembers(gmap);
+    }
+
     setCoursesLoading(false);
   };
 
@@ -5447,7 +5468,7 @@ ${priorBlock}`;
                   <div>
                     <h2 className="text-base font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>Cursos</h2>
                     <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>
-                      {dbCourses.length} curso{dbCourses.length !== 1 ? "s" : ""} · marque um grupo de contatos como curso para listá-lo aqui
+                      {dbCourses.length + dbCrmGroups.length} curso{(dbCourses.length + dbCrmGroups.length) !== 1 ? "s" : ""} · inclui cursos criados aqui e grupos do CRM
                     </p>
                   </div>
                   <button onClick={() => setShowNewCourse(v => !v)}
@@ -5501,11 +5522,11 @@ ${priorBlock}`;
                 )}
 
                 {/* Empty */}
-                {!coursesLoading && dbCourses.length === 0 && (
+                {!coursesLoading && dbCourses.length === 0 && dbCrmGroups.length === 0 && (
                   <div className="rounded-2xl p-14 text-center" style={{ border: "1px dashed rgba(255,255,255,0.08)" }}>
                     <GraduationCap className="w-10 h-10 mx-auto mb-4" style={{ color: "rgba(255,255,255,0.1)" }} />
-                    <p className="text-sm mb-1" style={{ color: "rgba(255,255,255,0.35)" }}>Nenhum curso criado ainda.</p>
-                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>Clique em "Novo curso" para começar.</p>
+                    <p className="text-sm mb-1" style={{ color: "rgba(255,255,255,0.35)" }}>Nenhum curso ainda.</p>
+                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>Clique em "Novo curso" ou crie grupos no CRM para vê-los aqui.</p>
                   </div>
                 )}
 
@@ -5880,6 +5901,326 @@ ${priorBlock}`;
                     </motion.div>
                   );
                 })}
+
+                {/* ── GRUPOS DO CRM ── */}
+                {!coursesLoading && dbCrmGroups.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 pt-2">
+                      <Users className="w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.3)" }} />
+                      <h3 className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.3)" }}>
+                        Grupos do CRM ({dbCrmGroups.length})
+                      </h3>
+                      <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
+                    </div>
+
+                    {dbCrmGroups.map((group) => {
+                      const members = dbGroupMembers[group.id] ?? [];
+                      const isOpen = expandedCourse === `grp-${group.id}`;
+                      const isCertOpen = certCourseId === `grp-${group.id}`;
+
+                      return (
+                        <motion.div key={`grp-${group.id}`} className="rounded-2xl overflow-hidden"
+                          style={{ background: "rgba(255,255,255,0.025)", border: `1px solid ${isOpen ? `${group.color}28` : "rgba(255,255,255,0.07)"}` }}>
+
+                          {/* Group header */}
+                          <div className="flex items-center gap-4 px-5 py-4">
+                            <button className="flex items-center gap-4 flex-1 text-left"
+                              onClick={() => setExpandedCourse(isOpen ? null : `grp-${group.id}`)}>
+                              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                                style={{ background: `${group.color}18`, border: `1px solid ${group.color}28` }}>
+                                <Users className="w-5 h-5" style={{ color: group.color }} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <span className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.9)" }}>{group.name}</span>
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.35)" }}>CRM</span>
+                                </div>
+                                {group.description && (
+                                  <p className="text-xs truncate" style={{ color: "rgba(255,255,255,0.35)" }}>{group.description}</p>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-5 flex-shrink-0">
+                                <div className="text-right">
+                                  <div className="text-sm font-bold" style={{ color: group.color }}>{members.length}</div>
+                                  <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>aluno{members.length !== 1 ? "s" : ""}</div>
+                                </div>
+                                <ChevronDown className="w-4 h-4 transition-transform flex-shrink-0"
+                                  style={{ color: "rgba(255,255,255,0.3)", transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }} />
+                              </div>
+                            </button>
+
+                            {/* Certificate button */}
+                            <button
+                              onClick={() => {
+                                setCertCourseId(isCertOpen ? null : `grp-${group.id}`);
+                                if (!isCertOpen) {
+                                  setCertTemplate(null); setCertPreview(null);
+                                  setGeneratedCerts([]); setCertManualList([]);
+                                  setCertStudentName(""); setExpandedCourse(`grp-${group.id}`);
+                                }
+                              }}
+                              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold transition-all flex-shrink-0"
+                              style={isCertOpen
+                                ? { background: "rgba(250,204,21,0.18)", color: "#FBBF24", border: "1px solid rgba(250,204,21,0.35)" }
+                                : { background: "rgba(250,204,21,0.08)", color: "#FBBF24", border: "1px solid rgba(250,204,21,0.2)" }}>
+                              <Award className="w-3.5 h-3.5" /> Certificados
+                            </button>
+                          </div>
+
+                          {/* Member list */}
+                          <AnimatePresence>
+                            {isOpen && (
+                              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }} className="overflow-hidden"
+                                style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                                <div className="px-5 py-4">
+                                  {members.length === 0 ? (
+                                    <p className="text-xs py-4 text-center" style={{ color: "rgba(255,255,255,0.25)" }}>
+                                      Nenhum contato neste grupo. Adicione pelo CRM → Grupos.
+                                    </p>
+                                  ) : (
+                                    <div className="space-y-2">
+                                      <div className="grid grid-cols-4 gap-2 px-1 pb-1">
+                                        {["Nome", "E-mail", "WhatsApp", "Status"].map(h => (
+                                          <div key={h} className="text-[9px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.25)" }}>{h}</div>
+                                        ))}
+                                      </div>
+                                      {members.map((m: any) => (
+                                        <div key={m.id} className="grid grid-cols-4 gap-2 items-center px-1 py-2 rounded-xl"
+                                          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                                          <div className="flex items-center gap-2">
+                                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                                              style={{ background: `${group.color}20`, color: group.color }}>
+                                              {m.name?.charAt(0)?.toUpperCase() ?? "?"}
+                                            </div>
+                                            <span className="text-[11px] font-medium truncate" style={{ color: "rgba(255,255,255,0.8)" }}>{m.name}</span>
+                                          </div>
+                                          <span className="text-[11px] truncate" style={{ color: "rgba(255,255,255,0.4)" }}>{m.email || "—"}</span>
+                                          <span className="text-[11px]" style={{ color: m.phone ? "#25D366" : "rgba(255,255,255,0.25)" }}>{m.phone || "—"}</span>
+                                          <span className="text-[10px] px-2 py-0.5 rounded-full w-fit" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)" }}>{m.status || "—"}</span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+
+                          {/* Certificate panel for group */}
+                          <AnimatePresence>
+                            {isCertOpen && (
+                              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                                exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }} className="overflow-hidden"
+                                style={{ borderTop: "1px solid rgba(250,204,21,0.2)" }}>
+                                <div className="px-5 py-5 space-y-5">
+                                  <div className="flex items-center gap-3">
+                                    <Award className="w-4 h-4" style={{ color: "#FBBF24" }} />
+                                    <p className="text-sm font-semibold" style={{ color: "#FBBF24" }}>Emissão de Certificados — {group.name}</p>
+                                  </div>
+
+                                  <div className="grid grid-cols-2 gap-6">
+                                    {/* Template + Config */}
+                                    <div className="space-y-4">
+                                      <div>
+                                        <label className="text-[10px] uppercase tracking-widest font-semibold block mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>Template (PNG/JPG)</label>
+                                        <label className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer"
+                                          style={{ background: certTemplate ? "rgba(250,204,21,0.06)" : "rgba(255,255,255,0.04)", border: certTemplate ? "1px solid rgba(250,204,21,0.3)" : "2px dashed rgba(255,255,255,0.12)" }}>
+                                          <input type="file" className="hidden" accept="image/*" onChange={handleCertTemplateUpload} />
+                                          <Award className="w-4 h-4 flex-shrink-0" style={{ color: certTemplate ? "#FBBF24" : "rgba(255,255,255,0.25)" }} />
+                                          <span className="text-[11px]" style={{ color: certTemplate ? "#FBBF24" : "rgba(255,255,255,0.3)" }}>
+                                            {certTemplate ? "✓ Template carregado — clique para trocar" : "Clique para enviar o template"}
+                                          </span>
+                                        </label>
+                                      </div>
+                                      {certTemplate && (
+                                        <>
+                                          <div className="space-y-3">
+                                            <label className="text-[10px] uppercase tracking-widest font-semibold block" style={{ color: "rgba(255,255,255,0.3)" }}>Posição do nome</label>
+                                            <div className="grid grid-cols-2 gap-3">
+                                              {[
+                                                { label: `Horizontal: ${certNameX}%`, v: certNameX, set: (n: number) => { setCertNameX(n); setCertPreview(null); } },
+                                                { label: `Vertical: ${certNameY}%`, v: certNameY, set: (n: number) => { setCertNameY(n); setCertPreview(null); } },
+                                                { label: `Fonte: ${certFontSize}px`, v: certFontSize, set: (n: number) => { setCertFontSize(n); setCertPreview(null); }, min: 20, max: 120 },
+                                              ].map((s, i) => (
+                                                <div key={i}>
+                                                  <div className="text-[10px] mb-1" style={{ color: "rgba(255,255,255,0.4)" }}>{s.label}</div>
+                                                  <input type="range" min={s.min ?? 5} max={s.max ?? 95} value={s.v}
+                                                    onChange={e => s.set(+e.target.value)} className="w-full accent-yellow-400" />
+                                                </div>
+                                              ))}
+                                              <div>
+                                                <div className="text-[10px] mb-1" style={{ color: "rgba(255,255,255,0.4)" }}>Cor do texto</div>
+                                                <div className="flex items-center gap-2">
+                                                  <input type="color" value={certFontColor} onChange={e => { setCertFontColor(e.target.value); setCertPreview(null); }}
+                                                    className="w-8 h-8 rounded cursor-pointer border-0 p-0" />
+                                                  <span className="text-[10px] font-mono" style={{ color: "rgba(255,255,255,0.5)" }}>{certFontColor}</span>
+                                                </div>
+                                              </div>
+                                            </div>
+                                          </div>
+                                          <div>
+                                            <label className="text-[10px] uppercase tracking-widest font-semibold block mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>Pré-visualizar</label>
+                                            <div className="flex gap-2">
+                                              <input value={certStudentName} onChange={e => { setCertStudentName(e.target.value); setCertPreview(null); }}
+                                                placeholder="Digite um nome para testar…"
+                                                className="flex-1 px-3 py-2 rounded-lg text-xs focus:outline-none"
+                                                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0" }} />
+                                              <button onClick={previewCert} disabled={!certStudentName.trim() || certGenerating}
+                                                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-semibold disabled:opacity-40"
+                                                style={{ background: "rgba(250,204,21,0.12)", color: "#FBBF24", border: "1px solid rgba(250,204,21,0.25)" }}>
+                                                {certGenerating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />} Ver
+                                              </button>
+                                            </div>
+                                            {certPreview && (
+                                              <div className="mt-2 rounded-xl overflow-hidden" style={{ border: "1px solid rgba(250,204,21,0.2)" }}>
+                                                <img src={certPreview} alt="Preview" className="w-full" />
+                                                <div className="flex gap-2 p-2" style={{ background: "rgba(0,0,0,0.5)" }}>
+                                                  <button onClick={() => downloadCert(certPreview!, certStudentName)}
+                                                    className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-semibold"
+                                                    style={{ background: "rgba(250,204,21,0.12)", color: "#FBBF24", border: "1px solid rgba(250,204,21,0.25)" }}>
+                                                    <Download className="w-3 h-3" /> Baixar preview
+                                                  </button>
+                                                </div>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </>
+                                      )}
+                                    </div>
+
+                                    {/* Alunos do grupo + geração */}
+                                    <div className="space-y-4">
+                                      <div>
+                                        <label className="text-[10px] uppercase tracking-widest font-semibold block mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>
+                                          Alunos do grupo ({members.length})
+                                        </label>
+                                        {members.length === 0 ? (
+                                          <p className="text-xs py-3 text-center rounded-xl" style={{ color: "rgba(255,255,255,0.25)", background: "rgba(255,255,255,0.03)" }}>
+                                            Nenhum membro neste grupo.
+                                          </p>
+                                        ) : (
+                                          <div className="space-y-1.5 max-h-40 overflow-y-auto mb-3">
+                                            {members.map((m: any) => (
+                                              <div key={m.id} className="flex items-center gap-2 px-3 py-2 rounded-lg"
+                                                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                                                <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                                                  style={{ background: `${group.color}20`, color: group.color }}>
+                                                  {m.name?.charAt(0)?.toUpperCase() ?? "?"}
+                                                </div>
+                                                <span className="flex-1 text-[11px] truncate" style={{ color: "rgba(255,255,255,0.75)" }}>{m.name}</span>
+                                                {m.phone && <BadgeCheck className="w-3 h-3 flex-shrink-0" style={{ color: "#25D366" }} />}
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+
+                                        {/* Nomes extras manuais */}
+                                        <div className="flex gap-2 mb-2">
+                                          <input value={certManualName} onChange={e => setCertManualName(e.target.value)}
+                                            onKeyDown={e => { if (e.key === "Enter" && certManualName.trim()) { setCertManualList(p => [...p, certManualName.trim()]); setCertManualName(""); } }}
+                                            placeholder="Nome extra (Enter)"
+                                            className="flex-1 px-3 py-2 rounded-lg text-xs focus:outline-none"
+                                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0" }} />
+                                          <button onClick={() => { if (certManualName.trim()) { setCertManualList(p => [...p, certManualName.trim()]); setCertManualName(""); } }}
+                                            className="px-3 py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                                            <Plus className="w-3 h-3" />
+                                          </button>
+                                        </div>
+                                        {certManualList.length > 0 && (
+                                          <div className="space-y-1 mb-3 max-h-24 overflow-y-auto">
+                                            {certManualList.map((name, i) => (
+                                              <div key={i} className="flex items-center justify-between px-3 py-1.5 rounded-lg"
+                                                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                                                <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.7)" }}>{name}</span>
+                                                <button onClick={() => setCertManualList(p => p.filter((_, j) => j !== i))} style={{ color: "rgba(255,255,255,0.3)" }}>
+                                                  <X className="w-3 h-3" />
+                                                </button>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+
+                                        {certTemplate && (
+                                          <button
+                                            onClick={async () => {
+                                              if (!certTemplate) return;
+                                              setCertGenerating(true);
+                                              const names = [...new Set([...members.map((m: any) => m.name).filter(Boolean), ...certManualList])];
+                                              const certs: { name: string; dataUrl: string }[] = [];
+                                              for (const name of names) {
+                                                const dataUrl = await renderCertificate(certTemplate, name, certNameX, certNameY, certFontSize, certFontColor);
+                                                certs.push({ name, dataUrl });
+                                              }
+                                              setGeneratedCerts(certs);
+                                              setCertGenerating(false);
+                                            }}
+                                            disabled={certGenerating || (members.length + certManualList.length === 0)}
+                                            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40"
+                                            style={{ background: "#FBBF24", color: "#07080A", boxShadow: "0 0 20px -4px rgba(250,204,21,0.35)" }}>
+                                            {certGenerating
+                                              ? <><RefreshCw className="w-4 h-4 animate-spin" /> Gerando…</>
+                                              : <><Award className="w-4 h-4" /> Gerar {members.length + certManualList.length} certificado{(members.length + certManualList.length) !== 1 ? "s" : ""}</>}
+                                          </button>
+                                        )}
+                                        {!certTemplate && (
+                                          <p className="text-[11px] text-center py-2" style={{ color: "rgba(255,255,255,0.3)" }}>← Envie o template primeiro</p>
+                                        )}
+                                      </div>
+
+                                      {/* Certificados gerados */}
+                                      {generatedCerts.length > 0 && certCourseId === `grp-${group.id}` && (
+                                        <div>
+                                          <label className="text-[10px] uppercase tracking-widest font-semibold block mb-2" style={{ color: "#34D399" }}>
+                                            ✓ {generatedCerts.length} certificado{generatedCerts.length !== 1 ? "s" : ""} gerado{generatedCerts.length !== 1 ? "s" : ""}
+                                          </label>
+                                          <div className="space-y-1.5 max-h-44 overflow-y-auto">
+                                            {generatedCerts.map((cert, i) => (
+                                              <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+                                                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                                                <div className="w-8 h-6 rounded overflow-hidden flex-shrink-0" style={{ border: "1px solid rgba(250,204,21,0.2)" }}>
+                                                  <img src={cert.dataUrl} alt={cert.name} className="w-full h-full object-cover" />
+                                                </div>
+                                                <span className="flex-1 text-[11px] font-medium truncate" style={{ color: "rgba(255,255,255,0.8)" }}>{cert.name}</span>
+                                                <div className="flex gap-1.5">
+                                                  <button onClick={() => downloadCert(cert.dataUrl, cert.name)}
+                                                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold"
+                                                    style={{ background: "rgba(250,204,21,0.1)", color: "#FBBF24", border: "1px solid rgba(250,204,21,0.2)" }}>
+                                                    <Download className="w-3 h-3" /> Baixar
+                                                  </button>
+                                                  {wpStatus === "connected" && (() => {
+                                                    const member = members.find((m: any) => m.name === cert.name);
+                                                    return member?.phone ? (
+                                                      <button onClick={() => sendCertViaWp(cert.dataUrl, member.phone, cert.name)}
+                                                        className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold"
+                                                        style={{ background: "rgba(37,211,102,0.1)", color: "#25D366", border: "1px solid rgba(37,211,102,0.2)" }}>
+                                                        <Send className="w-3 h-3" /> WA
+                                                      </button>
+                                                    ) : null;
+                                                  })()}
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                          <button onClick={() => generatedCerts.forEach(c => downloadCert(c.dataUrl, c.name))}
+                                            className="mt-2 w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold"
+                                            style={{ background: "rgba(250,204,21,0.08)", color: "#FBBF24", border: "1px solid rgba(250,204,21,0.2)" }}>
+                                            <Download className="w-3.5 h-3.5" /> Baixar todos
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+
+                        </motion.div>
+                      );
+                    })}
+                  </div>
+                )}
 
               </div>
             )}
