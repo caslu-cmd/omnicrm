@@ -613,11 +613,9 @@ function AgentChat({ onDataSaved }: { onDataSaved?: () => void }) {
 
     const displayMsg = attached ? `📎 ${attached.name}${userText ? `\n${userText}` : ""}` : userText;
     const defaultFileInstruction =
-      "Processe este arquivo completo seguindo o protocolo de PROCESSAMENTO DE ARQUIVOS:\n" +
-      "- Leia CADA linha sem pular nenhuma\n" +
-      "- Categorize tudo: receita, despesa, imposto, adiantamento\n" +
-      "- Mostre a tabela completa com todos os itens\n" +
-      "- Registre TODOS no sistema sem perder nenhum lançamento";
+      "Execute o protocolo PROCESSAMENTO DE ARQUIVOS completo: " +
+      "leia todas as seções e abas, categorize cada linha, e insira tudo no sistema AGORA sem pedir confirmação. " +
+      "Não pule nenhum lançamento.";
 
     const apiMsg = attached
       ? `[ARQUIVO ANEXADO: ${attached.name}]\n---\n${attached.text}\n---\n\n${userText || defaultFileInstruction}`
