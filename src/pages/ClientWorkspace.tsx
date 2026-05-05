@@ -12,7 +12,7 @@ import {
   UserCheck, PhoneCall, MessageSquare as MsgSq, BadgeCheck,
   Paperclip, X, Palette, PenLine, BarChart3, Layout, Table2, AtSign,
   Target, ArrowRight, Repeat2, MousePointerClick, Filter, Trash2, Mic, MicOff, StopCircle,
-  Save, Settings2,
+  Save, Settings2, Award, Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
@@ -739,7 +739,7 @@ export default function ClientWorkspace() {
   const [searchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") ?? "";
   const [tasks, setTasks] = useState(MOCK_TASKS_TEMPLATE);
-  const [crmView, setCrmView] = useState<"contacts" | "pipeline" | "approvals" | "insights">("contacts");
+  const [crmView, setCrmView] = useState<"contacts" | "pipeline" | "approvals" | "insights" | "whatsapp">("contacts");
   const [contactSearch, setContactSearch] = useState("");
   const [activeSegment, setActiveSegment] = useState<string>("Todos");
   const [dbContacts, setDbContacts] = useState<any[]>([]);
@@ -793,6 +793,19 @@ export default function ClientWorkspace() {
   const [wpTargetTab, setWpTargetTab] = useState<"grupos" | "contatos">("grupos");
   const [wpBlasting, setWpBlasting] = useState(false);
   const [wpBlastResult, setWpBlastResult] = useState<string | null>(null);
+  // Certificate emission
+  const [certCourseId, setCertCourseId] = useState<string | null>(null);
+  const [certTemplate, setCertTemplate] = useState<string | null>(null);
+  const [certStudentName, setCertStudentName] = useState("");
+  const [certNameX, setCertNameX] = useState(50);
+  const [certNameY, setCertNameY] = useState(65);
+  const [certFontSize, setCertFontSize] = useState(60);
+  const [certFontColor, setCertFontColor] = useState("#1a1a1a");
+  const [certPreview, setCertPreview] = useState<string | null>(null);
+  const [certGenerating, setCertGenerating] = useState(false);
+  const [generatedCerts, setGeneratedCerts] = useState<{ name: string; dataUrl: string }[]>([]);
+  const [certManualName, setCertManualName] = useState("");
+  const [certManualList, setCertManualList] = useState<string[]>([]);
   const [generatedImages, setGeneratedImages] = useState<Array<{id: string, imageData: string, mimeType: string, prompt: string, createdAt: string}>>([]);
   const [marcelaLoading, setMarcelaLoading] = useState(false);
   const [marcelaError, setMarcelaError] = useState<string | null>(null);
@@ -1785,6 +1798,77 @@ ${priorBlock}`;
   const toggleWpContact = (phone: string) =>
     setWpSelectedContacts((prev) => prev.includes(phone) ? prev.filter((p) => p !== phone) : [...prev, phone]);
 
+  const renderCertificate = (template: string, name: string, xPct: number, yPct: number, fontSize: number, color: string): Promise<string> =>
+    new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = img.width;
+        canvas.height = img.height;
+        const ctx = canvas.getContext("2d")!;
+        ctx.drawImage(img, 0, 0);
+        ctx.fillStyle = color;
+        ctx.font = `bold ${fontSize}px "Georgia", serif`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(name, (xPct / 100) * img.width, (yPct / 100) * img.height);
+        resolve(canvas.toDataURL("image/png"));
+      };
+      img.src = template;
+    });
+
+  const handleCertTemplateUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCertTemplate(reader.result as string);
+      setCertPreview(null);
+      setGeneratedCerts([]);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const previewCert = async () => {
+    if (!certTemplate || !certStudentName.trim()) return;
+    setCertGenerating(true);
+    const url = await renderCertificate(certTemplate, certStudentName, certNameX, certNameY, certFontSize, certFontColor);
+    setCertPreview(url);
+    setCertGenerating(false);
+  };
+
+  const generateAllCerts = async (courseId: string) => {
+    if (!certTemplate) return;
+    setCertGenerating(true);
+    const leads = (client.whatsappLeads ?? []).filter(l => l.courseId === courseId).map(l => l.name);
+    const allNames = [...new Set([...leads, ...certManualList])].filter(Boolean);
+    const certs: { name: string; dataUrl: string }[] = [];
+    for (const name of allNames) {
+      const dataUrl = await renderCertificate(certTemplate, name, certNameX, certNameY, certFontSize, certFontColor);
+      certs.push({ name, dataUrl });
+    }
+    setGeneratedCerts(certs);
+    setCertGenerating(false);
+  };
+
+  const downloadCert = (dataUrl: string, name: string) => {
+    const a = document.createElement("a");
+    a.href = dataUrl;
+    a.download = `certificado-${name.replace(/\s+/g, "-").toLowerCase()}.png`;
+    a.click();
+  };
+
+  const sendCertViaWp = async (dataUrl: string, phone: string, name: string) => {
+    try {
+      const base64 = dataUrl.split(",")[1];
+      await supabase.functions.invoke("whatsapp", {
+        body: { action: "send", type: "image", to: phone, mediaBase64: base64, caption: `Certificado de conclusão — ${name}` },
+      });
+      toast.success(`Certificado enviado para ${name}`);
+    } catch {
+      toast.error("Falha ao enviar certificado");
+    }
+  };
 
   const selectedAgent = selectedAgentId
     ? (MARKETING_TEAM.find((a) => a.id === selectedAgentId) ?? null)
@@ -2011,6 +2095,13 @@ ${priorBlock}`;
     return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, id]);
+
+  useEffect(() => {
+    if (activeTab === "crm" && crmView === "whatsapp" && id) {
+      checkWpStatus();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, crmView, id]);
 
   const loadPendingPosts = async () => {
     setPendingLoading(true);
@@ -2553,11 +2644,14 @@ ${priorBlock}`;
                     ["pipeline",  "Pipeline"],
                     ["approvals", `Aprovações${(pendingPosts.length + agentProposals.length) > 0 ? ` (${pendingPosts.length + agentProposals.length})` : ""}`],
                     ["insights",  "Insights IA"],
+                    ["whatsapp",  "📲 WhatsApp"],
                   ] as const).map(([v, label]) => (
                     <button key={v} onClick={() => setCrmView(v as any)}
                       className="px-4 py-1.5 rounded-lg text-xs font-medium transition-all relative"
                       style={crmView === v
-                        ? { background: `${client.color}22`, color: client.color, border: `1px solid ${client.color}30` }
+                        ? v === "whatsapp"
+                          ? { background: "rgba(37,211,102,0.15)", color: "#25D366", border: "1px solid rgba(37,211,102,0.3)" }
+                          : { background: `${client.color}22`, color: client.color, border: `1px solid ${client.color}30` }
                         : { color: "rgba(255,255,255,0.4)" }}>
                       {label}
                       {v === "approvals" && (pendingPosts.length + agentProposals.length) > 0 && crmView !== "approvals" && (
@@ -3028,6 +3122,246 @@ ${priorBlock}`;
                       })}
                     </div>
                   </div>
+                )}
+
+                {/* ── CRM WHATSAPP (Z-API) ── */}
+                {crmView === "whatsapp" && (
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                    className="rounded-2xl overflow-hidden"
+                    style={{ border: wpStatus === "connected" ? "1px solid rgba(37,211,102,0.25)" : "1px solid rgba(255,255,255,0.08)" }}>
+
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-6 py-4"
+                      style={{ background: "rgba(37,211,102,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                          style={{ background: "rgba(37,211,102,0.12)", border: "1px solid rgba(37,211,102,0.25)" }}>
+                          <MessageCircle className="w-5 h-5" style={{ color: "#25D366" }} />
+                        </div>
+                        <div>
+                          <div className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.9)" }}>
+                            WhatsApp Business
+                            <span className="text-[10px] font-normal ml-2 px-1.5 py-0.5 rounded" style={{ background: "rgba(37,211,102,0.12)", color: "#25D366" }}>via Z-API</span>
+                          </div>
+                          <div className="text-[11px]" style={{ color: "rgba(255,255,255,0.35)" }}>
+                            {wpStatus === "connected" && wpPhone ? `Conectado: ${wpPhone}` : "Envie mensagens para grupos ou contatos do CRM"}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {wpStatus === "connected" && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="relative flex h-2 w-2">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+                            </span>
+                            <span className="text-xs font-medium" style={{ color: "#34D399" }}>Conectado</span>
+                          </div>
+                        )}
+                        {wpStatus === "disconnected" && (
+                          <span className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Desconectado</span>
+                        )}
+                        <button onClick={checkWpStatus} disabled={wpStatus === "loading"}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all disabled:opacity-50"
+                          style={{ background: "rgba(37,211,102,0.1)", color: "#25D366", border: "1px solid rgba(37,211,102,0.2)" }}>
+                          {wpStatus === "loading"
+                            ? <><RefreshCw className="w-3 h-3 animate-spin" /> Verificando…</>
+                            : <><Wifi className="w-3 h-3" /> Verificar conexão</>}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="p-6 space-y-5">
+                      {/* Desconectado: instruções */}
+                      {(wpStatus === "disconnected" || wpStatus === "idle") && (
+                        <div className="flex items-start gap-6">
+                          <div className="flex-1">
+                            <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "rgba(255,255,255,0.3)" }}>Como conectar</h3>
+                            <ol className="space-y-2">
+                              {["1. Clique em Verificar conexão", "2. Se desconectado, clique em Gerar QR Code", "3. Abra WhatsApp → Dispositivos conectados → Conectar", "4. Escaneie o QR Code com o celular"].map((step, i) => (
+                                <li key={i} className="flex items-start gap-2.5 text-[11px]" style={{ color: "rgba(255,255,255,0.45)" }}>
+                                  <span className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 mt-0.5"
+                                    style={{ background: "rgba(37,211,102,0.12)", color: "#25D366" }}>{i + 1}</span>
+                                  {step}
+                                </li>
+                              ))}
+                            </ol>
+                          </div>
+                          <div className="flex-shrink-0 flex flex-col items-center gap-3">
+                            <button onClick={fetchWpQr}
+                              className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-semibold"
+                              style={{ background: "rgba(37,211,102,0.1)", color: "#25D366", border: "1px solid rgba(37,211,102,0.2)" }}>
+                              <QrCode className="w-3.5 h-3.5" /> Gerar QR Code
+                            </button>
+                            {wpQr && (
+                              <div className="p-3 rounded-xl" style={{ background: "white" }}>
+                                <img src={wpQr} alt="QR Code WhatsApp" className="w-40 h-40 object-contain" />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Conectado: envio de mensagens */}
+                      {wpStatus === "connected" && (
+                        <div className="space-y-5">
+                          {/* Tabs Grupos / Contatos */}
+                          <div className="flex gap-1 p-1 rounded-xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                            {(["grupos", "contatos"] as const).map((tab) => (
+                              <button key={tab} onClick={() => setWpTargetTab(tab)}
+                                className="flex-1 py-1.5 rounded-lg text-[11px] font-semibold capitalize transition-all"
+                                style={wpTargetTab === tab
+                                  ? { background: "#25D366", color: "#fff" }
+                                  : { color: "rgba(255,255,255,0.35)" }}>
+                                {tab === "grupos" ? `📢 Grupos (${wpSelectedGroups.length} sel.)` : `👤 Contatos (${wpSelectedContacts.length} sel.)`}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Lista de Grupos */}
+                          {wpTargetTab === "grupos" && (
+                            <div>
+                              <div className="flex items-center justify-between mb-3">
+                                <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>Grupos ({wpGroups.length})</h3>
+                                <button onClick={refreshWpGroups} className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg"
+                                  style={{ color: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                                  <RefreshCw className="w-3 h-3" /> Atualizar
+                                </button>
+                              </div>
+                              {wpGroups.length === 0
+                                ? <div className="py-6 text-center text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhum grupo. Clique em Atualizar.</div>
+                                : <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
+                                    {wpGroups.map((g) => {
+                                      const sel = wpSelectedGroups.includes(g.id);
+                                      return (
+                                        <button key={g.id} onClick={() => toggleGroup(g.id)}
+                                          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all"
+                                          style={{ background: sel ? "rgba(37,211,102,0.1)" : "rgba(255,255,255,0.03)", border: sel ? "1px solid rgba(37,211,102,0.3)" : "1px solid rgba(255,255,255,0.07)" }}>
+                                          <div className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0" style={{ background: sel ? "#25D366" : "rgba(255,255,255,0.08)" }}>
+                                            {sel && <CheckCircle2 className="w-3 h-3 text-white" />}
+                                          </div>
+                                          <div className="min-w-0">
+                                            <div className="text-[11px] font-medium truncate" style={{ color: sel ? "#25D366" : "rgba(255,255,255,0.65)" }}>{g.name}</div>
+                                            <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>{g.participants} membros</div>
+                                          </div>
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                              }
+                            </div>
+                          )}
+
+                          {/* Contatos do CRM */}
+                          {wpTargetTab === "contatos" && (
+                            <div>
+                              <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "rgba(255,255,255,0.3)" }}>Leads do CRM</h3>
+                              {(dbContacts.length === 0 && (!client.contacts || client.contacts.length === 0))
+                                ? <div className="py-6 text-center text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhum contato com telefone cadastrado.</div>
+                                : <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
+                                    {[...dbContacts, ...(client.contacts ?? [])].filter((c: any, idx: number, arr: any[]) => arr.findIndex(x => (x.phone ?? x.whatsapp) === (c.phone ?? c.whatsapp)) === idx).map((c: any) => {
+                                      const ph = c.phone ?? c.whatsapp ?? "";
+                                      if (!ph) return null;
+                                      const sel = wpSelectedContacts.includes(ph);
+                                      return (
+                                        <button key={ph} onClick={() => toggleWpContact(ph)}
+                                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all"
+                                          style={{ background: sel ? "rgba(37,211,102,0.1)" : "rgba(255,255,255,0.03)", border: sel ? "1px solid rgba(37,211,102,0.3)" : "1px solid rgba(255,255,255,0.07)" }}>
+                                          <div className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0" style={{ background: sel ? "#25D366" : "rgba(255,255,255,0.08)" }}>
+                                            {sel && <CheckCircle2 className="w-3 h-3 text-white" />}
+                                          </div>
+                                          <div className="min-w-0 flex-1">
+                                            <div className="text-[11px] font-medium truncate" style={{ color: sel ? "#25D366" : "rgba(255,255,255,0.65)" }}>{c.name ?? ph}</div>
+                                            <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>{ph}</div>
+                                          </div>
+                                          {(c.status || c.role) && (
+                                            <span className="text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0" style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B" }}>
+                                              {c.status ?? c.role}
+                                            </span>
+                                          )}
+                                        </button>
+                                      );
+                                    })}
+                                  </div>
+                              }
+                            </div>
+                          )}
+
+                          {/* Tipo de mensagem */}
+                          <div>
+                            <h3 className="text-xs font-semibold uppercase tracking-widest mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>Tipo de envio</h3>
+                            <div className="flex gap-2 flex-wrap">
+                              {(["text", "image", "video", "audio"] as const).map((t) => {
+                                const labels: Record<string, string> = { text: "💬 Texto", image: "🖼️ Imagem", video: "🎥 Vídeo", audio: "🎵 Áudio" };
+                                return (
+                                  <button key={t} onClick={() => { setWpMediaType(t); setWpMediaData(null); setWpMediaName(""); }}
+                                    className="px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
+                                    style={wpMediaType === t
+                                      ? { background: "rgba(37,211,102,0.15)", color: "#25D366", border: "1px solid rgba(37,211,102,0.35)" }
+                                      : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.35)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                                    {labels[t]}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+
+                          {/* Compositor */}
+                          <div className="space-y-3">
+                            {wpMediaType !== "text" && (
+                              <label className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer"
+                                style={{ background: "rgba(255,255,255,0.04)", border: "2px dashed rgba(255,255,255,0.12)" }}>
+                                <input type="file" className="hidden"
+                                  accept={wpMediaType === "image" ? "image/*" : wpMediaType === "video" ? "video/*" : "audio/*"}
+                                  onChange={handleWpFile} />
+                                <span className="text-lg">{wpMediaType === "image" ? "🖼️" : wpMediaType === "video" ? "🎥" : "🎵"}</span>
+                                <span className="text-[11px]" style={{ color: wpMediaName ? "#25D366" : "rgba(255,255,255,0.3)" }}>
+                                  {wpMediaName || "Clique para selecionar arquivo"}
+                                </span>
+                              </label>
+                            )}
+                            {(wpMediaType === "image" || wpMediaType === "video") && (
+                              <input value={wpCaption} onChange={(e) => setWpCaption(e.target.value)}
+                                placeholder="Legenda (opcional)..." className="w-full px-4 py-2.5 rounded-xl text-sm"
+                                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.8)", outline: "none" }} />
+                            )}
+                            <textarea value={wpMessage} onChange={(e) => setWpMessage(e.target.value)}
+                              rows={wpMediaType === "text" ? 4 : 2}
+                              placeholder={wpMediaType === "text" ? "Digite a mensagem..." : "Texto adicional (opcional)..."}
+                              className="w-full px-4 py-3 rounded-xl text-sm resize-none"
+                              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.8)", outline: "none" }} />
+                          </div>
+
+                          {/* Disparar */}
+                          <div className="space-y-3">
+                            {(wpSelectedGroups.length + wpSelectedContacts.length) > 0 && (
+                              <div className="flex flex-wrap gap-3 text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>
+                                {wpSelectedGroups.length > 0 && <span>📢 {wpSelectedGroups.length} grupo{wpSelectedGroups.length !== 1 ? "s" : ""}</span>}
+                                {wpSelectedContacts.length > 0 && <span>👤 {wpSelectedContacts.length} contato{wpSelectedContacts.length !== 1 ? "s" : ""}</span>}
+                                <span>· {wpSelectedGroups.length + wpSelectedContacts.length} destinos total</span>
+                              </div>
+                            )}
+                            <div className="flex items-center gap-4">
+                              <button onClick={doWpBlast}
+                                disabled={wpBlasting || (wpSelectedGroups.length + wpSelectedContacts.length) === 0 || (wpMediaType === "text" && !wpMessage.trim()) || (wpMediaType !== "text" && !wpMediaData)}
+                                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
+                                style={{ background: "#25D366", color: "#fff", boxShadow: wpBlasting ? "none" : "0 0 20px -4px rgba(37,211,102,0.4)" }}>
+                                {wpBlasting
+                                  ? <><RefreshCw className="w-4 h-4 animate-spin" /> Enviando…</>
+                                  : <><Send className="w-4 h-4" /> Disparar ({wpSelectedGroups.length + wpSelectedContacts.length})</>}
+                              </button>
+                              {wpBlastResult && (
+                                <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg"
+                                  style={{ background: "rgba(52,211,153,0.1)", color: "#34D399", border: "1px solid rgba(52,211,153,0.2)" }}>
+                                  <CheckCircle2 className="w-3.5 h-3.5" /> {wpBlastResult}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
                 )}
               </div>
             )}
@@ -5168,6 +5502,22 @@ ${priorBlock}`;
                                           Disparar no grupo WhatsApp
                                         </button>
                                       )}
+                                      <button
+                                        onClick={() => {
+                                          setCertCourseId(certCourseId === course.id ? null : course.id);
+                                          setCertTemplate(null);
+                                          setCertPreview(null);
+                                          setGeneratedCerts([]);
+                                          setCertManualList([]);
+                                          setCertStudentName("");
+                                        }}
+                                        className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all"
+                                        style={certCourseId === course.id
+                                          ? { background: "rgba(250,204,21,0.15)", color: "#FBBF24", border: "1px solid rgba(250,204,21,0.3)" }
+                                          : { background: "rgba(250,204,21,0.08)", color: "#FBBF24", border: "1px solid rgba(250,204,21,0.18)" }}>
+                                        <Award className="w-3.5 h-3.5" />
+                                        {certCourseId === course.id ? "Fechar certificados" : "Emitir Certificados"}
+                                      </button>
                                       <button className="w-full flex items-center gap-2 px-3 py-2.5 rounded-xl text-xs font-semibold transition-all"
                                         style={{ background: `${client.color}12`, color: client.color, border: `1px solid ${client.color}25` }}>
                                         <MsgSq className="w-3.5 h-3.5" />
@@ -5205,6 +5555,250 @@ ${priorBlock}`;
                                     )}
                                   </div>
                                 </div>
+
+                                {/* ── PAINEL DE CERTIFICADOS ── */}
+                                <AnimatePresence>
+                                  {certCourseId === course.id && (
+                                    <motion.div
+                                      initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                                      exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }}
+                                      className="overflow-hidden"
+                                      style={{ borderTop: "1px solid rgba(250,204,21,0.15)" }}>
+                                      <div className="px-5 py-5 space-y-5">
+
+                                        {/* Title */}
+                                        <div className="flex items-center gap-3">
+                                          <div className="w-8 h-8 rounded-lg flex items-center justify-center"
+                                            style={{ background: "rgba(250,204,21,0.1)", border: "1px solid rgba(250,204,21,0.2)" }}>
+                                            <Award className="w-4 h-4" style={{ color: "#FBBF24" }} />
+                                          </div>
+                                          <div>
+                                            <p className="text-sm font-semibold" style={{ color: "#FBBF24" }}>Emissão de Certificados</p>
+                                            <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.35)" }}>Envie o template e a ferramenta preenche o nome do aluno</p>
+                                          </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-6">
+                                          {/* Coluna Esquerda: Config */}
+                                          <div className="space-y-4">
+
+                                            {/* Upload template */}
+                                            <div>
+                                              <label className="text-[10px] uppercase tracking-widest font-semibold block mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>
+                                                Template do certificado (PNG/JPG)
+                                              </label>
+                                              <label className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all"
+                                                style={{ background: certTemplate ? "rgba(250,204,21,0.06)" : "rgba(255,255,255,0.04)", border: certTemplate ? "1px solid rgba(250,204,21,0.3)" : "2px dashed rgba(255,255,255,0.12)" }}>
+                                                <input type="file" className="hidden" accept="image/*" onChange={handleCertTemplateUpload} />
+                                                <Award className="w-4 h-4 flex-shrink-0" style={{ color: certTemplate ? "#FBBF24" : "rgba(255,255,255,0.25)" }} />
+                                                <span className="text-[11px]" style={{ color: certTemplate ? "#FBBF24" : "rgba(255,255,255,0.3)" }}>
+                                                  {certTemplate ? "✓ Template carregado — clique para trocar" : "Clique para enviar o template"}
+                                                </span>
+                                              </label>
+                                            </div>
+
+                                            {/* Position controls */}
+                                            {certTemplate && (
+                                              <div className="space-y-3">
+                                                <label className="text-[10px] uppercase tracking-widest font-semibold block" style={{ color: "rgba(255,255,255,0.3)" }}>
+                                                  Posição do nome
+                                                </label>
+                                                <div className="grid grid-cols-2 gap-3">
+                                                  <div>
+                                                    <div className="text-[10px] mb-1" style={{ color: "rgba(255,255,255,0.4)" }}>Horizontal: {certNameX}%</div>
+                                                    <input type="range" min="5" max="95" value={certNameX}
+                                                      onChange={e => { setCertNameX(+e.target.value); setCertPreview(null); }}
+                                                      className="w-full accent-yellow-400" />
+                                                  </div>
+                                                  <div>
+                                                    <div className="text-[10px] mb-1" style={{ color: "rgba(255,255,255,0.4)" }}>Vertical: {certNameY}%</div>
+                                                    <input type="range" min="5" max="95" value={certNameY}
+                                                      onChange={e => { setCertNameY(+e.target.value); setCertPreview(null); }}
+                                                      className="w-full accent-yellow-400" />
+                                                  </div>
+                                                  <div>
+                                                    <div className="text-[10px] mb-1" style={{ color: "rgba(255,255,255,0.4)" }}>Tamanho: {certFontSize}px</div>
+                                                    <input type="range" min="20" max="120" value={certFontSize}
+                                                      onChange={e => { setCertFontSize(+e.target.value); setCertPreview(null); }}
+                                                      className="w-full accent-yellow-400" />
+                                                  </div>
+                                                  <div>
+                                                    <div className="text-[10px] mb-1" style={{ color: "rgba(255,255,255,0.4)" }}>Cor do texto</div>
+                                                    <div className="flex items-center gap-2">
+                                                      <input type="color" value={certFontColor}
+                                                        onChange={e => { setCertFontColor(e.target.value); setCertPreview(null); }}
+                                                        className="w-8 h-8 rounded cursor-pointer border-0 p-0" />
+                                                      <span className="text-[10px] font-mono" style={{ color: "rgba(255,255,255,0.5)" }}>{certFontColor}</span>
+                                                    </div>
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            )}
+
+                                            {/* Preview test name */}
+                                            {certTemplate && (
+                                              <div>
+                                                <label className="text-[10px] uppercase tracking-widest font-semibold block mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>
+                                                  Pré-visualizar com nome
+                                                </label>
+                                                <div className="flex gap-2">
+                                                  <input
+                                                    value={certStudentName}
+                                                    onChange={e => { setCertStudentName(e.target.value); setCertPreview(null); }}
+                                                    placeholder="Ex: Maria Silva"
+                                                    className="flex-1 px-3 py-2 rounded-lg text-xs"
+                                                    style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }} />
+                                                  <button onClick={previewCert} disabled={!certStudentName.trim() || certGenerating}
+                                                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-semibold disabled:opacity-40"
+                                                    style={{ background: "rgba(250,204,21,0.12)", color: "#FBBF24", border: "1px solid rgba(250,204,21,0.25)" }}>
+                                                    {certGenerating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />}
+                                                    Ver
+                                                  </button>
+                                                </div>
+                                                {certPreview && (
+                                                  <div className="mt-3 rounded-xl overflow-hidden" style={{ border: "1px solid rgba(250,204,21,0.2)" }}>
+                                                    <img src={certPreview} alt="Preview" className="w-full" />
+                                                    <div className="flex gap-2 p-2" style={{ background: "rgba(0,0,0,0.4)" }}>
+                                                      <button onClick={() => downloadCert(certPreview!, certStudentName)}
+                                                        className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-semibold"
+                                                        style={{ background: "rgba(250,204,21,0.12)", color: "#FBBF24", border: "1px solid rgba(250,204,21,0.25)" }}>
+                                                        <Download className="w-3 h-3" /> Baixar
+                                                      </button>
+                                                    </div>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            )}
+                                          </div>
+
+                                          {/* Coluna Direita: Alunos + Geração em lote */}
+                                          <div className="space-y-4">
+                                            <div>
+                                              <label className="text-[10px] uppercase tracking-widest font-semibold block mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>
+                                                Alunos do curso
+                                              </label>
+
+                                              {/* Leads detectados */}
+                                              {(client.whatsappLeads ?? []).filter(l => l.courseId === course.id).length > 0 && (
+                                                <div className="mb-3 space-y-1.5 max-h-32 overflow-y-auto">
+                                                  {(client.whatsappLeads ?? []).filter(l => l.courseId === course.id).map(lead => (
+                                                    <div key={lead.id} className="flex items-center gap-2 px-3 py-2 rounded-lg"
+                                                      style={{ background: "rgba(37,211,102,0.06)", border: "1px solid rgba(37,211,102,0.15)" }}>
+                                                      <BadgeCheck className="w-3 h-3 flex-shrink-0" style={{ color: "#34D399" }} />
+                                                      <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.75)" }}>{lead.name}</span>
+                                                      <span className="text-[9px] ml-auto" style={{ color: "rgba(255,255,255,0.25)" }}>{lead.number}</span>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              )}
+
+                                              {/* Adicionar manualmente */}
+                                              <div className="flex gap-2 mb-2">
+                                                <input
+                                                  value={certManualName}
+                                                  onChange={e => setCertManualName(e.target.value)}
+                                                  onKeyDown={e => {
+                                                    if (e.key === "Enter" && certManualName.trim()) {
+                                                      setCertManualList(p => [...p, certManualName.trim()]);
+                                                      setCertManualName("");
+                                                    }
+                                                  }}
+                                                  placeholder="Nome do aluno (Enter para adicionar)"
+                                                  className="flex-1 px-3 py-2 rounded-lg text-xs"
+                                                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }} />
+                                                <button
+                                                  onClick={() => { if (certManualName.trim()) { setCertManualList(p => [...p, certManualName.trim()]); setCertManualName(""); } }}
+                                                  className="px-3 py-2 rounded-lg text-[11px] font-semibold"
+                                                  style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                                                  <Plus className="w-3 h-3" />
+                                                </button>
+                                              </div>
+
+                                              {/* Lista manual */}
+                                              {certManualList.length > 0 && (
+                                                <div className="space-y-1 mb-3 max-h-28 overflow-y-auto">
+                                                  {certManualList.map((name, i) => (
+                                                    <div key={i} className="flex items-center justify-between px-3 py-1.5 rounded-lg"
+                                                      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                                                      <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.7)" }}>{name}</span>
+                                                      <button onClick={() => setCertManualList(p => p.filter((_, j) => j !== i))}
+                                                        className="w-4 h-4 flex items-center justify-center rounded"
+                                                        style={{ color: "rgba(255,255,255,0.3)" }}>
+                                                        <X className="w-3 h-3" />
+                                                      </button>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                              )}
+
+                                              {/* Total e botão gerar */}
+                                              {certTemplate && (
+                                                <div className="space-y-2">
+                                                  <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                                                    {[...(client.whatsappLeads ?? []).filter(l => l.courseId === course.id).map(l => l.name), ...certManualList].filter(Boolean).length} aluno(s) no total
+                                                  </p>
+                                                  <button
+                                                    onClick={() => generateAllCerts(course.id)}
+                                                    disabled={certGenerating || ([...(client.whatsappLeads ?? []).filter(l => l.courseId === course.id).map(l => l.name), ...certManualList].filter(Boolean).length === 0)}
+                                                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
+                                                    style={{ background: "#FBBF24", color: "#07080A", boxShadow: "0 0 20px -4px rgba(250,204,21,0.35)" }}>
+                                                    {certGenerating
+                                                      ? <><RefreshCw className="w-4 h-4 animate-spin" /> Gerando…</>
+                                                      : <><Award className="w-4 h-4" /> Gerar todos os certificados</>}
+                                                  </button>
+                                                </div>
+                                              )}
+                                            </div>
+
+                                            {/* Certificados gerados */}
+                                            {generatedCerts.length > 0 && (
+                                              <div>
+                                                <label className="text-[10px] uppercase tracking-widest font-semibold block mb-2" style={{ color: "#34D399" }}>
+                                                  ✓ {generatedCerts.length} certificado(s) gerado(s)
+                                                </label>
+                                                <div className="space-y-2 max-h-48 overflow-y-auto">
+                                                  {generatedCerts.map((cert, i) => (
+                                                    <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+                                                      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                                                      <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0" style={{ border: "1px solid rgba(250,204,21,0.2)" }}>
+                                                        <img src={cert.dataUrl} alt={cert.name} className="w-full h-full object-cover" />
+                                                      </div>
+                                                      <span className="flex-1 text-[11px] font-medium truncate" style={{ color: "rgba(255,255,255,0.8)" }}>{cert.name}</span>
+                                                      <div className="flex gap-1.5">
+                                                        <button onClick={() => downloadCert(cert.dataUrl, cert.name)}
+                                                          className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold"
+                                                          style={{ background: "rgba(250,204,21,0.1)", color: "#FBBF24", border: "1px solid rgba(250,204,21,0.2)" }}>
+                                                          <Download className="w-3 h-3" /> Baixar
+                                                        </button>
+                                                        {wpStatus === "connected" && (() => {
+                                                          const lead = (client.whatsappLeads ?? []).find(l => l.name === cert.name && l.courseId === course.id);
+                                                          return lead?.number ? (
+                                                            <button onClick={() => sendCertViaWp(cert.dataUrl, lead.number, cert.name)}
+                                                              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold"
+                                                              style={{ background: "rgba(37,211,102,0.1)", color: "#25D366", border: "1px solid rgba(37,211,102,0.2)" }}>
+                                                              <Send className="w-3 h-3" /> WhatsApp
+                                                            </button>
+                                                          ) : null;
+                                                        })()}
+                                                      </div>
+                                                    </div>
+                                                  ))}
+                                                </div>
+                                                {/* Baixar todos */}
+                                                <button
+                                                  onClick={() => generatedCerts.forEach(c => downloadCert(c.dataUrl, c.name))}
+                                                  className="mt-2 w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold"
+                                                  style={{ background: "rgba(250,204,21,0.08)", color: "#FBBF24", border: "1px solid rgba(250,204,21,0.2)" }}>
+                                                  <Download className="w-3.5 h-3.5" /> Baixar todos
+                                                </button>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
                               </motion.div>
                             )}
                           </AnimatePresence>

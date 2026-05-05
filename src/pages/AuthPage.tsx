@@ -117,6 +117,7 @@ const AuthPage = () => {
               </div>
             </form>
           ) : (
+          <>
           <form onSubmit={handleSubmit}>
 
             {!isLogin && (
@@ -212,7 +213,7 @@ const AuthPage = () => {
               <span style={{ color: "#B9FF4B", fontWeight: 600 }}>{isLogin ? "Criar conta" : "Entrar"}</span>
             </button>
           </div>
-          </form>
+          </>
           )}
         </div>
 
