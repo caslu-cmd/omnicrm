@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+﻿import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
@@ -5519,90 +5519,160 @@ ${priorBlock}`;
                     {/* Connected: show groups + blast */}
                     {wpStatus === "connected" && (
                       <div className="space-y-5">
-                        {/* Groups selector */}
-                        <div>
-                          <div className="flex items-center justify-between mb-3">
-                            <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>
-                              Grupos disponíveis ({wpGroups.length})
-                            </h3>
-                            <button onClick={refreshWpGroups}
-                              className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg transition-all"
-                              style={{ color: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                              <RefreshCw className="w-3 h-3" /> Atualizar
+
+                        {/* Tabs Grupos / Contatos */}
+                        <div className="flex gap-1 p-1 rounded-xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                          {(["grupos", "contatos"] as const).map((tab) => (
+                            <button key={tab} onClick={() => setWpTargetTab(tab)}
+                              className="flex-1 py-1.5 rounded-lg text-[11px] font-semibold capitalize transition-all"
+                              style={wpTargetTab === tab
+                                ? { background: "#25D366", color: "#fff" }
+                                : { color: "rgba(255,255,255,0.35)" }}>
+                              {tab === "grupos" ? `📢 Grupos (${wpSelectedGroups.length} sel.)` : `👤 Contatos (${wpSelectedContacts.length} sel.)`}
                             </button>
+                          ))}
+                        </div>
+
+                        {/* Lista de Grupos */}
+                        {wpTargetTab === "grupos" && (
+                          <div>
+                            <div className="flex items-center justify-between mb-3">
+                              <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>Grupos ({wpGroups.length})</h3>
+                              <button onClick={refreshWpGroups} className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg transition-all"
+                                style={{ color: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                                <RefreshCw className="w-3 h-3" /> Atualizar
+                              </button>
+                            </div>
+                            {wpGroups.length === 0
+                              ? <div className="py-6 text-center text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhum grupo. Clique em Atualizar.</div>
+                              : <div className="grid grid-cols-2 gap-2">
+                                  {wpGroups.map((g) => {
+                                    const sel = wpSelectedGroups.includes(g.id);
+                                    return (
+                                      <button key={g.id} onClick={() => toggleGroup(g.id)}
+                                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all"
+                                        style={{ background: sel ? "rgba(37,211,102,0.1)" : "rgba(255,255,255,0.03)", border: sel ? "1px solid rgba(37,211,102,0.3)" : "1px solid rgba(255,255,255,0.07)" }}>
+                                        <div className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0" style={{ background: sel ? "#25D366" : "rgba(255,255,255,0.08)" }}>
+                                          {sel && <CheckCircle2 className="w-3 h-3 text-white" />}
+                                        </div>
+                                        <div className="min-w-0">
+                                          <div className="text-[11px] font-medium truncate" style={{ color: sel ? "#25D366" : "rgba(255,255,255,0.65)" }}>{g.name}</div>
+                                          <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>{g.participants} membros</div>
+                                        </div>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                            }
                           </div>
-                          {wpGroups.length === 0 ? (
-                            <div className="py-6 text-center text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>
-                              Nenhum grupo encontrado. Clique em Atualizar.
-                            </div>
-                          ) : (
-                            <div className="grid grid-cols-2 gap-2">
-                              {wpGroups.map((g) => {
-                                const selected = wpSelectedGroups.includes(g.id);
-                                return (
-                                  <button key={g.id} onClick={() => toggleGroup(g.id)}
-                                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all"
-                                    style={{
-                                      background: selected ? "rgba(37,211,102,0.1)" : "rgba(255,255,255,0.03)",
-                                      border: selected ? "1px solid rgba(37,211,102,0.3)" : "1px solid rgba(255,255,255,0.07)",
-                                    }}>
-                                    <div className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0"
-                                      style={{ background: selected ? "#25D366" : "rgba(255,255,255,0.08)" }}>
-                                      {selected && <CheckCircle2 className="w-3 h-3 text-white" />}
-                                    </div>
-                                    <div className="min-w-0">
-                                      <div className="text-[11px] font-medium truncate" style={{ color: selected ? "#25D366" : "rgba(255,255,255,0.65)" }}>{g.name}</div>
-                                      <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>{g.participants} membros</div>
-                                    </div>
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          )}
-                        </div>
+                        )}
 
-                        {/* Message composer */}
+                        {/* Contatos individuais do cliente */}
+                        {wpTargetTab === "contatos" && (
+                          <div>
+                            <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "rgba(255,255,255,0.3)" }}>Contatos do cliente</h3>
+                            {(!client.contacts || client.contacts.length === 0)
+                              ? <div className="py-6 text-center text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhum contato cadastrado para este cliente.</div>
+                              : <div className="space-y-2">
+                                  {client.contacts.map((c: any) => {
+                                    const ph = c.phone ?? c.whatsapp ?? "";
+                                    if (!ph) return null;
+                                    const sel = wpSelectedContacts.includes(ph);
+                                    return (
+                                      <button key={ph} onClick={() => toggleWpContact(ph)}
+                                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all"
+                                        style={{ background: sel ? "rgba(37,211,102,0.1)" : "rgba(255,255,255,0.03)", border: sel ? "1px solid rgba(37,211,102,0.3)" : "1px solid rgba(255,255,255,0.07)" }}>
+                                        <div className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0" style={{ background: sel ? "#25D366" : "rgba(255,255,255,0.08)" }}>
+                                          {sel && <CheckCircle2 className="w-3 h-3 text-white" />}
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                          <div className="text-[11px] font-medium truncate" style={{ color: sel ? "#25D366" : "rgba(255,255,255,0.65)" }}>{c.name ?? ph}</div>
+                                          <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>{ph}</div>
+                                        </div>
+                                        {c.role && <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B" }}>{c.role}</span>}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                            }
+                          </div>
+                        )}
+
+                        {/* Tipo de envio */}
                         <div>
-                          <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "rgba(255,255,255,0.3)" }}>
-                            Mensagem para disparar
-                          </h3>
-                          <textarea
-                            value={wpMessage}
-                            onChange={(e) => setWpMessage(e.target.value)}
-                            rows={4}
-                            placeholder="Digite a mensagem que será enviada para os grupos selecionados..."
-                            className="w-full px-4 py-3 rounded-xl text-sm resize-none"
-                            style={{
-                              background: "rgba(255,255,255,0.04)",
-                              border: "1px solid rgba(255,255,255,0.1)",
-                              color: "rgba(255,255,255,0.8)",
-                              outline: "none",
-                            }}
-                          />
+                          <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "rgba(255,255,255,0.3)" }}>Tipo de envio</h3>
+                          <div className="flex gap-2 flex-wrap">
+                            {(["text", "image", "video", "audio"] as const).map((t) => {
+                              const labels: Record<string, string> = { text: "💬 Texto", image: "🖼️ Imagem", video: "🎥 Vídeo", audio: "🎵 Áudio" };
+                              return (
+                                <button key={t} onClick={() => { setWpMediaType(t); setWpMediaData(null); setWpMediaName(""); }}
+                                  className="px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
+                                  style={wpMediaType === t
+                                    ? { background: "rgba(37,211,102,0.15)", color: "#25D366", border: "1px solid rgba(37,211,102,0.35)" }
+                                    : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.35)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                                  {labels[t]}
+                                </button>
+                              );
+                            })}
+                          </div>
                         </div>
 
-                        {/* Blast button + result */}
-                        <div className="flex items-center gap-4">
-                          <button
-                            onClick={doWpBlast}
-                            disabled={wpBlasting || !wpSelectedGroups.length || !wpMessage.trim()}
-                            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
-                            style={{ background: "#25D366", color: "#fff", boxShadow: wpBlasting ? "none" : "0 0 20px -4px rgba(37,211,102,0.4)" }}>
-                            {wpBlasting ? (
-                              <><RefreshCw className="w-4 h-4 animate-spin" /> Enviando…</>
-                            ) : (
-                              <><Send className="w-4 h-4" /> Disparar para {wpSelectedGroups.length || "—"} grupo{wpSelectedGroups.length !== 1 ? "s" : ""}</>
-                            )}
-                          </button>
-                          {wpBlastResult && (
-                            <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg"
-                              style={{ background: "rgba(52,211,153,0.1)", color: "#34D399", border: "1px solid rgba(52,211,153,0.2)" }}>
-                              <CheckCircle2 className="w-3.5 h-3.5" /> {wpBlastResult}
+                        {/* Compositor */}
+                        <div className="space-y-3">
+                          {wpMediaType !== "text" && (
+                            <label className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all"
+                              style={{ background: "rgba(255,255,255,0.04)", border: "2px dashed rgba(255,255,255,0.12)" }}>
+                              <input type="file" className="hidden"
+                                accept={wpMediaType === "image" ? "image/*" : wpMediaType === "video" ? "video/*" : "audio/*"}
+                                onChange={handleWpFile} />
+                              <span className="text-lg">{wpMediaType === "image" ? "🖼️" : wpMediaType === "video" ? "🎥" : "🎵"}</span>
+                              <span className="text-[11px]" style={{ color: wpMediaName ? "#25D366" : "rgba(255,255,255,0.3)" }}>
+                                {wpMediaName || "Clique para selecionar arquivo"}
+                              </span>
+                            </label>
+                          )}
+                          {(wpMediaType === "image" || wpMediaType === "video") && (
+                            <input value={wpCaption} onChange={(e) => setWpCaption(e.target.value)}
+                              placeholder="Legenda (opcional)..." className="w-full px-4 py-2.5 rounded-xl text-sm"
+                              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.8)", outline: "none" }} />
+                          )}
+                          <textarea value={wpMessage} onChange={(e) => setWpMessage(e.target.value)}
+                            rows={wpMediaType === "text" ? 5 : 2}
+                            placeholder={wpMediaType === "text" ? "Digite a mensagem..." : "Texto adicional (opcional)..."}
+                            className="w-full px-4 py-3 rounded-xl text-sm resize-none"
+                            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.8)", outline: "none" }} />
+                        </div>
+
+                        {/* Resumo + Disparar */}
+                        <div className="space-y-3">
+                          {(wpSelectedGroups.length + wpSelectedContacts.length) > 0 && (
+                            <div className="flex flex-wrap gap-3 text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>
+                              {wpSelectedGroups.length > 0 && <span>📢 {wpSelectedGroups.length} grupo{wpSelectedGroups.length !== 1 ? "s" : ""}</span>}
+                              {wpSelectedContacts.length > 0 && <span>👤 {wpSelectedContacts.length} contato{wpSelectedContacts.length !== 1 ? "s" : ""}</span>}
+                              <span>· {wpSelectedGroups.length + wpSelectedContacts.length} destinos total</span>
                             </div>
                           )}
+                          <div className="flex items-center gap-4">
+                            <button onClick={doWpBlast}
+                              disabled={wpBlasting || (wpSelectedGroups.length + wpSelectedContacts.length) === 0 || (wpMediaType === "text" && !wpMessage.trim()) || (wpMediaType !== "text" && !wpMediaData)}
+                              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
+                              style={{ background: "#25D366", color: "#fff", boxShadow: wpBlasting ? "none" : "0 0 20px -4px rgba(37,211,102,0.4)" }}>
+                              {wpBlasting
+                                ? <><RefreshCw className="w-4 h-4 animate-spin" /> Enviando…</>
+                                : <><Send className="w-4 h-4" /> Disparar ({wpSelectedGroups.length + wpSelectedContacts.length})</>}
+                            </button>
+                            {wpBlastResult && (
+                              <div className="flex items-center gap-2 text-xs px-3 py-2 rounded-lg"
+                                style={{ background: "rgba(52,211,153,0.1)", color: "#34D399", border: "1px solid rgba(52,211,153,0.2)" }}>
+                                <CheckCircle2 className="w-3.5 h-3.5" /> {wpBlastResult}
+                              </div>
+                            )}
+                          </div>
                         </div>
+
                       </div>
                     )}
+
 
                     {/* Note about Z-API credentials */}
                     {wpStatus === "idle" && (

@@ -80,6 +80,10 @@ const ContactsPage = () => {
   const [waContact, setWaContact]   = useState<Contact | null>(null);
   const [waMessage, setWaMessage]   = useState("");
   const [waSending, setWaSending]   = useState(false);
+  const [waMediaType, setWaMediaType] = useState<"text" | "image" | "video" | "audio">("text");
+  const [waMediaData, setWaMediaData] = useState<string | null>(null);
+  const [waMediaName, setWaMediaName] = useState("");
+  const [waCaption, setWaCaption]   = useState("");
 
   // New
   const [showNew, setShowNew]   = useState(false);
@@ -157,18 +161,28 @@ const ContactsPage = () => {
     fetch();
   };
 
+  const handleWaFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setWaMediaName(file.name);
+    const reader = new FileReader();
+    reader.onload = () => setWaMediaData(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
   const sendWhatsApp = async () => {
     if (!waContact?.phone) { toast.error("Contato sem telefone cadastrado."); return; }
-    if (!waMessage.trim()) { toast.error("Digite uma mensagem."); return; }
+    const hasMedia = waMediaType !== "text" && !!waMediaData;
+    if (!hasMedia && !waMessage.trim()) { toast.error("Digite uma mensagem."); return; }
     setWaSending(true);
     try {
-      const { data, error } = await supabase.functions.invoke("whatsapp", {
-        body: { action: "send", phone: waContact.phone, message: waMessage.trim() },
-      });
+      const body: Record<string, any> = { action: "send", phone: waContact.phone, message: waMessage.trim() };
+      if (hasMedia) { body.mediaType = waMediaType; body.mediaData = waMediaData; body.caption = waCaption || waMessage.trim(); }
+      const { data, error } = await supabase.functions.invoke("whatsapp", { body });
       if (error) throw new Error(error?.message ?? "Erro ao enviar");
       toast.success(`Mensagem enviada para ${waContact.name}!`);
       setWaContact(null);
-      setWaMessage("");
+      setWaMessage(""); setWaCaption(""); setWaMediaData(null); setWaMediaName(""); setWaMediaType("text");
     } catch (e: any) {
       toast.error(e?.message ?? "Falha ao enviar mensagem.");
     } finally {
@@ -415,27 +429,66 @@ const ContactsPage = () => {
               </p>
             )}
 
+            {/* Media type selector */}
+            <div className="flex gap-2 flex-wrap">
+              {(["text", "image", "video", "audio"] as const).map((t) => {
+                const labels: Record<string, string> = { text: "💬 Texto", image: "🖼️ Imagem", video: "🎥 Vídeo", audio: "🎵 Áudio" };
+                return (
+                  <button key={t} onClick={() => { setWaMediaType(t); setWaMediaData(null); setWaMediaName(""); }}
+                    className="px-3 py-1 rounded-lg text-[11px] font-semibold border transition-all"
+                    style={waMediaType === t
+                      ? { background: "rgba(37,211,102,0.12)", color: "#25D366", borderColor: "rgba(37,211,102,0.35)" }
+                      : { background: "transparent", color: "var(--muted-foreground)", borderColor: "var(--border)" }}>
+                    {labels[t]}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* File upload (non-text) */}
+            {waMediaType !== "text" && (
+              <label className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer border-2 border-dashed border-input bg-background/50">
+                <input type="file" className="hidden"
+                  accept={waMediaType === "image" ? "image/*" : waMediaType === "video" ? "video/*" : "audio/*"}
+                  onChange={handleWaFile} />
+                <Upload className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm" style={{ color: waMediaName ? "#25D366" : undefined }}>
+                  {waMediaName || "Clique para selecionar arquivo"}
+                </span>
+              </label>
+            )}
+
+            {/* Caption for image/video */}
+            {(waMediaType === "image" || waMediaType === "video") && (
+              <input value={waCaption} onChange={e => setWaCaption(e.target.value)}
+                placeholder="Legenda (opcional)..."
+                className="w-full rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" />
+            )}
+
             <div>
-              <label className="text-xs font-medium text-muted-foreground">Mensagem</label>
+              <label className="text-xs font-medium text-muted-foreground">
+                {waMediaType === "text" ? "Mensagem" : "Texto adicional (opcional)"}
+              </label>
               <textarea
                 value={waMessage}
                 onChange={e => setWaMessage(e.target.value)}
-                rows={4}
-                placeholder={`Olá ${waContact.name.split(" ")[0]}, tudo bem? Aqui é da Calu Agência...`}
+                rows={waMediaType === "text" ? 4 : 2}
+                placeholder={waMediaType === "text" ? `Olá ${waContact.name.split(" ")[0]}, tudo bem? Aqui é da Calu Agência...` : "Texto extra..."}
                 className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20 resize-none"
               />
-              <p className="text-[11px] text-muted-foreground mt-1">{waMessage.length} caracteres</p>
+              {waMediaType === "text" && <p className="text-[11px] text-muted-foreground mt-1">{waMessage.length} caracteres</p>}
             </div>
 
             <div className="flex gap-3">
-              <button onClick={() => setWaContact(null)} className="flex-1 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:text-foreground">
+              <button onClick={() => { setWaContact(null); setWaMediaType("text"); setWaMediaData(null); setWaMediaName(""); setWaCaption(""); }}
+                className="flex-1 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:text-foreground">
                 Cancelar
               </button>
               <button
                 onClick={sendWhatsApp}
-                disabled={waSending || !waContact.phone || !waMessage.trim()}
+                disabled={waSending || !waContact.phone || (waMediaType === "text" ? !waMessage.trim() : !waMediaData)}
                 className="flex-1 py-2 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 transition-all"
-                style={{ background: "#25D366", color: "#fff", opacity: waSending || !waContact.phone || !waMessage.trim() ? 0.6 : 1 }}
+                style={{ background: "#25D366", color: "#fff", opacity: waSending || !waContact.phone || (waMediaType === "text" ? !waMessage.trim() : !waMediaData) ? 0.6 : 1 }}
               >
                 {waSending ? <><div className="h-4 w-4 border-2 border-white/40 border-t-white rounded-full animate-spin" /> Enviando...</> : <><MessageCircle className="h-4 w-4" /> Enviar</>}
               </button>
