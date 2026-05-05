@@ -568,6 +568,34 @@ const INTEGRATIONS_BASE = [
   },
 ];
 
+// ── All-platform connectors (full list for workspace) ────────
+const CONNECTOR_DEFS = [
+  { name: "WhatsApp Business", category: "Mensageria", description: "Meta Business API para envio e recebimento de mensagens", icon: "💬", configFields: [{ key: "phone_id", label: "Phone Number ID" }, { key: "token", label: "Access Token", type: "password" }] },
+  { name: "Google Calendar", category: "Produtividade", description: "Sincronize agendamentos e reuniões automaticamente", icon: "📅", configFields: [{ key: "calendar_id", label: "Calendar ID" }] },
+  { name: "Stripe", category: "Pagamentos", description: "Cobranças, assinaturas e gestão de pagamentos", icon: "💳", configFields: [{ key: "api_key", label: "API Key", type: "password" }, { key: "webhook_secret", label: "Webhook Secret", type: "password" }] },
+  { name: "Google Ads", category: "Ads", description: "Importe dados de campanhas e conversões", icon: "📊", configFields: [{ key: "customer_id", label: "Customer ID" }] },
+  { name: "Facebook Ads", category: "Ads", description: "Relatórios de performance e conversões", icon: "📈", configFields: [{ key: "ad_account_id", label: "Ad Account ID" }, { key: "token", label: "Access Token", type: "password" }] },
+  { name: "Mailgun", category: "E-mail", description: "Envio transacional com alta entregabilidade", icon: "📧", configFields: [{ key: "domain", label: "Domain" }, { key: "api_key", label: "API Key", type: "password" }] },
+  { name: "Twilio", category: "Voz & SMS", description: "Chamadas, SMS e verificação por telefone", icon: "📞", configFields: [{ key: "account_sid", label: "Account SID" }, { key: "auth_token", label: "Auth Token", type: "password" }] },
+  { name: "Zoom", category: "Produtividade", description: "Criação automática de reuniões e links", icon: "🎥", configFields: [{ key: "client_id", label: "Client ID" }, { key: "client_secret", label: "Client Secret", type: "password" }] },
+  { name: "Zapier", category: "Automação", description: "Conecte com +5000 apps via workflows", icon: "⚡", configFields: [{ key: "webhook_url", label: "Webhook URL" }] },
+  { name: "Make (Integromat)", category: "Automação", description: "Automações visuais avançadas entre plataformas", icon: "🔄", configFields: [{ key: "webhook_url", label: "Webhook URL" }] },
+  { name: "PayPal", category: "Pagamentos", description: "Pagamentos internacionais e checkout", icon: "💰", configFields: [{ key: "client_id", label: "Client ID" }, { key: "secret", label: "Secret", type: "password" }] },
+  { name: "Mercado Pago", category: "Pagamentos", description: "Pagamentos e cobranças no Brasil e LATAM", icon: "🇧🇷", configFields: [{ key: "access_token", label: "Access Token", type: "password" }] },
+  { name: "HubSpot", category: "CRM", description: "Sincronize contatos e deals bi-direcionalmente", icon: "🔶", configFields: [{ key: "api_key", label: "API Key", type: "password" }] },
+  { name: "Slack", category: "Produtividade", description: "Notificações e alertas em canais de equipe", icon: "💬", configFields: [{ key: "webhook_url", label: "Webhook URL" }, { key: "channel", label: "Channel" }] },
+  { name: "Google Business Profile", category: "Reputação", description: "Monitore e responda reviews automaticamente com IA", icon: "⭐", configFields: [{ key: "location_id", label: "Location ID" }] },
+  { name: "Outlook Calendar", category: "Produtividade", description: "Sincronize com calendário Microsoft", icon: "📆", configFields: [{ key: "tenant_id", label: "Tenant ID" }] },
+  { name: "Pagar.me", category: "Pagamentos", description: "Gateway de pagamentos brasileiro", icon: "💵", configFields: [{ key: "api_key", label: "API Key", type: "password" }] },
+  { name: "SendGrid", category: "E-mail", description: "E-mail marketing e transacional em escala", icon: "✉️", configFields: [{ key: "api_key", label: "API Key", type: "password" }] },
+  { name: "n8n", category: "Automação", description: "Workflows de automação self-hosted", icon: "🔧", configFields: [{ key: "base_url", label: "Instance URL" }, { key: "api_key", label: "API Key", type: "password" }] },
+  { name: "Calendly", category: "Produtividade", description: "Links de agendamento profissional", icon: "🗓️", configFields: [{ key: "api_key", label: "API Key", type: "password" }] },
+  { name: "Google Analytics", category: "Analytics", description: "Tráfego e conversões do seu site", icon: "📉", configFields: [{ key: "measurement_id", label: "Measurement ID" }] },
+  { name: "Facebook Messenger", category: "Mensageria", description: "Inbox e automações via Messenger", icon: "💬", configFields: [{ key: "page_id", label: "Page ID" }, { key: "token", label: "Access Token", type: "password" }] },
+  { name: "Salesforce", category: "CRM", description: "Integração bidirecional com Salesforce CRM", icon: "☁️", configFields: [{ key: "instance_url", label: "Instance URL" }, { key: "token", label: "Access Token", type: "password" }] },
+];
+const CONNECTOR_CATEGORIES = ["Todos", "Mensageria", "Pagamentos", "Ads", "Produtividade", "E-mail", "Automação", "CRM", "Reputação", "Analytics", "Voz & SMS"];
+
 type AgentMsg = {
   id: string;
   from: string;
@@ -758,6 +786,8 @@ export default function ClientWorkspace() {
   const [socialConfigModal, setSocialConfigModal] = useState<string | null>(null);
   const [socialConfigValues, setSocialConfigValues] = useState<Record<string, string>>({});
   const [socialConfigSaving, setSocialConfigSaving] = useState(false);
+  const [connectorSearch, setConnectorSearch] = useState("");
+  const [connectorCategory, setConnectorCategory] = useState("Todos");
   const [airaSource, setAiraSource] = useState<"system" | "mic" | "both">(() => {
     const v = localStorage.getItem(`aira-source-${id}`);
     return (v === "mic" || v === "both" || v === "system") ? v : "mic";
@@ -5333,6 +5363,98 @@ ${priorBlock}`;
                     )}
                   </div>
                 </motion.div>
+
+                {/* ── Todas as plataformas ─────────────────────────────── */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>Todas as plataformas</h3>
+                      <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>
+                        {CONNECTOR_DEFS.filter(c => socialConnected[c.name]).length} conectadas · {CONNECTOR_DEFS.length} disponíveis
+                      </p>
+                    </div>
+                    <div className="relative">
+                      <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "rgba(255,255,255,0.3)" }} />
+                      <input
+                        value={connectorSearch}
+                        onChange={e => setConnectorSearch(e.target.value)}
+                        placeholder="Buscar..."
+                        className="pl-9 pr-3 py-1.5 rounded-xl text-xs focus:outline-none"
+                        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.8)", width: 180 }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Category filters */}
+                  <div className="flex gap-1.5 flex-wrap mb-4">
+                    {CONNECTOR_CATEGORIES.map(cat => (
+                      <button key={cat} onClick={() => setConnectorCategory(cat)}
+                        className="px-3 py-1 rounded-lg text-[11px] font-medium transition-all"
+                        style={connectorCategory === cat
+                          ? { background: "#B9FF4B", color: "#07080A" }
+                          : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Connector cards */}
+                  <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+                    {CONNECTOR_DEFS
+                      .filter(c =>
+                        (connectorCategory === "Todos" || c.category === connectorCategory) &&
+                        c.name.toLowerCase().includes(connectorSearch.toLowerCase())
+                      )
+                      .map(c => {
+                        const isConn = socialConnected[c.name] ?? false;
+                        return (
+                          <motion.div key={c.name} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                            whileHover={{ y: -2 }}
+                            className="rounded-xl p-4 transition-all"
+                            style={{ background: "rgba(255,255,255,0.025)", border: `1px solid ${isConn ? "rgba(185,255,75,0.25)" : "rgba(255,255,255,0.07)"}` }}>
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex items-center gap-2">
+                                <span className="text-xl">{c.icon}</span>
+                                <div>
+                                  <div className="text-[11px] font-semibold leading-tight" style={{ color: "rgba(255,255,255,0.9)" }}>{c.name}</div>
+                                  <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>{c.category}</div>
+                                </div>
+                              </div>
+                              {isConn && (
+                                <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold"
+                                  style={{ background: "rgba(185,255,75,0.12)", color: "#B9FF4B" }}>
+                                  <CheckCircle2 className="w-2.5 h-2.5" /> Ativo
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[10px] mb-3 line-clamp-2" style={{ color: "rgba(255,255,255,0.35)" }}>{c.description}</p>
+                            {isConn ? (
+                              <div className="flex gap-1.5">
+                                <button onClick={() => openSocialConfig(c.name)}
+                                  className="flex-1 py-1.5 rounded-lg text-[10px] font-medium flex items-center justify-center gap-1 transition-all"
+                                  style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                                  <Settings2 className="w-2.5 h-2.5" /> Config
+                                </button>
+                                <button onClick={() => handleSocialToggle(c.name, false)}
+                                  className="py-1.5 px-2 rounded-lg text-[10px] transition-all"
+                                  style={{ background: "rgba(239,68,68,0.08)", color: "#F87171", border: "1px solid rgba(239,68,68,0.15)" }}>
+                                  <X className="w-2.5 h-2.5" />
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                onClick={() => (c.configFields.length > 0 ? openSocialConfig(c.name) : handleSocialToggle(c.name, true))}
+                                className="w-full py-1.5 rounded-lg text-[10px] font-medium flex items-center justify-center gap-1 transition-all"
+                                style={{ background: "rgba(185,255,75,0.08)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.15)" }}>
+                                <Plus className="w-2.5 h-2.5" /> Conectar
+                              </button>
+                            )}
+                          </motion.div>
+                        );
+                      })}
+                  </div>
+                </div>
+
               </div>
             )}
 
@@ -5963,10 +6085,19 @@ ${priorBlock}`;
         </div>
       )}
 
-      {/* ── Social Integration Config Modal ──────────────────── */}
+      {/* ── Integration Config Modal ─────────────────────────── */}
       {socialConfigModal && (() => {
-        const def = INTEGRATIONS_BASE.find(i => i.id === socialConfigModal);
-        if (!def) return null;
+        // look up in INTEGRATIONS_BASE (social) or CONNECTOR_DEFS (all others)
+        const socialDef = INTEGRATIONS_BASE.find(i => i.id === socialConfigModal);
+        const connDef   = CONNECTOR_DEFS.find(c => c.name === socialConfigModal);
+        const name      = socialDef?.name ?? connDef?.name ?? socialConfigModal;
+        const icon      = socialDef ? null : connDef?.icon;
+        const color     = socialDef?.color ?? "#B9FF4B";
+        const bg        = socialDef?.bg ?? "rgba(185,255,75,0.08)";
+        const border    = socialDef?.border ?? "rgba(185,255,75,0.15)";
+        const fields    = socialDef?.configFields ?? connDef?.configFields ?? [];
+        const IconComp  = socialDef?.Icon ?? null;
+        if (!socialDef && !connDef) return null;
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}>
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
@@ -5974,12 +6105,14 @@ ${priorBlock}`;
               style={{ background: "#13131A", border: "1px solid rgba(255,255,255,0.1)" }}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center"
-                    style={{ background: def.bg, border: `1px solid ${def.border}` }}>
-                    <def.Icon className="w-5 h-5" style={{ color: def.color }} />
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                    style={{ background: bg, border: `1px solid ${border}` }}>
+                    {IconComp
+                      ? <IconComp className="w-5 h-5" style={{ color }} />
+                      : icon}
                   </div>
                   <div>
-                    <h2 className="text-base font-bold" style={{ color: "rgba(255,255,255,0.9)" }}>{def.name}</h2>
+                    <h2 className="text-base font-bold" style={{ color: "rgba(255,255,255,0.9)" }}>{name}</h2>
                     <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.35)" }}>Configurações da integração</p>
                   </div>
                 </div>
@@ -5992,7 +6125,13 @@ ${priorBlock}`;
                 </button>
               </div>
 
-              {def.configFields.map(field => (
+              {fields.length === 0 && (
+                <p className="text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
+                  Credenciais configuradas via variáveis de ambiente no Supabase.
+                </p>
+              )}
+
+              {fields.map(field => (
                 <div key={field.key}>
                   <label className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.5)" }}>{field.label}</label>
                   <input
@@ -6014,7 +6153,7 @@ ${priorBlock}`;
                 </button>
                 <button onClick={saveSocialConfig} disabled={socialConfigSaving}
                   className="flex-1 py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 transition-all disabled:opacity-50"
-                  style={{ background: def.color, color: "#fff" }}>
+                  style={{ background: color, color: color === "#B9FF4B" ? "#07080A" : "#fff" }}>
                   {socialConfigSaving
                     ? <><RefreshCw className="w-4 h-4 animate-spin" /> Salvando…</>
                     : <><Save className="w-4 h-4" /> Salvar e Conectar</>}
