@@ -33,17 +33,36 @@ export default function InvitePage() {
 
   useEffect(() => {
     if (!token) { setStatus("invalid"); return; }
+
     fetch(EDGE_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "validate", token }),
     })
       .then(r => r.json())
-      .then(data => {
+      .then(async (data) => {
         if (data.error) { setStatus("invalid"); return; }
+
         setInvite(data);
         setEmail(data.member_email);
         setName(data.member_name ?? "");
+
+        // Se já existe sessão ativa, aceita o convite automaticamente
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          const res = await fetch(EDGE_URL, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ action: "accept", token, user_id: session.user.id }),
+          });
+          const result = await res.json();
+          if (!result.error) {
+            setStatus("done");
+            setTimeout(() => navigate(`/team-portal/${data.client_id}`), 1800);
+            return;
+          }
+        }
+
         setStatus("valid");
       })
       .catch(() => setStatus("invalid"));
@@ -58,7 +77,6 @@ export default function InvitePage() {
       if (mode === "register") {
         const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: name } } });
         if (error) { toast.error(error.message); setSaving(false); return; }
-        // Supabase returns a ghost user (identities=[]) when email already exists
         if (!data.user || (data.user.identities?.length ?? 0) === 0) {
           toast.error("Este e-mail já tem uma conta. Use 'Já tenho conta' para entrar.");
           setMode("login");
