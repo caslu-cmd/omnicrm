@@ -179,6 +179,15 @@ const MARKETING_TEAM = [
     color: "#B9FF4B",
     description: "Pesquisa tendências no Google Trends Brasil em tempo real — queries em alta, tópicos virais e ideias de conteúdo baseadas em dados reais",
   },
+  {
+    id: "rico",
+    name: "Rico",
+    role: "Prestação de Contas",
+    initial: "💰",
+    skill: "Receitas · Despesas · Relatório · Honorários",
+    color: "#10B981",
+    description: "Especialista em prestação de contas — calcula honorários, registra lançamentos, gera relatórios consolidados e compara períodos",
+  },
 ];
 
 const AGENT_OUTPUT_TYPE: Record<string, GeneratedOutput["type"]> = {
@@ -195,6 +204,7 @@ const AGENT_OUTPUT_TYPE: Record<string, GeneratedOutput["type"]> = {
   calendario: "plan",
   sales:      "report",
   ben:        "report",
+  rico:       "report",
 };
 
 // ── Prompts individuais por agente (orquestração sequencial) ─────────────
@@ -793,6 +803,16 @@ export default function ClientWorkspace() {
   const [wpTargetTab, setWpTargetTab] = useState<"grupos" | "contatos">("grupos");
   const [wpBlasting, setWpBlasting] = useState(false);
   const [wpBlastResult, setWpBlastResult] = useState<string | null>(null);
+  // Real courses from DB
+  const [dbCourses, setDbCourses] = useState<any[]>([]);
+  const [dbEnrollments, setDbEnrollments] = useState<Record<string, any[]>>({});
+  const [coursesLoading, setCoursesLoading] = useState(false);
+  const [showNewCourse, setShowNewCourse] = useState(false);
+  const [newCourseForm, setNewCourseForm] = useState({ title: "", description: "", level: "Básico" });
+  const [savingCourse, setSavingCourse] = useState(false);
+  const [showAddStudent, setShowAddStudent] = useState<string | null>(null);
+  const [newStudentForm, setNewStudentForm] = useState({ student_name: "", student_email: "", student_phone: "" });
+  const [addingStudent, setAddingStudent] = useState(false);
   // Certificate emission
   const [certCourseId, setCertCourseId] = useState<string | null>(null);
   const [certTemplate, setCertTemplate] = useState<string | null>(null);
@@ -1870,6 +1890,73 @@ ${priorBlock}`;
     }
   };
 
+  const loadDbCourses = async () => {
+    setCoursesLoading(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { setCoursesLoading(false); return; }
+    const { data: courses } = await (supabase as any)
+      .from("courses").select("*")
+      .eq("user_id", session.user.id).eq("client_id", id ?? "")
+      .order("created_at", { ascending: false });
+    if (courses) {
+      setDbCourses(courses);
+      const map: Record<string, any[]> = {};
+      await Promise.all(courses.map(async (c: any) => {
+        const { data: enr } = await (supabase as any).from("course_enrollments").select("*")
+          .eq("course_id", c.id).order("enrolled_at", { ascending: true });
+        map[c.id] = enr ?? [];
+      }));
+      setDbEnrollments(map);
+    }
+    setCoursesLoading(false);
+  };
+
+  const handleCreateCourse = async () => {
+    if (!newCourseForm.title.trim()) return;
+    setSavingCourse(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    await (supabase as any).from("courses").insert({
+      user_id: session.user.id, client_id: id ?? "",
+      title: newCourseForm.title, description: newCourseForm.description || null,
+      level: newCourseForm.level, status: "active",
+    });
+    setShowNewCourse(false);
+    setNewCourseForm({ title: "", description: "", level: "Básico" });
+    loadDbCourses();
+    toast.success("Curso criado!");
+    setSavingCourse(false);
+  };
+
+  const handleAddStudent = async (courseId: string) => {
+    if (!newStudentForm.student_name.trim()) return;
+    setAddingStudent(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    await (supabase as any).from("course_enrollments").insert({
+      course_id: courseId, user_id: session.user.id,
+      student_name: newStudentForm.student_name,
+      student_email: newStudentForm.student_email || null,
+      student_phone: newStudentForm.student_phone || null,
+    });
+    setShowAddStudent(null);
+    setNewStudentForm({ student_name: "", student_email: "", student_phone: "" });
+    loadDbCourses();
+    toast.success("Aluno adicionado!");
+    setAddingStudent(false);
+  };
+
+  const handleDeleteEnrollment = async (enrollmentId: string, courseId: string) => {
+    await (supabase as any).from("course_enrollments").delete().eq("id", enrollmentId);
+    setDbEnrollments(prev => ({ ...prev, [courseId]: (prev[courseId] ?? []).filter((e: any) => e.id !== enrollmentId) }));
+  };
+
+  const handleDeleteCourse = async (courseId: string) => {
+    await (supabase as any).from("courses").delete().eq("id", courseId);
+    setDbCourses(prev => prev.filter(c => c.id !== courseId));
+    toast.success("Curso removido");
+  };
+
   const selectedAgent = selectedAgentId
     ? (MARKETING_TEAM.find((a) => a.id === selectedAgentId) ?? null)
     : null;
@@ -2086,6 +2173,7 @@ ${priorBlock}`;
   useEffect(() => { if (id) loadDbContacts(); }, [id]);
 
   useEffect(() => { if (activeTab === "integrations" && id) fetchSocialIntegrations(); }, [activeTab, id]);
+  useEffect(() => { if (activeTab === "courses" && id) loadDbCourses(); }, [activeTab, id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Manter WhatsApp conectado: verifica status ao abrir a aba e a cada 30s
   useEffect(() => {
@@ -4457,7 +4545,7 @@ ${priorBlock}`;
                   })()}
 
                   <div className="flex flex-col gap-2.5 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:gap-3">
-                    {MARKETING_TEAM.map((agent, i) => {
+                    {MARKETING_TEAM.filter(a => a.id !== "rico" || id === "gnx").map((agent, i) => {
                       const task = client.agentTasks[agent.id];
                       const isWorking = task?.status === "trabalhando";
                       const isDone = task?.status === "concluído";
@@ -4581,22 +4669,24 @@ ${priorBlock}`;
                                 }}>
                                 {isViewing ? "▲ Fechar" : "Ver"}
                               </button>
-                              <button
-                                onClick={() => {
-                                  setSelectedAgentId(isSelected ? null : agent.id);
-                                  setViewingAgentId(null);
-                                  setAgentInstruction("");
-                                  clearAgentFile();
-                                }}
-                                className="px-2.5 py-1 rounded-lg text-[10px] font-semibold whitespace-nowrap"
-                                style={{
-                                  background: isSelected ? `${agent.color}22` : `${agent.color}08`,
-                                  color: agent.color,
-                                  border: `1px solid ${isSelected ? `${agent.color}45` : `${agent.color}20`}`,
-                                }}>
-                                {isSelected ? "▲ Fechar" : agent.id === "briefing" ? "Briefing" : "Instruir"}
-                              </button>
-                              {agent.id !== "briefing" && agent.id !== "tomas" && (
+                              {agent.id !== "rico" && (
+                                <button
+                                  onClick={() => {
+                                    setSelectedAgentId(isSelected ? null : agent.id);
+                                    setViewingAgentId(null);
+                                    setAgentInstruction("");
+                                    clearAgentFile();
+                                  }}
+                                  className="px-2.5 py-1 rounded-lg text-[10px] font-semibold whitespace-nowrap"
+                                  style={{
+                                    background: isSelected ? `${agent.color}22` : `${agent.color}08`,
+                                    color: agent.color,
+                                    border: `1px solid ${isSelected ? `${agent.color}45` : `${agent.color}20`}`,
+                                  }}>
+                                  {isSelected ? "▲ Fechar" : agent.id === "briefing" ? "Briefing" : "Instruir"}
+                                </button>
+                              )}
+                              {agent.id !== "briefing" && agent.id !== "tomas" && agent.id !== "rico" && (
                                 <button
                                   onClick={() => {
                                     setDraftAgent(agent);
@@ -4614,6 +4704,14 @@ ${priorBlock}`;
                                   className="px-2.5 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1 whitespace-nowrap"
                                   style={{ background: `${agent.color}12`, color: agent.color, border: `1px solid ${agent.color}25` }}>
                                   🖥️ Criar LP
+                                </button>
+                              )}
+                              {agent.id === "rico" && (
+                                <button
+                                  onClick={() => navigate("/conta-report")}
+                                  className="px-2.5 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1 whitespace-nowrap"
+                                  style={{ background: `${agent.color}18`, color: agent.color, border: `1px solid ${agent.color}40` }}>
+                                  💰 Abrir
                                 </button>
                               )}
                             </div>
@@ -5340,6 +5438,454 @@ ${priorBlock}`;
                 CURSOS
             ══════════════════════════════════════════════════════ */}
             {activeTab === "courses" && (
+              <div className="space-y-5">
+
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-base font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>Cursos</h2>
+                    <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>
+                      {dbCourses.length} curso{dbCourses.length !== 1 ? "s" : ""} · marque um grupo de contatos como curso para listá-lo aqui
+                    </p>
+                  </div>
+                  <button onClick={() => setShowNewCourse(v => !v)}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all"
+                    style={{ background: showNewCourse ? `${client.color}22` : `${client.color}12`, color: client.color, border: `1px solid ${client.color}30` }}>
+                    <Plus className="w-3.5 h-3.5" /> Novo curso
+                  </button>
+                </div>
+
+                {/* Novo curso form */}
+                <AnimatePresence>
+                  {showNewCourse && (
+                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                      transition={{ duration: 0.2 }} className="overflow-hidden">
+                      <div className="rounded-2xl p-4 space-y-3" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${client.color}30` }}>
+                        <p className="text-xs font-semibold" style={{ color: client.color }}>Novo Curso</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <input placeholder="Nome do curso *" value={newCourseForm.title}
+                            onChange={e => setNewCourseForm(p => ({ ...p, title: e.target.value }))}
+                            className="col-span-2 rounded-lg px-3 py-2 text-xs focus:outline-none"
+                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#F0F0F0" }} />
+                          <input placeholder="Descrição" value={newCourseForm.description}
+                            onChange={e => setNewCourseForm(p => ({ ...p, description: e.target.value }))}
+                            className="rounded-lg px-3 py-2 text-xs focus:outline-none"
+                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#F0F0F0" }} />
+                          <select value={newCourseForm.level} onChange={e => setNewCourseForm(p => ({ ...p, level: e.target.value }))}
+                            className="rounded-lg px-3 py-2 text-xs focus:outline-none"
+                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#F0F0F0" }}>
+                            {["Básico", "Intermediário", "Avançado"].map(l => <option key={l} value={l}>{l}</option>)}
+                          </select>
+                        </div>
+                        <div className="flex gap-2">
+                          <button onClick={handleCreateCourse} disabled={savingCourse || !newCourseForm.title.trim()}
+                            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-40"
+                            style={{ background: client.color, color: "#07080A" }}>
+                            {savingCourse ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Criar
+                          </button>
+                          <button onClick={() => setShowNewCourse(false)} className="px-3 py-2 rounded-xl text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>Cancelar</button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Loading */}
+                {coursesLoading && (
+                  <div className="flex items-center justify-center py-12 gap-3">
+                    <RefreshCw className="w-4 h-4 animate-spin" style={{ color: client.color }} />
+                    <span className="text-sm" style={{ color: "rgba(255,255,255,0.35)" }}>Carregando cursos…</span>
+                  </div>
+                )}
+
+                {/* Empty */}
+                {!coursesLoading && dbCourses.length === 0 && (
+                  <div className="rounded-2xl p-14 text-center" style={{ border: "1px dashed rgba(255,255,255,0.08)" }}>
+                    <GraduationCap className="w-10 h-10 mx-auto mb-4" style={{ color: "rgba(255,255,255,0.1)" }} />
+                    <p className="text-sm mb-1" style={{ color: "rgba(255,255,255,0.35)" }}>Nenhum curso criado ainda.</p>
+                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>Clique em "Novo curso" para começar.</p>
+                  </div>
+                )}
+
+                {/* Course list */}
+                {!coursesLoading && dbCourses.map((course) => {
+                  const students = dbEnrollments[course.id] ?? [];
+                  const isOpen = expandedCourse === course.id;
+                  const isCertOpen = certCourseId === course.id;
+
+                  return (
+                    <motion.div key={course.id} className="rounded-2xl overflow-hidden"
+                      style={{ background: "rgba(255,255,255,0.025)", border: `1px solid ${isOpen ? `${client.color}28` : "rgba(255,255,255,0.07)"}` }}>
+
+                      {/* Course header */}
+                      <div className="flex items-center gap-4 px-5 py-4">
+                        <button className="flex items-center gap-4 flex-1 text-left" onClick={() => setExpandedCourse(isOpen ? null : course.id)}>
+                          <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                            style={{ background: `${client.color}18`, border: `1px solid ${client.color}28` }}>
+                            <GraduationCap className="w-5 h-5" style={{ color: client.color }} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-0.5">
+                              <span className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.9)" }}>{course.title}</span>
+                              <span className="text-[10px] px-2 py-0.5 rounded-full font-medium"
+                                style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)" }}>{course.level}</span>
+                            </div>
+                            {course.description && (
+                              <p className="text-xs truncate" style={{ color: "rgba(255,255,255,0.35)" }}>{course.description}</p>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-5 flex-shrink-0">
+                            <div className="text-right">
+                              <div className="text-sm font-bold" style={{ color: client.color }}>{students.length}</div>
+                              <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>aluno{students.length !== 1 ? "s" : ""}</div>
+                            </div>
+                            <ChevronDown className="w-4 h-4 transition-transform flex-shrink-0"
+                              style={{ color: "rgba(255,255,255,0.3)", transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }} />
+                          </div>
+                        </button>
+
+                        {/* Action buttons always visible */}
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <button
+                            onClick={() => {
+                              setCertCourseId(isCertOpen ? null : course.id);
+                              if (!isCertOpen) {
+                                setCertTemplate(null); setCertPreview(null);
+                                setGeneratedCerts([]); setCertManualList([]);
+                                setCertStudentName(""); setExpandedCourse(course.id);
+                              }
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold transition-all"
+                            style={isCertOpen
+                              ? { background: "rgba(250,204,21,0.18)", color: "#FBBF24", border: "1px solid rgba(250,204,21,0.35)" }
+                              : { background: "rgba(250,204,21,0.08)", color: "#FBBF24", border: "1px solid rgba(250,204,21,0.2)" }}>
+                            <Award className="w-3.5 h-3.5" />
+                            Certificados
+                          </button>
+                          <button
+                            onClick={() => setShowAddStudent(showAddStudent === course.id ? null : course.id)}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold transition-all"
+                            style={{ background: `${client.color}10`, color: client.color, border: `1px solid ${client.color}25` }}>
+                            <Plus className="w-3 h-3" /> Aluno
+                          </button>
+                          <button onClick={() => handleDeleteCourse(course.id)}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
+                            style={{ background: "rgba(248,113,113,0.08)", color: "rgba(248,113,113,0.5)", border: "1px solid rgba(248,113,113,0.15)" }}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Add student form */}
+                      <AnimatePresence>
+                        {showAddStudent === course.id && (
+                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.18 }} className="overflow-hidden"
+                            style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                            <div className="px-5 py-4 space-y-2">
+                              <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: client.color }}>Adicionar aluno</p>
+                              <div className="grid grid-cols-3 gap-2">
+                                {[
+                                  { key: "student_name", ph: "Nome *" },
+                                  { key: "student_email", ph: "E-mail" },
+                                  { key: "student_phone", ph: "WhatsApp (ex: 5511999…)" },
+                                ].map(({ key, ph }) => (
+                                  <input key={key} placeholder={ph}
+                                    value={(newStudentForm as any)[key]}
+                                    onChange={e => setNewStudentForm(p => ({ ...p, [key]: e.target.value }))}
+                                    className="rounded-lg px-3 py-2 text-xs focus:outline-none"
+                                    style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#F0F0F0" }} />
+                                ))}
+                              </div>
+                              <div className="flex gap-2">
+                                <button onClick={() => handleAddStudent(course.id)} disabled={addingStudent || !newStudentForm.student_name.trim()}
+                                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold disabled:opacity-40"
+                                  style={{ background: client.color, color: "#07080A" }}>
+                                  {addingStudent ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />} Adicionar
+                                </button>
+                                <button onClick={() => setShowAddStudent(null)} className="px-3 py-2 rounded-xl text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>Cancelar</button>
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {/* Student list (expanded) */}
+                      <AnimatePresence>
+                        {isOpen && (
+                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }} className="overflow-hidden"
+                            style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                            <div className="px-5 py-4">
+                              {students.length === 0 ? (
+                                <div className="py-6 text-center">
+                                  <p className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>Nenhum aluno cadastrado ainda.</p>
+                                  <button onClick={() => setShowAddStudent(course.id)}
+                                    className="mt-2 text-xs font-semibold" style={{ color: client.color }}>
+                                    + Adicionar primeiro aluno
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  <div className="grid grid-cols-4 gap-2 px-1 pb-1">
+                                    {["Nome", "E-mail", "WhatsApp", ""].map(h => (
+                                      <div key={h} className="text-[9px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.25)" }}>{h}</div>
+                                    ))}
+                                  </div>
+                                  {students.map((s: any) => (
+                                    <div key={s.id} className="grid grid-cols-4 gap-2 items-center px-1 py-2 rounded-xl"
+                                      style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                                      <div className="flex items-center gap-2">
+                                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                                          style={{ background: `${client.color}20`, color: client.color }}>
+                                          {s.student_name.charAt(0).toUpperCase()}
+                                        </div>
+                                        <span className="text-[11px] font-medium truncate" style={{ color: "rgba(255,255,255,0.8)" }}>{s.student_name}</span>
+                                      </div>
+                                      <span className="text-[11px] truncate" style={{ color: "rgba(255,255,255,0.4)" }}>{s.student_email || "—"}</span>
+                                      <span className="text-[11px]" style={{ color: s.student_phone ? "#25D366" : "rgba(255,255,255,0.25)" }}>
+                                        {s.student_phone || "—"}
+                                      </span>
+                                      <div className="flex justify-end gap-1">
+                                        {s.student_phone && wpStatus === "connected" && (
+                                          <button
+                                            onClick={() => { setWpMessage(""); setWpSelectedContacts([s.student_phone]); setWpTargetTab("contatos"); setCrmView("whatsapp"); }}
+                                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold"
+                                            style={{ background: "rgba(37,211,102,0.1)", color: "#25D366", border: "1px solid rgba(37,211,102,0.2)" }}>
+                                            <MessageCircle className="w-2.5 h-2.5" /> WA
+                                          </button>
+                                        )}
+                                        <button onClick={() => handleDeleteEnrollment(s.id, course.id)}
+                                          className="w-6 h-6 flex items-center justify-center rounded-lg"
+                                          style={{ color: "rgba(248,113,113,0.4)" }}>
+                                          <X className="w-3 h-3" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {/* Certificate panel */}
+                      <AnimatePresence>
+                        {isCertOpen && (
+                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }} className="overflow-hidden"
+                            style={{ borderTop: "1px solid rgba(250,204,21,0.2)" }}>
+                            <div className="px-5 py-5 space-y-5">
+                              <div className="flex items-center gap-3">
+                                <Award className="w-4 h-4" style={{ color: "#FBBF24" }} />
+                                <p className="text-sm font-semibold" style={{ color: "#FBBF24" }}>Emissão de Certificados</p>
+                                <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>— envie o template, a ferramenta preenche o nome</span>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-6">
+                                {/* Esquerda: Template + Configuração */}
+                                <div className="space-y-4">
+                                  <div>
+                                    <label className="text-[10px] uppercase tracking-widest font-semibold block mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>
+                                      Template (PNG/JPG)
+                                    </label>
+                                    <label className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer"
+                                      style={{ background: certTemplate ? "rgba(250,204,21,0.06)" : "rgba(255,255,255,0.04)", border: certTemplate ? "1px solid rgba(250,204,21,0.3)" : "2px dashed rgba(255,255,255,0.12)" }}>
+                                      <input type="file" className="hidden" accept="image/*" onChange={handleCertTemplateUpload} />
+                                      <Award className="w-4 h-4 flex-shrink-0" style={{ color: certTemplate ? "#FBBF24" : "rgba(255,255,255,0.25)" }} />
+                                      <span className="text-[11px]" style={{ color: certTemplate ? "#FBBF24" : "rgba(255,255,255,0.3)" }}>
+                                        {certTemplate ? "✓ Template carregado — clique para trocar" : "Clique para enviar o template"}
+                                      </span>
+                                    </label>
+                                  </div>
+
+                                  {certTemplate && (
+                                    <>
+                                      <div className="space-y-3">
+                                        <label className="text-[10px] uppercase tracking-widest font-semibold block" style={{ color: "rgba(255,255,255,0.3)" }}>Posição do nome</label>
+                                        <div className="grid grid-cols-2 gap-3">
+                                          {[
+                                            { label: `Horizontal: ${certNameX}%`, state: certNameX, set: (v: number) => { setCertNameX(v); setCertPreview(null); } },
+                                            { label: `Vertical: ${certNameY}%`, state: certNameY, set: (v: number) => { setCertNameY(v); setCertPreview(null); } },
+                                            { label: `Fonte: ${certFontSize}px`, state: certFontSize, set: (v: number) => { setCertFontSize(v); setCertPreview(null); }, min: 20, max: 120 },
+                                          ].map((s, i) => (
+                                            <div key={i}>
+                                              <div className="text-[10px] mb-1" style={{ color: "rgba(255,255,255,0.4)" }}>{s.label}</div>
+                                              <input type="range" min={s.min ?? 5} max={s.max ?? 95} value={s.state}
+                                                onChange={e => s.set(+e.target.value)} className="w-full accent-yellow-400" />
+                                            </div>
+                                          ))}
+                                          <div>
+                                            <div className="text-[10px] mb-1" style={{ color: "rgba(255,255,255,0.4)" }}>Cor do texto</div>
+                                            <div className="flex items-center gap-2">
+                                              <input type="color" value={certFontColor}
+                                                onChange={e => { setCertFontColor(e.target.value); setCertPreview(null); }}
+                                                className="w-8 h-8 rounded cursor-pointer border-0 p-0" />
+                                              <span className="text-[10px] font-mono" style={{ color: "rgba(255,255,255,0.5)" }}>{certFontColor}</span>
+                                            </div>
+                                          </div>
+                                        </div>
+                                      </div>
+
+                                      <div>
+                                        <label className="text-[10px] uppercase tracking-widest font-semibold block mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>Pré-visualizar</label>
+                                        <div className="flex gap-2">
+                                          <input value={certStudentName} onChange={e => { setCertStudentName(e.target.value); setCertPreview(null); }}
+                                            placeholder="Digite um nome para testar…"
+                                            className="flex-1 px-3 py-2 rounded-lg text-xs focus:outline-none"
+                                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0" }} />
+                                          <button onClick={previewCert} disabled={!certStudentName.trim() || certGenerating}
+                                            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-semibold disabled:opacity-40"
+                                            style={{ background: "rgba(250,204,21,0.12)", color: "#FBBF24", border: "1px solid rgba(250,204,21,0.25)" }}>
+                                            {certGenerating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Eye className="w-3 h-3" />} Ver
+                                          </button>
+                                        </div>
+                                        {certPreview && (
+                                          <div className="mt-2 rounded-xl overflow-hidden" style={{ border: "1px solid rgba(250,204,21,0.2)" }}>
+                                            <img src={certPreview} alt="Preview" className="w-full" />
+                                            <div className="flex gap-2 p-2" style={{ background: "rgba(0,0,0,0.5)" }}>
+                                              <button onClick={() => downloadCert(certPreview!, certStudentName)}
+                                                className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] font-semibold"
+                                                style={{ background: "rgba(250,204,21,0.12)", color: "#FBBF24", border: "1px solid rgba(250,204,21,0.25)" }}>
+                                                <Download className="w-3 h-3" /> Baixar preview
+                                              </button>
+                                            </div>
+                                          </div>
+                                        )}
+                                      </div>
+                                    </>
+                                  )}
+                                </div>
+
+                                {/* Direita: Lista de alunos + geração em lote */}
+                                <div className="space-y-4">
+                                  <div>
+                                    <label className="text-[10px] uppercase tracking-widest font-semibold block mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>
+                                      Alunos do curso ({students.length})
+                                    </label>
+
+                                    {students.length === 0 ? (
+                                      <div className="py-4 text-center rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px dashed rgba(255,255,255,0.08)" }}>
+                                        <p className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>Nenhum aluno cadastrado.</p>
+                                        <button onClick={() => setShowAddStudent(course.id)} className="mt-1 text-xs font-semibold" style={{ color: client.color }}>+ Adicionar</button>
+                                      </div>
+                                    ) : (
+                                      <div className="space-y-1.5 max-h-40 overflow-y-auto mb-3">
+                                        {students.map((s: any) => (
+                                          <div key={s.id} className="flex items-center gap-2 px-3 py-2 rounded-lg"
+                                            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                                            <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                                              style={{ background: `${client.color}20`, color: client.color }}>
+                                              {s.student_name.charAt(0).toUpperCase()}
+                                            </div>
+                                            <span className="flex-1 text-[11px] truncate" style={{ color: "rgba(255,255,255,0.75)" }}>{s.student_name}</span>
+                                            {s.student_phone && <BadgeCheck className="w-3 h-3 flex-shrink-0" style={{ color: "#25D366" }} />}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {/* Adicionar nome manual */}
+                                    <div className="flex gap-2 mb-2">
+                                      <input value={certManualName} onChange={e => setCertManualName(e.target.value)}
+                                        onKeyDown={e => { if (e.key === "Enter" && certManualName.trim()) { setCertManualList(p => [...p, certManualName.trim()]); setCertManualName(""); } }}
+                                        placeholder="Nome extra (Enter para adicionar)"
+                                        className="flex-1 px-3 py-2 rounded-lg text-xs focus:outline-none"
+                                        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0" }} />
+                                      <button onClick={() => { if (certManualName.trim()) { setCertManualList(p => [...p, certManualName.trim()]); setCertManualName(""); } }}
+                                        className="px-3 py-2 rounded-lg text-[11px]"
+                                        style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                                        <Plus className="w-3 h-3" />
+                                      </button>
+                                    </div>
+                                    {certManualList.length > 0 && (
+                                      <div className="space-y-1 mb-3 max-h-24 overflow-y-auto">
+                                        {certManualList.map((name, i) => (
+                                          <div key={i} className="flex items-center justify-between px-3 py-1.5 rounded-lg"
+                                            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                                            <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.7)" }}>{name}</span>
+                                            <button onClick={() => setCertManualList(p => p.filter((_, j) => j !== i))} style={{ color: "rgba(255,255,255,0.3)" }}>
+                                              <X className="w-3 h-3" />
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
+
+                                    {certTemplate && (
+                                      <button onClick={() => generateAllCerts(course.id)} disabled={certGenerating || (students.length + certManualList.length === 0)}
+                                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40"
+                                        style={{ background: "#FBBF24", color: "#07080A", boxShadow: "0 0 20px -4px rgba(250,204,21,0.35)" }}>
+                                        {certGenerating
+                                          ? <><RefreshCw className="w-4 h-4 animate-spin" /> Gerando…</>
+                                          : <><Award className="w-4 h-4" /> Gerar {students.length + certManualList.length} certificado{(students.length + certManualList.length) !== 1 ? "s" : ""}</>}
+                                      </button>
+                                    )}
+                                    {!certTemplate && (
+                                      <p className="text-[11px] text-center py-2" style={{ color: "rgba(255,255,255,0.3)" }}>← Envie o template primeiro</p>
+                                    )}
+                                  </div>
+
+                                  {/* Certificados gerados */}
+                                  {generatedCerts.length > 0 && certCourseId === course.id && (
+                                    <div>
+                                      <label className="text-[10px] uppercase tracking-widest font-semibold block mb-2" style={{ color: "#34D399" }}>
+                                        ✓ {generatedCerts.length} certificado{generatedCerts.length !== 1 ? "s" : ""} gerado{generatedCerts.length !== 1 ? "s" : ""}
+                                      </label>
+                                      <div className="space-y-1.5 max-h-44 overflow-y-auto">
+                                        {generatedCerts.map((cert, i) => (
+                                          <div key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl"
+                                            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                                            <div className="w-8 h-6 rounded overflow-hidden flex-shrink-0" style={{ border: "1px solid rgba(250,204,21,0.2)" }}>
+                                              <img src={cert.dataUrl} alt={cert.name} className="w-full h-full object-cover" />
+                                            </div>
+                                            <span className="flex-1 text-[11px] font-medium truncate" style={{ color: "rgba(255,255,255,0.8)" }}>{cert.name}</span>
+                                            <div className="flex gap-1.5">
+                                              <button onClick={() => downloadCert(cert.dataUrl, cert.name)}
+                                                className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold"
+                                                style={{ background: "rgba(250,204,21,0.1)", color: "#FBBF24", border: "1px solid rgba(250,204,21,0.2)" }}>
+                                                <Download className="w-3 h-3" /> Baixar
+                                              </button>
+                                              {wpStatus === "connected" && (() => {
+                                                const st = students.find((s: any) => s.student_name === cert.name);
+                                                return st?.student_phone ? (
+                                                  <button onClick={() => sendCertViaWp(cert.dataUrl, st.student_phone, cert.name)}
+                                                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold"
+                                                    style={{ background: "rgba(37,211,102,0.1)", color: "#25D366", border: "1px solid rgba(37,211,102,0.2)" }}>
+                                                    <Send className="w-3 h-3" /> WA
+                                                  </button>
+                                                ) : null;
+                                              })()}
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                      <button onClick={() => generatedCerts.forEach(c => downloadCert(c.dataUrl, c.name))}
+                                        className="mt-2 w-full flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold"
+                                        style={{ background: "rgba(250,204,21,0.08)", color: "#FBBF24", border: "1px solid rgba(250,204,21,0.2)" }}>
+                                        <Download className="w-3.5 h-3.5" /> Baixar todos
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                    </motion.div>
+                  );
+                })}
+
+              </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════════
+                BLOCO ANTIGO REMOVIDO
+            ══════════════════════════════════════════════════════ */}
+            {false && (
               <div className="space-y-5">
                 {/* Header */}
                 <div className="flex items-center justify-between">

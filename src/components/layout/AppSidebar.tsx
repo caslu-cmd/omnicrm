@@ -7,7 +7,7 @@ import {
   HelpCircle, Shield, ChevronLeft, ChevronRight, Phone,
   Palette, Bell, Crown, ArrowLeftRight, Star,
   ArrowLeft, Megaphone, BarChart2, ExternalLink,
-  Bot, Activity, Link2, ListTodo, Share2, Clapperboard, Mic, CalendarDays, Webhook, Layout, TrendingUp
+  Bot, Activity, Link2, ListTodo, Share2, Clapperboard, Mic, CalendarDays, Webhook, Layout, TrendingUp, FileBarChart
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useIsAdmin } from "@/hooks/useAdmin";
@@ -190,7 +190,7 @@ export const AppSidebar = ({ collapsed, onToggle, hideToggle }: AppSidebarProps)
           <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
             {[
               ...clientTools,
-              ...(client.courses?.length ? [{ tab: "courses", icon: GraduationCap, label: "Cursos" }] : []),
+              { tab: "courses", icon: GraduationCap, label: "Cursos" },
             ].map((tool) => {
               const isActive = currentTab === tool.tab;
               const href = `/agency/clients/${client.id}${tool.tab ? `?tab=${tool.tab}` : ""}`;
