@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, type ReactElement } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -56,6 +56,15 @@ const Spinner = () => (
   </div>
 );
 
+// ── Guard para telas full-screen sem layout ───────────────────
+const FullScreen = ({ page }: { page: ReactElement }) => {
+  const { session, loading } = useAuth();
+  const location = useLocation();
+  if (loading) return <Spinner />;
+  if (!session) return <Navigate to="/entrar" state={{ from: location }} replace />;
+  return page;
+};
+
 // ── Rotas protegidas — exigem sessão ──────────────────────────
 const ProtectedRoutes = () => {
   const { session, loading } = useAuth();
@@ -97,8 +106,6 @@ const ProtectedRoutes = () => {
           <Route path="/ben" element={<BenPage />} />
           <Route path="*" element={<NotFound />} />
         </Route>
-        <Route path="/conta-report" element={<ContaReportPage />} />
-        <Route path="/conta-colaborador" element={<ContaColaboradorPage />} />
       </Routes>
       <AiAssistant />
     </>
@@ -157,6 +164,10 @@ const AppRoutes = () => (
     {/* Páginas legais */}
     <Route path="/privacy" element={<PrivacyPage />} />
     <Route path="/terms" element={<TermsPage />} />
+
+    {/* Telas exclusivas sem sidebar — exigem sessão */}
+    <Route path="/conta-report" element={<FullScreen page={<ContaReportPage />} />} />
+    <Route path="/conta-colaborador" element={<FullScreen page={<ContaColaboradorPage />} />} />
 
     {/* Tudo mais exige autenticação */}
     <Route path="*" element={<ProtectedRoutes />} />
