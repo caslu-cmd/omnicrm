@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
-import { TrendingUp, TrendingDown, Wallet, Receipt, ChevronDown, Loader2, Lock, User, Calendar } from "lucide-react";
+import {
+  TrendingUp, TrendingDown, Wallet, Receipt, ChevronDown,
+  Loader2, Lock, User, Calendar, Calculator, X,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -19,17 +22,116 @@ interface Relatorio {
 const fmt = (v: number) =>
   new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(v);
 
-const MESES = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun",
-                "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+const parseBRL = (s: string) => {
+  const n = parseFloat(s.replace(/\./g, "").replace(",", "."));
+  return isNaN(n) ? 0 : n;
+};
+
+// ── Calculadora de Honorários ─────────────────────────────────────────────────
+function CalcModal({
+  onClose,
+  prefill,
+}: {
+  onClose: () => void;
+  prefill?: MembroRelatorio | null;
+}) {
+  const [honorarios, setHonorarios]       = useState(String(prefill?.honorarios ?? ""));
+  const [despesas,   setDespesas]         = useState(String(prefill?.div_desp_escritorio ?? ""));
+  const [adiantamentos, setAdiantamentos] = useState(String(prefill?.adiantamentos ?? ""));
+  const [reembolsos, setReembolsos]       = useState(String(prefill?.reembolso ?? ""));
+
+  const h = parseBRL(honorarios);
+  const d = parseBRL(despesas);
+  const a = parseBRL(adiantamentos);
+  const r = parseBRL(reembolsos);
+  const total = h - d - a + r;
+
+  const numInput = (label: string, value: string, onChange: (v: string) => void, color: string) => (
+    <div className="space-y-1">
+      <label className="text-xs text-gray-500 font-medium">{label}</label>
+      <div className="relative">
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-600">R$</span>
+        <input
+          type="number"
+          step="0.01"
+          value={value}
+          onChange={e => onChange(e.target.value)}
+          placeholder="0,00"
+          className={cn(
+            "w-full bg-gray-800 border border-gray-700 rounded-xl pl-9 pr-3 py-2.5 text-sm focus:outline-none focus:border-emerald-500 transition-colors tabular-nums",
+            color
+          )}
+        />
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="w-full max-w-sm bg-gray-900 rounded-2xl border border-gray-800 shadow-2xl shadow-black/60 overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+              <Calculator className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-white">Calculadora</p>
+              <p className="text-xs text-gray-500">Verifique seus honorários</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-gray-600 hover:text-white transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Inputs */}
+        <div className="p-5 space-y-3">
+          {numInput("(+) Honorários brutos", honorarios, setHonorarios, "text-emerald-400")}
+          {numInput("(−) Rateio de despesas do escritório", despesas, setDespesas, "text-red-400")}
+          {numInput("(−) Adiantamentos", adiantamentos, setAdiantamentos, "text-amber-400")}
+          {numInput("(+) Reembolsos", reembolsos, setReembolsos, "text-blue-400")}
+
+          {/* Divisor */}
+          <div className="border-t border-gray-800 pt-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total a receber</span>
+              <span className={cn(
+                "text-2xl font-bold tabular-nums",
+                total >= 0 ? "text-emerald-400" : "text-red-400"
+              )}>
+                {fmt(total)}
+              </span>
+            </div>
+          </div>
+
+          {/* Breakdown */}
+          {(h > 0 || d > 0 || a > 0 || r > 0) && (
+            <div className="bg-gray-800/50 rounded-xl p-3 space-y-1.5 text-xs">
+              {h > 0 && <div className="flex justify-between"><span className="text-gray-500">Honorários</span><span className="text-emerald-400 tabular-nums">+ {fmt(h)}</span></div>}
+              {d > 0 && <div className="flex justify-between"><span className="text-gray-500">Rateio despesas</span><span className="text-red-400 tabular-nums">− {fmt(d)}</span></div>}
+              {a > 0 && <div className="flex justify-between"><span className="text-gray-500">Adiantamentos</span><span className="text-amber-400 tabular-nums">− {fmt(a)}</span></div>}
+              {r > 0 && <div className="flex justify-between"><span className="text-gray-500">Reembolsos</span><span className="text-blue-400 tabular-nums">+ {fmt(r)}</span></div>}
+            </div>
+          )}
+
+          <button
+            onClick={() => { setHonorarios(""); setDespesas(""); setAdiantamentos(""); setReembolsos(""); }}
+            className="w-full py-2 rounded-xl text-xs text-gray-600 hover:text-gray-400 hover:bg-gray-800 transition-all"
+          >
+            Limpar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ── Tela de seleção de membro ─────────────────────────────────────────────────
-function MemberSelect({
-  members, onSelect,
-}: { members: Member[]; onSelect: (m: Member) => void }) {
+function MemberSelect({ members, onSelect }: { members: Member[]; onSelect: (m: Member) => void }) {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-950 p-4">
       <div className="w-full max-w-sm space-y-6">
-        {/* Logo / Header */}
         <div className="text-center space-y-2">
           <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mx-auto">
             <span className="text-2xl">💰</span>
@@ -37,8 +139,6 @@ function MemberSelect({
           <h1 className="text-xl font-bold text-white">GNX · Colaboradores</h1>
           <p className="text-sm text-gray-400">Selecione seu nome para ver seus honorários</p>
         </div>
-
-        {/* Member list */}
         <div className="space-y-2">
           {members.filter(m => m.ativo).map(m => (
             <button
@@ -54,7 +154,6 @@ function MemberSelect({
             </button>
           ))}
         </div>
-
         <p className="text-center text-xs text-gray-600">
           Área restrita — acesso apenas para membros cadastrados
         </p>
@@ -70,6 +169,7 @@ function ColaboradorView({ member, periods }: { member: Member; periods: Period[
   );
   const [relatorio, setRelatorio] = useState<Relatorio | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showCalc, setShowCalc] = useState(false);
 
   useEffect(() => {
     if (!selectedPeriod) return;
@@ -86,17 +186,30 @@ function ColaboradorView({ member, periods }: { member: Member; periods: Period[
 
   return (
     <div className="min-h-screen bg-gray-950 p-4 sm:p-6">
-      <div className="max-w-lg mx-auto space-y-5">
+      {showCalc && (
+        <CalcModal onClose={() => setShowCalc(false)} prefill={meusDados} />
+      )}
 
+      <div className="max-w-lg mx-auto space-y-5">
         {/* Header */}
-        <div className="flex items-center gap-3 pt-2">
-          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
-            <User className="w-5 h-5 text-emerald-400" />
+        <div className="flex items-center justify-between pt-2">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+              <User className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-white">{member.nome}</h2>
+              <p className="text-xs text-gray-500">GNX · Prestação de Contas</p>
+            </div>
           </div>
-          <div>
-            <h2 className="text-base font-bold text-white">{member.nome}</h2>
-            <p className="text-xs text-gray-500">GNX · Prestação de Contas</p>
-          </div>
+          <button
+            onClick={() => setShowCalc(true)}
+            title="Calculadora de honorários"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gray-900 border border-gray-800 hover:border-emerald-500/30 hover:bg-emerald-500/5 text-gray-400 hover:text-emerald-400 text-xs font-medium transition-all"
+          >
+            <Calculator className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Calculadora</span>
+          </button>
         </div>
 
         {/* Period selector */}
@@ -130,7 +243,7 @@ function ColaboradorView({ member, periods }: { member: Member; periods: Period[
           </div>
         ) : (
           <>
-            {/* Total card — destaque */}
+            {/* Total card */}
             <div className={cn(
               "rounded-2xl p-5 border",
               meusDados.total >= 0
@@ -140,22 +253,30 @@ function ColaboradorView({ member, periods }: { member: Member; periods: Period[
               <p className="text-xs text-gray-400 uppercase tracking-wider font-medium mb-1">
                 Total a receber — {periodo?.descricao}
               </p>
-              <p className={cn(
-                "text-4xl font-bold tracking-tight",
-                meusDados.total >= 0 ? "text-emerald-400" : "text-red-400"
-              )}>
-                {fmt(meusDados.total)}
-              </p>
+              <div className="flex items-end justify-between gap-3">
+                <p className={cn(
+                  "text-4xl font-bold tracking-tight",
+                  meusDados.total >= 0 ? "text-emerald-400" : "text-red-400"
+                )}>
+                  {fmt(meusDados.total)}
+                </p>
+                <button
+                  onClick={() => setShowCalc(true)}
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-gray-900/60 border border-gray-700 text-xs text-gray-400 hover:text-emerald-400 hover:border-emerald-500/30 transition-all mb-0.5"
+                >
+                  <Calculator className="w-3 h-3" /> verificar
+                </button>
+              </div>
             </div>
 
             {/* Breakdown */}
             <div className="bg-gray-900 rounded-2xl border border-gray-800 divide-y divide-gray-800 overflow-hidden">
               {[
-                { label: "Honorários brutos", value: meusDados.honorarios, icon: TrendingUp, positive: true, color: "text-emerald-400" },
-                { label: "Despesas do escritório (rateio)", value: -meusDados.div_desp_escritorio, icon: TrendingDown, positive: false, color: "text-red-400" },
-                { label: "Adiantamentos", value: -meusDados.adiantamentos, icon: Receipt, positive: false, color: "text-orange-400" },
-                { label: "Reembolsos", value: meusDados.reembolso, icon: Wallet, positive: true, color: "text-blue-400" },
-              ].map(({ label, value, icon: Icon, color }) => (
+                { label: "Honorários brutos", value: meusDados.honorarios, icon: TrendingUp, color: "text-emerald-400", signal: "+" },
+                { label: "Despesas do escritório (rateio)", value: meusDados.div_desp_escritorio, icon: TrendingDown, color: "text-red-400", signal: "−" },
+                { label: "Adiantamentos", value: meusDados.adiantamentos, icon: Receipt, color: "text-amber-400", signal: "−" },
+                { label: "Reembolsos", value: meusDados.reembolso, icon: Wallet, color: "text-blue-400", signal: "+" },
+              ].map(({ label, value, icon: Icon, color, signal }) => (
                 value !== 0 && (
                   <div key={label} className="flex items-center justify-between px-4 py-3.5">
                     <div className="flex items-center gap-2.5">
@@ -163,14 +284,14 @@ function ColaboradorView({ member, periods }: { member: Member; periods: Period[
                       <span className="text-sm text-gray-300">{label}</span>
                     </div>
                     <span className={cn("text-sm font-semibold tabular-nums", color)}>
-                      {value >= 0 ? "+" : ""}{fmt(value)}
+                      {signal} {fmt(value)}
                     </span>
                   </div>
                 )
               ))}
             </div>
 
-            {/* History — últimos 3 períodos */}
+            {/* History */}
             {periods.length > 1 && (
               <PeriodoHistorico member={member} periods={periods.slice(0, 4)} currentPeriodId={selectedPeriod} />
             )}
@@ -226,7 +347,8 @@ function PeriodoHistorico({ member, periods, currentPeriodId }: {
             return (
               <div key={p.id} className="flex items-center justify-between">
                 <span className="text-sm text-gray-400">{p.descricao}</span>
-                <span className={cn("text-sm font-semibold tabular-nums", v === undefined ? "text-gray-600" : v >= 0 ? "text-emerald-400" : "text-red-400")}>
+                <span className={cn("text-sm font-semibold tabular-nums",
+                  v === undefined ? "text-gray-600" : v >= 0 ? "text-emerald-400" : "text-red-400")}>
                   {v === undefined ? "—" : fmt(v)}
                 </span>
               </div>
@@ -240,10 +362,10 @@ function PeriodoHistorico({ member, periods, currentPeriodId }: {
 
 // ── Página raiz ───────────────────────────────────────────────────────────────
 export default function ContaColaboradorPage() {
-  const [members, setMembers]       = useState<Member[] | null>(null);
-  const [periods, setPeriods]       = useState<Period[] | null>(null);
-  const [selected, setSelected]     = useState<Member | null>(null);
-  const [apiOnline, setApiOnline]   = useState<boolean | null>(null);
+  const [members, setMembers]     = useState<Member[] | null>(null);
+  const [periods, setPeriods]     = useState<Period[] | null>(null);
+  const [selected, setSelected]   = useState<Member | null>(null);
+  const [apiOnline, setApiOnline] = useState<boolean | null>(null);
 
   useEffect(() => {
     fetch(`${API}/healthz`)

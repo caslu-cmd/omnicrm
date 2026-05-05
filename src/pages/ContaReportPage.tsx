@@ -4,7 +4,7 @@ import {
   TrendingUp, TrendingDown, Receipt, Wallet, Plus, Trash2,
   FileBarChart, Bot, Loader2, Send, RefreshCw, ChevronDown,
   Users, Calendar, BarChart3, AlertCircle, CheckCircle2,
-  Lock, Eye, EyeOff, UserCircle2, Sparkles, Paperclip, X, FileText,
+  Lock, Eye, EyeOff, UserCircle2, Sparkles, Paperclip, X, FileText, Calculator,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -728,6 +728,109 @@ function AgentChat() {
   );
 }
 
+// ── Calculadora de Distribuição ───────────────────────────────────────────────
+const REGRAS_CALC: Record<string, { agencia: number; responsavel: number; captacao?: number; auxiliar?: number }> = {
+  "1": { agencia: 0.15, responsavel: 0.85 },
+  "2": { agencia: 0.20, captacao: 0.10, responsavel: 0.70 },
+  "3": { agencia: 0.15, captacao: 0.10, responsavel: 0.50, auxiliar: 0.25 },
+  "4": { agencia: 0.20, responsavel: 0.50, auxiliar: 0.30 },
+  "5": { agencia: 0.30, responsavel: 0.70 },
+};
+
+function DistribCalcModal({ onClose }: { onClose: () => void }) {
+  const [valor, setValor] = useState("");
+  const [regra, setRegra] = useState("1");
+
+  const v = parseFloat(valor) || 0;
+  const r = REGRAS_CALC[regra];
+
+  const rows = [
+    { label: "Agência", pct: r.agencia, color: "text-blue-400" },
+    ...(r.captacao    ? [{ label: "Captação",    pct: r.captacao,    color: "text-purple-400" }] : []),
+    ...(r.auxiliar    ? [{ label: "Auxiliar",    pct: r.auxiliar,    color: "text-amber-400"  }] : []),
+    { label: "Responsável", pct: r.responsavel, color: "text-emerald-400" },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+      <div className="w-full max-w-sm bg-gray-900 rounded-2xl border border-gray-800 shadow-2xl shadow-black/60 overflow-hidden">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+              <Calculator className="w-4 h-4 text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-white">Calc. de Distribuição</p>
+              <p className="text-xs text-gray-500">Simule o rateio de uma receita</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-gray-600 hover:text-white transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <div className="space-y-1">
+            <label className="text-xs text-gray-500 font-medium">Valor da receita (R$)</label>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-gray-600">R$</span>
+              <input
+                type="number" step="0.01" value={valor}
+                onChange={e => setValor(e.target.value)}
+                placeholder="0,00"
+                className="w-full bg-gray-800 border border-gray-700 rounded-xl pl-9 pr-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 transition-colors"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-xs text-gray-500 font-medium">Regra de distribuição</label>
+            <div className="relative">
+              <select
+                value={regra} onChange={e => setRegra(e.target.value)}
+                className="w-full appearance-none bg-gray-800 border border-gray-700 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-emerald-500 pr-8"
+              >
+                {Object.keys(REGRAS_CALC).map(k => (
+                  <option key={k} value={k}>Regra {k} — {REGRAS[k]}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute right-3 top-3 w-3.5 h-3.5 text-gray-500 pointer-events-none" />
+            </div>
+          </div>
+
+          {/* Resultado */}
+          <div className="bg-gray-800/50 rounded-xl overflow-hidden divide-y divide-gray-800/80">
+            {rows.map(({ label, pct, color }) => (
+              <div key={label} className="flex items-center justify-between px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <span className={cn("text-xs font-bold tabular-nums w-10", color)}>
+                    {(pct * 100).toFixed(0)}%
+                  </span>
+                  <span className="text-sm text-gray-300">{label}</span>
+                </div>
+                <span className={cn("text-sm font-bold tabular-nums", color)}>
+                  {fmt(v * pct)}
+                </span>
+              </div>
+            ))}
+            <div className="flex items-center justify-between px-4 py-3 bg-gray-800/60">
+              <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total</span>
+              <span className="text-sm font-bold text-white tabular-nums">{fmt(v)}</span>
+            </div>
+          </div>
+
+          <button
+            onClick={() => setValor("")}
+            className="w-full py-2 rounded-xl text-xs text-gray-600 hover:text-gray-400 hover:bg-gray-800 transition-all"
+          >
+            Limpar
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Gate de PIN ───────────────────────────────────────────────────────────────
 export default function ContaReportPage() {
   const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(SESSION_KEY) === "1");
@@ -739,6 +842,7 @@ export default function ContaReportPage() {
 function ContaReportContent() {
   const navigate = useNavigate();
   const [tab, setTab] = useState<Tab>("dashboard");
+  const [showCalc, setShowCalc] = useState(false);
   const [selectedPeriod, setSelectedPeriod] = useState<number | null>(null);
   const [showNewPeriod, setShowNewPeriod] = useState(false);
   const [newPeriod, setNewPeriod] = useState({ mes: "", ano: "", descricao: "" });
@@ -830,6 +934,7 @@ function ContaReportContent() {
 
   return (
     <div className="min-h-screen bg-gray-950 flex flex-col">
+      {showCalc && <DistribCalcModal onClose={() => setShowCalc(false)} />}
 
       {/* ── Header fixo ── */}
       <header className="sticky top-0 z-10 bg-gray-950/95 backdrop-blur border-b border-gray-800">
@@ -857,6 +962,16 @@ function ContaReportContent() {
                 <CheckCircle2 className="w-3 h-3" /> online
               </span>
             )}
+
+            {/* Calculadora */}
+            <button
+              onClick={() => setShowCalc(true)}
+              title="Calculadora de distribuição"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-400 hover:text-emerald-400 border border-gray-800 hover:border-emerald-500/30 transition-all"
+            >
+              <Calculator className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Calculadora</span>
+            </button>
 
             {/* Colaboradores */}
             <button
