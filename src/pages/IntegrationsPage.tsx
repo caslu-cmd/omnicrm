@@ -64,11 +64,14 @@ const IntegrationsPage = () => {
   const [selectedCategory, setSelectedCategory] = useState("Todos");
   const [search, setSearch] = useState("");
   const [integrations, setIntegrations] = useState<IntegrationRow[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [configModal, setConfigModal] = useState<string | null>(null);
   const [configValues, setConfigValues] = useState<Record<string, string>>({});
   const [zapiStatus, setZapiStatus] = useState<"idle" | "checking" | "ok" | "error">("idle");
   const [zapiDetail, setZapiDetail] = useState("");
+  const [zapiConnected, setZapiConnected] = useState(false);
+  const [zapiQr, setZapiQr] = useState<string | null>(null);
+  const [zapiQrLoading, setZapiQrLoading] = useState(false);
 
   const invoke = async (action: string, method: "GET" | "POST" = "GET", body?: unknown) => {
     const projectId = import.meta.env.VITE_SUPABASE_URL?.replace("https://", "").replace(".supabase.co", "") || "";
@@ -167,20 +170,31 @@ const IntegrationsPage = () => {
   const checkZapi = async () => {
     setZapiStatus("checking");
     setZapiDetail("");
+    setZapiQr(null);
     try {
-      const { data, error } = await supabase.functions.invoke("send-whatsapp", { body: { action: "check" } });
+      const { data, error } = await supabase.functions.invoke("whatsapp", { body: { action: "status" } });
       if (error) throw new Error(error.message);
-      if (data?.ok) {
-        setZapiStatus("ok");
-        setZapiDetail(data?.status?.connected ? "Número conectado ✓" : "Instância ativa, mas número não conectado — escaneie o QR no painel Zapi.");
+      setZapiStatus("ok");
+      setZapiConnected(!!data?.connected);
+      if (data?.connected) {
+        setZapiDetail(`Número conectado ✓${data.phone ? ` — ${data.phone}` : ""}`);
       } else {
-        setZapiStatus("error");
-        setZapiDetail("Instância não encontrada. Verifique Instance ID e Token.");
+        setZapiDetail("Instância ativa. Escaneie o QR code para vincular seu número.");
+        fetchZapiQr();
       }
     } catch (e: any) {
       setZapiStatus("error");
       setZapiDetail(e?.message ?? "Erro ao verificar conexão.");
     }
+  };
+
+  const fetchZapiQr = async () => {
+    setZapiQrLoading(true);
+    try {
+      const { data } = await supabase.functions.invoke("whatsapp", { body: { action: "qrcode" } });
+      setZapiQr(data?.qrcode ?? null);
+    } catch { setZapiQr(null); }
+    setZapiQrLoading(false);
   };
 
   if (loading) {
@@ -218,10 +232,11 @@ const IntegrationsPage = () => {
 
           // Card especial do Zapi
           if (c.name === "Zapi — WhatsApp") {
-            const ok = zapiStatus === "ok";
+            const isOk = zapiStatus === "ok";
+            const isConnectedPhone = isOk && zapiConnected;
             return (
-              <motion.div key={c.name} variants={item} whileHover={{ y: -2 }}
-                className={cn("rounded-xl border bg-card p-5 shadow-card hover:shadow-elevated transition-all", ok ? "border-green-500/30" : "border-border")}>
+              <motion.div key={c.name} variants={item}
+                className={cn("rounded-xl border bg-card p-5 shadow-card transition-all col-span-1", isConnectedPhone ? "border-green-500/40" : isOk ? "border-yellow-500/30" : "border-border")}>
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex items-center gap-3">
                     <span className="text-2xl">{c.icon}</span>
@@ -230,9 +245,14 @@ const IntegrationsPage = () => {
                       <span className="text-[11px] font-medium text-muted-foreground">{c.category}</span>
                     </div>
                   </div>
-                  {ok && (
+                  {isConnectedPhone && (
                     <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-green-500/10 text-green-500">
-                      <Wifi className="h-3 w-3" /> Ativo
+                      <Wifi className="h-3 w-3" /> Conectado
+                    </span>
+                  )}
+                  {isOk && !zapiConnected && (
+                    <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-yellow-500/10 text-yellow-400">
+                      <WifiOff className="h-3 w-3" /> Sem número
                     </span>
                   )}
                   {zapiStatus === "error" && (
@@ -242,22 +262,60 @@ const IntegrationsPage = () => {
                   )}
                 </div>
                 <p className="text-xs text-muted-foreground mb-3">{c.description}</p>
-                <p className="text-[11px] text-muted-foreground/60 mb-3">
-                  Credenciais configuradas via Supabase Secrets.
-                </p>
                 {zapiDetail && (
-                  <p className={cn("text-[11px] mb-3 font-medium", ok ? "text-green-500" : "text-red-400")}>{zapiDetail}</p>
+                  <p className={cn("text-[11px] mb-3 font-medium", isConnectedPhone ? "text-green-500" : isOk ? "text-yellow-400" : "text-red-400")}>{zapiDetail}</p>
                 )}
-                <button
-                  onClick={checkZapi}
-                  disabled={zapiStatus === "checking"}
-                  className="w-full py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
-                  style={{ background: ok ? "rgba(34,197,94,0.12)" : "rgba(185,255,75,0.15)", color: ok ? "#22c55e" : "#B9FF4B", border: `1px solid ${ok ? "rgba(34,197,94,0.3)" : "rgba(185,255,75,0.3)"}` }}
-                >
-                  {zapiStatus === "checking"
-                    ? <><Loader2 className="h-3 w-3 animate-spin" /> Verificando...</>
-                    : <><Wifi className="h-3 w-3" /> Verificar conexão</>}
-                </button>
+
+                {/* QR Code inline para vincular número */}
+                {isOk && !zapiConnected && (
+                  <div className="mb-3">
+                    {zapiQrLoading && (
+                      <div className="flex items-center justify-center py-6">
+                        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                      </div>
+                    )}
+                    {zapiQr && !zapiQrLoading && (
+                      <div className="flex flex-col items-center gap-2">
+                        <img src={zapiQr} alt="QR Code WhatsApp" className="w-40 h-40 rounded-lg border border-border" />
+                        <p className="text-[10px] text-muted-foreground text-center">Abra o WhatsApp → Dispositivos vinculados → Vincular dispositivo</p>
+                        <button onClick={fetchZapiQr} className="text-[10px] text-muted-foreground underline">Gerar novo QR</button>
+                      </div>
+                    )}
+                    {!zapiQr && !zapiQrLoading && (
+                      <div className="space-y-2">
+                        <button onClick={fetchZapiQr} className="w-full py-2 rounded-lg border border-yellow-500/30 text-yellow-400 text-xs font-semibold flex items-center justify-center gap-1.5">
+                          📱 Carregar QR Code
+                        </button>
+                        <a
+                          href="https://app.z-api.io"
+                          target="_blank"
+                          rel="noreferrer"
+                          className="w-full py-2 rounded-lg border border-border text-muted-foreground text-xs font-medium flex items-center justify-center gap-1.5 hover:text-foreground transition-colors"
+                        >
+                          🌐 Abrir painel Z-API
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={checkZapi}
+                    disabled={zapiStatus === "checking"}
+                    className="flex-1 py-2 rounded-lg text-xs font-semibold flex items-center justify-center gap-1.5 transition-all"
+                    style={{ background: isConnectedPhone ? "rgba(34,197,94,0.12)" : "rgba(185,255,75,0.15)", color: isConnectedPhone ? "#22c55e" : "#B9FF4B", border: `1px solid ${isConnectedPhone ? "rgba(34,197,94,0.3)" : "rgba(185,255,75,0.3)"}` }}
+                  >
+                    {zapiStatus === "checking"
+                      ? <><Loader2 className="h-3 w-3 animate-spin" /> Verificando...</>
+                      : <><Wifi className="h-3 w-3" /> {isConnectedPhone ? "Verificar" : "Verificar conexão"}</>}
+                  </button>
+                  {isConnectedPhone && (
+                    <button onClick={() => { setZapiStatus("idle"); setZapiConnected(false); setZapiDetail(""); setZapiQr(null); }} className="py-2 px-3 rounded-lg border border-border text-xs text-muted-foreground hover:text-foreground">
+                      <X className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
               </motion.div>
             );
           }

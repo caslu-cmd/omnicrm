@@ -162,10 +162,10 @@ const ContactsPage = () => {
     if (!waMessage.trim()) { toast.error("Digite uma mensagem."); return; }
     setWaSending(true);
     try {
-      const { data, error } = await supabase.functions.invoke("send-whatsapp", {
-        body: { phone: waContact.phone, message: waMessage.trim() },
+      const { data, error } = await supabase.functions.invoke("whatsapp", {
+        body: { action: "send", phone: waContact.phone, message: waMessage.trim() },
       });
-      if (error || !data?.ok) throw new Error(data?.data?.message ?? error?.message ?? "Erro ao enviar");
+      if (error) throw new Error(error?.message ?? "Erro ao enviar");
       toast.success(`Mensagem enviada para ${waContact.name}!`);
       setWaContact(null);
       setWaMessage("");

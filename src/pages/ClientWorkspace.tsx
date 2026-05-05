@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
@@ -213,6 +213,7 @@ const AGENT_CONFIG: Record<string, { maxTokens: number; thinking: boolean; think
   video:       { maxTokens: 6000,  thinking: false },
   calendario:  { maxTokens: 10000, thinking: true,  thinkingBudget: 6000  },
   tomas:       { maxTokens: 8000,  thinking: true,  thinkingBudget: 5000  },
+  laura:       { maxTokens: 10000, thinking: true,  thinkingBudget: 6000  },
 };
 
 const AGENT_PROMPTS: Record<string, string> = {
@@ -414,6 +415,34 @@ SUAS SKILLS — detecte automaticamente qual aplicar:
 • CALENDÁRIO EDITORIAL COMPLETO → entregue: pilares + arco narrativo de 3 meses + cronograma com marcos + diretrizes de tom e linguagem
 
 Analise profundamente o nicho e objetivos antes de criar. Entrega completa e pronta para executar. Português brasileiro.`,
+
+  laura: `Você é LAURA, Diretora Estratégica e Orquestradora da Calu Agência.
+Você recebe as entregas de todos os especialistas do time e sintetiza em um diagnóstico executivo final.
+
+Sua síntese deve cobrir obrigatoriamente:
+
+## 🎯 DIAGNÓSTICO EXECUTIVO
+Situação atual em 3-5 pontos críticos e objetivos — o que está funcionando, o que bloqueia o crescimento.
+
+## 💡 PRINCIPAIS ACHADOS DO TIME
+Um insight-chave de cada especialista que participou (cite o nome e o achado mais importante).
+
+## 🚀 PRIORIDADES IMEDIATAS — TOP 5 AÇÕES (30 dias)
+Tabela: | # | Ação | Responsável | Impacto esperado | Prazo
+
+## 📅 ROADMAP 90 DIAS
+Semana a semana: o que fazer em cada fase para atingir os objetivos.
+
+## 📊 KPIs DE SUCESSO
+Métricas específicas e metas numéricas para medir o progresso (ex: "Alcance orgânico: +40% em 60 dias").
+
+## ✅ PRÓXIMOS PASSOS IMEDIATOS
+O que começa AMANHÃ — lista de ações com responsável e formato (reunião, entrega, implementação).
+
+## 💬 MENSAGEM FINAL
+Uma mensagem motivacional personalizada para o cliente, reforçando o potencial identificado.
+
+Linguagem executiva, direta e orientada a resultado. Seja específica — cite números, nomes, ferramentas. Português brasileiro.`,
 };
 
 // ── CRM Pipeline Stages ────────────────────────────────────────
@@ -644,6 +673,7 @@ const AGENT_META: Record<string, { initial: string; color: string; name: string 
   bobby:      { initial: "🎬", color: "#B9FF4B", name: "Bobby" },
   pedro:      { initial: "P", color: "#2DD4BF", name: "Pedro" },
   calendario: { initial: "P", color: "#2DD4BF", name: "Pedro" },
+  laura:      { initial: "La", color: "#B9FF4B", name: "Laura" },
 };
 
 const normalizeImageAspectRatio = (ratio?: string) => {
@@ -754,7 +784,13 @@ export default function ClientWorkspace() {
   const [wpQr, setWpQr] = useState<string | null>(null);
   const [wpGroups, setWpGroups] = useState<{ id: string; name: string; participants: number }[]>([]);
   const [wpSelectedGroups, setWpSelectedGroups] = useState<string[]>([]);
+  const [wpSelectedContacts, setWpSelectedContacts] = useState<string[]>([]);
   const [wpMessage, setWpMessage] = useState("");
+  const [wpCaption, setWpCaption] = useState("");
+  const [wpMediaType, setWpMediaType] = useState<"text" | "image" | "video" | "audio">("text");
+  const [wpMediaData, setWpMediaData] = useState<string | null>(null);
+  const [wpMediaName, setWpMediaName] = useState("");
+  const [wpTargetTab, setWpTargetTab] = useState<"grupos" | "contatos">("grupos");
   const [wpBlasting, setWpBlasting] = useState(false);
   const [wpBlastResult, setWpBlastResult] = useState<string | null>(null);
   const [generatedImages, setGeneratedImages] = useState<Array<{id: string, imageData: string, mimeType: string, prompt: string, createdAt: string}>>([]);
@@ -1021,6 +1057,7 @@ export default function ClientWorkspace() {
   const [currentWave, setCurrentWave] = useState<number>(0);
   const [totalWaves, setTotalWaves] = useState<number>(0);
   const [agentWaves, setAgentWaves] = useState<Record<string, number>>({});
+  const [isDiagnosticMode, setIsDiagnosticMode] = useState(false);
   const [expandedMsg, setExpandedMsg] = useState<string | null>(null);
   const [expandedAgentOutput, setExpandedAgentOutput] = useState<string | null>(null);
   const [postCanvas, setPostCanvas] = useState<{ imageUrl: string; headline?: string; body?: string; cta?: string } | null>(null);
@@ -1181,6 +1218,9 @@ export default function ClientWorkspace() {
     setCurrentWave(1);
     setTotalWaves(1);
 
+    const isDiagnostic = /diagnos|diagnóst|análise completa|análise geral|full analysis/i.test(demand);
+    setIsDiagnosticMode(isDiagnostic);
+
     const ts = new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
     const userMsg: AgentMsg = { id: `u-${Date.now()}`, from: "user", to: "aria", content: demand || `[arquivo: ${attachedFile?.name}]`, timestamp: ts, status: "done" };
     addConvMsgs([userMsg]);
@@ -1324,7 +1364,14 @@ Responda APENAS JSON válido, sem markdown, sem texto extra:
         };
         if (id) updateClient(id, { agentTasks: workingTasks });
 
-        // (b) chama o agente individualmente
+        // (b) indicador de digitação
+        const typingMsgId = `${agentId}-typing-${Date.now()}`;
+        addConvMsgs([{
+          id: typingMsgId, from: agentId, to: "aria",
+          content: "", action: "typing", timestamp: nowTs(), status: "processing",
+        }]);
+
+        // (c) chama o agente individualmente
         const ctxBlock = `Cliente: ${clientContext.name} | Segmento: ${clientContext.industry} | Cor: ${clientContext.brandColor}
 Campanhas ativas: ${clientContext.campaigns.join(", ") || "nenhuma"}
 ${clientContext.teamInstructions ? `Instruções permanentes: ${clientContext.teamInstructions}` : ""}
@@ -1392,14 +1439,12 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
         });
         if (id) updateClient(id, { agentTasks: doneTasks });
 
-        // (e) primeiro parágrafo na conversa
+        // (e) substitui o typing indicator pela resposta real
         const firstPara = outputText.split(/\n\s*\n/)[0]?.replace(/^#+\s*/g, "").trim() ?? outputText;
-        addConvMsgs([{
-          id: `${agentId}-${Date.now()}`,
-          from: agentId, to: "aria",
+        updateConvMsg(typingMsgId, {
           content: firstPara.slice(0, 300) + (firstPara.length > 300 ? "…" : ""),
-          action: "respond", timestamp: nowTs(), status: "done",
-        }]);
+          action: "respond", status: "done",
+        });
       }
 
       // ━━━━━━━━━━ PASSO 4 — Handoff iterativo (até 2 ondas extras) ━━━━━━━━━━
@@ -1516,6 +1561,12 @@ Responda APENAS JSON:
           };
           if (id) updateClient(id, { agentTasks: workTasks });
 
+          const typingMsgId2 = `${agentId}-w${waveIndex}-typing-${Date.now()}`;
+          addConvMsgs([{
+            id: typingMsgId2, from: agentId, to: "aria",
+            content: "", action: "typing", timestamp: nowTs(), status: "processing",
+          }]);
+
           // contexto rico com TUDO que já foi entregue
           const priorBlock = Object.entries(accumulated)
             .map(([aId, txt]) => `\n--- Entrega de ${aId} ---\n${txt.slice(0, 1200)}`)
@@ -1576,12 +1627,10 @@ ${priorBlock}`;
           if (id) updateClient(id, { agentTasks: doneT });
 
           const fp = outText.split(/\n\s*\n/)[0]?.replace(/^#+\s*/g, "").trim() ?? outText;
-          addConvMsgs([{
-            id: `${agentId}-w${waveIndex}-${Date.now()}`,
-            from: agentId, to: "aria",
+          updateConvMsg(typingMsgId2, {
             content: fp.slice(0, 300) + (fp.length > 300 ? "…" : ""),
-            action: "respond", timestamp: nowTs(), status: "done",
-          }]);
+            action: "respond", status: "done",
+          });
         }
 
         waveIndex++;
@@ -1603,10 +1652,65 @@ ${priorBlock}`;
         updateClient(id, { outputs: [...(client.outputs ?? []), ...newOutputs] });
       }
 
+      // ━━━━━━━━━━ PASSO 6 — LAURA sintetiza (modo diagnóstico) ━━━━━━━━━━
+      if (isDiagnostic && Object.keys(accumulated).length > 0) {
+        const lauraTypingId = `laura-typing-${Date.now()}`;
+        addConvMsgs([{
+          id: lauraTypingId, from: "laura", to: "user",
+          content: "", action: "typing", timestamp: nowTs(), status: "processing",
+        }]);
+        try {
+          const allOutputs = Object.entries(accumulated)
+            .map(([aId, txt]) => `\n=== ${AGENT_META[aId]?.name ?? aId} ===\n${txt.slice(0, 1800)}`)
+            .join("\n");
+          const { data: lauraData } = await supabase.functions.invoke("chat-ai", {
+            body: {
+              systemPrompt: AGENT_PROMPTS.laura,
+              maxTokens: 10000,
+              enableThinking: true,
+              thinkingBudget: 6000,
+              messages: [{
+                role: "user",
+                content: `Demanda original: "${demand}"\nCliente: ${clientContext.name} | ${clientContext.industry}\n\nEntregas do time:\n${allOutputs}\n\nProduza a síntese executiva completa do diagnóstico.`,
+              }],
+            },
+          });
+          const lauraSynthesis = (lauraData?.content ?? "").trim();
+          const lauraFirstPara = lauraSynthesis.split(/\n\s*\n/)[0]?.replace(/^#+\s*/g, "").trim() ?? lauraSynthesis;
+          updateConvMsg(lauraTypingId, {
+            content: lauraFirstPara.slice(0, 500) + (lauraFirstPara.length > 500 ? "…" : ""),
+            action: "laura-synthesis", status: "done",
+          });
+          accumulated["laura"] = lauraSynthesis;
+          setAgentOutputs((prev) => ({ ...prev, laura: lauraSynthesis }));
+          if (id) {
+            const today = new Date();
+            const ds = `${String(today.getDate()).padStart(2, "0")}/${String(today.getMonth() + 1).padStart(2, "0")}`;
+            const lauraEntry: GeneratedOutput = {
+              id: `laura-${Date.now()}`,
+              name: `Laura — Síntese do Diagnóstico — ${demand.slice(0, 40)}`,
+              type: "analysis" as const,
+              agent: "laura",
+              createdAt: ds,
+              preview: lauraSynthesis.slice(0, 500),
+              status: "revisão" as const,
+            };
+            updateClient(id, { outputs: [...(client.outputs ?? []), lauraEntry] });
+          }
+        } catch (e) {
+          updateConvMsg(lauraTypingId, {
+            content: `Erro na síntese: ${e instanceof Error ? e.message : String(e)}`,
+            action: "respond", status: "error",
+          });
+        }
+      }
+
       addConvMsgs([{
         id: `aria-end-${Date.now()}`,
         from: "aria", to: "user",
-        content: `✅ ${alreadyRan.size} agente(s) concluíram em ${waveIndex} onda(s). Veja as entregas completas nos cards abaixo.`,
+        content: isDiagnostic
+          ? `✅ Diagnóstico completo! ${alreadyRan.size} especialistas + síntese da Laura. Veja as entregas nos cards abaixo.`
+          : `✅ ${alreadyRan.size} agente(s) concluíram em ${waveIndex} onda(s). Veja as entregas completas nos cards abaixo.`,
         action: "respond", timestamp: nowTs(), status: "done",
       }]);
     } catch (err) {
@@ -3692,16 +3796,31 @@ ${priorBlock}`;
                   </div>
                 )}
 
-                {/* ── Conversa do Time ── */}
+                {/* ── Conversa do Time / Sala de Diagnóstico ── */}
                 {agentConversations.length > 0 && (
-                  <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                    <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div className="rounded-2xl overflow-hidden" style={{
+                    background: isDiagnosticMode ? "rgba(185,255,75,0.02)" : "rgba(255,255,255,0.02)",
+                    border: isDiagnosticMode ? "1px solid rgba(185,255,75,0.15)" : "1px solid rgba(255,255,255,0.07)",
+                  }}>
+                    <div className="flex items-center justify-between px-5 py-3" style={{ borderBottom: isDiagnosticMode ? "1px solid rgba(185,255,75,0.12)" : "1px solid rgba(255,255,255,0.06)" }}>
                       <div className="flex items-center gap-2">
-                        <MessageCircle className="w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.3)" }} />
-                        <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>Conversa do Time</span>
+                        {isDiagnosticMode
+                          ? <span className="text-base">🔍</span>
+                          : <MessageCircle className="w-3.5 h-3.5" style={{ color: "rgba(255,255,255,0.3)" }} />}
+                        <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: isDiagnosticMode ? "#B9FF4B" : "rgba(255,255,255,0.3)" }}>
+                          {isDiagnosticMode ? "Sala de Diagnóstico — ao vivo" : "Conversa do Time"}
+                        </span>
                         <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B" }}>{agentConversations.length}</span>
+                        {isDiagnosticMode && ariaLoading && (
+                          <motion.span
+                            animate={{ opacity: [0.4, 1, 0.4] }} transition={{ repeat: Infinity, duration: 1.5 }}
+                            className="text-[10px] px-2 py-0.5 rounded-full font-bold"
+                            style={{ background: "rgba(185,255,75,0.15)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.3)" }}>
+                            ● ao vivo
+                          </motion.span>
+                        )}
                       </div>
-                      <button onClick={() => { setAgentConversations([]); setAgentOutputs({}); localStorage.removeItem(`agent-conv-${id}`); }}
+                      <button onClick={() => { setAgentConversations([]); setAgentOutputs({}); setIsDiagnosticMode(false); localStorage.removeItem(`agent-conv-${id}`); }}
                         className="text-[10px] transition-colors" style={{ color: "rgba(255,255,255,0.2)" }}
                         onMouseEnter={(e) => (e.currentTarget.style.color = "#F87171")}
                         onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.2)")}>
@@ -3710,6 +3829,78 @@ ${priorBlock}`;
                     </div>
                     <div className="p-4 space-y-3 max-h-[600px] overflow-y-auto">
                       {agentConversations.map((msg) => {
+                        // Indicador de digitação animado
+                        if (msg.action === "typing" || (msg.status === "processing" && msg.content === "")) {
+                          const typingMeta = AGENT_META[msg.from] ?? { initial: msg.from[0]?.toUpperCase(), color: "#B9FF4B", name: msg.from };
+                          return (
+                            <motion.div key={msg.id}
+                              initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}
+                              className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl"
+                              style={{ background: `${typingMeta.color}06`, border: `1px solid ${typingMeta.color}15` }}>
+                              <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0"
+                                style={{ background: `${typingMeta.color}20`, border: `1px solid ${typingMeta.color}40`, color: typingMeta.color }}>
+                                {typingMeta.initial}
+                              </div>
+                              <span className="text-[11px] font-semibold" style={{ color: typingMeta.color }}>{typingMeta.name}</span>
+                              <div className="flex gap-1 items-center ml-1">
+                                {[0, 1, 2].map((i) => (
+                                  <motion.div key={i}
+                                    className="w-1.5 h-1.5 rounded-full"
+                                    style={{ background: typingMeta.color }}
+                                    animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1.1, 0.8] }}
+                                    transition={{ delay: i * 0.18, repeat: Infinity, duration: 1 }} />
+                                ))}
+                              </div>
+                              <span className="text-[10px] ml-auto" style={{ color: "rgba(255,255,255,0.2)" }}>{msg.timestamp}</span>
+                            </motion.div>
+                          );
+                        }
+
+                        // Síntese especial da Laura
+                        if (msg.from === "laura" && msg.action === "laura-synthesis") {
+                          return (
+                            <motion.div key={msg.id}
+                              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                              transition={{ duration: 0.5 }}
+                              className="rounded-2xl overflow-hidden"
+                              style={{ background: "linear-gradient(135deg, rgba(185,255,75,0.07) 0%, rgba(185,255,75,0.02) 100%)", border: "2px solid rgba(185,255,75,0.3)" }}>
+                              <div className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: "1px solid rgba(185,255,75,0.18)", background: "rgba(185,255,75,0.05)" }}>
+                                <div className="w-10 h-10 rounded-full flex items-center justify-center text-[13px] font-black flex-shrink-0"
+                                  style={{ background: "rgba(185,255,75,0.2)", border: "2px solid rgba(185,255,75,0.5)", color: "#B9FF4B" }}>
+                                  La
+                                </div>
+                                <div>
+                                  <p className="text-sm font-bold" style={{ color: "#B9FF4B" }}>Laura — Orquestradora</p>
+                                  <p className="text-[10px]" style={{ color: "rgba(185,255,75,0.6)" }}>Síntese Executiva do Diagnóstico</p>
+                                </div>
+                                <div className="ml-auto flex items-center gap-2">
+                                  <span className="text-[10px] px-2 py-0.5 rounded-full font-bold"
+                                    style={{ background: "rgba(185,255,75,0.2)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.4)" }}>
+                                    ✦ Síntese Final
+                                  </span>
+                                  <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.2)" }}>{msg.timestamp}</span>
+                                </div>
+                              </div>
+                              <div className="px-5 py-4">
+                                <p className="text-sm leading-relaxed" style={{ color: "rgba(255,255,255,0.9)" }}>{msg.content}</p>
+                                {agentOutputs["laura"] && agentOutputs["laura"].length > (msg.content?.length ?? 0) + 10 && (
+                                  <button
+                                    onClick={() => setExpandedAgentOutput(expandedAgentOutput === "laura" ? null : "laura")}
+                                    className="mt-3 text-[12px] font-bold"
+                                    style={{ color: "#B9FF4B" }}>
+                                    {expandedAgentOutput === "laura" ? "↑ Recolher síntese" : "↓ Ver síntese executiva completa"}
+                                  </button>
+                                )}
+                                {expandedAgentOutput === "laura" && agentOutputs["laura"] && (
+                                  <div className="mt-3 text-xs leading-relaxed whitespace-pre-wrap" style={{ color: "rgba(255,255,255,0.8)" }}>
+                                    {agentOutputs["laura"]}
+                                  </div>
+                                )}
+                              </div>
+                            </motion.div>
+                          );
+                        }
+
                         // Divisor visual de Onda
                         if (msg.action === "wave-divider") {
                           return (
