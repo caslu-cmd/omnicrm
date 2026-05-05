@@ -58,7 +58,14 @@ export default function InvitePage() {
       if (mode === "register") {
         const { data, error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: name } } });
         if (error) { toast.error(error.message); setSaving(false); return; }
-        userId = data.user!.id;
+        // Supabase returns a ghost user (identities=[]) when email already exists
+        if (!data.user || (data.user.identities?.length ?? 0) === 0) {
+          toast.error("Este e-mail já tem uma conta. Use 'Já tenho conta' para entrar.");
+          setMode("login");
+          setSaving(false);
+          return;
+        }
+        userId = data.user.id;
       } else {
         const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) { toast.error(error.message); setSaving(false); return; }

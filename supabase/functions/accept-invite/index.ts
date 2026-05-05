@@ -42,6 +42,10 @@ Deno.serve(async (req) => {
     if (invErr || !invite) return fail("Convite inválido", 404);
     if (invite.accepted) return fail("Convite já aceito", 409);
 
+    // Verify user actually exists in auth.users before linking
+    const { data: authUser, error: authErr } = await db.auth.admin.getUserById(user_id);
+    if (authErr || !authUser?.user) return fail("Usuário não encontrado. Tente criar a conta novamente.", 400);
+
     const { error: updErr } = await db
       .from("client_members")
       .update({ member_user_id: user_id, accepted: true })
