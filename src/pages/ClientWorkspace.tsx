@@ -1689,7 +1689,7 @@ ${priorBlock}`;
             const lauraEntry: GeneratedOutput = {
               id: `laura-${Date.now()}`,
               name: `Laura — Síntese do Diagnóstico — ${demand.slice(0, 40)}`,
-              type: "analysis" as const,
+              type: "report" as const,
               agent: "laura",
               createdAt: ds,
               preview: lauraSynthesis.slice(0, 500),
