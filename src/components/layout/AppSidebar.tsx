@@ -10,8 +10,12 @@ import {
   Bot, Activity, Link2, ListTodo, Share2, Clapperboard, Mic, CalendarDays, Webhook, Layout, TrendingUp, FileBarChart
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useState } from "react";
+import { toast } from "sonner";
 import { useIsAdmin } from "@/hooks/useAdmin";
+import { useAuth } from "@/hooks/useAuth";
 import { useClients } from "@/contexts/ClientsContext";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AppSidebarProps {
   collapsed: boolean;
@@ -74,7 +78,35 @@ export const AppSidebar = ({ collapsed, onToggle, hideToggle }: AppSidebarProps)
   const location = useLocation();
   const navigate = useNavigate();
   const { isAdmin } = useIsAdmin();
+  const { user } = useAuth();
   const { clients: CLIENTS } = useClients();
+  const [openingPortal, setOpeningPortal] = useState(false);
+
+  const openClientPortal = async (clientName: string, clientIndustry: string, clientStatus: string) => {
+    if (!user) { toast.error("Você precisa estar logado."); return; }
+    setOpeningPortal(true);
+    try {
+      const { data: existing } = await supabase
+        .from("clients")
+        .select("portal_token")
+        .eq("user_id", user.id)
+        .eq("name", clientName)
+        .maybeSingle();
+      if (existing?.portal_token) {
+        window.open(`/portal/${existing.portal_token}`, "_blank");
+        return;
+      }
+      const { data: created, error } = await supabase
+        .from("clients")
+        .insert({ user_id: user.id, name: clientName, segment: clientIndustry ?? null, status: clientStatus === "Ativo" ? "active" : "onboarding" })
+        .select("portal_token")
+        .single();
+      if (error || !created?.portal_token) { toast.error("Erro ao gerar link do portal."); return; }
+      window.open(`/portal/${created.portal_token}`, "_blank");
+    } finally {
+      setOpeningPortal(false);
+    }
+  };
 
   // Detect context
   const clientMatch = location.pathname.match(/^\/agency\/clients\/([^/]+)/);
@@ -233,16 +265,19 @@ export const AppSidebar = ({ collapsed, onToggle, hideToggle }: AppSidebarProps)
           {/* Portal link */}
           {!collapsed && (
             <div className="border-t border-sidebar-border p-3">
-              <NavLink
-                to="/portal"
-                className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
-                style={{ color: "rgba(255,255,255,0.35)" }}
-                onMouseEnter={(e) => (e.currentTarget.style.color = client.color)}
+              <button
+                onClick={() => openClientPortal(client.name, client.industry, client.status)}
+                disabled={openingPortal}
+                className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors"
+                style={{ color: "rgba(255,255,255,0.35)", opacity: openingPortal ? 0.5 : 1 }}
+                onMouseEnter={(e) => { if (!openingPortal) e.currentTarget.style.color = client.color; }}
                 onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.35)")}
               >
-                <ExternalLink className="h-4 w-4" />
+                {openingPortal
+                  ? <div className="h-4 w-4 rounded-full border-2 border-current border-t-transparent animate-spin flex-shrink-0" />
+                  : <ExternalLink className="h-4 w-4 flex-shrink-0" />}
                 <span className="truncate">Portal do cliente</span>
-              </NavLink>
+              </button>
             </div>
           )}
         </motion.div>

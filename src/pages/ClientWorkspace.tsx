@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { CLIENTS, GeneratedOutput } from "@/data/agencyData";
 import { useClients } from "@/contexts/ClientsContext";
+import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import PostCanvas from "@/components/PostCanvas";
 import SocialMediaTab from "@/components/SocialMediaTab";
@@ -748,6 +749,8 @@ export default function ClientWorkspace() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") ?? "";
+  const { user } = useAuth();
+  const [openingPortal, setOpeningPortal] = useState(false);
   const [tasks, setTasks] = useState(MOCK_TASKS_TEMPLATE);
   const [crmView, setCrmView] = useState<"contacts" | "pipeline" | "approvals" | "insights" | "whatsapp">("contacts");
   const [contactSearch, setContactSearch] = useState("");
@@ -2340,6 +2343,32 @@ ${priorBlock}`;
     ? Math.round((wonDeals / client.pipeline.length) * 100)
     : 0;
 
+  const handleOpenPortal = async () => {
+    if (!user) { toast.error("Você precisa estar logado."); return; }
+    setOpeningPortal(true);
+    try {
+      const { data: existing } = await supabase
+        .from("clients")
+        .select("portal_token")
+        .eq("user_id", user.id)
+        .eq("name", client.name)
+        .maybeSingle();
+      if (existing?.portal_token) {
+        window.open(`/portal/${existing.portal_token}`, "_blank");
+        return;
+      }
+      const { data: created, error } = await supabase
+        .from("clients")
+        .insert({ user_id: user.id, name: client.name, segment: client.industry ?? null, status: client.status === "Ativo" ? "active" : "onboarding" })
+        .select("portal_token")
+        .single();
+      if (error || !created?.portal_token) { toast.error("Erro ao gerar link do portal."); return; }
+      window.open(`/portal/${created.portal_token}`, "_blank");
+    } finally {
+      setOpeningPortal(false);
+    }
+  };
+
   return (
     <div className="min-h-full flex flex-col text-white" style={{ background: "#080810" }}>
 
@@ -2390,10 +2419,13 @@ ${priorBlock}`;
             onMouseLeave={(e) => { e.currentTarget.style.color = "rgba(255,255,255,0.45)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.09)"; }}>
             <Pencil className="w-3 h-3" /> Editar cliente
           </button>
-          <button onClick={() => window.open(`/portal/${client.id}`, "_blank")}
+          <button onClick={handleOpenPortal} disabled={openingPortal}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
-            style={{ background: `${client.color}18`, color: client.color, border: `1px solid ${client.color}30` }}>
-            <ExternalLink className="w-3 h-3" /> Ver portal do cliente
+            style={{ background: `${client.color}18`, color: client.color, border: `1px solid ${client.color}30`, opacity: openingPortal ? 0.6 : 1 }}>
+            {openingPortal
+              ? <div className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
+              : <ExternalLink className="w-3 h-3" />}
+            Ver portal do cliente
           </button>
         </div>
 
