@@ -1260,9 +1260,14 @@ export default function ClientWorkspace() {
     const lines: string[] = [];
     if (b) {
       lines.push("=== BRIEFING DO CLIENTE ===");
+      if (b.empresa)         lines.push(`Empresa: ${b.empresa}`);
+      if (b.segmento)        lines.push(`Segmento/Setor: ${b.segmento}`);
+      if (b.tempoMercado)    lines.push(`Tempo de Mercado: ${b.tempoMercado}`);
+      if (b.faturamento)     lines.push(`Faturamento: ${b.faturamento}`);
       if (b.produtos)        lines.push(`Produtos/Serviços: ${b.produtos}`);
       if (b.clienteIdeal)    lines.push(`Cliente Ideal: ${b.clienteIdeal}`);
       if (b.faixaEtaria)     lines.push(`Faixa Etária: ${b.faixaEtaria}`);
+      if (b.canaisPublico?.length) lines.push(`Canais onde o público está: ${b.canaisPublico.join(", ")}`);
       if (b.dorPrincipal)    lines.push(`Principal Dor: ${b.dorPrincipal}`);
       if (b.diferencial)     lines.push(`Diferencial: ${b.diferencial}`);
       if (b.concorrentes)    lines.push(`Concorrentes: ${b.concorrentes}`);
@@ -1279,7 +1284,7 @@ export default function ClientWorkspace() {
       // diagnosis excerpt
       try {
         const diag = localStorage.getItem(`client-briefing-diagnosis-${id}`);
-        if (diag) lines.push(`\nDIAGNÓSTICO (resumo):\n${diag.slice(0, 1200)}`);
+        if (diag) lines.push(`\nDIAGNÓSTICO (resumo):\n${diag.slice(0, 2500)}`);
       } catch {}
     }
     if (extra) lines.push(extra);
@@ -1303,7 +1308,8 @@ export default function ClientWorkspace() {
       const isPostAgent = ["social", "copywriter"].includes(agentId);
       const { data: { session } } = await supabase.auth.getSession();
       const agentUserId = session?.user?.id ?? null;
-      const ctxBase = `Cliente: ${client.name} | Segmento: ${client.industry} | Cor: ${client.color}${client.teamInstructions ? `\nInstruções permanentes: ${client.teamInstructions}` : ""}`;
+      const segmentoSingle = clientBriefing?.segmento || client.industry;
+      const ctxBase = `Cliente: ${client.name} | Segmento: ${segmentoSingle} | Cor: ${client.color}${client.teamInstructions ? `\nInstruções permanentes: ${client.teamInstructions}` : ""}`;
       const briefingBlock = buildBriefingBlock();
       const { data: agData, error: agErr } = await supabase.functions.invoke("chat-ai", {
         body: {
@@ -1353,10 +1359,11 @@ export default function ClientWorkspace() {
       const isPostAgent = ["social", "copywriter"].includes(agentId);
       const { data: { session } } = await supabase.auth.getSession();
       const agentUserId = session?.user?.id ?? null;
+      const segmento = clientBriefing?.segmento || client.industry;
       const systemWithCtx = `${AGENT_PROMPTS[agentId] ?? `Você é ${agent?.name}, ${agent?.role} da Calu Agência.`}
 
 CONTEXTO DO CLIENTE:
-Cliente: ${client.name} | Segmento: ${client.industry}${client.teamInstructions ? `\nInstruções permanentes: ${client.teamInstructions}` : ""}${buildBriefingBlock()}`;
+Cliente: ${client.name} | Segmento: ${segmento}${client.teamInstructions ? `\nInstruções permanentes: ${client.teamInstructions}` : ""}${buildBriefingBlock()}`;
       const { data: agData, error: agErr } = await supabase.functions.invoke("chat-ai", {
         body: {
           systemPrompt: systemWithCtx,
@@ -1396,7 +1403,7 @@ Cliente: ${client.name} | Segmento: ${client.industry}${client.teamInstructions 
     addConvMsgs([userMsg]);
 
     const clientContext = {
-      name: client.name, industry: client.industry, brandColor: client.color,
+      name: client.name, industry: clientBriefing?.segmento || client.industry, brandColor: client.color,
       campaigns: client.activeCampaigns?.map((c) => c.name) ?? [],
       recentThemes: client.recentPosts?.map((p) => p.caption.slice(0, 80)) ?? [],
       nextAction: client.nextAction,
