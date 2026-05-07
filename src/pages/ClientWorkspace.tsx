@@ -12,7 +12,7 @@ import {
   UserCheck, PhoneCall, MessageSquare as MsgSq, BadgeCheck,
   Paperclip, X, Palette, PenLine, BarChart3, Layout, Table2, AtSign,
   Target, ArrowRight, Repeat2, MousePointerClick, Filter, Trash2, Mic, MicOff, StopCircle,
-  Save, Settings2, Award, Download,
+  Save, Settings2, Award, Download, Loader2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
@@ -752,7 +752,11 @@ export default function ClientWorkspace() {
   const { user } = useAuth();
   const [openingPortal, setOpeningPortal] = useState(false);
   const [tasks, setTasks] = useState(MOCK_TASKS_TEMPLATE);
-  const [crmView, setCrmView] = useState<"contacts" | "pipeline" | "approvals" | "insights" | "whatsapp">("contacts");
+  const [crmView, setCrmView] = useState<"contacts" | "pipeline" | "approvals" | "insights" | "whatsapp" | "deliverables">("contacts");
+  const [deliverables, setDeliverables] = useState<any[]>([]);
+  const [delivLoading, setDelivLoading] = useState(false);
+  const [delivForm, setDelivForm] = useState({ category: "", description: "", done_at: new Date().toISOString().slice(0, 10), visible_to_client: true });
+  const [savingDeliv, setSavingDeliv] = useState(false);
   const [contactSearch, setContactSearch] = useState("");
   const [activeSegment, setActiveSegment] = useState<string>("Todos");
   const [dbContacts, setDbContacts] = useState<any[]>([]);
@@ -2384,6 +2388,35 @@ ${priorBlock}`;
 
   useEffect(() => { if (id) loadProposals(); }, [id]);
 
+  const loadDeliverables = async () => {
+    if (!id) return;
+    setDelivLoading(true);
+    const { data } = await (supabase as any).from("client_deliverables").select("*").eq("client_id", id).order("done_at", { ascending: false });
+    if (data) setDeliverables(data);
+    setDelivLoading(false);
+  };
+
+  const saveDeliverable = async (category: string, description: string, doneAt: string, visible: boolean) => {
+    if (!id || !description.trim()) return;
+    setSavingDeliv(true);
+    const { data } = await (supabase as any).from("client_deliverables").insert({ client_id: id, category, description: description.trim(), done_at: doneAt, visible_to_client: visible }).select().single();
+    if (data) setDeliverables((prev) => [data, ...prev]);
+    setSavingDeliv(false);
+    setDelivForm({ category: "", description: "", done_at: new Date().toISOString().slice(0, 10), visible_to_client: true });
+  };
+
+  const toggleDelivVisible = async (delivId: string, current: boolean) => {
+    await (supabase as any).from("client_deliverables").update({ visible_to_client: !current }).eq("id", delivId);
+    setDeliverables((prev) => prev.map((d) => d.id === delivId ? { ...d, visible_to_client: !current } : d));
+  };
+
+  const deleteDeliv = async (delivId: string) => {
+    await (supabase as any).from("client_deliverables").delete().eq("id", delivId);
+    setDeliverables((prev) => prev.filter((d) => d.id !== delivId));
+  };
+
+  useEffect(() => { if (id) loadDeliverables(); }, [id]);
+
   // Check if client submitted a briefing via the shareable link
   useEffect(() => {
     if (!id || clientBriefing) return;
@@ -2947,11 +2980,12 @@ ${priorBlock}`;
                 <div className="flex gap-1 p-1 rounded-xl w-fit"
                   style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
                   {([
-                    ["contacts",  "Leads"],
-                    ["pipeline",  "Pipeline"],
-                    ["approvals", `Aprovações${(pendingPosts.length + agentProposals.length) > 0 ? ` (${pendingPosts.length + agentProposals.length})` : ""}`],
-                    ["insights",  "Insights IA"],
-                    ["whatsapp",  "📲 WhatsApp"],
+                    ["contacts",     "Leads"],
+                    ["pipeline",     "Pipeline"],
+                    ["approvals",    `Aprovações${(pendingPosts.length + agentProposals.length) > 0 ? ` (${pendingPosts.length + agentProposals.length})` : ""}`],
+                    ["deliverables", "Entregas"],
+                    ["insights",     "Insights IA"],
+                    ["whatsapp",     "📲 WhatsApp"],
                   ] as const).map(([v, label]) => (
                     <button key={v} onClick={() => setCrmView(v as any)}
                       className="px-4 py-1.5 rounded-lg text-xs font-medium transition-all relative"
@@ -3351,6 +3385,123 @@ ${priorBlock}`;
                     </div>{/* end posts section */}
                   </div>
                 )}
+
+                {/* ── ENTREGAS ── */}
+                {crmView === "deliverables" && (() => {
+                  const PRESETS = [
+                    { category: "social",    label: "📝 Post publicado" },
+                    { category: "story",     label: "📱 Story publicado" },
+                    { category: "video",     label: "🎬 Vídeo editado" },
+                    { category: "arte",      label: "🎨 Arte criada" },
+                    { category: "copy",      label: "✍️ Copy/Legenda" },
+                    { category: "email",     label: "📧 E-mail marketing" },
+                    { category: "relatorio", label: "📊 Relatório mensal" },
+                    { category: "reuniao",   label: "🤝 Reunião" },
+                    { category: "trafego",   label: "🎯 Campanha tráfego" },
+                    { category: "calendario",label: "📅 Calendário editorial" },
+                    { category: "estrategia",label: "💡 Planejamento estratégico" },
+                    { category: "outro",     label: "➕ Outro" },
+                  ];
+                  return (
+                  <div className="space-y-5">
+                    {/* Header */}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>Registro de Entregas</p>
+                        <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>
+                          {deliverables.filter(d => d.visible_to_client).length} visíveis ao cliente · {deliverables.length} total
+                        </p>
+                      </div>
+                      <button onClick={loadDeliverables} disabled={delivLoading} className="p-1.5 rounded-lg transition-all disabled:opacity-40" style={{ color: "rgba(255,255,255,0.3)" }}>
+                        <RefreshCw className={`w-4 h-4 ${delivLoading ? "animate-spin" : ""}`} />
+                      </button>
+                    </div>
+
+                    {/* Presets (quick add) */}
+                    <div className="rounded-2xl p-4 space-y-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                      <p className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.5)" }}>Selecione o que foi entregue</p>
+                      <div className="flex flex-wrap gap-2">
+                        {PRESETS.map((p) => (
+                          <button key={p.category}
+                            onClick={() => setDelivForm((f) => ({ ...f, category: p.category, description: p.label.replace(/^[^\s]+\s/, "") }))}
+                            className="px-3 py-1.5 rounded-xl text-xs font-medium transition-all"
+                            style={delivForm.category === p.category
+                              ? { background: `${client.color}25`, color: client.color, border: `1px solid ${client.color}40` }
+                              : { background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.55)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                            {p.label}
+                          </button>
+                        ))}
+                      </div>
+
+                      {/* Form */}
+                      <div className="space-y-2 pt-1">
+                        <input
+                          value={delivForm.description}
+                          onChange={(e) => setDelivForm((f) => ({ ...f, description: e.target.value }))}
+                          placeholder="Descrição da entrega (ex: 3 posts feed setembro)…"
+                          className="w-full rounded-xl px-3 py-2 text-xs focus:outline-none"
+                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.85)" }}
+                        />
+                        <div className="flex items-center gap-2">
+                          <input type="date" value={delivForm.done_at}
+                            onChange={(e) => setDelivForm((f) => ({ ...f, done_at: e.target.value }))}
+                            className="flex-1 rounded-xl px-3 py-2 text-xs focus:outline-none"
+                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.7)", colorScheme: "dark" }} />
+                          <button
+                            onClick={() => setDelivForm((f) => ({ ...f, visible_to_client: !f.visible_to_client }))}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all"
+                            style={delivForm.visible_to_client
+                              ? { background: "rgba(185,255,75,0.12)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.2)" }
+                              : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.35)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                            <Eye className="w-3.5 h-3.5" />
+                            {delivForm.visible_to_client ? "Visível ao cliente" : "Oculto"}
+                          </button>
+                          <button
+                            onClick={() => saveDeliverable(delivForm.category, delivForm.description, delivForm.done_at, delivForm.visible_to_client)}
+                            disabled={savingDeliv || !delivForm.description.trim()}
+                            className="px-4 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-40"
+                            style={{ background: client.color, color: "#07080A" }}>
+                            {savingDeliv ? "Salvando…" : "Registrar"}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* List */}
+                    {delivLoading ? (
+                      <div className="flex items-center justify-center py-8"><Loader2 className="w-5 h-5 animate-spin" style={{ color: "rgba(255,255,255,0.2)" }} /></div>
+                    ) : deliverables.length === 0 ? (
+                      <div className="rounded-2xl py-8 flex flex-col items-center gap-2" style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.06)" }}>
+                        <p className="text-sm" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhuma entrega registrada</p>
+                        <p className="text-xs" style={{ color: "rgba(255,255,255,0.12)" }}>Use os chips acima para registrar rapidamente</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {deliverables.map((d) => (
+                          <div key={d.id} className="flex items-center gap-3 px-4 py-3 rounded-2xl transition-all"
+                            style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${d.visible_to_client ? "rgba(185,255,75,0.12)" : "rgba(255,255,255,0.06)"}` }}>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium truncate" style={{ color: "rgba(255,255,255,0.85)" }}>{d.description}</p>
+                              <p className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>
+                                {new Date(d.done_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
+                              </p>
+                            </div>
+                            <button onClick={() => toggleDelivVisible(d.id, d.visible_to_client)}
+                              className="p-1.5 rounded-lg transition-all"
+                              title={d.visible_to_client ? "Visível ao cliente — clique para ocultar" : "Oculto — clique para mostrar ao cliente"}
+                              style={{ color: d.visible_to_client ? "#B9FF4B" : "rgba(255,255,255,0.2)" }}>
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button onClick={() => deleteDeliv(d.id)} className="p-1.5 rounded-lg" style={{ color: "rgba(255,255,255,0.15)" }}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  );
+                })()}
 
                 {/* ── INSIGHTS IA ── */}
                 {crmView === "insights" && (

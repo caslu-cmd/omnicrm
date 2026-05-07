@@ -226,6 +226,15 @@ export default function ClientPortal() {
     setProposals(prev => prev.filter(p => p.id !== proposalId));
   };
 
+  const [deliverables, setDeliverables] = useState<any[]>([]);
+  useEffect(() => {
+    if (!data?.client?.id) return;
+    (supabase as any).from("client_deliverables").select("*")
+      .eq("client_id", data.client.id).eq("visible_to_client", true)
+      .order("done_at", { ascending: false })
+      .then(({ data: rows }: any) => { if (rows) setDeliverables(rows); });
+  }, [data?.client?.id]);
+
   if (loading) return <LoadingScreen />;
   if (notFound || !data) return <NotFoundScreen />;
 
@@ -580,6 +589,33 @@ export default function ClientPortal() {
             </motion.div>
           );
         })()}
+
+        {/* ── Entregas ─────────────────────────────────────── */}
+        {deliverables.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>
+            <div className="rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.07)" }}>
+              <div className="px-6 py-5" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                <h2 className="text-base font-bold mb-0.5" style={{ color: "#111" }}>O que fizemos por você</h2>
+                <p className="text-xs" style={{ color: "#888" }}>{deliverables.length} entrega{deliverables.length !== 1 ? "s" : ""} registrada{deliverables.length !== 1 ? "s" : ""}</p>
+              </div>
+              <div className="divide-y" style={{ borderColor: "rgba(0,0,0,0.05)" }}>
+                {deliverables.map((d) => (
+                  <div key={d.id} className="px-6 py-4 flex items-center gap-4">
+                    <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(185,255,75,0.12)" }}>
+                      <CheckCircle2 className="w-4 h-4" style={{ color: "#5BAD2F" }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium" style={{ color: "#111" }}>{d.description}</p>
+                      <p className="text-xs mt-0.5" style={{ color: "#999" }}>
+                        {new Date(d.done_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
 
         {/* ── Demandas ─────────────────────────────────────── */}
         {demands.length > 0 && (
