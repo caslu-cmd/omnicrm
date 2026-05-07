@@ -2376,7 +2376,7 @@ ${priorBlock}`;
     if (!id) return;
     setProposalsLoading(true);
     const { data } = await (supabase as any).from("agent_proposals").select("*")
-      .eq("client_id", id).eq("status", "pending")
+      .eq("client_id", id).neq("status", "rejected")
       .order("created_at", { ascending: false });
     if (data) setAgentProposals(data);
     setProposalsLoading(false);
@@ -3131,70 +3131,121 @@ ${priorBlock}`;
                   <div className="space-y-5">
 
                     {/* Propostas dos Agentes */}
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>Propostas dos Agentes</p>
-                          <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>Os agentes analisaram o briefing e propõem essas ações — só você pode aprovar</p>
-                        </div>
-                        <button onClick={loadProposals} disabled={proposalsLoading}
-                          className="p-1.5 rounded-lg transition-all disabled:opacity-40"
-                          style={{ color: "rgba(255,255,255,0.3)" }}>
-                          <RefreshCw className={`w-3.5 h-3.5 ${proposalsLoading ? "animate-spin" : ""}`} />
-                        </button>
-                      </div>
-
-                      {proposalsLoading && (
-                        <div className="flex justify-center py-6">
-                          <div className="h-5 w-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: client.color, borderTopColor: "transparent" }} />
-                        </div>
-                      )}
-
-                      {!proposalsLoading && agentProposals.length === 0 && (
-                        <div className="rounded-2xl py-8 flex flex-col items-center gap-2"
-                          style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.06)" }}>
-                          <p className="text-sm" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhuma proposta pendente</p>
-                          <p className="text-xs" style={{ color: "rgba(255,255,255,0.12)" }}>Gere um diagnóstico e clique em "Consultar o Time"</p>
-                        </div>
-                      )}
-
-                      {!proposalsLoading && agentProposals.map((proposal) => (
-                        <div key={proposal.id} className="rounded-2xl p-4 space-y-3"
-                          style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${proposal.agent_color}30` }}>
-                          <div className="flex items-start gap-3">
-                            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0"
-                              style={{ background: `${proposal.agent_color}18`, color: proposal.agent_color, border: `1px solid ${proposal.agent_color}30` }}>
-                              {proposal.agent_name?.[0]}
+                    {(() => {
+                      const pendingProposals = agentProposals.filter(p => p.status === "pending");
+                      const activeProposals  = agentProposals.filter(p => ["approved", "in_progress", "completed"].includes(p.status));
+                      const PROP_STATUS: Record<string, { label: string; color: string }> = {
+                        approved:    { label: "Aprovado",      color: "#60A5FA" },
+                        in_progress: { label: "Em andamento",  color: "#B9FF4B" },
+                        completed:   { label: "Concluído",     color: "#34D399" },
+                      };
+                      return (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>Propostas & Ações</p>
+                              <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>
+                                {pendingProposals.length > 0 ? `${pendingProposals.length} aguardando aprovação · ` : ""}
+                                {activeProposals.length > 0 ? `${activeProposals.length} em andamento` : ""}
+                                {pendingProposals.length === 0 && activeProposals.length === 0 ? "Gere um diagnóstico e clique em "Consultar o Time"" : ""}
+                              </p>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-0.5">
-                                <span className="text-xs font-semibold" style={{ color: proposal.agent_color }}>{proposal.agent_name}</span>
-                                <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.3)" }}>proposta</span>
-                              </div>
-                              <p className="text-sm font-semibold mb-1" style={{ color: "rgba(255,255,255,0.85)" }}>{proposal.titulo}</p>
-                              <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.5)" }}>{proposal.descricao}</p>
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => handleApproveProposal(proposal.id)}
-                              disabled={approvingProposalId === proposal.id}
-                              className="flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50"
-                              style={{ background: proposal.agent_color, color: "#07080A" }}>
-                              {approvingProposalId === proposal.id
-                                ? <><RefreshCw className="w-3 h-3 animate-spin" /> Aprovando…</>
-                                : <><CheckCircle2 className="w-3.5 h-3.5" /> Aprovar</>}
-                            </button>
-                            <button
-                              onClick={() => handleRejectProposal(proposal.id)}
-                              className="px-4 py-2 rounded-xl text-xs font-medium"
-                              style={{ background: "rgba(248,113,113,0.08)", color: "#F87171", border: "1px solid rgba(248,113,113,0.2)" }}>
-                              Rejeitar
+                            <button onClick={loadProposals} disabled={proposalsLoading}
+                              className="p-1.5 rounded-lg transition-all disabled:opacity-40"
+                              style={{ color: "rgba(255,255,255,0.3)" }}>
+                              <RefreshCw className={`w-3.5 h-3.5 ${proposalsLoading ? "animate-spin" : ""}`} />
                             </button>
                           </div>
+
+                          {proposalsLoading && (
+                            <div className="flex justify-center py-6">
+                              <div className="h-5 w-5 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: client.color, borderTopColor: "transparent" }} />
+                            </div>
+                          )}
+
+                          {!proposalsLoading && agentProposals.length === 0 && (
+                            <div className="rounded-2xl py-8 flex flex-col items-center gap-2"
+                              style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.06)" }}>
+                              <p className="text-sm" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhuma proposta ainda</p>
+                              <p className="text-xs" style={{ color: "rgba(255,255,255,0.12)" }}>Gere um diagnóstico e clique em "Consultar o Time"</p>
+                            </div>
+                          )}
+
+                          {/* Pendentes — aguardando aprovação */}
+                          {!proposalsLoading && pendingProposals.length > 0 && (
+                            <div className="space-y-2">
+                              <p className="text-[10px] uppercase tracking-wider font-semibold px-1" style={{ color: "rgba(251,191,36,0.7)" }}>Aguardando aprovação</p>
+                              {pendingProposals.map((proposal) => (
+                                <div key={proposal.id} className="rounded-2xl p-4 space-y-3"
+                                  style={{ background: "rgba(251,191,36,0.04)", border: `1px solid rgba(251,191,36,0.2)` }}>
+                                  <div className="flex items-start gap-3">
+                                    <div className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-bold shrink-0"
+                                      style={{ background: `${proposal.agent_color}18`, color: proposal.agent_color, border: `1px solid ${proposal.agent_color}30` }}>
+                                      {proposal.agent_name?.[0]}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 mb-0.5">
+                                        <span className="text-xs font-semibold" style={{ color: proposal.agent_color }}>{proposal.agent_name}</span>
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "rgba(251,191,36,0.12)", color: "#FBBF24" }}>proposta</span>
+                                      </div>
+                                      <p className="text-sm font-semibold mb-1" style={{ color: "rgba(255,255,255,0.85)" }}>{proposal.titulo}</p>
+                                      <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.5)" }}>{proposal.descricao}</p>
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <button
+                                      onClick={() => handleApproveProposal(proposal.id)}
+                                      disabled={approvingProposalId === proposal.id}
+                                      className="flex-1 py-2 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 disabled:opacity-50"
+                                      style={{ background: proposal.agent_color, color: "#07080A" }}>
+                                      {approvingProposalId === proposal.id
+                                        ? <><RefreshCw className="w-3 h-3 animate-spin" /> Aprovando…</>
+                                        : <><CheckCircle2 className="w-3.5 h-3.5" /> Aprovar</>}
+                                    </button>
+                                    <button
+                                      onClick={() => handleRejectProposal(proposal.id)}
+                                      className="px-4 py-2 rounded-xl text-xs font-medium"
+                                      style={{ background: "rgba(248,113,113,0.08)", color: "#F87171", border: "1px solid rgba(248,113,113,0.2)" }}>
+                                      Rejeitar
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Ativas — aprovadas / em andamento / concluídas */}
+                          {!proposalsLoading && activeProposals.length > 0 && (
+                            <div className="space-y-2">
+                              <p className="text-[10px] uppercase tracking-wider font-semibold px-1" style={{ color: "rgba(185,255,75,0.6)" }}>Ações em andamento</p>
+                              {activeProposals.map((proposal) => {
+                                const st = PROP_STATUS[proposal.status] ?? PROP_STATUS.approved;
+                                return (
+                                  <div key={proposal.id} className="rounded-2xl p-3 flex items-start gap-3"
+                                    style={{ background: "rgba(255,255,255,0.02)", border: `1px solid ${proposal.agent_color}20` }}>
+                                    <div className="w-7 h-7 rounded-xl flex items-center justify-center text-[11px] font-bold shrink-0"
+                                      style={{ background: `${proposal.agent_color}15`, color: proposal.agent_color, border: `1px solid ${proposal.agent_color}25` }}>
+                                      {proposal.agent_name?.[0]}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                                        <span className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.8)" }}>{proposal.titulo}</span>
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0"
+                                          style={{ background: `${st.color}15`, color: st.color, border: `1px solid ${st.color}30` }}>
+                                          {proposal.status === "in_progress" && <span className="inline-block w-1.5 h-1.5 rounded-full mr-1 animate-pulse" style={{ background: st.color }} />}
+                                          {st.label}
+                                        </span>
+                                      </div>
+                                      <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.35)" }}>{proposal.agent_name} · {proposal.descricao?.slice(0, 80)}{(proposal.descricao?.length ?? 0) > 80 ? "…" : ""}</p>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
                         </div>
-                      ))}
-                    </div>
+                      );
+                    })()}
 
                     {/* Divider */}
                     <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }} />
@@ -3985,6 +4036,20 @@ ${priorBlock}`;
                         style={{ background: "rgba(56,189,248,0.07)", color: "rgba(56,189,248,0.7)", border: "1px solid rgba(56,189,248,0.2)" }}>
                         <Link2 className="w-3.5 h-3.5" /> Compartilhar link
                       </button>
+                      {clientBriefing && (
+                        <button
+                          onClick={() => {
+                            if (!confirm("Limpar todos os dados do briefing e conversas deste cliente?")) return;
+                            [`client-briefing-${id}`, `client-briefing-diagnosis-${id}`, `client-briefing-raw-${id}`, `agent-chats-${id}`, `agent-conv-${id}`]
+                              .forEach(k => localStorage.removeItem(k));
+                            setClientBriefing(null);
+                            setAgentChats({});
+                          }}
+                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
+                          style={{ background: "rgba(239,68,68,0.07)", color: "rgba(239,68,68,0.6)", border: "1px solid rgba(239,68,68,0.15)" }}>
+                          <Trash2 className="w-3 h-3" /> Limpar dados
+                        </button>
+                      )}
                     </div>
                   </div>
                   {/* Painel Lia inline */}
