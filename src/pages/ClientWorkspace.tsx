@@ -2417,6 +2417,17 @@ ${priorBlock}`;
 
   useEffect(() => { if (id) loadDeliverables(); }, [id]);
 
+  // Backfill workspace_id on the Supabase clients row so the portal can query by slug
+  useEffect(() => {
+    if (!id || !user) return;
+    (supabase as any).from("clients")
+      .update({ workspace_id: id })
+      .eq("user_id", user.id)
+      .eq("name", client.name)
+      .is("workspace_id", null)
+      .then(() => {});
+  }, [id, user?.id]);
+
   // Check if client submitted a briefing via the shareable link
   useEffect(() => {
     if (!id || clientBriefing) return;
@@ -2546,17 +2557,21 @@ ${priorBlock}`;
     try {
       const { data: existing } = await supabase
         .from("clients")
-        .select("portal_token")
+        .select("portal_token, workspace_id")
         .eq("user_id", user.id)
         .eq("name", client.name)
         .maybeSingle();
       if (existing?.portal_token) {
+        // Backfill workspace_id if missing
+        if (!existing.workspace_id) {
+          await (supabase as any).from("clients").update({ workspace_id: id }).eq("user_id", user.id).eq("name", client.name);
+        }
         window.open(`/portal/${existing.portal_token}`, "_blank");
         return;
       }
       const { data: created, error } = await supabase
         .from("clients")
-        .insert({ user_id: user.id, name: client.name, segment: client.industry ?? null, status: client.status === "Ativo" ? "active" : "onboarding" })
+        .insert({ user_id: user.id, name: client.name, segment: client.industry ?? null, status: client.status === "Ativo" ? "active" : "onboarding", workspace_id: id } as any)
         .select("portal_token")
         .single();
       if (error || !created?.portal_token) { toast.error("Erro ao gerar link do portal."); return; }

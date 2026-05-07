@@ -18,6 +18,7 @@ type ClientRow = {
   logo_url: string | null;
   email: string | null;
   phone: string | null;
+  workspace_id: string | null;
 };
 type BriefingRow = {
   completeness_score: number;
@@ -203,16 +204,17 @@ export default function ClientPortal() {
   }, [token]);
 
   useEffect(() => {
-    if (!data?.client?.id) return;
+    const wid = data?.client?.workspace_id;
+    if (!wid) return;
     setProposalsLoading(true);
     (supabase as any).from("agent_proposals").select("*")
-      .eq("client_id", data.client.id).neq("status", "rejected")
+      .eq("client_id", wid).neq("status", "rejected")
       .order("created_at", { ascending: false })
       .then(({ data: rows }: any) => {
         if (rows) setProposals(rows);
         setProposalsLoading(false);
       });
-  }, [data?.client?.id]);
+  }, [data?.client?.workspace_id]);
 
   const approveProposal = async (proposalId: string) => {
     setApprovingProposalId(proposalId);
@@ -228,12 +230,13 @@ export default function ClientPortal() {
 
   const [deliverables, setDeliverables] = useState<any[]>([]);
   useEffect(() => {
-    if (!data?.client?.id) return;
+    const wid = data?.client?.workspace_id;
+    if (!wid) return;
     (supabase as any).from("client_deliverables").select("*")
-      .eq("client_id", data.client.id).eq("visible_to_client", true)
+      .eq("client_id", wid).eq("visible_to_client", true)
       .order("done_at", { ascending: false })
       .then(({ data: rows }: any) => { if (rows) setDeliverables(rows); });
-  }, [data?.client?.id]);
+  }, [data?.client?.workspace_id]);
 
   if (loading) return <LoadingScreen />;
   if (notFound || !data) return <NotFoundScreen />;

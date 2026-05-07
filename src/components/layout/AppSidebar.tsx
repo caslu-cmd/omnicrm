@@ -87,20 +87,25 @@ export const AppSidebar = ({ collapsed, onToggle, hideToggle }: AppSidebarProps)
   const openClientPortal = async (clientName: string, clientIndustry: string, clientStatus: string) => {
     if (!user) { toast.error("Você precisa estar logado."); return; }
     setOpeningPortal(true);
+    const clientMatch2 = location.pathname.match(/^\/agency\/clients\/([^/]+)/);
+    const wsId = clientMatch2?.[1] ?? null;
     try {
       const { data: existing } = await supabase
         .from("clients")
-        .select("portal_token")
+        .select("portal_token, workspace_id")
         .eq("user_id", user.id)
         .eq("name", clientName)
         .maybeSingle();
       if (existing?.portal_token) {
+        if (!existing.workspace_id && wsId) {
+          await (supabase as any).from("clients").update({ workspace_id: wsId }).eq("user_id", user.id).eq("name", clientName);
+        }
         window.open(`/portal/${existing.portal_token}`, "_blank");
         return;
       }
       const { data: created, error } = await supabase
         .from("clients")
-        .insert({ user_id: user.id, name: clientName, segment: clientIndustry ?? null, status: clientStatus === "Ativo" ? "active" : "onboarding" })
+        .insert({ user_id: user.id, name: clientName, segment: clientIndustry ?? null, status: clientStatus === "Ativo" ? "active" : "onboarding", workspace_id: wsId } as any)
         .select("portal_token")
         .single();
       if (error || !created?.portal_token) { toast.error("Erro ao gerar link do portal."); return; }
