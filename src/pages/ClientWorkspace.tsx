@@ -7313,6 +7313,181 @@ ${priorBlock}`;
             )}
 
             {/* ══════════════════════════════════════════════════════
+                PORTAL DO CLIENTE — EDITOR
+            ══════════════════════════════════════════════════════ */}
+            {activeTab === "portal" && (() => {
+              const DELIV_PRESETS = [
+                { category: "social",     label: "📝 Post publicado" },
+                { category: "story",      label: "📱 Story publicado" },
+                { category: "video",      label: "🎬 Vídeo editado" },
+                { category: "arte",       label: "🎨 Arte criada" },
+                { category: "copy",       label: "✍️ Copy/Legenda" },
+                { category: "email",      label: "📧 E-mail marketing" },
+                { category: "relatorio",  label: "📊 Relatório mensal" },
+                { category: "reuniao",    label: "🤝 Reunião" },
+                { category: "trafego",    label: "🎯 Campanha tráfego" },
+                { category: "calendario", label: "📅 Calendário editorial" },
+                { category: "estrategia", label: "💡 Planejamento estratégico" },
+                { category: "outro",      label: "➕ Outro" },
+              ];
+              const portalUrl = `${window.location.origin}/portal/`;
+              return (
+              <div className="space-y-6 max-w-3xl mx-auto">
+
+                {/* ── Link do portal ── */}
+                <div className="rounded-2xl p-5 space-y-3" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${client.color}30` }}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.9)" }}>Link do Portal</p>
+                      <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>Envie para o cliente acessar o portal personalizado</p>
+                    </div>
+                    <button onClick={handleOpenPortal} disabled={openingPortal}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-all"
+                      style={{ background: client.color, color: "#07080A" }}>
+                      {openingPortal ? <><div className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" /> Abrindo…</> : <><ExternalLink className="w-3.5 h-3.5" /> Abrir portal</>}
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <Globe className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "rgba(255,255,255,0.3)" }} />
+                    <span className="text-xs flex-1 truncate" style={{ color: "rgba(255,255,255,0.4)" }}>{portalUrl}…</span>
+                    <button onClick={() => { toast.success("Link copiado!"); }}
+                      className="text-xs font-medium px-2 py-1 rounded-lg transition-all"
+                      style={{ background: `${client.color}20`, color: client.color }}>
+                      Copiar
+                    </button>
+                  </div>
+                  <p className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>
+                    PIN de acesso: <span className="font-mono font-semibold" style={{ color: "rgba(255,255,255,0.5)" }}>{client.portalPin || "—"}</span>
+                    <span className="ml-2 text-[10px]">(edite em Editar cliente)</span>
+                  </p>
+                </div>
+
+                {/* ── Entregas visíveis ── */}
+                <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)" }}>
+                    <div>
+                      <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.9)" }}>O que fizemos por você</p>
+                      <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>
+                        {deliverables.filter(d => d.visible_to_client).length} visíveis ao cliente · {deliverables.length} total
+                      </p>
+                    </div>
+                    <button onClick={loadDeliverables} disabled={delivLoading} className="p-1.5 rounded-lg" style={{ color: "rgba(255,255,255,0.3)" }}>
+                      <RefreshCw className={`w-4 h-4 ${delivLoading ? "animate-spin" : ""}`} />
+                    </button>
+                  </div>
+
+                  {/* Quick add presets */}
+                  <div className="px-5 py-4 space-y-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                    <p className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.4)" }}>Registrar nova entrega</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {DELIV_PRESETS.map((p) => (
+                        <button key={p.category}
+                          onClick={() => setDelivForm((f) => ({ ...f, category: p.category, description: p.label.replace(/^[^\s]+\s/, "") }))}
+                          className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
+                          style={delivForm.category === p.category
+                            ? { background: `${client.color}25`, color: client.color, border: `1px solid ${client.color}40` }
+                            : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                          {p.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        value={delivForm.description}
+                        onChange={(e) => setDelivForm((f) => ({ ...f, description: e.target.value }))}
+                        placeholder="Descrição (ex: 3 posts feed setembro)…"
+                        className="flex-1 rounded-xl px-3 py-2 text-xs focus:outline-none"
+                        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.85)" }}
+                      />
+                      <input type="date" value={delivForm.done_at}
+                        onChange={(e) => setDelivForm((f) => ({ ...f, done_at: e.target.value }))}
+                        className="rounded-xl px-3 py-2 text-xs focus:outline-none"
+                        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.7)", colorScheme: "dark" }} />
+                      <button
+                        onClick={() => setDelivForm((f) => ({ ...f, visible_to_client: !f.visible_to_client }))}
+                        className="flex items-center gap-1 px-3 py-2 rounded-xl text-xs font-medium transition-all"
+                        style={delivForm.visible_to_client
+                          ? { background: "rgba(185,255,75,0.12)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.2)" }
+                          : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.3)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                        <Eye className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        onClick={() => saveDeliverable(delivForm.category, delivForm.description, delivForm.done_at, delivForm.visible_to_client)}
+                        disabled={savingDeliv || !delivForm.description.trim()}
+                        className="px-4 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-40"
+                        style={{ background: client.color, color: "#07080A" }}>
+                        {savingDeliv ? "…" : "Registrar"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* List */}
+                  <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                    {delivLoading ? (
+                      <div className="flex justify-center py-6"><Loader2 className="w-4 h-4 animate-spin" style={{ color: "rgba(255,255,255,0.2)" }} /></div>
+                    ) : deliverables.length === 0 ? (
+                      <div className="py-6 text-center">
+                        <p className="text-sm" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhuma entrega registrada</p>
+                      </div>
+                    ) : deliverables.map((d) => (
+                      <div key={d.id} className="flex items-center gap-3 px-5 py-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate" style={{ color: "rgba(255,255,255,0.8)" }}>{d.description}</p>
+                          <p className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>
+                            {new Date(d.done_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
+                          </p>
+                        </div>
+                        <button onClick={() => toggleDelivVisible(d.id, d.visible_to_client)}
+                          title={d.visible_to_client ? "Visível — clique para ocultar" : "Oculto — clique para mostrar"}
+                          className="p-1.5 rounded-lg transition-all"
+                          style={{ color: d.visible_to_client ? "#B9FF4B" : "rgba(255,255,255,0.15)" }}>
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => deleteDeliv(d.id)} className="p-1.5 rounded-lg" style={{ color: "rgba(255,255,255,0.12)" }}>
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* ── Propostas ── */}
+                {agentProposals.length > 0 && (() => {
+                  const PROP_STATUS: Record<string, { label: string; color: string }> = {
+                    pending:     { label: "Aguardando aprovação", color: "#FBBF24" },
+                    approved:    { label: "Aprovado",             color: "#60A5FA" },
+                    in_progress: { label: "Em andamento",         color: "#B9FF4B" },
+                    completed:   { label: "Concluído",            color: "rgba(255,255,255,0.3)" },
+                  };
+                  return (
+                  <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <div className="px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.02)" }}>
+                      <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.9)" }}>Propostas & Ações dos Agentes</p>
+                      <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>{agentProposals.filter(p => p.status === "pending").length} aguardando aprovação</p>
+                    </div>
+                    <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                      {agentProposals.map((p) => {
+                        const st = PROP_STATUS[p.status] ?? PROP_STATUS.pending;
+                        return (
+                          <div key={p.id} className="flex items-center gap-3 px-5 py-3">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-medium truncate" style={{ color: "rgba(255,255,255,0.85)" }}>{p.titulo}</p>
+                              <p className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>{p.agent_name}</p>
+                            </div>
+                            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: `${st.color}18`, color: st.color }}>{st.label}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  );
+                })()}
+
+              </div>
+              );
+            })()}
+
+            {/* ══════════════════════════════════════════════════════
                 REDES SOCIAIS
             ══════════════════════════════════════════════════════ */}
             {activeTab === "social" && (
