@@ -472,7 +472,13 @@ export default function LiaBriefingPanel({ clientId, clientName, clientIndustry,
         },
       });
       if (err) throw err;
-      setDiagnosis(res?.content ?? "");
+      const diagnosisText = res?.content ?? "";
+      setDiagnosis(diagnosisText);
+      // Persist briefing + diagnosis so all agents can use as context
+      try {
+        localStorage.setItem(`client-briefing-${clientId}`, JSON.stringify(data));
+        localStorage.setItem(`client-briefing-diagnosis-${clientId}`, diagnosisText.slice(0, 3000));
+      } catch {}
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {

@@ -1089,6 +1089,9 @@ export default function ClientWorkspace() {
   const [agentConversations, setAgentConversations] = useState<AgentMsg[]>(() => {
     try { return JSON.parse(localStorage.getItem(`agent-conv-${id}`) ?? "[]"); } catch { return []; }
   });
+  const [clientBriefing, setClientBriefing] = useState<Record<string, any> | null>(() => {
+    try { const raw = localStorage.getItem(`client-briefing-${id}`); return raw ? JSON.parse(raw) : null; } catch { return null; }
+  });
   const [agentOutputs, setAgentOutputs] = useState<Record<string, string>>({});
   const [agentDeadlines, setAgentDeadlines] = useState<Record<string, string>>({});
   // Onda de orquestração ARIA: 0 = ocioso; 1+ = onda ativa
@@ -1243,6 +1246,83 @@ export default function ClientWorkspace() {
       localStorage.setItem(`agent-conv-${id}`, JSON.stringify(updated));
       return updated;
     });
+  };
+
+  // Build the briefing + memory context block injected into every agent call
+  const buildBriefingBlock = (extra?: string) => {
+    const b = clientBriefing;
+    const lines: string[] = [];
+    if (b) {
+      lines.push("=== BRIEFING DO CLIENTE ===");
+      if (b.produtos)        lines.push(`Produtos/Serviços: ${b.produtos}`);
+      if (b.clienteIdeal)    lines.push(`Cliente Ideal: ${b.clienteIdeal}`);
+      if (b.faixaEtaria)     lines.push(`Faixa Etária: ${b.faixaEtaria}`);
+      if (b.dorPrincipal)    lines.push(`Principal Dor: ${b.dorPrincipal}`);
+      if (b.diferencial)     lines.push(`Diferencial: ${b.diferencial}`);
+      if (b.concorrentes)    lines.push(`Concorrentes: ${b.concorrentes}`);
+      if (b.posicaoMercado)  lines.push(`Posição no Mercado: ${b.posicaoMercado}`);
+      if (b.canaisAtivos?.length) lines.push(`Canais Ativos: ${b.canaisAtivos.join(", ")}`);
+      if (b.frequencia)      lines.push(`Frequência de Posts: ${b.frequencia}`);
+      if (b.trafegoPago)     lines.push(`Tráfego Pago: ${b.trafegoPago}`);
+      if (b.budgetTrafego)   lines.push(`Budget Tráfego: ${b.budgetTrafego}`);
+      if (b.budgetMarketing) lines.push(`Budget Marketing: ${b.budgetMarketing}`);
+      if (b.meta90dias)      lines.push(`Meta 90 dias: ${b.meta90dias}`);
+      if (b.prazoResultados) lines.push(`Prazo esperado de resultados: ${b.prazoResultados}`);
+      if (b.jaTentou)        lines.push(`Já tentou antes: ${b.jaTentou}`);
+      if (b.preocupacoes)    lines.push(`Preocupações: ${b.preocupacoes}`);
+      // diagnosis excerpt
+      try {
+        const diag = localStorage.getItem(`client-briefing-diagnosis-${id}`);
+        if (diag) lines.push(`\nDIAGNÓSTICO (resumo):\n${diag.slice(0, 1200)}`);
+      } catch {}
+    }
+    if (extra) lines.push(extra);
+    return lines.length ? `\n\n${lines.join("\n")}` : "";
+  };
+
+  // Send a message directly to one specific agent (without ARIA orchestration)
+  const handleSendToSingleAgent = async (agentId: string, instruction: string) => {
+    if (!instruction.trim()) return;
+    const agent = MARKETING_TEAM.find((a) => a.id === agentId);
+    if (!agent) return;
+    const ts = () => new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+    // User message
+    addConvMsgs([{ id: `u-${Date.now()}`, from: "user", to: agentId, content: instruction, timestamp: ts(), status: "done" }]);
+    // Typing indicator
+    const typingId = `${agentId}-typing-${Date.now()}`;
+    addConvMsgs([{ id: typingId, from: agentId, to: "user", content: "", action: "typing", timestamp: ts(), status: "processing" }]);
+    setAriaLoading(true);
+    try {
+      const agCfg = AGENT_CONFIG[agentId] ?? { maxTokens: 5000, thinking: false };
+      const isPostAgent = ["social", "copywriter"].includes(agentId);
+      const { data: { session } } = await supabase.auth.getSession();
+      const agentUserId = session?.user?.id ?? null;
+      const ctxBase = `Cliente: ${client.name} | Segmento: ${client.industry} | Cor: ${client.color}${client.teamInstructions ? `\nInstruções permanentes: ${client.teamInstructions}` : ""}`;
+      const briefingBlock = buildBriefingBlock();
+      const { data: agData, error: agErr } = await supabase.functions.invoke("chat-ai", {
+        body: {
+          systemPrompt: AGENT_PROMPTS[agentId] ?? `Você é ${agent.name}, ${agent.role} da Calu Agência.`,
+          maxTokens: agCfg.maxTokens,
+          enableThinking: agCfg.thinking,
+          thinkingBudget: agCfg.thinkingBudget,
+          ...(isPostAgent && agentUserId && id
+            ? { enableDraftTool: true, client_id: id, user_id: agentUserId }
+            : {}),
+          messages: [{ role: "user", content: `${instruction}\n\n${ctxBase}${briefingBlock}` }],
+        },
+      });
+      if (agErr) throw agErr;
+      const reply = (agData?.content ?? "").trim() || "Sem resposta.";
+      updateConvMsg(typingId, { content: reply, action: "respond", status: "done" });
+      if (agData?.posts_created?.length > 0) {
+        loadPendingPosts();
+        addConvMsgs([{ id: `${agentId}-drafted-${Date.now()}`, from: agentId, to: "user", content: `📝 Criei ${agData.posts_created.length} post${agData.posts_created.length > 1 ? "s" : ""} e salvei para aprovação — veja na aba Social.`, action: "respond", timestamp: ts(), status: "done" }]);
+      }
+    } catch (e) {
+      updateConvMsg(typingId, { content: `Erro: ${e instanceof Error ? e.message : String(e)}`, action: "respond", status: "error" });
+    } finally {
+      setAriaLoading(false);
+    }
   };
 
   const handleSendToAria = async () => {
@@ -1412,7 +1492,7 @@ Responda APENAS JSON válido, sem markdown, sem texto extra:
         // (c) chama o agente individualmente
         const ctxBlock = `Cliente: ${clientContext.name} | Segmento: ${clientContext.industry} | Cor: ${clientContext.brandColor}
 Campanhas ativas: ${clientContext.campaigns.join(", ") || "nenhuma"}
-${clientContext.teamInstructions ? `Instruções permanentes: ${clientContext.teamInstructions}` : ""}
+${clientContext.teamInstructions ? `Instruções permanentes: ${clientContext.teamInstructions}` : ""}${buildBriefingBlock()}
 ${accumulated.strategist ? `\nESTRATÉGIA DA QUEILA (referencie):\n${accumulated.strategist.slice(0, 1500)}` : ""}
 ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copywriter.slice(0, 1000)}` : ""}`;
 
@@ -1611,7 +1691,7 @@ Responda APENAS JSON:
             .join("\n");
 
           const ctx2 = `Cliente: ${clientContext.name} | Segmento: ${clientContext.industry}
-${clientContext.teamInstructions ? `Instruções: ${clientContext.teamInstructions}` : ""}
+${clientContext.teamInstructions ? `Instruções: ${clientContext.teamInstructions}` : ""}${buildBriefingBlock()}
 
 ENTREGAS ANTERIORES DO TIME (use como base e dê CONTINUIDADE — não repita, complemente):
 ${priorBlock}`;
@@ -4985,15 +5065,22 @@ ${priorBlock}`;
 
                             {/* Textarea — oculto para Bobby, Lia e Tomás (têm painéis próprios) */}
                             {selectedAgent.id !== "video" && selectedAgent.id !== "briefing" && selectedAgent.id !== "tomas" && (
+                            <>
+                            {clientBriefing && selectedAgent.id !== "designer" && (
+                              <div className="flex items-center gap-1.5 mb-2 px-2 py-1 rounded-lg" style={{ background: "rgba(56,189,248,0.06)", border: "1px solid rgba(56,189,248,0.18)" }}>
+                                <span className="text-[10px]" style={{ color: "#38BDF8" }}>📋 Briefing disponível — {selectedAgent.name} responderá com contexto completo do cliente</span>
+                              </div>
+                            )}
                             <textarea
                               value={agentInstruction}
                               onChange={(e) => setAgentInstruction(e.target.value)}
-                              placeholder={selectedAgent.id === "designer" ? "Dê uma direção (opcional) — ou deixe em branco e a Carolina decide sozinha com base no cliente." : `O que você quer que ${selectedAgent.name} faça? Seja específico...`}
+                              placeholder={selectedAgent.id === "designer" ? "Dê uma direção (opcional) — ou deixe em branco e a Carolina decide sozinha com base no cliente." : `Pergunte ou peça algo para ${selectedAgent.name}…`}
                               rows={3}
                               autoFocus
                               className="w-full rounded-xl px-4 py-3 text-sm resize-none mb-3"
                               style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${selectedAgent.color}28`, color: "#F0F0F0", outline: "none" }}
                             />
+                            </>
                             )}
                             {marcelaError && selectedAgent.id === "designer" && (
                               <div className="mb-3 px-3 py-2 rounded-xl text-xs" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#FCA5A5" }}>
@@ -5041,13 +5128,17 @@ ${priorBlock}`;
                                     setSelectedAgentId(null);
                                     handleSendToDesigner();
                                   } else {
+                                    const instruction = agentInstruction.trim();
                                     setAgentInstruction(""); clearAgentFile(); setSelectedAgentId(null);
+                                    if (instruction) handleSendToSingleAgent(selectedAgent.id, instruction);
                                   }
                                 }}
-                                disabled={(selectedAgent.id !== "designer" && !agentInstruction.trim() && !agentFile) || marcelaLoading}
+                                disabled={(selectedAgent.id !== "designer" && !agentInstruction.trim() && !agentFile) || marcelaLoading || ariaLoading}
                                 className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
                                 style={{ background: selectedAgent.color, color: "#07080A", boxShadow: (agentInstruction || agentFile || selectedAgent.id === "designer") ? `0 0 20px -4px ${selectedAgent.color}60` : "none" }}>
-                                {marcelaLoading && selectedAgent.id === "designer"
+                                {ariaLoading && selectedAgent.id !== "designer"
+                                  ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Respondendo...</>
+                                  : marcelaLoading && selectedAgent.id === "designer"
                                   ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Gerando...</>
                                   : <><Send className="w-3.5 h-3.5" /> {selectedAgent.id === "designer" && !agentInstruction.trim() ? "Criar agora" : `Enviar para ${selectedAgent.name}`}</>}
                               </button>
