@@ -435,10 +435,15 @@ export default function SocialMediaTab({
 
   // ── Batch helpers ──────────────────────────────────────────
   const addBatchFiles = (files: FileList | File[]) => {
-    Array.from(files).forEach((file) => {
-      const url = URL.createObjectURL(file);
-      setBatchItems((prev) => [...prev, { id: `${Date.now()}-${Math.random()}`, file, url, caption: "", scheduledAt: "", generating: false }]);
-    });
+    const newItems = Array.from(files).map((file) => ({
+      id: `${Date.now()}-${Math.random()}`,
+      file,
+      url: URL.createObjectURL(file),
+      caption: "",
+      scheduledAt: "",
+      generating: false,
+    }));
+    setBatchItems((prev) => [...prev, ...newItems]);
   };
 
   const generateBatchCaption = async (itemId: string) => {
@@ -1229,6 +1234,8 @@ export default function SocialMediaTab({
                 {/* ── Story batch mode ────────────────────────── */}
                 {composer.media_type === "story" && (
                   <div className="space-y-4">
+                    <input ref={batchInputRef} type="file" multiple accept="image/jpeg,image/png,image/gif,image/webp,video/mp4" className="hidden"
+                      onChange={(e) => { if (e.target.files) addBatchFiles(e.target.files); }} />
                     {/* Drop zone */}
                     <div
                       onClick={() => batchInputRef.current?.click()}
