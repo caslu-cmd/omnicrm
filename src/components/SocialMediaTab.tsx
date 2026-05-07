@@ -783,6 +783,27 @@ export default function SocialMediaTab({
         </div>
       )}
 
+      {/* ── Stats ──────────────────────────────────────────── */}
+      {posts.length > 0 && (() => {
+        const today = new Date().toDateString();
+        const stats = [
+          { label: "Publicados", value: posts.filter(p => p.status === "published").length, color: "#34D399" },
+          { label: "Stories", value: posts.filter(p => p.media_type === "story" && p.status === "published").length, color: "#F472B6" },
+          { label: "Agendados", value: posts.filter(p => p.status === "scheduled").length, color: "#FBBF24" },
+          { label: "Hoje", value: posts.filter(p => p.scheduled_at && new Date(p.scheduled_at).toDateString() === today).length, color: clientColor },
+        ];
+        return (
+          <div className="grid grid-cols-4 gap-2">
+            {stats.map(({ label, value, color }) => (
+              <div key={label} className="rounded-xl p-3 text-center" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                <p className="text-xl font-bold" style={{ color }}>{value}</p>
+                <p className="text-[10px] mt-0.5" style={{ color: s(0.35) }}>{label}</p>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
       {/* ── Posts ───────────────────────────────────────────── */}
       <div>
         <div className="flex items-center justify-between mb-3">
