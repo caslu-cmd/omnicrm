@@ -1281,6 +1281,11 @@ export default function ClientWorkspace() {
       if (b.prazoResultados) lines.push(`Prazo esperado de resultados: ${b.prazoResultados}`);
       if (b.jaTentou)        lines.push(`Já tentou antes: ${b.jaTentou}`);
       if (b.preocupacoes)    lines.push(`Preocupações: ${b.preocupacoes}`);
+      // raw briefing text (from paste or client submission)
+      try {
+        const raw = localStorage.getItem(`client-briefing-raw-${id}`);
+        if (raw) lines.push(`\nBRIEFING ORIGINAL:\n${raw.slice(0, 3000)}`);
+      } catch {}
       // diagnosis excerpt
       try {
         const diag = localStorage.getItem(`client-briefing-diagnosis-${id}`);
@@ -2378,6 +2383,26 @@ ${priorBlock}`;
   };
 
   useEffect(() => { if (id) loadProposals(); }, [id]);
+
+  // Check if client submitted a briefing via the shareable link
+  useEffect(() => {
+    if (!id || clientBriefing) return;
+    (async () => {
+      const { data } = await supabase.from("lia_submissions" as any)
+        .select("briefing_text, submitted_at")
+        .eq("client_id", id)
+        .order("submitted_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (data?.briefing_text) {
+        const syntheticBriefing = { empresa: client.name, segmento: client.industry, produtos: data.briefing_text.slice(0, 500) };
+        localStorage.setItem(`client-briefing-${id}`, JSON.stringify(syntheticBriefing));
+        localStorage.setItem(`client-briefing-raw-${id}`, data.briefing_text.slice(0, 5000));
+        setClientBriefing(syntheticBriefing);
+        toast.success("Briefing enviado pelo cliente disponível!");
+      }
+    })();
+  }, [id]);
 
   const handleApproveProposal = async (proposalId: string) => {
     setApprovingProposalId(proposalId);
@@ -3949,6 +3974,16 @@ ${priorBlock}`;
                           boxShadow: clientBriefing ? "none" : "0 0 20px -4px rgba(56,189,248,0.5)",
                         }}>
                         {clientBriefing ? <><RefreshCw className="w-3.5 h-3.5" /> Atualizar Briefing</> : <><Zap className="w-3.5 h-3.5" /> Iniciar Briefing</>}
+                      </button>
+                      <button
+                        onClick={() => {
+                          const link = `${window.location.origin}/briefing?clientId=${id}`;
+                          navigator.clipboard.writeText(link);
+                          toast.success("Link copiado! Envie para o cliente preencher.");
+                        }}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all"
+                        style={{ background: "rgba(56,189,248,0.07)", color: "rgba(56,189,248,0.7)", border: "1px solid rgba(56,189,248,0.2)" }}>
+                        <Link2 className="w-3.5 h-3.5" /> Compartilhar link
                       </button>
                     </div>
                   </div>

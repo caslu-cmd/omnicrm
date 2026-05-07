@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Zap, Sparkles, Download, Users, ArrowRight } from "lucide-react";
+import { Send, Zap, Sparkles, Download, Users, ArrowRight, Paperclip } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const LIME = "#B9FF4B";
@@ -270,6 +271,8 @@ function generatePDF(clientName: string, proposal: string) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 export default function BriefingPage() {
+  const [searchParams] = useSearchParams();
+  const linkedClientId = searchParams.get("clientId");
   const [phase, setPhase] = useState<Phase>("intro");
   const [liaMsgs, setLiaMsgs] = useState<LiaMsg[]>([]);
   const [input, setInput] = useState("");
@@ -281,6 +284,7 @@ export default function BriefingPage() {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const agentEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const now = () => new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
@@ -333,17 +337,16 @@ export default function BriefingPage() {
       setLiaMsgs((prev) => [...prev, replyMsg]);
 
       if (hasTrigger) {
-        // Extract client name from conversation
         const firstUserMsg = newHistory.find((m) => m.role === "user")?.content ?? "";
         setClientName(firstUserMsg.split(" ")[0] || "Cliente");
 
-        // Build briefing context
         const briefingCtx = newHistory
           .concat(replyMsg)
           .filter((m) => m.role !== "user" || m.id !== "t")
           .map((m) => `${m.role === "user" ? "Cliente" : "Lia"}: ${m.content}`)
           .join("\n");
 
+        saveBriefingToSupabase(briefingCtx);
         setTimeout(() => runAgents(briefingCtx), 1200);
       }
     } catch {
@@ -395,6 +398,25 @@ export default function BriefingPage() {
 
   const handleKey = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  };
+
+  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const content = ev.target?.result as string ?? "";
+      setInput((prev) => (prev ? prev + "\n\n" : "") + content.slice(0, 3000));
+    };
+    reader.readAsText(file, "utf-8");
+    e.target.value = "";
+  };
+
+  const saveBriefingToSupabase = async (briefingText: string) => {
+    if (!linkedClientId) return;
+    try {
+      await supabase.from("lia_submissions").insert({ client_id: linkedClientId, briefing_text: briefingText });
+    } catch {}
   };
 
   // ── RENDER ──────────────────────────────────────────────────────────────────
@@ -545,7 +567,14 @@ export default function BriefingPage() {
             </div>
 
             <div className="pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+              <input ref={fileInputRef} type="file" accept=".txt,.md,.csv,.doc,.docx" className="hidden" onChange={handleFileUpload} />
               <div className="flex items-end gap-2">
+                <button onClick={() => fileInputRef.current?.click()} disabled={liaLoading}
+                  className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0 transition-all disabled:opacity-40"
+                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}
+                  title="Carregar arquivo">
+                  <Paperclip className="w-4 h-4" style={{ color: "rgba(255,255,255,0.4)" }} />
+                </button>
                 <textarea ref={inputRef} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKey}
                   placeholder="Digite sua resposta..." rows={1} disabled={liaLoading}
                   className="flex-1 rounded-xl px-4 py-3 text-sm resize-none"
@@ -558,7 +587,7 @@ export default function BriefingPage() {
                   <Send className="w-4 h-4" style={{ color: input.trim() ? BG : "rgba(255,255,255,0.3)" }} />
                 </button>
               </div>
-              <p className="text-[10px] text-center mt-2" style={{ color: "rgba(255,255,255,0.15)" }}>Enter para enviar · Shift+Enter para nova linha</p>
+              <p className="text-[10px] text-center mt-2" style={{ color: "rgba(255,255,255,0.15)" }}>Enter para enviar · Shift+Enter para nova linha · 📎 para anexar arquivo</p>
             </div>
           </motion.div>
         )}

@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronRight, Download, RefreshCw, X, CheckCircle2, Users } from "lucide-react";
+import { ChevronRight, Download, RefreshCw, X, CheckCircle2, Users, Paperclip, ClipboardPaste } from "lucide-react";
 
 const LIA_COLOR = "#38BDF8";
 const CALU_GREEN = "#B9FF4B";
@@ -438,6 +438,11 @@ interface Props {
 }
 
 export default function LiaBriefingPanel({ clientId, clientName, clientIndustry, onClose, onBriefingSaved }: Props) {
+  const [mode, setMode] = useState<"form" | "paste">("form");
+  const [pasteText, setPasteText] = useState("");
+  const [pasteLoading, setPasteLoading] = useState(false);
+  const [pasteError, setPasteError] = useState<string | null>(null);
+  const pasteFileRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState(0);
   const [data, setData] = useState<BriefingData>({ ...EMPTY, empresa: clientName, segmento: clientIndustry });
   const [loading, setLoading] = useState(false);
@@ -445,6 +450,52 @@ export default function LiaBriefingPanel({ clientId, clientName, clientIndustry,
   const [error, setError] = useState<string | null>(null);
   const [consultingTeam, setConsultingTeam] = useState(false);
   const [teamProposed, setTeamProposed] = useState(false);
+
+  const handlePasteFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => setPasteText((prev) => (prev ? prev + "\n\n" : "") + (ev.target?.result as string ?? ""));
+    reader.readAsText(file, "utf-8");
+    e.target.value = "";
+  };
+
+  const generateFromPaste = async () => {
+    if (!pasteText.trim()) return;
+    setPasteLoading(true);
+    setPasteError(null);
+    try {
+      const prompt = `Você recebeu o briefing completo do cliente "${clientName}". Analise todo o conteúdo e gere um diagnóstico estratégico de marketing detalhado.
+
+BRIEFING RECEBIDO:
+${pasteText}
+
+Com base neste briefing, gere agora o diagnóstico completo em markdown, seguindo o mesmo formato de qualquer diagnóstico profissional de marketing: resumo executivo, análise do cenário atual, oportunidades, pontos críticos, recomendações estratégicas e plano de ação para 90 dias.`;
+      const { data: res, error: err } = await supabase.functions.invoke("chat-ai", {
+        body: {
+          systemPrompt: `Você é LIA, Agente de Diagnóstico da Calu Agência. Especialista em análise de marketing, onboarding e diagnóstico estratégico para negócios brasileiros. Entregue diagnósticos profundos, concretos e acionáveis. Português brasileiro.`,
+          maxTokens: 12000,
+          enableThinking: true,
+          thinkingBudget: 8000,
+          messages: [{ role: "user", content: prompt }],
+        },
+      });
+      if (err) throw err;
+      const diagnosisText = res?.content ?? "";
+      setDiagnosis(diagnosisText);
+      const syntheticData: BriefingData = { ...EMPTY, empresa: clientName, segmento: clientIndustry, produtos: pasteText.slice(0, 500) };
+      try {
+        localStorage.setItem(`client-briefing-${clientId}`, JSON.stringify(syntheticData));
+        localStorage.setItem(`client-briefing-diagnosis-${clientId}`, diagnosisText.slice(0, 3000));
+        localStorage.setItem(`client-briefing-raw-${clientId}`, pasteText.slice(0, 5000));
+        onBriefingSaved?.(syntheticData);
+      } catch {}
+    } catch (e) {
+      setPasteError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setPasteLoading(false);
+    }
+  };
 
   const set = <K extends keyof BriefingData>(key: K, val: BriefingData[K]) =>
     setData((prev) => ({ ...prev, [key]: val }));
@@ -666,6 +717,62 @@ Retorne SOMENTE um JSON válido, sem markdown, sem explicação. Array com 3 a 5
 
   return (
     <div>
+      {/* Mode toggle */}
+      {!diagnosis && (
+        <div className="flex gap-1.5 mb-4 p-1 rounded-xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+          {(["form", "paste"] as const).map((m) => (
+            <button key={m} onClick={() => setMode(m)}
+              className="flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all"
+              style={{
+                background: mode === m ? `${LIA_COLOR}18` : "transparent",
+                color: mode === m ? LIA_COLOR : "rgba(255,255,255,0.35)",
+                border: mode === m ? `1px solid ${LIA_COLOR}35` : "1px solid transparent",
+              }}>
+              {m === "form" ? <><ChevronRight className="w-3 h-3" /> Formulário</> : <><ClipboardPaste className="w-3 h-3" /> Colar texto</>}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Paste mode */}
+      {mode === "paste" && !diagnosis && (
+        <div className="space-y-3">
+          <input ref={pasteFileRef} type="file" accept=".txt,.md,.csv,.doc,.docx" className="hidden" onChange={handlePasteFile} />
+          <div className="flex items-center justify-between">
+            <span className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: "rgba(255,255,255,0.3)" }}>
+              Briefing recebido do cliente
+            </span>
+            <button onClick={() => pasteFileRef.current?.click()}
+              className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-medium transition-all"
+              style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.4)", border: "1px dashed rgba(255,255,255,0.14)" }}>
+              <Paperclip className="w-3 h-3" /> Carregar arquivo
+            </button>
+          </div>
+          <textarea
+            value={pasteText}
+            onChange={(e) => setPasteText(e.target.value)}
+            placeholder={"Cole aqui o briefing que o cliente te enviou (e-mail, PDF, WhatsApp, planilha...)"}
+            rows={8}
+            className="w-full rounded-xl px-4 py-3 text-sm resize-none"
+            style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${LIA_COLOR}28`, color: "#F0F0F0", outline: "none" }}
+          />
+          {pasteError && (
+            <div className="px-3 py-2 rounded-xl text-xs" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#FCA5A5" }}>
+              {pasteError}
+            </div>
+          )}
+          <button
+            onClick={generateFromPaste}
+            disabled={!pasteText.trim() || pasteLoading}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40"
+            style={{ background: LIA_COLOR, color: "#07080A", boxShadow: pasteText.trim() ? `0 0 20px -4px ${LIA_COLOR}50` : "none" }}>
+            {pasteLoading ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Gerando diagnóstico...</> : "Gerar diagnóstico"}
+          </button>
+        </div>
+      )}
+
+      {/* Form mode */}
+      {mode === "form" && !diagnosis && <>
       {/* Step progress */}
       <div className="flex items-center gap-3 mb-4">
         <div className="flex-1">
@@ -909,6 +1016,7 @@ Retorne SOMENTE um JSON válido, sem markdown, sem explicação. Array com 3 a 5
           </button>
         )}
       </div>
+      </>}
     </div>
   );
 }
