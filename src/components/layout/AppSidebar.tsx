@@ -7,7 +7,7 @@ import {
   HelpCircle, Shield, ChevronLeft, ChevronRight, Phone,
   Palette, Bell, Crown, ArrowLeftRight, Star,
   ArrowLeft, Megaphone, BarChart2, ExternalLink,
-  Bot, Activity, Link2, ListTodo, Share2, Clapperboard, Mic, CalendarDays, Webhook, Layout, TrendingUp, FileBarChart
+  Bot, Activity, Link2, ListTodo, Share2, Clapperboard, Mic, CalendarDays, Webhook, Layout, TrendingUp, FileBarChart, BookOpen
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
@@ -39,6 +39,7 @@ const crmItems = [
   { to: "/video-editor", icon: Clapperboard, label: "Editor de Vídeo" },
   { to: "/tomas", icon: Layout, label: "Criador de LPs" },
   { to: "/ben", icon: TrendingUp, label: "Tendências — Ben" },
+  { to: "/notebook", icon: BookOpen, label: "Notebook IA" },
   { to: "/sites", icon: Globe, label: "Sites & LPs" },
   { to: "/members", icon: GraduationCap, label: "Membros" },
   { to: "/payments", icon: CreditCard, label: "Pagamentos" },

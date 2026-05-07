@@ -45,6 +45,7 @@ import TeamPortalPage from "@/pages/TeamPortalPage";
 import WhatsAppPage from "@/pages/WhatsAppPage";
 import BriefingPage from "@/pages/BriefingPage";
 import GroupsPage from "@/pages/GroupsPage";
+import NotebookPage from "@/pages/NotebookPage";
 
 const queryClient = new QueryClient();
 
@@ -104,6 +105,7 @@ const ProtectedRoutes = () => {
           <Route path="/video-editor" element={<VideoEditorPage />} />
           <Route path="/tomas" element={<TomasPage />} />
           <Route path="/ben" element={<BenPage />} />
+          <Route path="/notebook" element={<NotebookPage />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
