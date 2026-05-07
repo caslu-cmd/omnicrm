@@ -148,6 +148,7 @@ export default function SocialMediaTab({
   const [batchDistribute, setBatchDistribute] = useState(true);
   const [batchStartDate, setBatchStartDate] = useState("");
   const [batchTime, setBatchTime] = useState("09:00");
+  const [batchSubType, setBatchSubType] = useState<"post" | "story">("post");
   const batchInputRef = useRef<HTMLInputElement>(null);
   const [linkedinStep, setLinkedinStep] = useState<null | "enter-url" | "oauth">(null);
   const [linkedinOrgUrl, setLinkedinOrgUrl] = useState("");
@@ -478,7 +479,8 @@ export default function SocialMediaTab({
           d.setDate(d.getDate() + i);
           scheduledAt = d.toISOString().slice(0, 16);
         }
-        await callFn({ action: "create-post", client_id: clientId, platforms: composer.platforms, caption: composer.media_type === "story" ? null : (item.caption || null), media_url: publicUrl, media_type: composer.media_type === "story" ? "story" : "image", link_url: composer.media_type === "story" ? (composer.link_url || null) : null, scheduled_at: scheduledAt || null });
+        const isStory = composer.media_type === "story" || (composer.media_type === "batch" && batchSubType === "story");
+        await callFn({ action: "create-post", client_id: clientId, platforms: composer.platforms, caption: isStory ? null : (item.caption || null), media_url: publicUrl, media_type: isStory ? "story" : "image", link_url: isStory ? (composer.link_url || null) : null, scheduled_at: scheduledAt || null });
         success++;
       } catch { /* continue with next */ }
     }
@@ -1131,7 +1133,21 @@ export default function SocialMediaTab({
                     <input ref={batchInputRef} type="file" multiple accept="image/jpeg,image/png,image/gif,image/webp,video/mp4" className="hidden"
                       onChange={(e) => { if (e.target.files) addBatchFiles(e.target.files); }} />
 
+                    {/* Batch sub-type toggle */}
+                    <div className="flex gap-2">
+                      {(["post", "story"] as const).map((st) => (
+                        <button key={st} onClick={() => { setBatchSubType(st); setBatchItems([]); }}
+                          className="flex-1 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                          style={batchSubType === st
+                            ? { background: st === "story" ? "#F472B6" : clientColor, color: "#07080A" }
+                            : { background: "rgba(255,255,255,0.04)", color: s(0.4), border: "1px solid rgba(255,255,255,0.08)" }}>
+                          {st === "post" ? "📝 Posts" : "📱 Stories"}
+                        </button>
+                      ))}
+                    </div>
+
                     {/* Drop zone */}
+                    {(() => { const storyLote = batchSubType === "story"; const accent = storyLote ? "#F472B6" : clientColor; return (
                     <div
                       onClick={() => batchInputRef.current?.click()}
                       onDragOver={(e) => { e.preventDefault(); setBatchDragOver(true); }}
@@ -1139,23 +1155,37 @@ export default function SocialMediaTab({
                       onDragLeave={() => setBatchDragOver(false)}
                       onDrop={(e) => { e.preventDefault(); setBatchDragOver(false); if (e.dataTransfer.files) addBatchFiles(e.dataTransfer.files); }}
                       className="w-full py-6 rounded-xl flex flex-col items-center gap-2 cursor-pointer transition-all"
-                      style={{ background: batchDragOver ? "rgba(185,255,75,0.06)" : "rgba(255,255,255,0.03)", border: `1px dashed ${batchDragOver ? clientColor : "rgba(255,255,255,0.12)"}` }}>
-                      <Upload className="w-5 h-5" style={{ color: batchDragOver ? clientColor : s(0.3) }} />
-                      <span className="text-xs font-medium" style={{ color: batchDragOver ? clientColor : s(0.4) }}>
-                        {batchDragOver ? "Solte para adicionar" : "Arraste ou clique para adicionar imagens"}
+                      style={{ background: batchDragOver ? `${accent}10` : "rgba(255,255,255,0.03)", border: `1px dashed ${batchDragOver ? accent : "rgba(255,255,255,0.12)"}` }}>
+                      <Upload className="w-5 h-5" style={{ color: batchDragOver ? accent : s(0.3) }} />
+                      <span className="text-xs font-medium" style={{ color: batchDragOver ? accent : s(0.4) }}>
+                        {batchDragOver ? "Solte para adicionar" : storyLote ? "Arraste ou clique para adicionar stories" : "Arraste ou clique para adicionar imagens"}
                       </span>
                       <span className="text-[10px]" style={{ color: s(0.2) }}>Selecione múltiplos arquivos de uma vez</span>
                     </div>
+                    ); })()}
 
                     {/* Items list */}
-                    {batchItems.length > 0 && (
+                    {batchItems.length > 0 && (() => { const storyLote = batchSubType === "story"; const accent = storyLote ? "#F472B6" : clientColor; return (
                       <div className="space-y-3">
                         <div className="flex items-center justify-between">
-                          <p className="text-xs font-medium" style={{ color: s(0.5) }}>{batchItems.length} arquivo{batchItems.length !== 1 ? "s" : ""}</p>
+                          <p className="text-xs font-medium" style={{ color: s(0.5) }}>{batchItems.length} {storyLote ? (batchItems.length === 1 ? "story" : "stories") : `arquivo${batchItems.length !== 1 ? "s" : ""}`}</p>
                           <button onClick={() => setBatchItems([])} className="text-[10px]" style={{ color: "#F87171" }}>Limpar tudo</button>
                         </div>
 
-                        {batchItems.map((item, idx) => (
+                        {storyLote ? (
+                          <div className="grid grid-cols-4 gap-2">
+                            {batchItems.map((item, idx) => (
+                              <div key={item.id} className="relative rounded-xl overflow-hidden" style={{ aspectRatio: "9/16", background: "rgba(255,255,255,0.04)" }}>
+                                <img src={item.url} alt="" className="w-full h-full object-cover" />
+                                <div className="absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black" style={{ background: accent, color: "#07080A" }}>{idx + 1}</div>
+                                <button onClick={() => setBatchItems((prev) => prev.filter((i) => i.id !== item.id))} className="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.7)" }}>
+                                  <X className="w-3 h-3 text-white" />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                        <>{batchItems.map((item, idx) => (
                           <div key={item.id} className="rounded-xl p-3 space-y-2" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
                             <div className="flex items-start gap-3">
                               <img src={item.url} alt="" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
@@ -1196,7 +1226,22 @@ export default function SocialMediaTab({
                               </p>
                             )}
                           </div>
-                        ))}
+                        ))}</>
+                        )}
+
+                        {/* Link for story batch */}
+                        {batchSubType === "story" && (
+                          <div>
+                            <label className="block text-xs font-medium mb-1.5" style={{ color: s(0.4) }}>Link do Story (opcional — aplicado a todos)</label>
+                            <input
+                              value={composer.link_url}
+                              onChange={(e) => setComposer((p) => ({ ...p, link_url: e.target.value }))}
+                              placeholder="https://…"
+                              className="w-full rounded-xl px-3 py-2 text-xs focus:outline-none"
+                              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: s(0.8) }}
+                            />
+                          </div>
+                        )}
 
                         {/* Distribution settings */}
                         <div className="rounded-xl p-3 space-y-3" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
@@ -1227,7 +1272,7 @@ export default function SocialMediaTab({
                           {!batchDistribute && <p className="text-[10px]" style={{ color: s(0.3) }}>Configure a data individualmente em cada post acima.</p>}
                         </div>
                       </div>
-                    )}
+                    ); })()}
                   </div>
                 )}
 
@@ -1458,10 +1503,15 @@ export default function SocialMediaTab({
                   onClick={(composer.media_type === "batch" || composer.media_type === "story") ? handleBatchSubmit : handleSubmitPost}
                   disabled={submitting}
                   className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 transition-all"
-                  style={{ background: composer.media_type === "story" ? "#F472B6" : clientColor, color: "#07080A" }}>
-                  {submitting
-                    ? <><RefreshCw className="w-4 h-4 animate-spin" /> {composer.media_type === "story" ? `Publicando ${batchItems.length} stor${batchItems.length !== 1 ? "ies" : "y"}…` : composer.media_type === "batch" ? "Agendando lote…" : composer.post_now ? "Publicando…" : "Agendando…"}</>
-                    : <><Send className="w-4 h-4" /> {composer.media_type === "story" ? `${batchItems.length > 0 ? `${composer.post_now ? "Publicar" : "Agendar"} ${batchItems.length} stor${batchItems.length !== 1 ? "ies" : "y"}` : "Adicione stories acima"}` : composer.media_type === "batch" ? `Agendar ${batchItems.length} post${batchItems.length !== 1 ? "s" : ""}` : composer.post_now ? "Publicar" : "Agendar"}</>}
+                  style={{ background: (composer.media_type === "story" || (composer.media_type === "batch" && batchSubType === "story")) ? "#F472B6" : clientColor, color: "#07080A" }}>
+                  {(() => {
+                    const isStoryMode = composer.media_type === "story" || (composer.media_type === "batch" && batchSubType === "story");
+                    const isBatch = composer.media_type === "batch" || composer.media_type === "story";
+                    if (submitting) return <><RefreshCw className="w-4 h-4 animate-spin" /> {isStoryMode ? `Publicando ${batchItems.length} stor${batchItems.length !== 1 ? "ies" : "y"}…` : isBatch ? "Agendando lote…" : composer.post_now ? "Publicando…" : "Agendando…"}</>;
+                    if (isStoryMode) return <><Send className="w-4 h-4" /> {batchItems.length > 0 ? `${composer.post_now ? "Publicar" : "Agendar"} ${batchItems.length} stor${batchItems.length !== 1 ? "ies" : "y"}` : "Adicione stories acima"}</>;
+                    if (composer.media_type === "batch") return <><Send className="w-4 h-4" /> {batchItems.length > 0 ? `Agendar ${batchItems.length} post${batchItems.length !== 1 ? "s" : ""}` : "Adicione imagens acima"}</>;
+                    return <><Send className="w-4 h-4" /> {composer.post_now ? "Publicar" : "Agendar"}</>;
+                  })()}
                 </button>
               </div>
               </div>{/* end left col wrapper */}
