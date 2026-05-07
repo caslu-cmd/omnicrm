@@ -143,6 +143,12 @@ export default function SocialMediaTab({
   const [calendarDate, setCalendarDate] = useState(() => { const n = new Date(); return { year: n.getFullYear(), month: n.getMonth() }; });
   const [previewType, setPreviewType] = useState<"feed" | "story">("feed");
   const [dragOver, setDragOver] = useState(false);
+  const [batchDragOver, setBatchDragOver] = useState(false);
+  const [batchItems, setBatchItems] = useState<{ id: string; file: File; url: string; caption: string; scheduledAt: string; generating: boolean }[]>([]);
+  const [batchDistribute, setBatchDistribute] = useState(true);
+  const [batchStartDate, setBatchStartDate] = useState("");
+  const [batchTime, setBatchTime] = useState("09:00");
+  const batchInputRef = useRef<HTMLInputElement>(null);
   const [linkedinStep, setLinkedinStep] = useState<null | "enter-url" | "oauth">(null);
   const [linkedinOrgUrl, setLinkedinOrgUrl] = useState("");
   const pendingOAuthStateRef = useRef<string>("");
@@ -152,7 +158,7 @@ export default function SocialMediaTab({
     platforms: [] as string[],
     caption: "",
     media_url: "",
-    media_type: "post" as "post" | "story",
+    media_type: "post" as "post" | "story" | "batch",
     link_url: "",
     post_now: true,
     scheduled_at: "",
@@ -425,6 +431,58 @@ export default function SocialMediaTab({
     } finally {
       setDisconnecting(null);
     }
+  };
+
+  // ── Batch helpers ──────────────────────────────────────────
+  const addBatchFiles = (files: FileList | File[]) => {
+    Array.from(files).forEach((file) => {
+      const url = URL.createObjectURL(file);
+      setBatchItems((prev) => [...prev, { id: `${Date.now()}-${Math.random()}`, file, url, caption: "", scheduledAt: "", generating: false }]);
+    });
+  };
+
+  const generateBatchCaption = async (itemId: string) => {
+    setBatchItems((prev) => prev.map((i) => i.id === itemId ? { ...i, generating: true } : i));
+    try {
+      const { data } = await supabase.functions.invoke("chat-ai", {
+        body: {
+          systemPrompt: "Você é especialista em social media. Crie legendas profissionais e criativas para Instagram. Responda APENAS com a legenda, sem comentários adicionais.",
+          messages: [{ role: "user", content: "Crie uma legenda envolvente para Instagram. Use emojis estrategicamente e adicione 5-8 hashtags relevantes no final. Seja conciso e impactante." }],
+          maxTokens: 400,
+        },
+      });
+      setBatchItems((prev) => prev.map((i) => i.id === itemId ? { ...i, caption: data?.content ?? "", generating: false } : i));
+    } catch {
+      setBatchItems((prev) => prev.map((i) => i.id === itemId ? { ...i, generating: false } : i));
+      toast.error("Erro ao gerar legenda.");
+    }
+  };
+
+  const handleBatchSubmit = async () => {
+    if (!batchItems.length) { toast.error("Adicione ao menos uma imagem."); return; }
+    if (!composer.platforms.length) { toast.error("Selecione ao menos uma plataforma."); return; }
+    setSubmitting(true);
+    let success = 0;
+    for (let i = 0; i < batchItems.length; i++) {
+      const item = batchItems[i];
+      try {
+        const publicUrl = await uploadMediaToSupabase(item.file);
+        let scheduledAt = item.scheduledAt;
+        if (batchDistribute && batchStartDate) {
+          const d = new Date(`${batchStartDate}T${batchTime}`);
+          d.setDate(d.getDate() + i);
+          scheduledAt = d.toISOString().slice(0, 16);
+        }
+        await callFn({ action: "create-post", client_id: clientId, platforms: composer.platforms, caption: item.caption || null, media_url: publicUrl, media_type: "image", scheduled_at: scheduledAt || null });
+        success++;
+      } catch { /* continue with next */ }
+    }
+    setBatchItems([]);
+    setShowComposer(false);
+    setComposer((p) => ({ ...p, media_type: "post" }));
+    loadPosts();
+    toast.success(`${success} post${success !== 1 ? "s" : ""} agendado${success !== 1 ? "s" : ""}!`);
+    setSubmitting(false);
   };
 
   // ── Upload media ───────────────────────────────────────────
@@ -1053,21 +1111,122 @@ export default function SocialMediaTab({
 
                 {/* Post type */}
                 <div className="flex gap-2">
-                  {(["post", "story"] as const).map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => setComposer((p) => ({ ...p, media_type: t }))}
+                  {(["post", "story", "batch"] as const).map((t) => (
+                    <button key={t} onClick={() => setComposer((p) => ({ ...p, media_type: t }))}
                       className="flex-1 py-2 rounded-xl text-xs font-semibold transition-all"
-                      style={composer.media_type === t
-                        ? { background: clientColor, color: "#07080A" }
-                        : { background: "rgba(255,255,255,0.05)", color: s(0.4), border: "1px solid rgba(255,255,255,0.09)" }}
-                    >
-                      {t === "post" ? "📝 Post" : "📱 Story"}
+                      style={composer.media_type === t ? { background: clientColor, color: "#07080A" } : { background: "rgba(255,255,255,0.05)", color: s(0.4), border: "1px solid rgba(255,255,255,0.09)" }}>
+                      {t === "post" ? "📝 Post" : t === "story" ? "📱 Story" : "📦 Lote"}
                     </button>
                   ))}
                 </div>
 
-                {/* Caption — hidden for stories */}
+                {/* ── Batch mode ──────────────────────────────── */}
+                {composer.media_type === "batch" && (
+                  <div className="space-y-4">
+                    <input ref={batchInputRef} type="file" multiple accept="image/jpeg,image/png,image/gif,image/webp,video/mp4" className="hidden"
+                      onChange={(e) => { if (e.target.files) addBatchFiles(e.target.files); }} />
+
+                    {/* Drop zone */}
+                    <div
+                      onClick={() => batchInputRef.current?.click()}
+                      onDragOver={(e) => { e.preventDefault(); setBatchDragOver(true); }}
+                      onDragEnter={(e) => { e.preventDefault(); setBatchDragOver(true); }}
+                      onDragLeave={() => setBatchDragOver(false)}
+                      onDrop={(e) => { e.preventDefault(); setBatchDragOver(false); if (e.dataTransfer.files) addBatchFiles(e.dataTransfer.files); }}
+                      className="w-full py-6 rounded-xl flex flex-col items-center gap-2 cursor-pointer transition-all"
+                      style={{ background: batchDragOver ? "rgba(185,255,75,0.06)" : "rgba(255,255,255,0.03)", border: `1px dashed ${batchDragOver ? clientColor : "rgba(255,255,255,0.12)"}` }}>
+                      <Upload className="w-5 h-5" style={{ color: batchDragOver ? clientColor : s(0.3) }} />
+                      <span className="text-xs font-medium" style={{ color: batchDragOver ? clientColor : s(0.4) }}>
+                        {batchDragOver ? "Solte para adicionar" : "Arraste ou clique para adicionar imagens"}
+                      </span>
+                      <span className="text-[10px]" style={{ color: s(0.2) }}>Selecione múltiplos arquivos de uma vez</span>
+                    </div>
+
+                    {/* Items list */}
+                    {batchItems.length > 0 && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-xs font-medium" style={{ color: s(0.5) }}>{batchItems.length} arquivo{batchItems.length !== 1 ? "s" : ""}</p>
+                          <button onClick={() => setBatchItems([])} className="text-[10px]" style={{ color: "#F87171" }}>Limpar tudo</button>
+                        </div>
+
+                        {batchItems.map((item, idx) => (
+                          <div key={item.id} className="rounded-xl p-3 space-y-2" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                            <div className="flex items-start gap-3">
+                              <img src={item.url} alt="" className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center justify-between mb-1">
+                                  <p className="text-[10px] truncate" style={{ color: s(0.4) }}>{item.file.name}</p>
+                                  <button onClick={() => setBatchItems((prev) => prev.filter((i) => i.id !== item.id))} style={{ color: s(0.25) }}>
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </div>
+                                <textarea
+                                  value={item.caption}
+                                  onChange={(e) => setBatchItems((prev) => prev.map((i) => i.id === item.id ? { ...i, caption: e.target.value } : i))}
+                                  rows={2}
+                                  placeholder="Legenda do post…"
+                                  className="w-full rounded-lg px-2 py-1.5 text-xs resize-none focus:outline-none"
+                                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: s(0.8) }}
+                                />
+                                <button
+                                  onClick={() => generateBatchCaption(item.id)}
+                                  disabled={item.generating}
+                                  className="mt-1.5 flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold transition-all disabled:opacity-50"
+                                  style={{ background: `${clientColor}15`, color: clientColor, border: `1px solid ${clientColor}25` }}>
+                                  {item.generating ? <><Loader2 className="w-3 h-3 animate-spin" /> Gerando…</> : <>✨ Gerar legenda com IA</>}
+                                </button>
+                              </div>
+                            </div>
+                            {/* Per-item schedule (shown only if not distributing) */}
+                            {!batchDistribute && (
+                              <input type="datetime-local" value={item.scheduledAt}
+                                onChange={(e) => setBatchItems((prev) => prev.map((i) => i.id === item.id ? { ...i, scheduledAt: e.target.value } : i))}
+                                className="w-full rounded-lg px-2 py-1.5 text-xs focus:outline-none"
+                                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: s(0.7), colorScheme: "dark" }} />
+                            )}
+                            {batchDistribute && batchStartDate && (
+                              <p className="text-[10px]" style={{ color: s(0.35) }}>
+                                Publicação: {(() => { const d = new Date(`${batchStartDate}T${batchTime}`); d.setDate(d.getDate() + idx); return d.toLocaleDateString("pt-BR", { weekday: "short", day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }); })()}
+                              </p>
+                            )}
+                          </div>
+                        ))}
+
+                        {/* Distribution settings */}
+                        <div className="rounded-xl p-3 space-y-3" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-medium" style={{ color: s(0.6) }}>Distribuir automaticamente</p>
+                            <button onClick={() => setBatchDistribute((v) => !v)}
+                              className="w-9 h-5 rounded-full transition-all relative"
+                              style={{ background: batchDistribute ? clientColor : "rgba(255,255,255,0.1)" }}>
+                              <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: batchDistribute ? "18px" : "2px" }} />
+                            </button>
+                          </div>
+                          {batchDistribute && (
+                            <div className="flex gap-2">
+                              <div className="flex-1">
+                                <label className="text-[10px]" style={{ color: s(0.35) }}>Data início</label>
+                                <input type="date" value={batchStartDate} onChange={(e) => setBatchStartDate(e.target.value)}
+                                  className="w-full rounded-lg px-2 py-1.5 text-xs mt-0.5 focus:outline-none"
+                                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: s(0.8), colorScheme: "dark" }} />
+                              </div>
+                              <div>
+                                <label className="text-[10px]" style={{ color: s(0.35) }}>Horário</label>
+                                <input type="time" value={batchTime} onChange={(e) => setBatchTime(e.target.value)}
+                                  className="w-full rounded-lg px-2 py-1.5 text-xs mt-0.5 focus:outline-none"
+                                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: s(0.8), colorScheme: "dark" }} />
+                              </div>
+                            </div>
+                          )}
+                          {!batchDistribute && <p className="text-[10px]" style={{ color: s(0.3) }}>Configure a data individualmente em cada post acima.</p>}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Caption — hidden for stories and batch */}
                 {composer.media_type === "post" && <div>
                   <label className="block text-xs font-medium mb-2" style={{ color: s(0.4) }}>Legenda</label>
                   <textarea
@@ -1081,8 +1240,8 @@ export default function SocialMediaTab({
                   <p className="text-[10px] mt-1 text-right" style={{ color: s(0.2) }}>{composer.caption.length}/2200</p>
                 </div>}
 
-                {/* Media upload */}
-                <div>
+                {/* Media upload — hidden in batch mode */}
+                {composer.media_type !== "batch" && <div>
                   <label className="block text-xs font-medium mb-2" style={{ color: s(0.4) }}>Imagem / Vídeo (opcional)</label>
                   <input
                     ref={fileInputRef}
@@ -1152,7 +1311,7 @@ export default function SocialMediaTab({
                       <span className="text-[10px]" style={{ color: s(0.2) }}>JPG, PNG, GIF, WEBP, MP4 — até 50 MB</span>
                     </div>
                   )}
-                </div>
+                </div>}
 
                 {/* Link URL — only for stories */}
                 {composer.media_type === "story" && (
@@ -1169,8 +1328,8 @@ export default function SocialMediaTab({
                   </div>
                 )}
 
-                {/* Schedule */}
-                <div>
+                {/* Schedule — hidden in batch mode (batch has its own distribution settings) */}
+                {composer.media_type !== "batch" && <div>
                   <label className="block text-xs font-medium mb-2" style={{ color: s(0.4) }}>Publicação</label>
                   <div className="flex gap-2 mb-3">
                     {[{ v: true, label: "Publicar agora" }, { v: false, label: "Agendar" }].map(({ v, label }) => (
@@ -1195,7 +1354,7 @@ export default function SocialMediaTab({
                       style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: s(0.8), colorScheme: "dark" }}
                     />
                   )}
-                </div>
+                </div>}
               </div>{/* end scrollable form */}
               {/* Footer */}
               <div className="flex gap-3 px-6 pb-6 pt-4 flex-shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
@@ -1203,18 +1362,20 @@ export default function SocialMediaTab({
                   style={{ background: "rgba(255,255,255,0.05)", color: s(0.5), border: "1px solid rgba(255,255,255,0.08)" }}>
                   Cancelar
                 </button>
-                <button onClick={handleSubmitPost} disabled={submitting}
+                <button
+                  onClick={composer.media_type === "batch" ? handleBatchSubmit : handleSubmitPost}
+                  disabled={submitting}
                   className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 transition-all"
                   style={{ background: clientColor, color: "#07080A" }}>
                   {submitting
-                    ? <><RefreshCw className="w-4 h-4 animate-spin" /> {composer.post_now ? "Publicando…" : "Agendando…"}</>
-                    : <><Send className="w-4 h-4" /> {composer.post_now ? "Publicar" : "Agendar"}</>}
+                    ? <><RefreshCw className="w-4 h-4 animate-spin" /> {composer.media_type === "batch" ? "Agendando lote…" : composer.post_now ? "Publicando…" : "Agendando…"}</>
+                    : <><Send className="w-4 h-4" /> {composer.media_type === "batch" ? `Agendar ${batchItems.length} post${batchItems.length !== 1 ? "s" : ""}` : composer.post_now ? "Publicar" : "Agendar"}</>}
                 </button>
               </div>
               </div>{/* end left col wrapper */}
 
-              {/* Right: Preview */}
-              <div className="w-72 flex-shrink-0 flex flex-col overflow-y-auto" style={{ borderLeft: "1px solid rgba(255,255,255,0.07)", background: "rgba(0,0,0,0.2)" }}>
+              {/* Right: Preview — hidden in batch mode */}
+              {composer.media_type !== "batch" && <div className="w-72 flex-shrink-0 flex flex-col overflow-y-auto" style={{ borderLeft: "1px solid rgba(255,255,255,0.07)", background: "rgba(0,0,0,0.2)" }}>
                 <div className="p-4 space-y-4 flex-1">
                   {/* Preview type toggle */}
                   <div>
@@ -1333,7 +1494,7 @@ export default function SocialMediaTab({
                     </div>
                   )}
                 </div>
-              </div>
+              </div>}
               </div>{/* end two-col flex */}
             </motion.div>
           </motion.div>
