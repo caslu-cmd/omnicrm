@@ -37,9 +37,7 @@ const META_SCOPE = [
   "pages_manage_posts",
   "pages_read_engagement",
   "pages_show_list",
-  "instagram_basic",
-  "instagram_content_publish",
-  "instagram_manage_insights",
+  "public_profile",
 ].join(",");
 
 Deno.serve(async (req) => {

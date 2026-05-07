@@ -38,9 +38,8 @@ const META_SCOPE = [
   "pages_manage_posts",
   "pages_read_engagement",
   "pages_show_list",
-  "instagram_basic",
-  "instagram_content_publish",
-  "instagram_manage_insights",
+  "business_management",
+  "public_profile",
 ].join(",");
 
 const LINKEDIN_SCOPE = "w_member_social";
@@ -136,6 +135,9 @@ Deno.serve(async (req) => {
       let accountUsername: string | null = null;
       let followersCount = 0;
 
+      const encryptedToken = obfuscate(pageToken, encKey);
+      const tokenExpiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
+
       if (platform === "instagram") {
         const igRes = await fetch(`${GRAPH}/${page.id}?fields=instagram_business_account&access_token=${pageToken}`);
         const igData = await igRes.json();
@@ -147,26 +149,73 @@ Deno.serve(async (req) => {
         accountName = igDetails.name ?? page.name;
         accountUsername = igDetails.username ? `@${igDetails.username}` : null;
         followersCount = igDetails.followers_count ?? 0;
-      } else {
-        const pageDetailsRes = await fetch(`${GRAPH}/${page.id}?fields=fan_count,followers_count&access_token=${pageToken}`);
-        const pageDetails = await pageDetailsRes.json();
-        followersCount = pageDetails.followers_count ?? pageDetails.fan_count ?? 0;
+
+        const { error: upsertError } = await supabase
+          .from("social_connections")
+          .upsert({
+            user_id: userId, client_id: clientId, platform: "instagram",
+            account_id: accountId, account_name: accountName,
+            account_username: accountUsername, followers_count: followersCount,
+            access_token: encryptedToken, token_expires_at: tokenExpiresAt,
+            connected: true, connected_at: new Date().toISOString(),
+          }, { onConflict: "user_id,client_id,platform" });
+        if (upsertError) return respond({ error: upsertError.message }, 500);
+        return respond({ success: true, account_name: accountName, account_username: accountUsername, followers_count: followersCount });
       }
 
-      const encryptedToken = obfuscate(pageToken, encKey);
+      // Facebook: save Page connection, then auto-detect and save Instagram too
+      const pageDetailsRes = await fetch(`${GRAPH}/${page.id}?fields=fan_count,followers_count&access_token=${pageToken}`);
+      const pageDetails = await pageDetailsRes.json();
+      followersCount = pageDetails.followers_count ?? pageDetails.fan_count ?? 0;
+
       const { error: upsertError } = await supabase
         .from("social_connections")
         .upsert({
-          user_id: userId, client_id: clientId, platform,
+          user_id: userId, client_id: clientId, platform: "facebook",
           account_id: accountId, account_name: accountName,
           account_username: accountUsername, followers_count: followersCount,
-          access_token: encryptedToken,
-          token_expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
+          access_token: encryptedToken, token_expires_at: tokenExpiresAt,
           connected: true, connected_at: new Date().toISOString(),
         }, { onConflict: "user_id,client_id,platform" });
-
       if (upsertError) return respond({ error: upsertError.message }, 500);
-      return respond({ success: true, account_name: accountName, account_username: accountUsername, followers_count: followersCount });
+
+      // Auto-detect Instagram linked to this Facebook Page
+      let igConnected = false;
+      let igName: string | null = null;
+      let igUsername: string | null = null;
+      let igFollowers = 0;
+      try {
+        const igRes = await fetch(`${GRAPH}/${page.id}?fields=instagram_business_account&access_token=${pageToken}`);
+        const igData = await igRes.json();
+        const igId = igData.instagram_business_account?.id;
+        if (igId) {
+          const igDetailsRes = await fetch(`${GRAPH}/${igId}?fields=id,name,username,followers_count&access_token=${pageToken}`);
+          const igDetails = await igDetailsRes.json();
+          if (!igDetails.error) {
+            igName = igDetails.name ?? page.name;
+            igUsername = igDetails.username ? `@${igDetails.username}` : null;
+            igFollowers = igDetails.followers_count ?? 0;
+            await supabase.from("social_connections").upsert({
+              user_id: userId, client_id: clientId, platform: "instagram",
+              account_id: igId, account_name: igName,
+              account_username: igUsername, followers_count: igFollowers,
+              access_token: encryptedToken, token_expires_at: tokenExpiresAt,
+              connected: true, connected_at: new Date().toISOString(),
+            }, { onConflict: "user_id,client_id,platform" });
+            igConnected = true;
+          }
+        }
+      } catch { /* Instagram auto-detect failed silently */ }
+
+      return respond({
+        success: true,
+        account_name: accountName,
+        account_username: accountUsername,
+        followers_count: followersCount,
+        instagram_connected: igConnected,
+        instagram_name: igName,
+        instagram_username: igUsername,
+      });
     }
 
     // ── LinkedIn OAuth URL ───────────────────────────────────────

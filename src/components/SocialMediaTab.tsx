@@ -5,6 +5,8 @@ import {
   CheckCircle2, AlertCircle, Clock, Users, Eye,
   TrendingUp, RefreshCw, ExternalLink, Image as ImageIcon,
   Calendar, Send, Wifi, Upload, Loader2,
+  Heart, MessageCircle, Bookmark, MoreHorizontal,
+  ChevronLeft, ChevronRight, List,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -49,7 +51,7 @@ interface Metric {
 
 // ── Meta OAuth ─────────────────────────────────────────────────
 const META_APP_ID = "1718744112773878";
-const META_SCOPE = "pages_show_list,pages_read_engagement,pages_manage_posts,instagram_basic,instagram_content_publish,public_profile";
+const META_SCOPE = "pages_show_list,pages_read_engagement,pages_manage_posts,business_management,public_profile";
 // Redirect goes through Supabase edge function (trusted domain — avoids browser security warnings)
 const META_REDIRECT_URI = "https://caluagencia.com.br/oauth/meta";
 
@@ -137,6 +139,9 @@ export default function SocialMediaTab({
   const [uploading, setUploading] = useState(false);
   const [localMediaFile, setLocalMediaFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const [calendarDate, setCalendarDate] = useState(() => { const n = new Date(); return { year: n.getFullYear(), month: n.getMonth() }; });
+  const [previewType, setPreviewType] = useState<"feed" | "story">("feed");
   const [linkedinStep, setLinkedinStep] = useState<null | "enter-url" | "oauth">(null);
   const [linkedinOrgUrl, setLinkedinOrgUrl] = useState("");
   const pendingOAuthStateRef = useRef<string>("");
@@ -291,7 +296,11 @@ export default function SocialMediaTab({
             if (error || data?.error) {
               toast.error(msg);
             } else {
-              toast.success(`${PLATFORM_CFG[platform].name} conectado!`);
+              if (platform === "facebook" && data?.instagram_connected) {
+                toast.success("Facebook e Instagram conectados!");
+              } else {
+                toast.success(`${PLATFORM_CFG[platform].name} conectado!`);
+              }
               loadConnections();
               loadMetrics();
             }
@@ -510,6 +519,25 @@ export default function SocialMediaTab({
 
   const connectedPlatforms = connections.filter((c) => c.connected);
   const filteredPosts = posts.filter((p) => postFilter === "all" || p.status === postFilter);
+  const igConn = connections.find((c) => c.platform === "instagram" && c.connected);
+
+  // Calendar helpers
+  const postsByDate = posts.reduce((acc, p) => {
+    if (!p.scheduled_at) return acc;
+    const d = new Date(p.scheduled_at);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(p);
+    return acc;
+  }, {} as Record<string, ScheduledPost[]>);
+  const calFirstDay = new Date(calendarDate.year, calendarDate.month, 1).getDay();
+  const calDaysInMonth = new Date(calendarDate.year, calendarDate.month + 1, 0).getDate();
+  const calendarDays: (number | null)[] = [];
+  for (let i = 0; i < calFirstDay; i++) calendarDays.push(null);
+  for (let i = 1; i <= calDaysInMonth; i++) calendarDays.push(i);
+  while (calendarDays.length % 7 !== 0) calendarDays.push(null);
+  const prevMonth = () => setCalendarDate((d) => d.month === 0 ? { year: d.year - 1, month: 11 } : { ...d, month: d.month - 1 });
+  const nextMonth = () => setCalendarDate((d) => d.month === 11 ? { year: d.year + 1, month: 0 } : { ...d, month: d.month + 1 });
 
   const s = (opacity = 1, value = "255,255,255") => `rgba(${value},${opacity})`;
 
@@ -756,26 +784,78 @@ export default function SocialMediaTab({
 
       {/* ── Posts ───────────────────────────────────────────── */}
       <div>
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: s(0.3) }}>Posts</h3>
-          <div className="flex gap-1">
+          <div className="flex items-center gap-1">
+            {/* View toggle */}
+            <button onClick={() => setViewMode("list")} className="p-1.5 rounded-lg transition-all" style={viewMode === "list" ? { background: `${clientColor}18`, color: clientColor } : { color: s(0.3) }}><List className="w-3.5 h-3.5" /></button>
+            <button onClick={() => setViewMode("calendar")} className="p-1.5 rounded-lg transition-all" style={viewMode === "calendar" ? { background: `${clientColor}18`, color: clientColor } : { color: s(0.3) }}><Calendar className="w-3.5 h-3.5" /></button>
+            <div className="w-px h-4 mx-1" style={{ background: "rgba(255,255,255,0.08)" }} />
             {(["all", "scheduled", "published", "draft"] as const).map((f) => {
               const labels = { all: "Todos", scheduled: "Agendados", published: "Publicados", draft: "Rascunhos" };
               return (
-                <button
-                  key={f}
-                  onClick={() => setPostFilter(f)}
-                  className="px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all"
-                  style={postFilter === f
-                    ? { background: `${clientColor}18`, color: clientColor, border: `1px solid ${clientColor}30` }
-                    : { background: "rgba(255,255,255,0.03)", color: s(0.3), border: "1px solid rgba(255,255,255,0.06)" }}
-                >
+                <button key={f} onClick={() => setPostFilter(f)} className="px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all"
+                  style={postFilter === f ? { background: `${clientColor}18`, color: clientColor, border: `1px solid ${clientColor}30` } : { background: "rgba(255,255,255,0.03)", color: s(0.3), border: "1px solid rgba(255,255,255,0.06)" }}>
                   {labels[f]}
                 </button>
               );
             })}
           </div>
         </div>
+
+        {/* Calendar View */}
+        {viewMode === "calendar" && (
+          <div className="rounded-xl overflow-hidden mb-4" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+            <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+              <button onClick={prevMonth} className="p-1 rounded-lg transition-all hover:bg-white/5" style={{ color: s(0.4) }}><ChevronLeft className="w-4 h-4" /></button>
+              <p className="text-sm font-semibold capitalize" style={{ color: s(0.8) }}>
+                {new Date(calendarDate.year, calendarDate.month).toLocaleDateString("pt-BR", { month: "long", year: "numeric" })}
+              </p>
+              <button onClick={nextMonth} className="p-1 rounded-lg transition-all hover:bg-white/5" style={{ color: s(0.4) }}><ChevronRight className="w-4 h-4" /></button>
+            </div>
+            <div className="grid grid-cols-7 text-center py-2 px-2">
+              {["Dom","Seg","Ter","Qua","Qui","Sex","Sáb"].map((d) => (
+                <div key={d} className="text-[9px] uppercase tracking-wider py-1" style={{ color: s(0.25) }}>{d}</div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-1 p-2">
+              {calendarDays.map((day, i) => {
+                if (!day) return <div key={i} />;
+                const key = `${calendarDate.year}-${String(calendarDate.month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+                const dayPosts = postsByDate[key] ?? [];
+                const now = new Date();
+                const isToday = day === now.getDate() && calendarDate.month === now.getMonth() && calendarDate.year === now.getFullYear();
+                return (
+                  <div key={i} className="rounded-lg p-1 min-h-[44px] flex flex-col items-center gap-0.5 transition-all" style={dayPosts.length > 0 ? { background: "rgba(255,255,255,0.03)", cursor: "pointer" } : {}}>
+                    <span className="text-[11px] font-medium w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={isToday ? { background: clientColor, color: "#07080A", fontWeight: 700 } : { color: s(0.5) }}>
+                      {day}
+                    </span>
+                    {dayPosts.length > 0 && (
+                      <div className="flex flex-wrap gap-0.5 justify-center">
+                        {dayPosts.slice(0, 4).map((p, pi) => (
+                          <div key={pi} className="w-1.5 h-1.5 rounded-full" style={{
+                            background: p.platforms.includes("instagram") ? "#E1306C" : p.platforms.includes("facebook") ? "#1877F2" : "#0A66C2"
+                          }} />
+                        ))}
+                        {dayPosts.length > 4 && <span className="text-[8px]" style={{ color: s(0.3) }}>+{dayPosts.length - 4}</span>}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {/* Legend */}
+            <div className="flex items-center gap-4 px-4 py-2.5" style={{ borderTop: "1px solid rgba(255,255,255,0.05)" }}>
+              {[{ color: "#E1306C", label: "Instagram" }, { color: "#1877F2", label: "Facebook" }, { color: "#0A66C2", label: "LinkedIn" }].map(({ color, label }) => (
+                <div key={label} className="flex items-center gap-1.5">
+                  <div className="w-2 h-2 rounded-full" style={{ background: color }} />
+                  <span className="text-[10px]" style={{ color: s(0.35) }}>{label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {filteredPosts.length === 0 ? (
           <div
@@ -903,18 +983,21 @@ export default function SocialMediaTab({
               initial={{ opacity: 0, scale: 0.97, y: 10 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.97, y: 10 }}
-              className="w-full max-w-lg rounded-2xl overflow-hidden"
-              style={{ background: "#0D0D1A", border: "1px solid rgba(255,255,255,0.1)" }}
+              className="w-full max-w-4xl rounded-2xl overflow-hidden flex flex-col"
+              style={{ background: "#0D0D1A", border: "1px solid rgba(255,255,255,0.1)", maxHeight: "90vh" }}
             >
               {/* Header */}
-              <div className="flex items-center justify-between px-6 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+              <div className="flex items-center justify-between px-6 py-4 flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
                 <h2 className="text-sm font-semibold" style={{ color: s(0.9) }}>Novo Post</h2>
                 <button onClick={() => setShowComposer(false)} className="p-1 rounded-lg" style={{ color: s(0.4) }}>
                   <X className="w-4 h-4" />
                 </button>
               </div>
 
-              <div className="p-6 space-y-5">
+              <div className="flex overflow-hidden flex-1 min-h-0">
+              {/* Left: Form */}
+              <div className="flex-1 flex flex-col min-h-0" style={{ minWidth: 0 }}>
+              <div className="flex-1 overflow-y-auto p-6 space-y-5">
                 {/* Platform selector */}
                 <div>
                   <label className="block text-xs font-medium mb-2" style={{ color: s(0.4) }}>Plataformas</label>
@@ -1080,30 +1163,145 @@ export default function SocialMediaTab({
                     />
                   )}
                 </div>
-              </div>
-
+              </div>{/* end scrollable form */}
               {/* Footer */}
-              <div className="flex gap-3 px-6 pb-6">
-                <button
-                  onClick={() => setShowComposer(false)}
-                  className="flex-1 py-2.5 rounded-xl text-sm font-medium"
-                  style={{ background: "rgba(255,255,255,0.05)", color: s(0.5), border: "1px solid rgba(255,255,255,0.08)" }}
-                >
+              <div className="flex gap-3 px-6 pb-6 pt-4 flex-shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+                <button onClick={() => setShowComposer(false)} className="flex-1 py-2.5 rounded-xl text-sm font-medium"
+                  style={{ background: "rgba(255,255,255,0.05)", color: s(0.5), border: "1px solid rgba(255,255,255,0.08)" }}>
                   Cancelar
                 </button>
-                <button
-                  onClick={handleSubmitPost}
-                  disabled={submitting}
+                <button onClick={handleSubmitPost} disabled={submitting}
                   className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 transition-all"
-                  style={{ background: clientColor, color: "#07080A" }}
-                >
-                  {submitting ? (
-                    <><RefreshCw className="w-4 h-4 animate-spin" /> {composer.post_now ? "Publicando…" : "Agendando…"}</>
-                  ) : (
-                    <><Send className="w-4 h-4" /> {composer.post_now ? "Publicar" : "Agendar"}</>
-                  )}
+                  style={{ background: clientColor, color: "#07080A" }}>
+                  {submitting
+                    ? <><RefreshCw className="w-4 h-4 animate-spin" /> {composer.post_now ? "Publicando…" : "Agendando…"}</>
+                    : <><Send className="w-4 h-4" /> {composer.post_now ? "Publicar" : "Agendar"}</>}
                 </button>
               </div>
+              </div>{/* end left col wrapper */}
+
+              {/* Right: Preview */}
+              <div className="w-72 flex-shrink-0 flex flex-col overflow-y-auto" style={{ borderLeft: "1px solid rgba(255,255,255,0.07)", background: "rgba(0,0,0,0.2)" }}>
+                <div className="p-4 space-y-4 flex-1">
+                  {/* Preview type toggle */}
+                  <div>
+                    <p className="text-[9px] uppercase tracking-widest mb-2" style={{ color: s(0.25) }}>Pré-visualização</p>
+                    <div className="flex gap-1">
+                      {(["feed","story"] as const).map((t) => (
+                        <button key={t} onClick={() => setPreviewType(t)}
+                          className="flex-1 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
+                          style={previewType === t ? { background: clientColor, color: "#07080A" } : { background: "rgba(255,255,255,0.05)", color: s(0.4) }}>
+                          {t === "feed" ? "📱 Feed" : "▯ Story"}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Platform info */}
+                  {igConn && (
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-lg" style={{ background: "rgba(255,255,255,0.04)" }}>
+                      <div className="w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0" style={{ background: "linear-gradient(135deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)" }}>
+                        <span className="text-white text-[9px] font-bold">{(igConn.account_username ?? igConn.account_name ?? "@")[0].replace("@","").toUpperCase()}</span>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold truncate" style={{ color: s(0.8) }}>{igConn.account_username ?? igConn.account_name}</p>
+                        <p className="text-[9px]" style={{ color: s(0.35) }}>{igConn.followers_count ? `${fmtNum(igConn.followers_count)} seguidores` : "Instagram"}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Feed Preview */}
+                  {previewType === "feed" && (
+                    <div className="rounded-xl overflow-hidden shadow-lg" style={{ background: "#fff" }}>
+                      {/* Profile header */}
+                      <div className="flex items-center gap-2 px-3 py-2.5">
+                        <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center" style={{ background: "linear-gradient(135deg,#f09433,#bc1888)" }}>
+                          <span className="text-white text-[10px] font-bold">
+                            {(igConn?.account_username ?? igConn?.account_name ?? "@e").replace("@","")[0].toUpperCase()}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[11px] font-semibold text-black truncate">{igConn?.account_username ?? igConn?.account_name ?? "@empresa"}</p>
+                          <p className="text-[9px] text-gray-400">Patrocinado</p>
+                        </div>
+                        <MoreHorizontal className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                      </div>
+                      {/* Image */}
+                      {composer.media_url ? (
+                        <img src={composer.media_url} alt="" className="w-full aspect-square object-cover" />
+                      ) : (
+                        <div className="w-full aspect-square flex flex-col items-center justify-center gap-2" style={{ background: "#f5f5f5" }}>
+                          <ImageIcon className="w-8 h-8 text-gray-300" />
+                          <p className="text-[10px] text-gray-400">Sem imagem</p>
+                        </div>
+                      )}
+                      {/* Actions */}
+                      <div className="px-3 py-2 space-y-1.5">
+                        <div className="flex items-center gap-3">
+                          <Heart className="w-5 h-5 text-black" />
+                          <MessageCircle className="w-5 h-5 text-black" />
+                          <Send className="w-5 h-5 text-black" />
+                          <Bookmark className="w-5 h-5 text-black ml-auto" />
+                        </div>
+                        <p className="text-[11px] font-semibold text-black">1.234 curtidas</p>
+                        {composer.caption ? (
+                          <p className="text-[10px] text-black leading-relaxed">
+                            <span className="font-semibold">{igConn?.account_username ?? "@empresa"}</span>{" "}
+                            {composer.caption.length > 100 ? composer.caption.slice(0,100) : composer.caption}
+                            {composer.caption.length > 100 && <span className="text-gray-400"> … mais</span>}
+                          </p>
+                        ) : (
+                          <p className="text-[10px] text-gray-300 italic">Sem legenda</p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Story Preview */}
+                  {previewType === "story" && (
+                    <div className="relative rounded-2xl overflow-hidden mx-auto" style={{ width: 180, height: 320, background: "#111" }}>
+                      {composer.media_url ? (
+                        <img src={composer.media_url} alt="" className="absolute inset-0 w-full h-full object-cover" />
+                      ) : (
+                        <div className="absolute inset-0" style={{ background: "linear-gradient(135deg,#1a1a2e,#16213e,#0f3460)" }} />
+                      )}
+                      {/* Progress bars */}
+                      <div className="absolute top-2 left-2 right-2 flex gap-0.5">
+                        {[1,2,3].map((i) => (
+                          <div key={i} className="flex-1 h-0.5 rounded-full" style={{ background: i === 1 ? "white" : "rgba(255,255,255,0.35)" }} />
+                        ))}
+                      </div>
+                      {/* Profile */}
+                      <div className="absolute top-5 left-2 right-8 flex items-center gap-1.5">
+                        <div className="w-6 h-6 rounded-full flex-shrink-0 flex items-center justify-center" style={{ background: "linear-gradient(135deg,#f09433,#bc1888)" }}>
+                          <span className="text-white text-[8px] font-bold">{(igConn?.account_username ?? "@e").replace("@","")[0].toUpperCase()}</span>
+                        </div>
+                        <span className="text-white text-[9px] font-semibold truncate">{igConn?.account_username ?? "@empresa"}</span>
+                        <span className="text-white/50 text-[8px] flex-shrink-0">agora</span>
+                      </div>
+                      {/* Link sticker */}
+                      {composer.link_url && (
+                        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-1 px-3 py-1 rounded-full whitespace-nowrap" style={{ background: "rgba(255,255,255,0.92)" }}>
+                          <ExternalLink className="w-2.5 h-2.5 text-black flex-shrink-0" />
+                          <span className="text-[9px] font-semibold text-black">
+                            {(() => { try { return new URL(composer.link_url).hostname.replace("www.",""); } catch { return "Ver link"; } })()}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Scheduled badge */}
+                  {!composer.post_now && composer.scheduled_at && (
+                    <div className="p-2.5 rounded-xl" style={{ background: `${clientColor}10`, border: `1px solid ${clientColor}25` }}>
+                      <p className="text-[10px] font-semibold" style={{ color: clientColor }}>
+                        ⏰ {new Date(composer.scheduled_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+              </div>{/* end two-col flex */}
             </motion.div>
           </motion.div>
         )}
