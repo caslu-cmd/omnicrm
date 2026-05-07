@@ -434,9 +434,10 @@ interface Props {
   clientName: string;
   clientIndustry: string;
   onClose: () => void;
+  onBriefingSaved?: (data: BriefingData) => void;
 }
 
-export default function LiaBriefingPanel({ clientId, clientName, clientIndustry, onClose }: Props) {
+export default function LiaBriefingPanel({ clientId, clientName, clientIndustry, onClose, onBriefingSaved }: Props) {
   const [step, setStep] = useState(0);
   const [data, setData] = useState<BriefingData>({ ...EMPTY, empresa: clientName, segmento: clientIndustry });
   const [loading, setLoading] = useState(false);
@@ -478,6 +479,7 @@ export default function LiaBriefingPanel({ clientId, clientName, clientIndustry,
       try {
         localStorage.setItem(`client-briefing-${clientId}`, JSON.stringify(data));
         localStorage.setItem(`client-briefing-diagnosis-${clientId}`, diagnosisText.slice(0, 3000));
+        onBriefingSaved?.(data);
       } catch {}
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));

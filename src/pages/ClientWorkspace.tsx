@@ -3902,7 +3902,79 @@ ${priorBlock}`;
             {activeTab === "agents" && (
               <div className="space-y-5">
 
-                {/* ── Luana — Orquestradora ── */}
+                {/* ── Passo 1 — Lia (Briefing) ── */}
+                <motion.div
+                  initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
+                  className="rounded-2xl overflow-hidden"
+                  style={{
+                    background: clientBriefing ? "rgba(56,189,248,0.05)" : "rgba(56,189,248,0.08)",
+                    border: clientBriefing ? "1px solid rgba(56,189,248,0.25)" : "1px solid rgba(56,189,248,0.4)",
+                    boxShadow: clientBriefing ? "none" : "0 0 40px -16px rgba(56,189,248,0.3)",
+                  }}>
+                  <div className="px-5 py-4 flex items-start gap-4">
+                    {/* Avatar */}
+                    <div className="flex-shrink-0">
+                      <div className="w-11 h-11 rounded-xl flex items-center justify-center font-bold text-sm"
+                        style={{ background: "#38BDF818", border: "1px solid #38BDF835", color: "#38BDF8" }}>
+                        L
+                      </div>
+                    </div>
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-1">
+                        <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
+                          style={{ background: "rgba(56,189,248,0.12)", color: "#38BDF8", border: "1px solid rgba(56,189,248,0.25)" }}>
+                          Passo 1
+                        </span>
+                        <span className="text-sm font-bold" style={{ color: "#F0F0F0" }}>Lia</span>
+                        <span className="text-[10px]" style={{ color: "#38BDF8" }}>Agente de Diagnóstico</span>
+                        {clientBriefing && (
+                          <span className="flex items-center gap-1 text-[10px] font-semibold" style={{ color: "#34D399" }}>
+                            <CheckCircle2 className="w-3 h-3" /> Briefing concluído
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] leading-relaxed mb-3" style={{ color: "rgba(255,255,255,0.45)" }}>
+                        {clientBriefing
+                          ? "Contexto do cliente carregado — todos os agentes respondem com base no briefing."
+                          : "Colete o briefing antes de enviar demandas para Luna. Sem ele, os agentes não têm contexto do cliente."}
+                      </p>
+                      <button
+                        onClick={() => { setSelectedAgentId(selectedAgentId === "briefing" ? null : "briefing"); setViewingAgentId(null); setAgentInstruction(""); clearAgentFile(); }}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all"
+                        style={{
+                          background: clientBriefing ? "rgba(56,189,248,0.1)" : "#38BDF8",
+                          color: clientBriefing ? "#38BDF8" : "#07080A",
+                          border: clientBriefing ? "1px solid rgba(56,189,248,0.3)" : "none",
+                          boxShadow: clientBriefing ? "none" : "0 0 20px -4px rgba(56,189,248,0.5)",
+                        }}>
+                        {clientBriefing ? <><RefreshCw className="w-3.5 h-3.5" /> Atualizar Briefing</> : <><Zap className="w-3.5 h-3.5" /> Iniciar Briefing</>}
+                      </button>
+                    </div>
+                  </div>
+                  {/* Painel Lia inline */}
+                  <AnimatePresence>
+                    {selectedAgentId === "briefing" && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                        style={{ borderTop: "1px solid rgba(56,189,248,0.15)" }}>
+                        <div className="px-5 py-4">
+                          <LiaBriefingPanel
+                            clientId={client.id}
+                            clientName={client.name}
+                            clientIndustry={client.industry}
+                            onClose={() => setSelectedAgentId(null)}
+                            onBriefingSaved={(saved) => setClientBriefing(saved)}
+                          />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </motion.div>
+
+                {/* ── Passo 2 — Luna (Orquestradora) ── */}
                 <motion.div
                   initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
                   className="rounded-2xl overflow-hidden"
@@ -3922,6 +3994,10 @@ ${priorBlock}`;
                     </div>
 
                     <div className="flex items-center gap-2 flex-wrap min-w-0">
+                      <span className="text-[9px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full"
+                        style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.2)" }}>
+                        Passo 2
+                      </span>
                       <h3 className="text-base font-bold" style={{ color: "#F0F0F0" }}>Luna</h3>
                       <span className="text-[10px] px-2.5 py-0.5 rounded-full font-semibold whitespace-nowrap"
                         style={{ background: "rgba(185,255,75,0.12)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.25)" }}>
@@ -4695,7 +4771,7 @@ ${priorBlock}`;
                       Time de Especialistas
                     </h3>
                     <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
-                    <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.2)" }}>{MARKETING_TEAM.length} agentes</span>
+                    <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.2)" }}>{MARKETING_TEAM.length - 1} especialistas</span>
                     <button
                       onClick={() => setShowManualOutput(true)}
                       className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold transition-all flex-shrink-0"
@@ -4739,7 +4815,7 @@ ${priorBlock}`;
                   })()}
 
                   <div className="flex flex-col gap-2.5 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:gap-3">
-                    {MARKETING_TEAM.filter(a => a.id !== "rico" || id === "gnx").map((agent, i) => {
+                    {MARKETING_TEAM.filter(a => a.id !== "briefing" && (a.id !== "rico" || id === "gnx")).map((agent, i) => {
                       const task = client.agentTasks[agent.id];
                       const isWorking = task?.status === "trabalhando";
                       const isDone = task?.status === "concluído";
@@ -4917,7 +4993,7 @@ ${priorBlock}`;
 
                   {/* ── Painel de instrução individual ── */}
                   <AnimatePresence>
-                    {selectedAgent && (
+                    {selectedAgent && selectedAgent.id !== "briefing" && (
                         <motion.div
                           key={selectedAgent.id}
                           initial={{ opacity: 0, y: -6 }}
