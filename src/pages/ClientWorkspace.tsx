@@ -1092,6 +1092,12 @@ export default function ClientWorkspace() {
   const [clientBriefing, setClientBriefing] = useState<Record<string, any> | null>(() => {
     try { const raw = localStorage.getItem(`client-briefing-${id}`); return raw ? JSON.parse(raw) : null; } catch { return null; }
   });
+  const [agentChats, setAgentChats] = useState<Record<string, {role:"user"|"assistant"; content:string}[]>>(() => {
+    try { const raw = localStorage.getItem(`agent-chats-${id}`); return raw ? JSON.parse(raw) : {}; } catch { return {}; }
+  });
+  const [agentChatInput, setAgentChatInput] = useState("");
+  const [agentChatLoading, setAgentChatLoading] = useState(false);
+  const agentChatEndRef = useRef<HTMLDivElement>(null);
   const [agentOutputs, setAgentOutputs] = useState<Record<string, string>>({});
   const [agentDeadlines, setAgentDeadlines] = useState<Record<string, string>>({});
   // Onda de orquestração ARIA: 0 = ocioso; 1+ = onda ativa
@@ -1322,6 +1328,52 @@ export default function ClientWorkspace() {
       updateConvMsg(typingId, { content: `Erro: ${e instanceof Error ? e.message : String(e)}`, action: "respond", status: "error" });
     } finally {
       setAriaLoading(false);
+    }
+  };
+
+  const updateAgentChat = (agentId: string, msgs: {role:"user"|"assistant"; content:string}[]) => {
+    setAgentChats((prev) => {
+      const updated = { ...prev, [agentId]: msgs };
+      localStorage.setItem(`agent-chats-${id}`, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  const handleAgentChat = async (agentId: string) => {
+    const msg = agentChatInput.trim();
+    if (!msg || agentChatLoading) return;
+    setAgentChatInput("");
+    const agent = MARKETING_TEAM.find((a) => a.id === agentId);
+    const history = agentChats[agentId] ?? [];
+    const newHistory: {role:"user"|"assistant"; content:string}[] = [...history, { role: "user", content: msg }];
+    updateAgentChat(agentId, newHistory);
+    setAgentChatLoading(true);
+    try {
+      const agCfg = AGENT_CONFIG[agentId] ?? { maxTokens: 6000, thinking: false };
+      const isPostAgent = ["social", "copywriter"].includes(agentId);
+      const { data: { session } } = await supabase.auth.getSession();
+      const agentUserId = session?.user?.id ?? null;
+      const systemWithCtx = `${AGENT_PROMPTS[agentId] ?? `Você é ${agent?.name}, ${agent?.role} da Calu Agência.`}
+
+CONTEXTO DO CLIENTE:
+Cliente: ${client.name} | Segmento: ${client.industry}${client.teamInstructions ? `\nInstruções permanentes: ${client.teamInstructions}` : ""}${buildBriefingBlock()}`;
+      const { data: agData, error: agErr } = await supabase.functions.invoke("chat-ai", {
+        body: {
+          systemPrompt: systemWithCtx,
+          maxTokens: agCfg.maxTokens,
+          ...(isPostAgent && agentUserId && id ? { enableDraftTool: true, client_id: id, user_id: agentUserId } : {}),
+          messages: newHistory,
+        },
+      });
+      if (agErr) throw agErr;
+      const reply = (agData?.content ?? "").trim() || "Sem resposta.";
+      updateAgentChat(agentId, [...newHistory, { role: "assistant", content: reply }]);
+      if (agData?.posts_created?.length > 0) loadPendingPosts();
+    } catch (e) {
+      updateAgentChat(agentId, [...newHistory, { role: "assistant", content: `Erro: ${e instanceof Error ? e.message : String(e)}` }]);
+    } finally {
+      setAgentChatLoading(false);
+      setTimeout(() => agentChatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     }
   };
 
@@ -5063,88 +5115,117 @@ ${priorBlock}`;
                               </div>
                             )}
 
-                            {/* Textarea — oculto para Bobby, Lia e Tomás (têm painéis próprios) */}
-                            {selectedAgent.id !== "video" && selectedAgent.id !== "briefing" && selectedAgent.id !== "tomas" && (
-                            <>
-                            {clientBriefing && selectedAgent.id !== "designer" && (
-                              <div className="flex items-center gap-1.5 mb-2 px-2 py-1 rounded-lg" style={{ background: "rgba(56,189,248,0.06)", border: "1px solid rgba(56,189,248,0.18)" }}>
-                                <span className="text-[10px]" style={{ color: "#38BDF8" }}>📋 Briefing disponível — {selectedAgent.name} responderá com contexto completo do cliente</span>
-                              </div>
-                            )}
-                            <textarea
-                              value={agentInstruction}
-                              onChange={(e) => setAgentInstruction(e.target.value)}
-                              placeholder={selectedAgent.id === "designer" ? "Dê uma direção (opcional) — ou deixe em branco e a Carolina decide sozinha com base no cliente." : `Pergunte ou peça algo para ${selectedAgent.name}…`}
-                              rows={3}
-                              autoFocus
-                              className="w-full rounded-xl px-4 py-3 text-sm resize-none mb-3"
-                              style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${selectedAgent.color}28`, color: "#F0F0F0", outline: "none" }}
-                            />
-                            </>
-                            )}
-                            {marcelaError && selectedAgent.id === "designer" && (
-                              <div className="mb-3 px-3 py-2 rounded-xl text-xs" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#FCA5A5" }}>
-                                {marcelaError}
-                              </div>
-                            )}
-
-                            {/* Attach + Send row — oculto para Bobby e Lia */}
-                            {selectedAgent.id !== "video" && selectedAgent.id !== "briefing" && <div className="flex items-center gap-3">
-                              {agentFile ? (
-                                <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg flex-shrink-0"
-                                  style={{ background: `${selectedAgent.color}12`, border: `1px solid ${selectedAgent.color}28` }}>
-                                  {agentFile.type.startsWith("image/")
-                                    ? <Image className="w-3 h-3 flex-shrink-0" style={{ color: selectedAgent.color }} />
-                                    : <FileText className="w-3 h-3 flex-shrink-0" style={{ color: selectedAgent.color }} />
-                                  }
-                                  <span className="text-[11px] font-medium max-w-[180px] truncate" style={{ color: "rgba(255,255,255,0.7)" }}>
-                                    {agentFile.name}
-                                  </span>
-                                  <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>
-                                    {(agentFile.size / 1024).toFixed(0)} KB
-                                  </span>
-                                  <button onClick={clearAgentFile}
-                                    style={{ color: "rgba(255,255,255,0.3)" }}
-                                    onMouseEnter={(e) => (e.currentTarget.style.color = "#F87171")}
-                                    onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}>
-                                    <X className="w-3 h-3" />
+                            {/* Designer: textarea + formato + send */}
+                            {selectedAgent.id === "designer" && (
+                              <>
+                                <textarea
+                                  value={agentInstruction}
+                                  onChange={(e) => setAgentInstruction(e.target.value)}
+                                  placeholder="Dê uma direção (opcional) — ou deixe em branco e a Carolina decide sozinha com base no cliente."
+                                  rows={3}
+                                  autoFocus
+                                  className="w-full rounded-xl px-4 py-3 text-sm resize-none mb-3"
+                                  style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${selectedAgent.color}28`, color: "#F0F0F0", outline: "none" }}
+                                />
+                                {marcelaError && (
+                                  <div className="mb-3 px-3 py-2 rounded-xl text-xs" style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", color: "#FCA5A5" }}>
+                                    {marcelaError}
+                                  </div>
+                                )}
+                                <div className="flex items-center gap-3">
+                                  {agentFile ? (
+                                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg flex-shrink-0" style={{ background: `${selectedAgent.color}12`, border: `1px solid ${selectedAgent.color}28` }}>
+                                      <Image className="w-3 h-3 flex-shrink-0" style={{ color: selectedAgent.color }} />
+                                      <span className="text-[11px] font-medium max-w-[120px] truncate" style={{ color: "rgba(255,255,255,0.7)" }}>{agentFile.name}</span>
+                                      <button onClick={clearAgentFile} style={{ color: "rgba(255,255,255,0.3)" }}><X className="w-3 h-3" /></button>
+                                    </div>
+                                  ) : (
+                                    <button onClick={() => agentFileRef.current?.click()}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all flex-shrink-0"
+                                      style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.35)", border: "1px dashed rgba(255,255,255,0.14)" }}>
+                                      <Paperclip className="w-3 h-3" /> Referência
+                                    </button>
+                                  )}
+                                  <div className="flex-1" />
+                                  <button
+                                    onClick={() => { setSelectedAgentId(null); handleSendToDesigner(); }}
+                                    disabled={marcelaLoading}
+                                    className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
+                                    style={{ background: selectedAgent.color, color: "#07080A" }}>
+                                    {marcelaLoading ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Gerando...</> : <><Send className="w-3.5 h-3.5" /> Criar agora</>}
                                   </button>
                                 </div>
-                              ) : (
-                                <button onClick={() => agentFileRef.current?.click()}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all flex-shrink-0"
-                                  style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.35)", border: "1px dashed rgba(255,255,255,0.14)" }}
-                                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = `${selectedAgent.color}50`; e.currentTarget.style.color = selectedAgent.color; }}
-                                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)"; e.currentTarget.style.color = "rgba(255,255,255,0.35)"; }}>
-                                  <Paperclip className="w-3 h-3" /> Anexar referência
-                                </button>
-                              )}
+                                {agentFile && renderFilePreview(agentFile, agentFileUrl, agentFileText, selectedAgent.color)}
+                              </>
+                            )}
 
-                              <div className="flex-1" />
+                            {/* Chat direto — todos os agentes exceto Designer, Bobby, Lia e Tomás */}
+                            {selectedAgent.id !== "designer" && selectedAgent.id !== "video" && selectedAgent.id !== "briefing" && selectedAgent.id !== "tomas" && (
+                              <div className="flex flex-col gap-2">
+                                {clientBriefing && (
+                                  <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg" style={{ background: "rgba(56,189,248,0.06)", border: "1px solid rgba(56,189,248,0.15)" }}>
+                                    <span className="text-[10px]" style={{ color: "#38BDF8" }}>📋 Briefing carregado — respostas com contexto do cliente</span>
+                                  </div>
+                                )}
 
-                              <button
-                                onClick={() => {
-                                  if (selectedAgent.id === "designer") {
-                                    setSelectedAgentId(null);
-                                    handleSendToDesigner();
-                                  } else {
-                                    const instruction = agentInstruction.trim();
-                                    setAgentInstruction(""); clearAgentFile(); setSelectedAgentId(null);
-                                    if (instruction) handleSendToSingleAgent(selectedAgent.id, instruction);
-                                  }
-                                }}
-                                disabled={(selectedAgent.id !== "designer" && !agentInstruction.trim() && !agentFile) || marcelaLoading || ariaLoading}
-                                className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
-                                style={{ background: selectedAgent.color, color: "#07080A", boxShadow: (agentInstruction || agentFile || selectedAgent.id === "designer") ? `0 0 20px -4px ${selectedAgent.color}60` : "none" }}>
-                                {ariaLoading && selectedAgent.id !== "designer"
-                                  ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Respondendo...</>
-                                  : marcelaLoading && selectedAgent.id === "designer"
-                                  ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Gerando...</>
-                                  : <><Send className="w-3.5 h-3.5" /> {selectedAgent.id === "designer" && !agentInstruction.trim() ? "Criar agora" : `Enviar para ${selectedAgent.name}`}</>}
-                              </button>
-                            </div>}
+                                {/* Histórico do chat */}
+                                {(agentChats[selectedAgent.id] ?? []).length > 0 && (
+                                  <div className="flex flex-col gap-2 max-h-72 overflow-y-auto pr-1 py-1">
+                                    {(agentChats[selectedAgent.id] ?? []).map((msg, i) => (
+                                      <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                                        <div
+                                          className="max-w-[88%] rounded-xl px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap"
+                                          style={msg.role === "user"
+                                            ? { background: `${selectedAgent.color}22`, color: "rgba(255,255,255,0.9)", border: `1px solid ${selectedAgent.color}35` }
+                                            : { background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.82)" }}>
+                                          {msg.content}
+                                        </div>
+                                      </div>
+                                    ))}
+                                    {agentChatLoading && (
+                                      <div className="flex justify-start">
+                                        <div className="rounded-xl px-3 py-2.5" style={{ background: "rgba(255,255,255,0.06)" }}>
+                                          <div className="flex gap-1">
+                                            {[0,1,2].map(i => <span key={i} className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: selectedAgent.color, animationDelay: `${i*0.15}s` }} />)}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+                                    <div ref={agentChatEndRef} />
+                                  </div>
+                                )}
 
-                            {selectedAgent.id !== "video" && selectedAgent.id !== "briefing" && agentFile && renderFilePreview(agentFile, agentFileUrl, agentFileText, selectedAgent.color)}
+                                {/* Input */}
+                                <div className="flex gap-2 items-end">
+                                  <textarea
+                                    value={agentChatInput}
+                                    onChange={(e) => setAgentChatInput(e.target.value)}
+                                    onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleAgentChat(selectedAgent.id); } }}
+                                    placeholder={`Pergunte algo para ${selectedAgent.name}… (Enter para enviar)`}
+                                    rows={2}
+                                    autoFocus
+                                    className="flex-1 rounded-xl px-3 py-2.5 text-sm resize-none"
+                                    style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${selectedAgent.color}28`, color: "#F0F0F0", outline: "none" }}
+                                  />
+                                  <button
+                                    onClick={() => handleAgentChat(selectedAgent.id)}
+                                    disabled={!agentChatInput.trim() || agentChatLoading}
+                                    className="p-2.5 rounded-xl flex-shrink-0 transition-all disabled:opacity-40"
+                                    style={{ background: selectedAgent.color, color: "#07080A" }}>
+                                    {agentChatLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                                  </button>
+                                </div>
+
+                                {(agentChats[selectedAgent.id] ?? []).length > 0 && (
+                                  <button
+                                    onClick={() => updateAgentChat(selectedAgent.id, [])}
+                                    className="text-[10px] text-right"
+                                    style={{ color: "rgba(255,255,255,0.2)" }}>
+                                    Limpar conversa
+                                  </button>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </motion.div>
                       )}
