@@ -142,7 +142,7 @@ ${ctx}`,
 ];
 
 // ── Types ─────────────────────────────────────────────────────────────────────
-type Phase = "intro" | "chat" | "agents" | "proposal";
+type Phase = "intro" | "chat" | "pick" | "agent-chat" | "agents" | "proposal";
 
 type LiaMsg = {
   id: string;
@@ -281,9 +281,16 @@ export default function BriefingPage() {
   const [currentAgent, setCurrentAgent] = useState<string | null>(null);
   const [proposal, setProposal] = useState("");
   const [clientName, setClientName] = useState("Cliente");
+  const [briefingCtxRef, setBriefingCtxRef] = useState("");
+  const [pickedAgent, setPickedAgent] = useState<typeof PROPOSAL_AGENTS[0] | null>(null);
+  const [agentChatHistory, setAgentChatHistory] = useState<{role:"user"|"assistant"; content:string}[]>([]);
+  const [agentChatInput, setAgentChatInput] = useState("");
+  const [agentChatLoading, setAgentChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const agentEndRef = useRef<HTMLDivElement>(null);
+  const agentChatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const agentChatInputRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const now = () => new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -347,7 +354,8 @@ export default function BriefingPage() {
           .join("\n");
 
         saveBriefingToSupabase(briefingCtx);
-        setTimeout(() => runAgents(briefingCtx), 1200);
+        setBriefingCtxRef(briefingCtx);
+        setTimeout(() => setPhase("pick"), 800);
       }
     } catch {
       setLiaMsgs((prev) => [...prev, { id: `e-${Date.now()}`, role: "assistant", content: "Desculpe, tive um problema. Pode repetir?", ts: now() }]);
@@ -410,6 +418,38 @@ export default function BriefingPage() {
     };
     reader.readAsText(file, "utf-8");
     e.target.value = "";
+  };
+
+  const handlePickAgent = (agent: typeof PROPOSAL_AGENTS[0]) => {
+    setPickedAgent(agent);
+    setAgentChatHistory([]);
+    setAgentChatInput("");
+    setPhase("agent-chat");
+    setTimeout(() => agentChatInputRef.current?.focus(), 100);
+  };
+
+  const sendAgentChat = async () => {
+    const msg = agentChatInput.trim();
+    if (!msg || agentChatLoading || !pickedAgent) return;
+    setAgentChatInput("");
+    const newHistory: {role:"user"|"assistant"; content:string}[] = [...agentChatHistory, { role: "user", content: msg }];
+    setAgentChatHistory(newHistory);
+    setAgentChatLoading(true);
+    try {
+      const { data } = await supabase.functions.invoke("chat-ai", {
+        body: {
+          systemPrompt: pickedAgent.prompt(briefingCtxRef),
+          maxTokens: 1200,
+          messages: newHistory,
+        },
+      });
+      setAgentChatHistory(prev => [...prev, { role: "assistant", content: (data?.content ?? "").trim() || "Sem resposta." }]);
+    } catch {
+      setAgentChatHistory(prev => [...prev, { role: "assistant", content: "Desculpe, tive um problema técnico." }]);
+    } finally {
+      setAgentChatLoading(false);
+      setTimeout(() => agentChatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    }
   };
 
   const saveBriefingToSupabase = async (briefingText: string) => {
@@ -588,6 +628,175 @@ export default function BriefingPage() {
                 </button>
               </div>
               <p className="text-[10px] text-center mt-2" style={{ color: "rgba(255,255,255,0.15)" }}>Enter para enviar · Shift+Enter para nova linha · 📎 para anexar arquivo</p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── ESCOLHER AGENTE ── */}
+        {phase === "pick" && (
+          <motion.div key="pick"
+            initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -12 }}
+            className="relative z-10 flex-1 flex flex-col max-w-2xl mx-auto w-full px-4 pb-8 pt-6">
+
+            <div className="text-center mb-8">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center mx-auto mb-4"
+                style={{ background: "rgba(185,255,75,0.12)", border: "1px solid rgba(185,255,75,0.25)" }}>
+                <Sparkles className="w-6 h-6" style={{ color: LIME }} />
+              </div>
+              <h2 className="text-xl font-black mb-2" style={{ color: "#fff", letterSpacing: "-0.03em" }}>
+                Com quem você quer conversar?
+              </h2>
+              <p className="text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
+                Escolha um especialista da Calu Agência para aprofundar a análise do seu negócio.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 gap-3">
+              {PROPOSAL_AGENTS.map((agent) => (
+                <motion.button key={agent.id}
+                  whileHover={{ scale: 1.015 }} whileTap={{ scale: 0.985 }}
+                  onClick={() => handlePickAgent(agent)}
+                  className="flex items-center gap-4 rounded-2xl px-5 py-4 text-left transition-all w-full"
+                  style={{ background: `${agent.color}08`, border: `1.5px solid ${agent.color}25` }}
+                  onMouseEnter={(e) => (e.currentTarget.style.borderColor = `${agent.color}55`)}
+                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = `${agent.color}25`)}>
+                  <div className="w-11 h-11 rounded-full flex items-center justify-center text-[13px] font-black flex-shrink-0"
+                    style={{ background: `${agent.color}18`, border: `1.5px solid ${agent.color}45`, color: agent.color }}>
+                    {agent.initial}
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-sm font-bold" style={{ color: "#fff" }}>{agent.name}</span>
+                      <span className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>{agent.role}</span>
+                    </div>
+                  </div>
+                  <ArrowRight className="w-4 h-4 flex-shrink-0" style={{ color: "rgba(255,255,255,0.2)" }} />
+                </motion.button>
+              ))}
+            </div>
+
+            <p className="text-center text-xs mt-6" style={{ color: "rgba(255,255,255,0.2)" }}>
+              Você pode trocar de especialista a qualquer momento.
+            </p>
+          </motion.div>
+        )}
+
+        {/* ── CHAT COM AGENTE ── */}
+        {phase === "agent-chat" && pickedAgent && (
+          <motion.div key="agent-chat"
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="relative z-10 flex-1 flex flex-col max-w-2xl mx-auto w-full px-4 pb-4"
+            style={{ minHeight: 0 }}>
+
+            {/* Header */}
+            <div className="py-4 flex items-center gap-3 flex-shrink-0" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+              <button onClick={() => setPhase("pick")}
+                className="w-8 h-8 rounded-xl flex items-center justify-center transition-all"
+                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.4)" }}>
+                ←
+              </button>
+              <div className="w-10 h-10 rounded-full flex items-center justify-center text-[13px] font-black flex-shrink-0"
+                style={{ background: `${pickedAgent.color}18`, border: `1.5px solid ${pickedAgent.color}45`, color: pickedAgent.color }}>
+                {pickedAgent.initial}
+              </div>
+              <div>
+                <p className="text-sm font-bold" style={{ color: "#fff" }}>{pickedAgent.name}</p>
+                <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>{pickedAgent.role} · Calu Agência</p>
+              </div>
+              <button onClick={() => { setPickedAgent(null); runAgents(briefingCtxRef); }}
+                className="ml-auto flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
+                style={{ background: "rgba(185,255,75,0.08)", border: "1px solid rgba(185,255,75,0.2)", color: LIME }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(185,255,75,0.15)")}
+                onMouseLeave={(e) => (e.currentTarget.style.background = "rgba(185,255,75,0.08)")}>
+                <Users className="w-3 h-3" /> Time completo
+              </button>
+            </div>
+
+            {/* Messages */}
+            <div className="flex-1 overflow-y-auto py-4 space-y-4" style={{ minHeight: 0 }}>
+              {agentChatHistory.length === 0 && (
+                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                  className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-[12px] font-bold flex-shrink-0"
+                    style={{ background: `${pickedAgent.color}18`, border: `1.5px solid ${pickedAgent.color}40`, color: pickedAgent.color }}>
+                    {pickedAgent.initial}
+                  </div>
+                  <div className="rounded-2xl rounded-tl-md px-4 py-3 flex-1"
+                    style={{ background: `${pickedAgent.color}07`, border: `1px solid ${pickedAgent.color}18` }}>
+                    <p className="text-sm" style={{ color: "rgba(255,255,255,0.8)" }}>
+                      Olá! Sou {pickedAgent.name}, {pickedAgent.role.toLowerCase()} da Calu. Já li seu briefing — pode perguntar o que quiser!
+                    </p>
+                  </div>
+                </motion.div>
+              )}
+
+              <AnimatePresence initial={false}>
+                {agentChatHistory.map((msg, i) => (
+                  <motion.div key={i}
+                    initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.25 }}
+                    className={`flex items-start gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}>
+                    {msg.role === "assistant" ? (
+                      <div className="w-9 h-9 rounded-full flex items-center justify-center text-[12px] font-bold flex-shrink-0"
+                        style={{ background: `${pickedAgent.color}18`, border: `1.5px solid ${pickedAgent.color}40`, color: pickedAgent.color }}>
+                        {pickedAgent.initial}
+                      </div>
+                    ) : (
+                      <div className="w-9 h-9 rounded-full flex items-center justify-center text-[12px] font-bold flex-shrink-0"
+                        style={{ background: "rgba(185,255,75,0.12)", border: "1.5px solid rgba(185,255,75,0.3)", color: LIME }}>
+                        {clientName.slice(0, 2).toUpperCase()}
+                      </div>
+                    )}
+                    <div className="rounded-2xl px-4 py-3 max-w-[80%]"
+                      style={msg.role === "user"
+                        ? { background: "rgba(185,255,75,0.08)", border: "1px solid rgba(185,255,75,0.18)", borderRadius: "18px 18px 4px 18px" }
+                        : { background: `${pickedAgent.color}07`, border: `1px solid ${pickedAgent.color}18`, borderRadius: "4px 18px 18px 18px" }}>
+                      {msg.role === "assistant"
+                        ? <Md text={msg.content} />
+                        : <p className="text-sm" style={{ color: "rgba(255,255,255,0.85)" }}>{msg.content}</p>}
+                    </div>
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+
+              {agentChatLoading && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                  className="flex items-start gap-3">
+                  <div className="w-9 h-9 rounded-full flex items-center justify-center text-[12px] font-bold flex-shrink-0"
+                    style={{ background: `${pickedAgent.color}18`, border: `1.5px solid ${pickedAgent.color}40`, color: pickedAgent.color }}>
+                    {pickedAgent.initial}
+                  </div>
+                  <div className="rounded-2xl rounded-tl-md px-4 py-3 flex gap-1.5 items-center"
+                    style={{ background: `${pickedAgent.color}07`, border: `1px solid ${pickedAgent.color}18` }}>
+                    {[0, 1, 2].map((i) => (
+                      <motion.div key={i} className="w-1.5 h-1.5 rounded-full"
+                        style={{ background: pickedAgent.color }}
+                        animate={{ opacity: [0.3, 1, 0.3] }}
+                        transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }} />
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+              <div ref={agentChatEndRef} />
+            </div>
+
+            {/* Input */}
+            <div className="pt-3 flex-shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+              <div className="flex items-end gap-2">
+                <textarea ref={agentChatInputRef} value={agentChatInput}
+                  onChange={(e) => setAgentChatInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendAgentChat(); } }}
+                  placeholder={`Pergunte para ${pickedAgent.name}...`} rows={1} disabled={agentChatLoading}
+                  className="flex-1 rounded-xl px-4 py-3 text-sm resize-none"
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none", minHeight: 44, maxHeight: 120 }}
+                  onFocus={(e) => (e.target.style.borderColor = `${pickedAgent.color}55`)}
+                  onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.1)")} />
+                <button onClick={sendAgentChat} disabled={!agentChatInput.trim() || agentChatLoading}
+                  className="w-11 h-11 rounded-xl flex items-center justify-center transition-all disabled:opacity-40 flex-shrink-0"
+                  style={{ background: agentChatInput.trim() ? pickedAgent.color : "rgba(255,255,255,0.06)", boxShadow: agentChatInput.trim() ? `0 0 20px -4px ${pickedAgent.color}80` : "none" }}>
+                  <Send className="w-4 h-4" style={{ color: agentChatInput.trim() ? BG : "rgba(255,255,255,0.3)" }} />
+                </button>
+              </div>
+              <p className="text-[10px] text-center mt-2" style={{ color: "rgba(255,255,255,0.15)" }}>Enter para enviar · Shift+Enter para nova linha</p>
             </div>
           </motion.div>
         )}
