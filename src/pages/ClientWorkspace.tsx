@@ -3147,7 +3147,7 @@ ${priorBlock}`;
                               <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>
                                 {pendingProposals.length > 0 ? `${pendingProposals.length} aguardando aprovação · ` : ""}
                                 {activeProposals.length > 0 ? `${activeProposals.length} em andamento` : ""}
-                                {pendingProposals.length === 0 && activeProposals.length === 0 ? "Gere um diagnóstico e clique em "Consultar o Time"" : ""}
+                                {pendingProposals.length === 0 && activeProposals.length === 0 ? "Gere um diagnóstico e clique em «Consultar o Time»" : ""}
                               </p>
                             </div>
                             <button onClick={loadProposals} disabled={proposalsLoading}
