@@ -142,6 +142,7 @@ export default function SocialMediaTab({
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
   const [calendarDate, setCalendarDate] = useState(() => { const n = new Date(); return { year: n.getFullYear(), month: n.getMonth() }; });
   const [previewType, setPreviewType] = useState<"feed" | "story">("feed");
+  const [dragOver, setDragOver] = useState(false);
   const [linkedinStep, setLinkedinStep] = useState<null | "enter-url" | "oauth">(null);
   const [linkedinOrgUrl, setLinkedinOrgUrl] = useState("");
   const pendingOAuthStateRef = useRef<string>("");
@@ -1104,20 +1105,31 @@ export default function SocialMediaTab({
                       )}
                     </div>
                   ) : (
-                    <button
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploading}
-                      className="w-full py-6 rounded-xl flex flex-col items-center gap-2 transition-all"
-                      style={{ background: "rgba(255,255,255,0.03)", border: "1px dashed rgba(255,255,255,0.12)" }}
+                    <div
+                      onClick={() => !uploading && fileInputRef.current?.click()}
+                      onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+                      onDragEnter={(e) => { e.preventDefault(); setDragOver(true); }}
+                      onDragLeave={() => setDragOver(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setDragOver(false);
+                        const file = e.dataTransfer.files?.[0];
+                        if (file) handleFileUpload(file);
+                      }}
+                      className="w-full py-8 rounded-xl flex flex-col items-center gap-2 transition-all cursor-pointer select-none"
+                      style={{
+                        background: dragOver ? "rgba(185,255,75,0.06)" : "rgba(255,255,255,0.03)",
+                        border: `1px dashed ${dragOver ? clientColor : "rgba(255,255,255,0.12)"}`,
+                      }}
                     >
                       {uploading
                         ? <Loader2 className="w-5 h-5 animate-spin" style={{ color: s(0.4) }} />
-                        : <Upload className="w-5 h-5" style={{ color: s(0.3) }} />}
-                      <span className="text-xs" style={{ color: s(0.35) }}>
-                        {uploading ? "Enviando…" : "Clique para enviar arquivo"}
+                        : <Upload className="w-5 h-5" style={{ color: dragOver ? clientColor : s(0.3) }} />}
+                      <span className="text-xs font-medium" style={{ color: dragOver ? clientColor : s(0.35) }}>
+                        {uploading ? "Enviando…" : dragOver ? "Solte para enviar" : "Arraste ou clique para enviar"}
                       </span>
                       <span className="text-[10px]" style={{ color: s(0.2) }}>JPG, PNG, GIF, WEBP, MP4 — até 50 MB</span>
-                    </button>
+                    </div>
                   )}
                 </div>
 
