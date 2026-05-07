@@ -757,6 +757,15 @@ export default function ClientWorkspace() {
   const [delivLoading, setDelivLoading] = useState(false);
   const [delivForm, setDelivForm] = useState({ category: "", description: "", done_at: new Date().toISOString().slice(0, 10), visible_to_client: true });
   const [savingDeliv, setSavingDeliv] = useState(false);
+  const [portalClientUUID, setPortalClientUUID] = useState<string | null>(null);
+  const [portalOnboarding, setPortalOnboarding] = useState<any[]>([]);
+  const [portalDemands, setPortalDemands] = useState<any[]>([]);
+  const [portalLoading, setPortalLoading] = useState(false);
+  const [onboardForm, setOnboardForm] = useState({ title: "", description: "", responsible: "agency" as "agency" | "client", category: "geral" });
+  const [demandForm, setDemandForm] = useState({ title: "", description: "", responsible: "agency" as "agency" | "client", priority: "medium" as "low" | "medium" | "high" });
+  const [savingOnboard, setSavingOnboard] = useState(false);
+  const [savingDemand, setSavingDemand] = useState(false);
+  const [portalSection, setPortalSection] = useState<"onboarding" | "entregas" | "demandas">("onboarding");
   const [contactSearch, setContactSearch] = useState("");
   const [activeSegment, setActiveSegment] = useState<string>("Todos");
   const [dbContacts, setDbContacts] = useState<any[]>([]);
@@ -2417,16 +2426,87 @@ ${priorBlock}`;
 
   useEffect(() => { if (id) loadDeliverables(); }, [id]);
 
-  // Backfill workspace_id on the Supabase clients row so the portal can query by slug
+  // Fetch Supabase client UUID + backfill workspace_id
   useEffect(() => {
     if (!id || !user) return;
-    (supabase as any).from("clients")
-      .update({ workspace_id: id })
-      .eq("user_id", user.id)
-      .eq("name", client.name)
-      .is("workspace_id", null)
-      .then(() => {});
+    (async () => {
+      const { data: row } = await (supabase as any).from("clients")
+        .select("id, workspace_id")
+        .eq("user_id", user.id)
+        .eq("name", client.name)
+        .maybeSingle();
+      if (row?.id) {
+        setPortalClientUUID(row.id);
+        if (!row.workspace_id) {
+          await (supabase as any).from("clients").update({ workspace_id: id }).eq("id", row.id);
+        }
+      }
+    })();
   }, [id, user?.id]);
+
+  const loadPortalContent = async (uuid: string) => {
+    setPortalLoading(true);
+    const [{ data: ob }, { data: dem }] = await Promise.all([
+      (supabase as any).from("client_onboarding").select("*").eq("client_id", uuid).order("order_index"),
+      (supabase as any).from("client_demands").select("*").eq("client_id", uuid).neq("status", "cancelled").order("created_at", { ascending: false }),
+    ]);
+    if (ob) setPortalOnboarding(ob);
+    if (dem) setPortalDemands(dem);
+    setPortalLoading(false);
+  };
+
+  useEffect(() => { if (portalClientUUID) loadPortalContent(portalClientUUID); }, [portalClientUUID]);
+
+  const saveOnboardItem = async () => {
+    if (!portalClientUUID || !onboardForm.title.trim() || !user) return;
+    setSavingOnboard(true);
+    const maxOrder = portalOnboarding.reduce((m, i) => Math.max(m, i.order_index ?? 0), 0);
+    const { data, error } = await (supabase as any).from("client_onboarding").insert({
+      client_id: portalClientUUID, user_id: user.id,
+      title: onboardForm.title.trim(), description: onboardForm.description.trim() || null,
+      responsible: onboardForm.responsible, category: onboardForm.category,
+      status: "pending", order_index: maxOrder + 1,
+    }).select().single();
+    if (!error && data) { setPortalOnboarding((p) => [...p, data]); setOnboardForm({ title: "", description: "", responsible: "agency", category: "geral" }); }
+    setSavingOnboard(false);
+  };
+
+  const toggleOnboardStatus = async (itemId: string, current: string) => {
+    const next = current === "completed" ? "pending" : "completed";
+    const patch: any = { status: next };
+    if (next === "completed") patch.completed_at = new Date().toISOString();
+    await (supabase as any).from("client_onboarding").update(patch).eq("id", itemId);
+    setPortalOnboarding((p) => p.map((i) => i.id === itemId ? { ...i, ...patch } : i));
+  };
+
+  const deleteOnboardItem = async (itemId: string) => {
+    await (supabase as any).from("client_onboarding").delete().eq("id", itemId);
+    setPortalOnboarding((p) => p.filter((i) => i.id !== itemId));
+  };
+
+  const saveDemandItem = async () => {
+    if (!portalClientUUID || !demandForm.title.trim() || !user) return;
+    setSavingDemand(true);
+    const { data, error } = await (supabase as any).from("client_demands").insert({
+      client_id: portalClientUUID, user_id: user.id,
+      title: demandForm.title.trim(), description: demandForm.description.trim() || null,
+      responsible: demandForm.responsible, priority: demandForm.priority,
+      type: "task", status: "pending",
+    }).select().single();
+    if (!error && data) { setPortalDemands((p) => [data, ...p]); setDemandForm({ title: "", description: "", responsible: "agency", priority: "medium" }); }
+    setSavingDemand(false);
+  };
+
+  const toggleDemandStatus = async (demId: string, current: string) => {
+    const next = current === "completed" ? "pending" : "completed";
+    await (supabase as any).from("client_demands").update({ status: next }).eq("id", demId);
+    setPortalDemands((p) => p.map((d) => d.id === demId ? { ...d, status: next } : d));
+  };
+
+  const deleteDemandItem = async (demId: string) => {
+    await (supabase as any).from("client_demands").delete().eq("id", demId);
+    setPortalDemands((p) => p.filter((d) => d.id !== demId));
+  };
 
   // Check if client submitted a briefing via the shareable link
   useEffect(() => {
@@ -7347,110 +7427,233 @@ ${priorBlock}`;
               ];
               const visibleDelivs = deliverables.filter(d => d.visible_to_client);
               const PROP_STATUS: Record<string, { label: string; color: string; bg: string }> = {
-                pending:     { label: "Aguardando aprovação", color: "#FBBF24", bg: "rgba(251,191,36,0.1)" },
-                approved:    { label: "Aprovado",             color: "#60A5FA", bg: "rgba(96,165,250,0.1)" },
-                in_progress: { label: "Em andamento",         color: "#B9FF4B", bg: "rgba(185,255,75,0.1)" },
-                completed:   { label: "Concluído",            color: "#6B7280", bg: "rgba(107,114,128,0.1)" },
+                pending:     { label: "Aguardando",   color: "#FBBF24", bg: "rgba(251,191,36,0.1)" },
+                approved:    { label: "Aprovado",     color: "#60A5FA", bg: "rgba(96,165,250,0.1)" },
+                in_progress: { label: "Em andamento", color: "#B9FF4B", bg: "rgba(185,255,75,0.1)" },
+                completed:   { label: "Concluído",    color: "#6B7280", bg: "rgba(107,114,128,0.1)" },
               };
+              const OB_CATS = ["geral","redes_sociais","acessos","configuracao","documentos"];
+              const OB_CAT_LABEL: Record<string,string> = { geral:"Geral", redes_sociais:"Redes Sociais", acessos:"Acessos & Senhas", configuracao:"Configuração", documentos:"Documentos" };
               return (
               <div className="flex gap-6 items-start h-full">
 
                 {/* ── LEFT: Editor ── */}
                 <div className="flex-1 min-w-0 space-y-4">
 
-                  {/* Link */}
-                  <div className="rounded-2xl p-4 flex items-center gap-3" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${client.color}30` }}>
+                  {/* Link bar */}
+                  <div className="rounded-2xl p-3 flex items-center gap-3" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${client.color}25` }}>
                     <Globe className="w-4 h-4 flex-shrink-0" style={{ color: client.color }} />
-                    <span className="text-xs flex-1 truncate" style={{ color: "rgba(255,255,255,0.4)" }}>Portal de {client.name}</span>
-                    <span className="text-xs font-mono" style={{ color: "rgba(255,255,255,0.3)" }}>PIN: {client.portalPin || "—"}</span>
+                    <span className="text-xs flex-1 truncate" style={{ color: "rgba(255,255,255,0.35)" }}>Portal de {client.name}</span>
+                    <span className="text-xs font-mono" style={{ color: "rgba(255,255,255,0.25)" }}>PIN: {client.portalPin || "—"}</span>
                     <button onClick={handleOpenPortal} disabled={openingPortal}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex-shrink-0"
                       style={{ background: client.color, color: "#07080A" }}>
                       {openingPortal ? <div className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" /> : <ExternalLink className="w-3 h-3" />}
-                      Abrir
+                      Abrir portal
                     </button>
                   </div>
 
-                  {/* Add deliverable */}
-                  <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
-                    <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
-                      <p className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.7)" }}>Registrar entrega</p>
-                      <button onClick={loadDeliverables} disabled={delivLoading} className="p-1 rounded" style={{ color: "rgba(255,255,255,0.25)" }}>
-                        <RefreshCw className={`w-3.5 h-3.5 ${delivLoading ? "animate-spin" : ""}`} />
+                  {/* Section tabs */}
+                  <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                    {([["onboarding","✅ Onboarding"],["entregas","📦 Entregas"],["demandas","📋 Demandas"]] as const).map(([s, label]) => (
+                      <button key={s} onClick={() => setPortalSection(s)}
+                        className="px-4 py-1.5 rounded-lg text-xs font-medium transition-all"
+                        style={portalSection === s
+                          ? { background: `${client.color}22`, color: client.color, border: `1px solid ${client.color}30` }
+                          : { color: "rgba(255,255,255,0.4)" }}>
+                        {label}
                       </button>
-                    </div>
-                    <div className="px-4 py-3 space-y-3">
-                      {/* Presets */}
-                      <div className="flex flex-wrap gap-1.5">
-                        {DELIV_PRESETS.map((p) => (
-                          <button key={p.category}
-                            onClick={() => setDelivForm((f) => ({ ...f, category: p.category, description: p.label.replace(/^[^\s]+\s/, "") }))}
-                            className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
-                            style={delivForm.category === p.category
-                              ? { background: `${client.color}25`, color: client.color, border: `1px solid ${client.color}40` }
-                              : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                            {p.label}
-                          </button>
-                        ))}
-                      </div>
-                      {/* Description */}
-                      <input
-                        value={delivForm.description}
-                        onChange={(e) => setDelivForm((f) => ({ ...f, description: e.target.value }))}
-                        placeholder="Descrição (ex: 3 posts feed setembro)…"
-                        className="w-full rounded-xl px-3 py-2 text-xs focus:outline-none"
-                        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.85)" }}
-                      />
-                      {/* Date + visibility + save */}
-                      <div className="flex items-center gap-2">
-                        <input type="date" value={delivForm.done_at}
-                          onChange={(e) => setDelivForm((f) => ({ ...f, done_at: e.target.value }))}
-                          className="flex-1 rounded-xl px-3 py-2 text-xs focus:outline-none"
-                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.7)", colorScheme: "dark" }} />
-                        <button onClick={() => setDelivForm((f) => ({ ...f, visible_to_client: !f.visible_to_client }))}
-                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all flex-shrink-0"
-                          style={delivForm.visible_to_client
-                            ? { background: "rgba(185,255,75,0.12)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.2)" }
-                            : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.3)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                          <Eye className="w-3.5 h-3.5" />
-                          {delivForm.visible_to_client ? "Visível" : "Oculto"}
-                        </button>
-                        <button onClick={() => saveDeliverable(delivForm.category, delivForm.description, delivForm.done_at, delivForm.visible_to_client)}
-                          disabled={savingDeliv || !delivForm.description.trim()}
-                          className="px-4 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-40 flex-shrink-0"
-                          style={{ background: client.color, color: "#07080A" }}>
-                          {savingDeliv ? <Loader2 className="w-3 h-3 animate-spin" /> : "Registrar"}
-                        </button>
-                      </div>
-                    </div>
+                    ))}
+                  </div>
 
-                    {/* All deliverables list */}
-                    {deliverables.length > 0 && (
-                      <div className="border-t" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
+                  {/* ── ONBOARDING EDITOR ── */}
+                  {portalSection === "onboarding" && (
+                    <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+                      <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
+                        <p className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.7)" }}>Checklist de onboarding</p>
+                        <button onClick={() => portalClientUUID && loadPortalContent(portalClientUUID)} disabled={portalLoading} className="p-1 rounded" style={{ color: "rgba(255,255,255,0.25)" }}>
+                          <RefreshCw className={`w-3.5 h-3.5 ${portalLoading ? "animate-spin" : ""}`} />
+                        </button>
+                      </div>
+                      {/* Add form */}
+                      <div className="px-4 py-3 space-y-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                        <input value={onboardForm.title} onChange={(e) => setOnboardForm(f => ({ ...f, title: e.target.value }))}
+                          placeholder="Título do item (ex: Enviar acesso ao Instagram)…"
+                          className="w-full rounded-xl px-3 py-2 text-xs focus:outline-none"
+                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.85)" }} />
+                        <div className="flex gap-2">
+                          <select value={onboardForm.category} onChange={(e) => setOnboardForm(f => ({ ...f, category: e.target.value }))}
+                            className="flex-1 rounded-xl px-3 py-2 text-xs focus:outline-none"
+                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.7)" }}>
+                            {OB_CATS.map(c => <option key={c} value={c}>{OB_CAT_LABEL[c]}</option>)}
+                          </select>
+                          <select value={onboardForm.responsible} onChange={(e) => setOnboardForm(f => ({ ...f, responsible: e.target.value as any }))}
+                            className="rounded-xl px-3 py-2 text-xs focus:outline-none"
+                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.7)" }}>
+                            <option value="agency">Agência</option>
+                            <option value="client">Cliente</option>
+                          </select>
+                          <button onClick={saveOnboardItem} disabled={savingOnboard || !onboardForm.title.trim() || !portalClientUUID}
+                            className="px-4 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-40 flex-shrink-0"
+                            style={{ background: client.color, color: "#07080A" }}>
+                            {savingOnboard ? <Loader2 className="w-3 h-3 animate-spin" /> : "+ Adicionar"}
+                          </button>
+                        </div>
+                      </div>
+                      {/* Items list */}
+                      {!portalClientUUID ? (
+                        <div className="px-4 py-4 text-center"><p className="text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>Abra o portal uma vez para ativar a edição</p></div>
+                      ) : portalOnboarding.length === 0 ? (
+                        <div className="px-4 py-4 text-center"><p className="text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhum item ainda</p></div>
+                      ) : (
                         <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
-                          {deliverables.map((d) => (
-                            <div key={d.id} className="flex items-center gap-3 px-4 py-2.5">
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs truncate" style={{ color: d.visible_to_client ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.35)" }}>{d.description}</p>
-                                <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>
-                                  {new Date(d.done_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
-                                </p>
-                              </div>
-                              <button onClick={() => toggleDelivVisible(d.id, d.visible_to_client)}
-                                title={d.visible_to_client ? "Visível ao cliente" : "Oculto do cliente"}
-                                className="p-1 rounded transition-all"
-                                style={{ color: d.visible_to_client ? "#B9FF4B" : "rgba(255,255,255,0.15)" }}>
-                                <Eye className="w-3.5 h-3.5" />
+                          {portalOnboarding.map((item) => (
+                            <div key={item.id} className="flex items-center gap-3 px-4 py-2.5">
+                              <button onClick={() => toggleOnboardStatus(item.id, item.status)} className="flex-shrink-0">
+                                {item.status === "completed"
+                                  ? <CheckCircle2 className="w-4 h-4" style={{ color: "#34D399" }} />
+                                  : <Circle className="w-4 h-4" style={{ color: "rgba(255,255,255,0.2)" }} />}
                               </button>
-                              <button onClick={() => deleteDeliv(d.id)} className="p-1 rounded" style={{ color: "rgba(255,255,255,0.1)" }}>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs truncate" style={{ color: item.status === "completed" ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.8)", textDecoration: item.status === "completed" ? "line-through" : "none" }}>{item.title}</p>
+                                <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>{OB_CAT_LABEL[item.category] ?? item.category} · {item.responsible === "client" ? "Cliente" : "Agência"}</p>
+                              </div>
+                              <button onClick={() => deleteOnboardItem(item.id)} className="p-1 rounded flex-shrink-0" style={{ color: "rgba(255,255,255,0.1)" }}>
                                 <Trash2 className="w-3 h-3" />
                               </button>
                             </div>
                           ))}
                         </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* ── ENTREGAS EDITOR ── */}
+                  {portalSection === "entregas" && (
+                    <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+                      <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
+                        <p className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.7)" }}>Entregas — O que fizemos por você</p>
+                        <button onClick={loadDeliverables} disabled={delivLoading} className="p-1 rounded" style={{ color: "rgba(255,255,255,0.25)" }}>
+                          <RefreshCw className={`w-3.5 h-3.5 ${delivLoading ? "animate-spin" : ""}`} />
+                        </button>
                       </div>
-                    )}
-                  </div>
+                      <div className="px-4 py-3 space-y-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                        <div className="flex flex-wrap gap-1.5">
+                          {DELIV_PRESETS.map((p) => (
+                            <button key={p.category}
+                              onClick={() => setDelivForm((f) => ({ ...f, category: p.category, description: p.label.replace(/^[^\s]+\s/, "") }))}
+                              className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
+                              style={delivForm.category === p.category
+                                ? { background: `${client.color}25`, color: client.color, border: `1px solid ${client.color}40` }
+                                : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                              {p.label}
+                            </button>
+                          ))}
+                        </div>
+                        <input value={delivForm.description} onChange={(e) => setDelivForm((f) => ({ ...f, description: e.target.value }))}
+                          placeholder="Descrição (ex: 3 posts feed setembro)…"
+                          className="w-full rounded-xl px-3 py-2 text-xs focus:outline-none"
+                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.85)" }} />
+                        <div className="flex items-center gap-2">
+                          <input type="date" value={delivForm.done_at} onChange={(e) => setDelivForm((f) => ({ ...f, done_at: e.target.value }))}
+                            className="flex-1 rounded-xl px-3 py-2 text-xs focus:outline-none"
+                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.7)", colorScheme: "dark" }} />
+                          <button onClick={() => setDelivForm((f) => ({ ...f, visible_to_client: !f.visible_to_client }))}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all flex-shrink-0"
+                            style={delivForm.visible_to_client
+                              ? { background: "rgba(185,255,75,0.12)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.2)" }
+                              : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.3)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                            <Eye className="w-3.5 h-3.5" />{delivForm.visible_to_client ? "Visível" : "Oculto"}
+                          </button>
+                          <button onClick={() => saveDeliverable(delivForm.category, delivForm.description, delivForm.done_at, delivForm.visible_to_client)}
+                            disabled={savingDeliv || !delivForm.description.trim()}
+                            className="px-4 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-40 flex-shrink-0"
+                            style={{ background: client.color, color: "#07080A" }}>
+                            {savingDeliv ? <Loader2 className="w-3 h-3 animate-spin" /> : "+ Registrar"}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
+                        {deliverables.length === 0 ? (
+                          <div className="px-4 py-4 text-center"><p className="text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhuma entrega registrada</p></div>
+                        ) : deliverables.map((d) => (
+                          <div key={d.id} className="flex items-center gap-3 px-4 py-2.5">
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs truncate" style={{ color: d.visible_to_client ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.35)" }}>{d.description}</p>
+                              <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>{new Date(d.done_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</p>
+                            </div>
+                            <button onClick={() => toggleDelivVisible(d.id, d.visible_to_client)} title={d.visible_to_client ? "Visível" : "Oculto"} className="p-1 rounded" style={{ color: d.visible_to_client ? "#B9FF4B" : "rgba(255,255,255,0.15)" }}>
+                              <Eye className="w-3.5 h-3.5" />
+                            </button>
+                            <button onClick={() => deleteDeliv(d.id)} className="p-1 rounded" style={{ color: "rgba(255,255,255,0.1)" }}>
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* ── DEMANDAS EDITOR ── */}
+                  {portalSection === "demandas" && (
+                    <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+                      <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
+                        <p className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.7)" }}>Demandas & Pendências</p>
+                      </div>
+                      <div className="px-4 py-3 space-y-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                        <input value={demandForm.title} onChange={(e) => setDemandForm(f => ({ ...f, title: e.target.value }))}
+                          placeholder="Título da demanda (ex: Aprovar artes de outubro)…"
+                          className="w-full rounded-xl px-3 py-2 text-xs focus:outline-none"
+                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.85)" }} />
+                        <textarea value={demandForm.description} onChange={(e) => setDemandForm(f => ({ ...f, description: e.target.value }))}
+                          placeholder="Descrição (opcional)…" rows={2}
+                          className="w-full rounded-xl px-3 py-2 text-xs focus:outline-none resize-none"
+                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.7)" }} />
+                        <div className="flex gap-2">
+                          <select value={demandForm.responsible} onChange={(e) => setDemandForm(f => ({ ...f, responsible: e.target.value as any }))}
+                            className="flex-1 rounded-xl px-3 py-2 text-xs focus:outline-none"
+                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.7)" }}>
+                            <option value="agency">Responsável: Agência</option>
+                            <option value="client">Responsável: Cliente</option>
+                          </select>
+                          <select value={demandForm.priority} onChange={(e) => setDemandForm(f => ({ ...f, priority: e.target.value as any }))}
+                            className="rounded-xl px-3 py-2 text-xs focus:outline-none"
+                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.7)" }}>
+                            <option value="low">Baixa</option>
+                            <option value="medium">Média</option>
+                            <option value="high">Alta</option>
+                          </select>
+                          <button onClick={saveDemandItem} disabled={savingDemand || !demandForm.title.trim() || !portalClientUUID}
+                            className="px-4 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-40 flex-shrink-0"
+                            style={{ background: client.color, color: "#07080A" }}>
+                            {savingDemand ? <Loader2 className="w-3 h-3 animate-spin" /> : "+ Adicionar"}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
+                        {!portalClientUUID ? (
+                          <div className="px-4 py-4 text-center"><p className="text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>Abra o portal uma vez para ativar a edição</p></div>
+                        ) : portalDemands.length === 0 ? (
+                          <div className="px-4 py-4 text-center"><p className="text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhuma demanda</p></div>
+                        ) : portalDemands.map((d) => (
+                          <div key={d.id} className="flex items-center gap-3 px-4 py-2.5">
+                            <button onClick={() => toggleDemandStatus(d.id, d.status)} className="flex-shrink-0">
+                              {d.status === "completed"
+                                ? <CheckCircle2 className="w-4 h-4" style={{ color: "#34D399" }} />
+                                : <Circle className="w-4 h-4" style={{ color: "rgba(255,255,255,0.2)" }} />}
+                            </button>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs truncate" style={{ color: d.status === "completed" ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.8)", textDecoration: d.status === "completed" ? "line-through" : "none" }}>{d.title}</p>
+                              <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>{d.responsible === "client" ? "Cliente" : "Agência"} · {d.priority}</p>
+                            </div>
+                            <button onClick={() => deleteDemandItem(d.id)} className="p-1 rounded flex-shrink-0" style={{ color: "rgba(255,255,255,0.1)" }}>
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* ── RIGHT: Portal preview ── */}
@@ -7469,6 +7672,29 @@ ${priorBlock}`;
                     </div>
 
                     <div className="p-4 space-y-3">
+                      {/* Onboarding checklist */}
+                      {portalOnboarding.length > 0 && (
+                        <div className="rounded-xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.07)" }}>
+                          <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+                            <p className="text-xs font-bold" style={{ color: "#111" }}>✅ Onboarding</p>
+                            <p className="text-[10px]" style={{ color: "#999" }}>
+                              {portalOnboarding.filter(i => i.status === "completed").length}/{portalOnboarding.length} concluídos
+                            </p>
+                          </div>
+                          <div className="divide-y" style={{ borderColor: "rgba(0,0,0,0.05)" }}>
+                            {portalOnboarding.map((item) => (
+                              <div key={item.id} className="flex items-center gap-2.5 px-4 py-2.5">
+                                {item.status === "completed"
+                                  ? <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#34D399" }} />
+                                  : <Circle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#ddd" }} />}
+                                <p className="text-xs flex-1 truncate" style={{ color: item.status === "completed" ? "#aaa" : "#111", textDecoration: item.status === "completed" ? "line-through" : "none" }}>{item.title}</p>
+                                <span className="text-[10px] flex-shrink-0" style={{ color: "#bbb" }}>{item.responsible === "client" ? "Cliente" : "Agência"}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
                       {/* Entregas */}
                       {visibleDelivs.length > 0 ? (
                         <div className="rounded-xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.07)" }}>
@@ -7518,6 +7744,31 @@ ${priorBlock}`;
                                 </div>
                               );
                             })}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Demandas */}
+                      {portalDemands.length > 0 && (
+                        <div className="rounded-xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.07)" }}>
+                          <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
+                            <p className="text-xs font-bold" style={{ color: "#111" }}>📋 Demandas & Pendências</p>
+                            <p className="text-[10px]" style={{ color: "#999" }}>
+                              {portalDemands.filter(d => d.status !== "completed").length} pendente{portalDemands.filter(d => d.status !== "completed").length !== 1 ? "s" : ""}
+                            </p>
+                          </div>
+                          <div className="divide-y" style={{ borderColor: "rgba(0,0,0,0.05)" }}>
+                            {portalDemands.map((d) => (
+                              <div key={d.id} className="flex items-center gap-2.5 px-4 py-2.5">
+                                {d.status === "completed"
+                                  ? <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#34D399" }} />
+                                  : <Circle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#ddd" }} />}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs truncate" style={{ color: d.status === "completed" ? "#aaa" : "#111", textDecoration: d.status === "completed" ? "line-through" : "none" }}>{d.title}</p>
+                                  <p className="text-[10px]" style={{ color: "#bbb" }}>{d.responsible === "client" ? "Cliente" : "Agência"} · {d.priority === "high" ? "Alta" : d.priority === "medium" ? "Média" : "Baixa"}</p>
+                                </div>
+                              </div>
+                            ))}
                           </div>
                         </div>
                       )}
