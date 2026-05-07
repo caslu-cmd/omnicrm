@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
-import { ChevronRight, Download, RefreshCw, X, CheckCircle2, Users, Paperclip, ClipboardPaste } from "lucide-react";
+import { ChevronRight, Download, RefreshCw, X, CheckCircle2, Users, Paperclip, ClipboardPaste, Send, MessageSquare } from "lucide-react";
 
 const LIA_COLOR = "#38BDF8";
 const CALU_GREEN = "#B9FF4B";
@@ -429,6 +429,14 @@ function generatePdfHtml(diagnosisText: string, clientName: string, briefingData
 </html>`;
 }
 
+const PANEL_AGENTS = [
+  { id: "queila",  name: "Queila",  role: "Estrategista",  color: "#FBBF24", initial: "Q",  specialty: "estratégia de marketing, posicionamento e crescimento de negócios" },
+  { id: "beatriz", name: "Beatriz", role: "Copywriter",    color: "#A78BFA", initial: "B",  specialty: "copywriting, criação de conteúdo persuasivo e tom de voz de marca" },
+  { id: "marina",  name: "Marina",  role: "Social Media",  color: "#60A5FA", initial: "M",  specialty: "gestão de redes sociais, calendário editorial e crescimento orgânico" },
+  { id: "rafaela", name: "Rafaela", role: "Tráfego Pago",  color: "#F97316", initial: "R",  specialty: "tráfego pago, performance digital e otimização de campanhas" },
+  { id: "laura",   name: "Laura",   role: "Diretora",      color: "#B9FF4B", initial: "La", specialty: "estratégia global de marketing, integração de canais e visão executiva" },
+];
+
 interface Props {
   clientId: string;
   clientName: string;
@@ -450,6 +458,13 @@ export default function LiaBriefingPanel({ clientId, clientName, clientIndustry,
   const [error, setError] = useState<string | null>(null);
   const [consultingTeam, setConsultingTeam] = useState(false);
   const [teamProposed, setTeamProposed] = useState(false);
+  const [panelView, setPanelView] = useState<"diagnosis" | "pick" | "chat">("diagnosis");
+  const [pickedPanelAgent, setPickedPanelAgent] = useState<typeof PANEL_AGENTS[0] | null>(null);
+  const [panelChatHistory, setPanelChatHistory] = useState<{ role: "user" | "assistant"; content: string }[]>([]);
+  const [panelChatInput, setPanelChatInput] = useState("");
+  const [panelChatLoading, setPanelChatLoading] = useState(false);
+  const panelChatEndRef = useRef<HTMLDivElement>(null);
+  const panelChatInputRef = useRef<HTMLInputElement>(null);
 
   const handlePasteFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -626,7 +641,154 @@ Retorne SOMENTE um JSON válido, sem markdown, sem explicação. Array com 3 a 5
     }
   };
 
+  const buildAgentContext = () => {
+    const raw = (() => { try { return localStorage.getItem(`client-briefing-raw-${clientId}`) || ""; } catch { return ""; } })();
+    const briefingLines = raw
+      ? `BRIEFING DO CLIENTE:\n${raw.slice(0, 4000)}`
+      : `CLIENTE: ${clientName}\nSEGMENTO: ${data.segmento}\nPRODUTOS: ${data.produtos}\nPÚBLICO: ${data.clienteIdeal}\nDOR: ${data.dorPrincipal}\nDIFERENCIAL: ${data.diferencial}\nMETA 90 DIAS: ${data.meta90dias}\nBUDGET: ${data.budgetMarketing}`;
+    return `${briefingLines}\n\nDIAGNÓSTICO GERADO:\n${(diagnosis ?? "").slice(0, 2000)}`;
+  };
+
+  const sendPanelChat = async () => {
+    const msg = panelChatInput.trim();
+    if (!msg || panelChatLoading || !pickedPanelAgent) return;
+    setPanelChatInput("");
+    const newHistory = [...panelChatHistory, { role: "user" as const, content: msg }];
+    setPanelChatHistory(newHistory);
+    setPanelChatLoading(true);
+    try {
+      const { data: res } = await supabase.functions.invoke("chat-ai", {
+        body: {
+          systemPrompt: `Você é ${pickedPanelAgent.name}, especialista em ${pickedPanelAgent.specialty} da Calu Agência. Responda perguntas sobre o cliente "${clientName}" com base no briefing e diagnóstico abaixo. Seja direto, prático e específico para este cliente. Português brasileiro.\n\n${buildAgentContext()}`,
+          maxTokens: 1200,
+          messages: newHistory,
+        },
+      });
+      setPanelChatHistory(prev => [...prev, { role: "assistant", content: (res?.content ?? "").trim() || "Sem resposta." }]);
+    } catch {
+      setPanelChatHistory(prev => [...prev, { role: "assistant", content: "Erro técnico. Tente novamente." }]);
+    } finally {
+      setPanelChatLoading(false);
+      setTimeout(() => panelChatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    }
+  };
+
   if (diagnosis) {
+    // ── PICK agent ──────────────────────────────────────────────
+    if (panelView === "pick") {
+      return (
+        <div>
+          <div className="flex items-center gap-2 mb-4">
+            <button onClick={() => setPanelView("diagnosis")}
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-xs transition-all"
+              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.4)" }}>
+              ←
+            </button>
+            <span className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.7)" }}>Com quem quer conversar?</span>
+            <button onClick={onClose} className="ml-auto" style={{ color: "rgba(255,255,255,0.25)" }}>
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+          <div className="flex flex-col gap-2">
+            {PANEL_AGENTS.map((agent) => (
+              <button key={agent.id}
+                onClick={() => { setPickedPanelAgent(agent); setPanelChatHistory([]); setPanelChatInput(""); setPanelView("chat"); setTimeout(() => panelChatInputRef.current?.focus(), 100); }}
+                className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all w-full"
+                style={{ background: `${agent.color}08`, border: `1.5px solid ${agent.color}20` }}
+                onMouseEnter={(e) => (e.currentTarget.style.borderColor = `${agent.color}50`)}
+                onMouseLeave={(e) => (e.currentTarget.style.borderColor = `${agent.color}20`)}>
+                <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0"
+                  style={{ background: `${agent.color}18`, border: `1.5px solid ${agent.color}40`, color: agent.color }}>
+                  {agent.initial}
+                </div>
+                <div>
+                  <div className="text-xs font-bold" style={{ color: "#fff" }}>{agent.name}</div>
+                  <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>{agent.role}</div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ── CHAT with agent ──────────────────────────────────────────
+    if (panelView === "chat" && pickedPanelAgent) {
+      return (
+        <div className="flex flex-col" style={{ height: 420 }}>
+          {/* Header */}
+          <div className="flex items-center gap-2 mb-3 flex-shrink-0">
+            <button onClick={() => setPanelView("pick")}
+              className="w-7 h-7 rounded-lg flex items-center justify-center text-xs transition-all"
+              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.4)" }}>
+              ←
+            </button>
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0"
+              style={{ background: `${pickedPanelAgent.color}18`, border: `1.5px solid ${pickedPanelAgent.color}40`, color: pickedPanelAgent.color }}>
+              {pickedPanelAgent.initial}
+            </div>
+            <div>
+              <div className="text-xs font-bold" style={{ color: "#fff" }}>{pickedPanelAgent.name}</div>
+              <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>{pickedPanelAgent.role}</div>
+            </div>
+            <button onClick={onClose} className="ml-auto" style={{ color: "rgba(255,255,255,0.25)" }}>
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto space-y-3 pr-1" style={{ minHeight: 0 }}>
+            {panelChatHistory.length === 0 && (
+              <div className="rounded-xl px-3 py-2.5 text-xs"
+                style={{ background: `${pickedPanelAgent.color}08`, border: `1px solid ${pickedPanelAgent.color}18`, color: "rgba(255,255,255,0.75)" }}>
+                Olá! Sou {pickedPanelAgent.name}. Já li o briefing e o diagnóstico de {clientName} — pode perguntar!
+              </div>
+            )}
+            {panelChatHistory.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                <div className="rounded-xl px-3 py-2 text-xs max-w-[88%] whitespace-pre-wrap"
+                  style={msg.role === "user"
+                    ? { background: "rgba(185,255,75,0.08)", border: "1px solid rgba(185,255,75,0.18)", color: "rgba(255,255,255,0.85)", borderRadius: "12px 12px 3px 12px" }
+                    : { background: `${pickedPanelAgent.color}08`, border: `1px solid ${pickedPanelAgent.color}18`, color: "rgba(255,255,255,0.78)", borderRadius: "3px 12px 12px 12px" }}>
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+            {panelChatLoading && (
+              <div className="flex gap-1.5 px-3 py-2.5 rounded-xl w-fit"
+                style={{ background: `${pickedPanelAgent.color}08`, border: `1px solid ${pickedPanelAgent.color}18` }}>
+                {[0, 1, 2].map((i) => (
+                  <motion.div key={i} className="w-1.5 h-1.5 rounded-full"
+                    style={{ background: pickedPanelAgent.color }}
+                    animate={{ opacity: [0.3, 1, 0.3] }}
+                    transition={{ duration: 1.2, repeat: Infinity, delay: i * 0.2 }} />
+                ))}
+              </div>
+            )}
+            <div ref={panelChatEndRef} />
+          </div>
+
+          {/* Input */}
+          <div className="flex gap-2 mt-2 flex-shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: 8 }}>
+            <input ref={panelChatInputRef} value={panelChatInput}
+              onChange={(e) => setPanelChatInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); sendPanelChat(); } }}
+              placeholder={`Pergunte para ${pickedPanelAgent.name}...`}
+              disabled={panelChatLoading}
+              className="flex-1 rounded-xl px-3 py-2 text-xs outline-none"
+              style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${pickedPanelAgent.color}28`, color: "#F0F0F0" }}
+            />
+            <button onClick={sendPanelChat} disabled={!panelChatInput.trim() || panelChatLoading}
+              className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 disabled:opacity-40 transition-all"
+              style={{ background: panelChatInput.trim() ? pickedPanelAgent.color : "rgba(255,255,255,0.06)" }}>
+              <Send className="w-3.5 h-3.5" style={{ color: panelChatInput.trim() ? "#07080A" : "rgba(255,255,255,0.3)" }} />
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // ── DIAGNOSIS view (default) ─────────────────────────────────
     return (
       <div>
         <div className="flex items-center gap-3 mb-4">
@@ -643,12 +805,21 @@ Retorne SOMENTE um JSON válido, sem markdown, sem explicação. Array com 3 a 5
           </button>
         </div>
 
-        <div className="rounded-xl p-4 mb-4 max-h-72 overflow-y-auto text-xs leading-relaxed whitespace-pre-wrap"
+        <div className="rounded-xl p-4 mb-4 max-h-56 overflow-y-auto text-xs leading-relaxed whitespace-pre-wrap"
           style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${LIA_COLOR}20`, color: "rgba(255,255,255,0.75)" }}>
           {diagnosis}
         </div>
 
         <div className="flex flex-col gap-2">
+          {/* Talk to a specialist */}
+          <button onClick={() => setPanelView("pick")}
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all"
+            style={{ background: `${LIA_COLOR}12`, color: LIA_COLOR, border: `1px solid ${LIA_COLOR}30` }}
+            onMouseEnter={(e) => (e.currentTarget.style.background = `${LIA_COLOR}1e`)}
+            onMouseLeave={(e) => (e.currentTarget.style.background = `${LIA_COLOR}12`)}>
+            <MessageSquare className="w-4 h-4" /> Conversar com especialista
+          </button>
+
           <button
             onClick={consultarTime}
             disabled={consultingTeam || teamProposed}
@@ -680,7 +851,7 @@ Retorne SOMENTE um JSON válido, sem markdown, sem explicação. Array com 3 a 5
               Baixar PDF
             </button>
             <button
-              onClick={() => { setDiagnosis(null); setStep(0); setTeamProposed(false); setData({ ...EMPTY, empresa: clientName, segmento: clientIndustry }); }}
+              onClick={() => { setDiagnosis(null); setStep(0); setTeamProposed(false); setPanelView("diagnosis"); setData({ ...EMPTY, empresa: clientName, segmento: clientIndustry }); }}
               className="px-4 py-2.5 rounded-xl text-xs font-semibold transition-colors"
               style={{ background: `${LIA_COLOR}12`, color: LIA_COLOR, border: `1px solid ${LIA_COLOR}25` }}>
               Novo
