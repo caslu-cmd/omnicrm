@@ -482,10 +482,15 @@ export default function ClientPortal() {
                                   </p>
                                 )}
                                 {item.notes && (
-                                  <p className="text-[11px] mt-1 px-2 py-1 rounded-lg"
-                                    style={{ background: "rgba(251,191,36,0.08)", color: "#92400E" }}>
-                                    📝 {item.notes}
-                                  </p>
+                                  <div className="mt-2 rounded-xl p-3"
+                                    style={{ background: "rgba(185,255,75,0.06)", border: "1px solid rgba(185,255,75,0.2)" }}>
+                                    <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: "#5BAD2F" }}>
+                                      Resposta da agência
+                                    </p>
+                                    <p className="text-[11px] leading-relaxed whitespace-pre-wrap" style={{ color: "#444" }}>
+                                      {item.notes}
+                                    </p>
+                                  </div>
                                 )}
                               </div>
                               <span className="text-[10px] flex-shrink-0 font-medium" style={{ color: s.color }}>
