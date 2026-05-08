@@ -4500,6 +4500,38 @@ Regras:
                       )}
                     </div>
                   </div>
+                  {/* Briefing preenchido — grid de campos */}
+                  {clientBriefing && selectedAgentId !== "briefing" && (() => {
+                    const b = clientBriefing as any;
+                    const fields = [
+                      { label: "Nome da marca",      value: b.empresa || client.name,                    full: false },
+                      { label: "Segmento / nicho",   value: b.segmento || client.industry,               full: false },
+                      { label: "Público-alvo",       value: b.clienteIdeal,                              full: false },
+                      { label: "Plataformas ativas", value: b.canaisAtivos?.join(" · ") || null,         full: false },
+                      { label: "Frequência de posts",value: b.frequencia,                                full: false },
+                      { label: "Objetivo 90 dias",   value: b.meta90dias,                                full: false },
+                      { label: "Dor principal",      value: b.dorPrincipal,                              full: true  },
+                      { label: "Diferenciais",       value: b.diferencial,                               full: true  },
+                    ];
+                    return (
+                      <div className="px-5 pb-4 grid grid-cols-2 gap-2"
+                        style={{ borderTop: "1px solid rgba(56,189,248,0.1)", paddingTop: "12px" }}>
+                        {fields.map(({ label, value, full }) => (
+                          <div key={label}
+                            className={`rounded-xl p-3 ${full ? "col-span-2" : ""}`}
+                            style={{ background: value ? "rgba(56,189,248,0.04)" : "rgba(255,255,255,0.02)", border: `1px solid ${value ? "rgba(56,189,248,0.15)" : "rgba(255,255,255,0.04)"}` }}>
+                            <div className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: value ? "rgba(56,189,248,0.6)" : "rgba(255,255,255,0.15)" }}>
+                              {label}
+                            </div>
+                            <p className="text-[11px] leading-relaxed" style={{ color: value ? "rgba(255,255,255,0.75)" : "rgba(255,255,255,0.18)" }}>
+                              {value || "Não coletado"}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+
                   {/* Painel Lia inline */}
                   <AnimatePresence>
                     {selectedAgentId === "briefing" && (
@@ -4513,6 +4545,8 @@ Regras:
                             clientId={client.id}
                             clientName={client.name}
                             clientIndustry={client.industry}
+                            supabaseClientId={portalClientUUID ?? undefined}
+                            userId={user?.id}
                             onClose={() => setSelectedAgentId(null)}
                             onBriefingSaved={(saved) => setClientBriefing(saved)}
                           />
