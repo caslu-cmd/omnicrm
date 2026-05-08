@@ -6638,7 +6638,7 @@ Regras:
                       "Crie o agente acima preenchendo o produto e as credenciais Z-API",
                       "No painel Z-API, vá em Webhook → On Message Received",
                       "Cole a URL do webhook do agente",
-                      "Ative o agente com o botão "Ativar"",
+                      "Ative o agente com o botão “Ativar”",
                       "Pronto — toda mensagem recebida no WhatsApp será respondida automaticamente pela IA",
                     ].map((step, i) => (
                       <li key={i} className="flex items-start gap-2 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
