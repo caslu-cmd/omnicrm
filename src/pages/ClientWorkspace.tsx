@@ -774,6 +774,18 @@ export default function ClientWorkspace() {
   const [showDelivForm, setShowDelivForm] = useState(false);
   const [showOnboardForm, setShowOnboardForm] = useState(false);
   const [showDemandFormPortal, setShowDemandFormPortal] = useState(false);
+  // ── Agentes Autônomos ─────────────────────────────────────────
+  const [salesAgents, setSalesAgents] = useState<any[]>([]);
+  const [salesAgentsLoading, setSalesAgentsLoading] = useState(false);
+  const [showSalesAgentForm, setShowSalesAgentForm] = useState(false);
+  const [salesAgentForm, setSalesAgentForm] = useState({
+    name: "", avatar_color: "#B9FF4B",
+    product_name: "", product_description: "", product_price: "", product_url: "",
+    persona: "", zapi_instance: "", zapi_token: "", zapi_client_token: "",
+  });
+  const [savingSalesAgent, setSavingSalesAgent] = useState(false);
+  const [salesAgentConvs, setSalesAgentConvs] = useState<Record<string, any[]>>({});
+  const [activeConvAgent, setActiveConvAgent] = useState<string | null>(null);
   const [aiPortalLoading, setAiPortalLoading] = useState(false);
   const [aiPortalSuggestions, setAiPortalSuggestions] = useState<{
     onboarding: { title: string; category: string; responsible: "agency" | "client" }[];
@@ -2368,10 +2380,62 @@ ${priorBlock}`;
     }
   };
 
-  useEffect(() => { if (id) loadDbContacts(); }, [id]);
+  // ── Agentes Autônomos helpers ──────────────────────────────────
+  const fetchSalesAgents = async () => {
+    if (!id) return;
+    setSalesAgentsLoading(true);
+    const { data } = await (supabase as any).from("sales_agents").select("*")
+      .eq("client_id", id).order("created_at", { ascending: false });
+    if (data) setSalesAgents(data);
+    setSalesAgentsLoading(false);
+  };
+
+  const saveSalesAgent = async () => {
+    if (!id || !salesAgentForm.name.trim() || !salesAgentForm.product_name.trim()) return;
+    setSavingSalesAgent(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { setSavingSalesAgent(false); return; }
+    const { error } = await (supabase as any).from("sales_agents").insert({
+      client_id: id,
+      user_id: session.user.id,
+      ...salesAgentForm,
+      active: false,
+    });
+    if (!error) {
+      setShowSalesAgentForm(false);
+      setSalesAgentForm({ name: "", avatar_color: "#B9FF4B", product_name: "", product_description: "", product_price: "", product_url: "", persona: "", zapi_instance: "", zapi_token: "", zapi_client_token: "" });
+      fetchSalesAgents();
+      toast.success("Agente criado!");
+    } else {
+      toast.error("Erro ao criar agente");
+    }
+    setSavingSalesAgent(false);
+  };
+
+  const toggleSalesAgent = async (agentId: string, current: boolean) => {
+    await (supabase as any).from("sales_agents").update({ active: !current }).eq("id", agentId);
+    setSalesAgents(prev => prev.map(a => a.id === agentId ? { ...a, active: !current } : a));
+  };
+
+  const deleteSalesAgent = async (agentId: string) => {
+    await (supabase as any).from("sales_agents").delete().eq("id", agentId);
+    setSalesAgents(prev => prev.filter(a => a.id !== agentId));
+    if (activeConvAgent === agentId) setActiveConvAgent(null);
+    toast.success("Agente removido");
+  };
+
+  const fetchAgentConvs = async (agentId: string) => {
+    const { data } = await (supabase as any).from("agent_conversations").select("*")
+      .eq("agent_id", agentId).order("created_at", { ascending: false }).limit(100);
+    if (data) setSalesAgentConvs(prev => ({ ...prev, [agentId]: data }));
+    setActiveConvAgent(agentId);
+  };
+
+  useEffect(() => { if (id) loadDbContacts(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { if (activeTab === "integrations" && id) fetchSocialIntegrations(); }, [activeTab, id]);
   useEffect(() => { if (activeTab === "courses" && id) loadDbCourses(); }, [activeTab, id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (activeTab === "sales-agents" && id) fetchSalesAgents(); }, [activeTab, id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Injeta contexto do cliente na Calu IA
   useEffect(() => {
@@ -2382,8 +2446,9 @@ ${priorBlock}`;
       social:       "Redes Sociais",
       portal:       "Portal do Cliente",
       crm:          "CRM",
-      agents:       "Agentes IA",
-      content:      "Conteúdo",
+      agents:          "Agentes IA",
+      "sales-agents":  "Agentes Autônomos",
+      content:         "Conteúdo",
       courses:      "Cursos",
       integrations: "Integrações",
       webhooks:     "Webhooks",
@@ -5520,6 +5585,8 @@ Regras:
                                 clientId={client.id}
                                 clientName={client.name}
                                 clientIndustry={client.industry}
+                                supabaseClientId={portalClientUUID ?? undefined}
+                                userId={user?.id}
                                 onClose={() => setSelectedAgentId(null)}
                               />
                             )}
@@ -6226,6 +6293,365 @@ Regras:
                 </AnimatePresence>
               </div>
             )}
+
+            {/* ══════════════════════════════════════════════════════
+                AGENTES AUTÔNOMOS DE VENDAS
+            ══════════════════════════════════════════════════════ */}
+            {activeTab === "sales-agents" && (() => {
+              const SUPABASE_URL = "https://proldgiyterqhthludlp.supabase.co";
+              return (
+              <div className="space-y-5">
+
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-base font-bold" style={{ color: "#F0F0F0" }}>Agentes Autônomos</h2>
+                    <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
+                      Agentes de IA conectados ao WhatsApp do cliente via Z-API. Ativados uma única vez — rodam sozinhos.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setShowSalesAgentForm(!showSalesAgentForm)}
+                    className="flex items-center gap-2 text-xs font-semibold px-3 py-2 rounded-xl transition-all"
+                    style={{ background: "#B9FF4B", color: "#07080A" }}
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Novo Agente
+                  </button>
+                </div>
+
+                {/* Create form */}
+                <AnimatePresence>
+                  {showSalesAgentForm && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.22 }}
+                      style={{ overflow: "hidden" }}
+                    >
+                      <div className="rounded-2xl p-5 space-y-4" style={{ background: "rgba(185,255,75,0.04)", border: "1px solid rgba(185,255,75,0.15)" }}>
+                        <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#B9FF4B" }}>Novo Agente</p>
+
+                        <div className="grid grid-cols-2 gap-3">
+                          <div className="col-span-2 flex gap-3">
+                            <div className="flex-1">
+                              <label className="text-[10px] uppercase tracking-widest font-semibold mb-1 block" style={{ color: "rgba(255,255,255,0.4)" }}>Nome do agente *</label>
+                              <input
+                                value={salesAgentForm.name}
+                                onChange={e => setSalesAgentForm(p => ({ ...p, name: e.target.value }))}
+                                placeholder="ex.: Vendas do Curso X"
+                                className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20"
+                              />
+                            </div>
+                            <div style={{ width: 80 }}>
+                              <label className="text-[10px] uppercase tracking-widest font-semibold mb-1 block" style={{ color: "rgba(255,255,255,0.4)" }}>Cor</label>
+                              <input
+                                type="color"
+                                value={salesAgentForm.avatar_color}
+                                onChange={e => setSalesAgentForm(p => ({ ...p, avatar_color: e.target.value }))}
+                                className="w-full h-[38px] rounded-xl border border-input bg-background cursor-pointer"
+                              />
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className="text-[10px] uppercase tracking-widest font-semibold mb-1 block" style={{ color: "rgba(255,255,255,0.4)" }}>Produto / Curso *</label>
+                            <input
+                              value={salesAgentForm.product_name}
+                              onChange={e => setSalesAgentForm(p => ({ ...p, product_name: e.target.value }))}
+                              placeholder="Nome do produto"
+                              className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] uppercase tracking-widest font-semibold mb-1 block" style={{ color: "rgba(255,255,255,0.4)" }}>Preço</label>
+                            <input
+                              value={salesAgentForm.product_price}
+                              onChange={e => setSalesAgentForm(p => ({ ...p, product_price: e.target.value }))}
+                              placeholder="ex.: R$ 497"
+                              className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20"
+                            />
+                          </div>
+
+                          <div className="col-span-2">
+                            <label className="text-[10px] uppercase tracking-widest font-semibold mb-1 block" style={{ color: "rgba(255,255,255,0.4)" }}>Descrição do produto</label>
+                            <textarea
+                              value={salesAgentForm.product_description}
+                              onChange={e => setSalesAgentForm(p => ({ ...p, product_description: e.target.value }))}
+                              placeholder="O que o produto resolve, para quem é, principais benefícios..."
+                              rows={3}
+                              className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20 resize-none"
+                            />
+                          </div>
+
+                          <div className="col-span-2">
+                            <label className="text-[10px] uppercase tracking-widest font-semibold mb-1 block" style={{ color: "rgba(255,255,255,0.4)" }}>Link de compra</label>
+                            <input
+                              value={salesAgentForm.product_url}
+                              onChange={e => setSalesAgentForm(p => ({ ...p, product_url: e.target.value }))}
+                              placeholder="https://..."
+                              className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20"
+                            />
+                          </div>
+
+                          <div className="col-span-2">
+                            <label className="text-[10px] uppercase tracking-widest font-semibold mb-1 block" style={{ color: "rgba(255,255,255,0.4)" }}>Persona / Instruções extras</label>
+                            <textarea
+                              value={salesAgentForm.persona}
+                              onChange={e => setSalesAgentForm(p => ({ ...p, persona: e.target.value }))}
+                              placeholder="Como o agente deve se comportar, tom de voz, perguntas para qualificar..."
+                              rows={3}
+                              className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20 resize-none"
+                            />
+                          </div>
+                        </div>
+
+                        <div className="border-t pt-4 space-y-3" style={{ borderColor: "rgba(185,255,75,0.1)" }}>
+                          <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.3)" }}>Z-API — Conexão WhatsApp</p>
+                          <div className="grid grid-cols-3 gap-3">
+                            <div>
+                              <label className="text-[10px] uppercase tracking-widest font-semibold mb-1 block" style={{ color: "rgba(255,255,255,0.4)" }}>Instance ID</label>
+                              <input
+                                value={salesAgentForm.zapi_instance}
+                                onChange={e => setSalesAgentForm(p => ({ ...p, zapi_instance: e.target.value }))}
+                                placeholder="ID da instância"
+                                className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] uppercase tracking-widest font-semibold mb-1 block" style={{ color: "rgba(255,255,255,0.4)" }}>Token</label>
+                              <input
+                                value={salesAgentForm.zapi_token}
+                                onChange={e => setSalesAgentForm(p => ({ ...p, zapi_token: e.target.value }))}
+                                placeholder="Token da instância"
+                                className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20"
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[10px] uppercase tracking-widest font-semibold mb-1 block" style={{ color: "rgba(255,255,255,0.4)" }}>Client Token</label>
+                              <input
+                                value={salesAgentForm.zapi_client_token}
+                                onChange={e => setSalesAgentForm(p => ({ ...p, zapi_client_token: e.target.value }))}
+                                placeholder="(opcional)"
+                                className="w-full rounded-xl border border-input bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20"
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2 justify-end pt-1">
+                          <button
+                            onClick={() => setShowSalesAgentForm(false)}
+                            className="px-4 py-2 rounded-xl text-xs font-semibold transition-colors"
+                            style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            onClick={saveSalesAgent}
+                            disabled={savingSalesAgent || !salesAgentForm.name.trim() || !salesAgentForm.product_name.trim()}
+                            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold disabled:opacity-40 transition-all"
+                            style={{ background: "#B9FF4B", color: "#07080A" }}
+                          >
+                            {savingSalesAgent ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                            Criar Agente
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Agent list */}
+                {salesAgentsLoading ? (
+                  <div className="flex items-center justify-center py-12">
+                    <Loader2 className="w-5 h-5 animate-spin" style={{ color: "rgba(255,255,255,0.3)" }} />
+                  </div>
+                ) : salesAgents.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-16 text-center">
+                    <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ background: "rgba(185,255,75,0.08)" }}>
+                      <Bot className="w-7 h-7" style={{ color: "rgba(185,255,75,0.5)" }} />
+                    </div>
+                    <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.5)" }}>Nenhum agente criado</p>
+                    <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.25)" }}>Crie um agente para começar a vender no WhatsApp</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {salesAgents.map(agent => {
+                      const webhookUrl = `${SUPABASE_URL}/functions/v1/zapi-agent?id=${agent.id}`;
+                      const convs = salesAgentConvs[agent.id] ?? [];
+                      const isViewing = activeConvAgent === agent.id;
+                      // Group conversations by phone
+                      const byPhone: Record<string, any[]> = {};
+                      convs.forEach(c => {
+                        if (!byPhone[c.phone]) byPhone[c.phone] = [];
+                        byPhone[c.phone].push(c);
+                      });
+                      const phones = Object.keys(byPhone);
+
+                      return (
+                        <div key={agent.id} className="rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${agent.active ? `${agent.avatar_color}30` : "rgba(255,255,255,0.07)"}` }}>
+                          {/* Agent header row */}
+                          <div className="flex items-center gap-3 px-4 py-3.5">
+                            <div
+                              className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0"
+                              style={{ background: `${agent.avatar_color}20`, color: agent.avatar_color, border: `1px solid ${agent.avatar_color}40` }}
+                            >
+                              {agent.name.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-sm font-semibold" style={{ color: "#F0F0F0" }}>{agent.name}</span>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full font-medium" style={{ background: agent.active ? "rgba(52,211,153,0.12)" : "rgba(255,255,255,0.06)", color: agent.active ? "#34D399" : "rgba(255,255,255,0.3)", border: `1px solid ${agent.active ? "rgba(52,211,153,0.25)" : "rgba(255,255,255,0.1)"}` }}>
+                                  {agent.active ? "● Ativo" : "○ Inativo"}
+                                </span>
+                              </div>
+                              <p className="text-xs truncate" style={{ color: "rgba(255,255,255,0.35)" }}>{agent.product_name}{agent.product_price ? ` · ${agent.product_price}` : ""}</p>
+                            </div>
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              {/* Copy webhook URL */}
+                              <button
+                                onClick={() => { navigator.clipboard.writeText(webhookUrl); toast.success("URL do webhook copiada!"); }}
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-all"
+                                style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)" }}
+                                title="Copiar URL do webhook para Z-API"
+                              >
+                                <Link2 className="w-3 h-3" />
+                                Webhook
+                              </button>
+                              {/* View convs */}
+                              <button
+                                onClick={() => isViewing ? setActiveConvAgent(null) : fetchAgentConvs(agent.id)}
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-all"
+                                style={{ background: isViewing ? "rgba(185,255,75,0.12)" : "rgba(255,255,255,0.06)", color: isViewing ? "#B9FF4B" : "rgba(255,255,255,0.4)" }}
+                              >
+                                <MessageCircle className="w-3 h-3" />
+                                Conversas {convs.length > 0 && `(${phones.length})`}
+                              </button>
+                              {/* Active toggle */}
+                              <button
+                                onClick={() => toggleSalesAgent(agent.id, agent.active)}
+                                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-semibold transition-all"
+                                style={{ background: agent.active ? "rgba(249,115,22,0.12)" : "rgba(52,211,153,0.12)", color: agent.active ? "#F97316" : "#34D399" }}
+                              >
+                                {agent.active ? <WifiOff className="w-3 h-3" /> : <Wifi className="w-3 h-3" />}
+                                {agent.active ? "Pausar" : "Ativar"}
+                              </button>
+                              {/* Delete */}
+                              <button
+                                onClick={() => deleteSalesAgent(agent.id)}
+                                className="p-1.5 rounded-lg transition-all"
+                                style={{ color: "rgba(255,255,255,0.2)" }}
+                                onMouseEnter={e => (e.currentTarget.style.color = "#F87171")}
+                                onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.2)")}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Webhook URL info row */}
+                          <div className="px-4 pb-3 flex items-center gap-2">
+                            <div className="flex-1 rounded-lg px-3 py-1.5 text-[10px] font-mono truncate" style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.25)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                              {webhookUrl}
+                            </div>
+                          </div>
+
+                          {/* Z-API setup hint when no instance configured */}
+                          {(!agent.zapi_instance || !agent.zapi_token) && (
+                            <div className="mx-4 mb-3 flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)" }}>
+                              <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#F59E0B" }} />
+                              <span className="text-[10px]" style={{ color: "rgba(245,158,11,0.8)" }}>Z-API não configurado — adicione Instance ID e Token para enviar mensagens</span>
+                            </div>
+                          )}
+
+                          {/* Conversations panel */}
+                          <AnimatePresence>
+                            {isViewing && (
+                              <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: "auto" }}
+                                exit={{ opacity: 0, height: 0 }}
+                                transition={{ duration: 0.2 }}
+                                style={{ overflow: "hidden", borderTop: "1px solid rgba(255,255,255,0.07)" }}
+                              >
+                                <div className="px-4 py-3">
+                                  <p className="text-[10px] uppercase tracking-widest font-semibold mb-3" style={{ color: "rgba(255,255,255,0.3)" }}>
+                                    Conversas recentes {phones.length > 0 ? `· ${phones.length} contato${phones.length !== 1 ? "s" : ""}` : ""}
+                                  </p>
+
+                                  {phones.length === 0 ? (
+                                    <p className="text-xs text-center py-4" style={{ color: "rgba(255,255,255,0.25)" }}>
+                                      Nenhuma conversa ainda — o agente responde automaticamente quando o WhatsApp receber mensagens
+                                    </p>
+                                  ) : (
+                                    <div className="space-y-2 max-h-72 overflow-y-auto">
+                                      {phones.map(phone => {
+                                        const msgs = byPhone[phone].sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+                                        const customerName = msgs.find((m: any) => m.customer_name)?.customer_name || phone;
+                                        return (
+                                          <div key={phone} className="rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                                            <div className="flex items-center gap-2 px-3 py-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                                              <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold" style={{ background: `${agent.avatar_color}20`, color: agent.avatar_color }}>
+                                                {customerName.charAt(0).toUpperCase()}
+                                              </div>
+                                              <span className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.7)" }}>{customerName}</span>
+                                              <span className="text-[10px] ml-auto" style={{ color: "rgba(255,255,255,0.25)" }}>{phone}</span>
+                                              <span className="text-[10px] ml-1" style={{ color: "rgba(255,255,255,0.2)" }}>{msgs.length} msgs</span>
+                                            </div>
+                                            <div className="p-2 space-y-1">
+                                              {msgs.slice(-4).map((msg: any, mi: number) => (
+                                                <div key={mi} className={`flex ${msg.role === "user" ? "justify-start" : "justify-end"}`}>
+                                                  <div
+                                                    className="rounded-xl px-2.5 py-1.5 text-[11px] max-w-[80%]"
+                                                    style={{
+                                                      background: msg.role === "user" ? "rgba(255,255,255,0.07)" : `${agent.avatar_color}18`,
+                                                      color: msg.role === "user" ? "rgba(255,255,255,0.65)" : agent.avatar_color,
+                                                    }}
+                                                  >
+                                                    {msg.content}
+                                                  </div>
+                                                </div>
+                                              ))}
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  )}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+
+                {/* Setup guide */}
+                <div className="rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <p className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: "rgba(255,255,255,0.25)" }}>Como configurar no Z-API</p>
+                  <ol className="space-y-1.5">
+                    {[
+                      "Crie o agente acima preenchendo o produto e as credenciais Z-API",
+                      "No painel Z-API, vá em Webhook → On Message Received",
+                      "Cole a URL do webhook do agente",
+                      "Ative o agente com o botão "Ativar"",
+                      "Pronto — toda mensagem recebida no WhatsApp será respondida automaticamente pela IA",
+                    ].map((step, i) => (
+                      <li key={i} className="flex items-start gap-2 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
+                        <span className="w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 mt-0.5" style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B" }}>{i + 1}</span>
+                        {step}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+
+              </div>
+              );
+            })()}
 
             {/* ══════════════════════════════════════════════════════
                 CURSOS
@@ -7976,20 +8402,6 @@ Regras:
                                   {p.agent_name}{p.descricao ? ` · ${p.descricao}` : ""}
                                 </p>
                               </div>
-                              {p.status === "pending" && (
-                                <div className="flex items-center gap-1.5 flex-shrink-0">
-                                  <button onClick={() => handleApproveProposal(p.id)}
-                                    className="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
-                                    style={{ background: "rgba(52,211,153,0.1)", color: "#059669", border: "1px solid rgba(52,211,153,0.2)" }}>
-                                    Aprovar
-                                  </button>
-                                  <button onClick={() => handleRejectProposal(p.id)}
-                                    className="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
-                                    style={{ background: "rgba(239,68,68,0.07)", color: "#dc2626", border: "1px solid rgba(239,68,68,0.15)" }}>
-                                    Rejeitar
-                                  </button>
-                                </div>
-                              )}
                             </div>
                           );
                         })}

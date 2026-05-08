@@ -441,11 +441,13 @@ interface Props {
   clientId: string;
   clientName: string;
   clientIndustry: string;
+  supabaseClientId?: string;
+  userId?: string;
   onClose: () => void;
   onBriefingSaved?: (data: BriefingData) => void;
 }
 
-export default function LiaBriefingPanel({ clientId, clientName, clientIndustry, onClose, onBriefingSaved }: Props) {
+export default function LiaBriefingPanel({ clientId, clientName, clientIndustry, supabaseClientId, userId, onClose, onBriefingSaved }: Props) {
   const [mode, setMode] = useState<"form" | "paste">("form");
   const [pasteText, setPasteText] = useState("");
   const [pasteLoading, setPasteLoading] = useState(false);
@@ -465,6 +467,53 @@ export default function LiaBriefingPanel({ clientId, clientName, clientIndustry,
   const [panelChatLoading, setPanelChatLoading] = useState(false);
   const panelChatEndRef = useRef<HTMLDivElement>(null);
   const panelChatInputRef = useRef<HTMLInputElement>(null);
+
+  const upsertBriefing = async (b: BriefingData) => {
+    if (!supabaseClientId || !userId) return;
+    const budgetMap: Record<string, number> = {
+      "Até R$ 1.000/mês": 1000, "R$ 1.000–3.000/mês": 2000,
+      "R$ 3.000–7.000/mês": 5000, "R$ 7.000–15.000/mês": 11000,
+      "Acima de R$ 15.000/mês": 15000,
+    };
+    const audience = b.clienteIdeal
+      ? `${b.clienteIdeal}${b.faixaEtaria ? ` (${b.faixaEtaria})` : ""}`
+      : null;
+    const comps = b.concorrentes
+      ? b.concorrentes.split(/[,;]/).map(s => s.trim()).filter(Boolean)
+      : [];
+    const goals = b.meta90dias ? [b.meta90dias] : [];
+    const notes = [b.dorPrincipal, b.preocupacoes, b.jaTentou].filter(Boolean).join("\n\n") || null;
+    const required = [b.empresa || clientName, b.segmento, audience, goals.length > 0, b.canaisAtivos.length > 0, b.frequencia, b.diferencial];
+    const score = Math.round((required.filter(Boolean).length / (required.length + 1)) * 100); // +1 for brand_voice not collected
+    const missing: string[] = [];
+    if (!b.segmento) missing.push("segment");
+    if (!audience) missing.push("target_audience");
+    missing.push("brand_voice"); // Lia não coleta tom de voz
+    if (!goals.length) missing.push("goals");
+    if (!b.canaisAtivos.length) missing.push("active_platforms");
+    if (!b.frequencia) missing.push("post_frequency");
+    if (!b.diferencial) missing.push("differentials");
+    const payload = {
+      client_id: supabaseClientId, user_id: userId,
+      brand_name: b.empresa || clientName,
+      segment: b.segmento || null, target_audience: audience,
+      competitors: comps, goals, active_platforms: b.canaisAtivos,
+      monthly_budget: budgetMap[b.budgetMarketing] ?? null,
+      post_frequency: b.frequencia || null, differentials: b.diferencial || null,
+      notes, completeness_score: score, missing_fields: missing,
+      updated_at: new Date().toISOString(),
+    };
+    try {
+      const { data: existing } = await (supabase as any)
+        .from("client_briefings").select("id").eq("client_id", supabaseClientId).maybeSingle();
+      if (existing?.id) {
+        const { client_id: _c, user_id: _u, ...updatePayload } = payload;
+        await (supabase as any).from("client_briefings").update(updatePayload).eq("id", existing.id);
+      } else {
+        await (supabase as any).from("client_briefings").insert(payload);
+      }
+    } catch (e) { console.error("upsertBriefing error:", e); }
+  };
 
   const handlePasteFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -505,6 +554,7 @@ Com base neste briefing, gere agora o diagnóstico completo em markdown, seguind
         localStorage.setItem(`client-briefing-raw-${clientId}`, pasteText.slice(0, 5000));
         onBriefingSaved?.(syntheticData);
       } catch {}
+      await upsertBriefing(syntheticData);
     } catch (e) {
       setPasteError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -547,6 +597,7 @@ Com base neste briefing, gere agora o diagnóstico completo em markdown, seguind
         localStorage.setItem(`client-briefing-diagnosis-${clientId}`, diagnosisText.slice(0, 3000));
         onBriefingSaved?.(data);
       } catch {}
+      await upsertBriefing(data);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
