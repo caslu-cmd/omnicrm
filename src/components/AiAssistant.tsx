@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useDragControls } from "framer-motion";
 import {
   Sparkles, X, Send, Minimize2, Maximize2, Bot, User,
   ThumbsUp, ThumbsDown, Copy, RotateCcw, Lightbulb,
-  TrendingUp, MessageSquare
+  TrendingUp, MessageSquare, GripHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
@@ -63,6 +63,8 @@ const AiAssistant = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const constraintsRef = useRef<HTMLDivElement>(null);
+  const dragControls = useDragControls();
   const location = useLocation();
   const { pageContext } = usePageContext();
 
@@ -124,11 +126,15 @@ const AiAssistant = () => {
 
   const handleSend = () => sendMessage(input);
   const handleQuickAction = (label: string) => sendMessage(label);
-
   const copyToClipboard = (text: string) => navigator.clipboard.writeText(text);
 
   return (
-    <>
+    // Full-viewport overlay — pointer-events: none so it never blocks clicks behind it
+    <div
+      ref={constraintsRef}
+      style={{ position: "fixed", inset: 0, zIndex: 50, pointerEvents: "none" }}
+    >
+      {/* FAB button */}
       <AnimatePresence>
         {!isOpen && (
           <motion.button
@@ -138,52 +144,90 @@ const AiAssistant = () => {
             whileHover={{ scale: 1.08 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setIsOpen(true)}
-            className="fixed bottom-6 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full transition-all"
-            style={{ background: "#B9FF4B", color: "#07080A", boxShadow: "0 0 24px -4px rgba(185,255,75,0.55), 0 4px 16px rgba(0,0,0,0.4)" }}
+            style={{
+              position: "absolute", bottom: 24, right: 24,
+              pointerEvents: "auto",
+              width: 56, height: 56,
+              borderRadius: "50%",
+              background: "#B9FF4B",
+              color: "#07080A",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              boxShadow: "0 0 24px -4px rgba(185,255,75,0.55), 0 4px 16px rgba(0,0,0,0.4)",
+              border: "none", cursor: "pointer",
+            }}
           >
-            <Sparkles className="h-6 w-6" />
+            <Sparkles style={{ width: 24, height: 24 }} />
           </motion.button>
         )}
       </AnimatePresence>
 
+      {/* Chat panel — draggable */}
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            initial={{ opacity: 0, y: 20, scale: 0.95 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.95 }}
-            transition={{ duration: 0.2, ease: [0.2, 0.8, 0.2, 1] }}
-            className={cn(
-              "fixed z-50 flex flex-col rounded-2xl overflow-hidden",
-              isExpanded
-                ? "bottom-4 right-4 left-4 top-4 sm:left-auto sm:w-[560px] sm:top-4"
-                : "bottom-6 right-6 w-[400px] h-[560px]"
-            )}
-            style={{ background: "#0C0D0F", border: "1px solid rgba(185,255,75,0.14)", boxShadow: "0 24px 64px -8px rgba(0,0,0,0.8)" }}
+            key="chat-panel"
+            drag
+            dragControls={dragControls}
+            dragListener={false}
+            dragMomentum={false}
+            dragConstraints={constraintsRef}
+            dragElastic={0}
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.18, ease: [0.2, 0.8, 0.2, 1] }}
+            style={{
+              position: "absolute",
+              bottom: 24,
+              right: 24,
+              width: isExpanded ? Math.min(560, window.innerWidth - 32) : 400,
+              height: isExpanded ? window.innerHeight - 32 : 560,
+              pointerEvents: "auto",
+              display: "flex",
+              flexDirection: "column",
+              borderRadius: 16,
+              overflow: "hidden",
+              background: "#0C0D0F",
+              border: "1px solid rgba(185,255,75,0.14)",
+              boxShadow: "0 24px 64px -8px rgba(0,0,0,0.8)",
+            }}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3"
-              style={{ borderBottom: "1px solid rgba(185,255,75,0.1)", background: "rgba(185,255,75,0.04)" }}>
-              <div className="flex items-center gap-2.5">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg"
-                  style={{ background: "#B9FF4B" }}>
-                  <Sparkles className="h-4 w-4" style={{ color: "#07080A" }} />
+            {/* Header — drag handle */}
+            <div
+              onPointerDown={(e) => dragControls.start(e)}
+              style={{
+                cursor: "grab",
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "10px 14px",
+                borderBottom: "1px solid rgba(185,255,75,0.1)",
+                background: "rgba(185,255,75,0.04)",
+                userSelect: "none",
+              }}
+            >
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ width: 32, height: 32, borderRadius: 8, background: "#B9FF4B", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <Sparkles style={{ width: 16, height: 16, color: "#07080A" }} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold" style={{ color: "#F0F0F0" }}>Calu IA</h3>
-                  <p className="text-[10px]" style={{ color: "#B9FF4B", opacity: 0.7 }}>Powered by Claude · Online</p>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: "#F0F0F0", margin: 0, lineHeight: 1.3 }}>Calu IA</p>
+                  <p style={{ fontSize: 10, color: "#B9FF4B", opacity: 0.7, margin: 0 }}>Powered by Claude · Online</p>
                 </div>
               </div>
-              <div className="flex items-center gap-1">
+              <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+                <GripHorizontal style={{ width: 14, height: 14, color: "rgba(255,255,255,0.2)", marginRight: 6 }} />
                 <button
+                  onPointerDown={(e) => e.stopPropagation()}
                   onClick={() => setIsExpanded(!isExpanded)}
                   className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"
+                  style={{ cursor: "pointer" }}
                 >
                   {isExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                 </button>
                 <button
+                  onPointerDown={(e) => e.stopPropagation()}
                   onClick={() => setIsOpen(false)}
                   className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"
+                  style={{ cursor: "pointer" }}
                 >
                   <X className="h-4 w-4" />
                 </button>
@@ -315,7 +359,7 @@ const AiAssistant = () => {
           </motion.div>
         )}
       </AnimatePresence>
-    </>
+    </div>
   );
 };
 
