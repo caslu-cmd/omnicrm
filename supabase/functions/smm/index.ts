@@ -14,6 +14,12 @@ function respond(body: unknown, status = 200) {
   });
 }
 
+function normalizeScheduledPostMediaType(mediaType: unknown, mediaUrl: unknown): "text" | "image" | "video" {
+  if (mediaType === "video") return "video";
+  if (mediaType === "text" && !mediaUrl) return "text";
+  return mediaUrl ? "image" : "text";
+}
+
 function obfuscate(text: string, key: string): string {
   const result: number[] = [];
   for (let i = 0; i < text.length; i++) {
@@ -315,6 +321,7 @@ Deno.serve(async (req) => {
     if (action === "create-post") {
       const { client_id, platforms, caption, media_url, media_type, scheduled_at, link_url } = body;
       if (!client_id || !platforms?.length) return respond({ error: "client_id e platforms obrigatórios" }, 400);
+      const dbMediaType = normalizeScheduledPostMediaType(media_type, media_url);
 
       const scheduledDate = scheduled_at ? new Date(scheduled_at) : null;
       const isScheduled   = scheduledDate && scheduledDate > new Date();
@@ -387,7 +394,7 @@ Deno.serve(async (req) => {
 
       const { data: post, error: insertError } = await supabase.from("scheduled_posts").insert({
         user_id: userId, client_id, platforms, caption,
-        media_url: media_url || null, media_type: media_type ?? "text",
+        media_url: media_url || null, media_type: dbMediaType,
         scheduled_at: scheduled_at || null,
         published_at: status === "published" ? new Date().toISOString() : null,
         status, fb_post_id: fbPostId, ig_media_id: igMediaId, error_message: errorMessage,
