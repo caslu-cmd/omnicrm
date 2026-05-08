@@ -175,9 +175,10 @@ Deno.serve(async (req) => {
 
     // ── Create / schedule post ───────────────────────────────────
     if (action === "create-post") {
-      const { client_id, platforms, caption, media_url, media_type, scheduled_at } = body;
+      const { client_id, platforms, caption, media_url, media_type, link_url, scheduled_at } = body;
       if (!client_id || !platforms?.length) return respond({ error: "client_id e platforms obrigatórios" }, 400);
 
+      const isStory = media_type === "story";
       const isScheduled = scheduled_at && new Date(scheduled_at) > new Date();
       let status = isScheduled ? "scheduled" : "publishing";
       let fbPostId: string | null = null;
@@ -203,13 +204,51 @@ Deno.serve(async (req) => {
               else fbPostId = result.post_id ?? result.id;
             } else if (platform === "instagram") {
               if (!media_url) { errorMessage = "Instagram requer imagem"; status = "failed"; continue; }
-              const containerRes = await fetch(`${GRAPH}/${conn.account_id}/media`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ image_url: media_url, caption: caption ?? "", access_token: accessToken }) });
-              const container = await containerRes.json();
-              if (container.error) { errorMessage = container.error.message; status = "failed"; continue; }
-              const publishRes = await fetch(`${GRAPH}/${conn.account_id}/media_publish`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ creation_id: container.id, access_token: accessToken }) });
-              const published = await publishRes.json();
-              if (published.error) { errorMessage = published.error.message; status = "failed"; }
-              else igMediaId = published.id;
+
+              if (isStory) {
+                // Story: media_type=STORIES, sem caption, com link sticker opcional
+                const containerPayload: Record<string, string> = {
+                  image_url: media_url,
+                  media_type: "STORIES",
+                  access_token: accessToken,
+                };
+                if (link_url) {
+                  containerPayload.story_sticker_ids = "link";
+                  containerPayload.link_attachment = link_url;
+                }
+                const containerRes = await fetch(`${GRAPH}/${conn.account_id}/media`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify(containerPayload),
+                });
+                const container = await containerRes.json();
+                if (container.error) { errorMessage = container.error.message; status = "failed"; continue; }
+                const publishRes = await fetch(`${GRAPH}/${conn.account_id}/media_publish`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ creation_id: container.id, access_token: accessToken }),
+                });
+                const published = await publishRes.json();
+                if (published.error) { errorMessage = published.error.message; status = "failed"; }
+                else igMediaId = published.id;
+              } else {
+                // Feed post normal
+                const containerRes = await fetch(`${GRAPH}/${conn.account_id}/media`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ image_url: media_url, caption: caption ?? "", access_token: accessToken }),
+                });
+                const container = await containerRes.json();
+                if (container.error) { errorMessage = container.error.message; status = "failed"; continue; }
+                const publishRes = await fetch(`${GRAPH}/${conn.account_id}/media_publish`, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ creation_id: container.id, access_token: accessToken }),
+                });
+                const published = await publishRes.json();
+                if (published.error) { errorMessage = published.error.message; status = "failed"; }
+                else igMediaId = published.id;
+              }
             }
           } catch (e) { errorMessage = e instanceof Error ? e.message : "Erro ao publicar"; status = "failed"; }
         }
