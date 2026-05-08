@@ -23,6 +23,14 @@ type ClientRow = {
 type BriefingRow = {
   completeness_score: number;
   missing_fields: string[];
+  brand_name: string | null;
+  segment: string | null;
+  target_audience: string | null;
+  brand_voice: string | null;
+  goals: string[] | null;
+  active_platforms: string[] | null;
+  post_frequency: string | null;
+  differentials: string | null;
 };
 type OnboardingItem = {
   id: string;
@@ -331,44 +339,84 @@ export default function ClientPortal() {
           </div>
         </motion.div>
 
-        {/* ── Alerta: briefing incompleto ──────────────────── */}
-        {briefingScore < 100 && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-            <div className="rounded-2xl p-5"
-              style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.25)" }}>
-              <div className="flex items-start gap-3">
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{ background: "rgba(251,191,36,0.15)" }}>
-                  <AlertCircle className="w-4 h-4" style={{ color: "#D97706" }} />
-                </div>
-                <div className="flex-1">
-                  <div className="text-sm font-bold mb-1" style={{ color: "#92400E" }}>
-                    Briefing {briefingScore}% completo — ajuda a agência a trabalhar melhor por você
-                  </div>
-                  <p className="text-xs mb-3" style={{ color: "#78350F" }}>
-                    Os agentes precisam dessas informações para criar conteúdo personalizado e estratégias alinhadas à sua marca.
-                  </p>
-                  {briefingMissing.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {briefingMissing.map(f => (
-                        <span key={f} className="text-[11px] px-2 py-0.5 rounded-full font-medium"
-                          style={{ background: "rgba(251,191,36,0.15)", color: "#92400E", border: "1px solid rgba(251,191,36,0.3)" }}>
-                          {MISSING_LABEL[f] ?? f}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  <div className="mt-3">
-                    <a href="mailto:carolinielucas.cl@gmail.com?subject=Briefing"
-                      className="text-xs font-semibold underline" style={{ color: "#D97706" }}>
-                      Enviar informações para a agência →
-                    </a>
-                  </div>
-                </div>
+        {/* ── Briefing da marca ────────────────────────────── */}
+        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+          <div className="rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.07)" }}>
+
+            {/* Header */}
+            <div className="px-6 py-5" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+              <div className="flex items-center justify-between mb-1">
+                <h2 className="text-base font-bold" style={{ color: "#111" }}>Sobre sua marca</h2>
+                <span className="text-xs font-bold px-2.5 py-1 rounded-full"
+                  style={{
+                    background: briefingScore === 100 ? "rgba(52,211,153,0.12)" : briefingScore > 0 ? "rgba(185,255,75,0.15)" : "rgba(251,191,36,0.1)",
+                    color: briefingScore === 100 ? "#059669" : briefingScore > 0 ? "#3a6e00" : "#D97706",
+                  }}>
+                  {briefingScore}% completo
+                </span>
               </div>
+              <p className="text-xs" style={{ color: "#888" }}>
+                Informações que guiam todo o trabalho dos agentes para a sua marca
+              </p>
+              {briefingScore > 0 && briefingScore < 100 && (
+                <div className="mt-3 h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(0,0,0,0.06)" }}>
+                  <motion.div
+                    initial={{ width: 0 }} animate={{ width: `${briefingScore}%` }}
+                    transition={{ duration: 0.8, ease: "easeOut" }}
+                    className="h-full rounded-full" style={{ background: "#B9FF4B" }}
+                  />
+                </div>
+              )}
             </div>
-          </motion.div>
-        )}
+
+            {/* Grid de campos */}
+            <div className="p-4 grid grid-cols-2 gap-2.5">
+              {([
+                { key: "brand_name",       label: "Nome da marca",       value: briefing?.brand_name,                            full: false },
+                { key: "segment",          label: "Segmento / nicho",     value: briefing?.segment,                               full: false },
+                { key: "brand_voice",      label: "Tom de voz",           value: briefing?.brand_voice,                           full: false },
+                { key: "post_frequency",   label: "Frequência de posts",  value: briefing?.post_frequency,                        full: false },
+                { key: "target_audience",  label: "Público-alvo",         value: briefing?.target_audience,                       full: true  },
+                { key: "differentials",    label: "Diferenciais da marca",value: briefing?.differentials,                         full: true  },
+                { key: "active_platforms", label: "Plataformas ativas",   value: briefing?.active_platforms?.join(" · ") ?? null, full: false },
+                { key: "goals",            label: "Objetivos",            value: briefing?.goals?.join(" · ") ?? null,            full: true  },
+              ] as { key: string; label: string; value: string | null | undefined; full: boolean }[]).map(({ key, label, value, full }) => {
+                const filled = !!value && value.trim() !== "";
+                return (
+                  <div key={key}
+                    className={`rounded-xl p-3 ${full ? "col-span-2" : ""}`}
+                    style={{
+                      background: filled ? "#FAFAF9" : "rgba(0,0,0,0.015)",
+                      border: `1px solid ${filled ? "rgba(0,0,0,0.07)" : "rgba(0,0,0,0.04)"}`,
+                    }}>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      {filled
+                        ? <CheckCircle2 className="w-3 h-3 flex-shrink-0" style={{ color: "#B9FF4B" }} />
+                        : <Circle className="w-3 h-3 flex-shrink-0" style={{ color: "#ddd" }} />}
+                      <span className="text-[10px] font-semibold uppercase tracking-wider"
+                        style={{ color: filled ? "#888" : "#ccc" }}>
+                        {label}
+                      </span>
+                    </div>
+                    {filled
+                      ? <p className="text-xs font-medium leading-relaxed pl-4.5" style={{ color: "#222", paddingLeft: "18px" }}>{value}</p>
+                      : <p className="text-xs pl-4.5" style={{ color: "#ccc", paddingLeft: "18px" }}>Não informado</p>}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* CTA quando vazio */}
+            {briefingScore === 0 && (
+              <div className="px-5 pb-5">
+                <a href="mailto:carolinielucas.cl@gmail.com?subject=Briefing"
+                  className="text-xs font-semibold underline" style={{ color: "#D97706" }}>
+                  Enviar informações para a agência →
+                </a>
+              </div>
+            )}
+          </div>
+        </motion.div>
 
         {/* ── Onboarding checklist ─────────────────────────── */}
         {onboarding.length > 0 && (
