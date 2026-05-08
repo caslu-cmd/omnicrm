@@ -772,6 +772,13 @@ export default function ClientWorkspace() {
   const [showDelivForm, setShowDelivForm] = useState(false);
   const [showOnboardForm, setShowOnboardForm] = useState(false);
   const [showDemandFormPortal, setShowDemandFormPortal] = useState(false);
+  const [aiPortalLoading, setAiPortalLoading] = useState(false);
+  const [aiPortalSuggestions, setAiPortalSuggestions] = useState<{
+    onboarding: { title: string; category: string; responsible: "agency" | "client" }[];
+    entregas: { description: string; category: string }[];
+    propostas: { titulo: string; agent_id: string; agent_name: string; agent_color: string; descricao: string }[];
+    demandas: { title: string; responsible: "agency" | "client"; priority: "low" | "medium" | "high" }[];
+  } | null>(null);
   const [contactSearch, setContactSearch] = useState("");
   const [activeSegment, setActiveSegment] = useState<string>("Todos");
   const [dbContacts, setDbContacts] = useState<any[]>([]);
@@ -2565,6 +2572,65 @@ ${priorBlock}`;
       toast.success("Proposta criada!");
     } catch { toast.error("Erro ao criar proposta."); }
     setSavingAgent(false);
+  };
+
+  const fetchAiPortalSuggestions = async () => {
+    setAiPortalLoading(true);
+    setAiPortalSuggestions(null);
+    try {
+      const briefingCtx = buildBriefingBlock();
+      const existingCtx = [
+        portalOnboarding.length ? `Onboarding já tem ${portalOnboarding.length} item(s).` : "",
+        deliverables.length ? `Entregas já registradas: ${deliverables.length}.` : "",
+        agentProposals.length ? `Propostas existentes: ${agentProposals.map(p => p.titulo).join(", ")}.` : "",
+        portalDemands.length ? `Demandas existentes: ${portalDemands.map(d => d.title).join(", ")}.` : "",
+      ].filter(Boolean).join(" ");
+
+      const prompt = `Cliente: ${client.name} (${client.industry}).${briefingCtx}
+
+${existingCtx ? `Contexto atual do portal: ${existingCtx}` : ""}
+
+Sugira conteúdo novo e relevante para o portal deste cliente. Responda APENAS com JSON válido neste formato exato (sem markdown, sem texto antes ou depois):
+{
+  "onboarding": [
+    { "title": "...", "category": "redes_sociais", "responsible": "agency" }
+  ],
+  "entregas": [
+    { "description": "...", "category": "social" }
+  ],
+  "propostas": [
+    { "titulo": "...", "agent_id": "luna", "agent_name": "Luna", "agent_color": "#B9FF4B", "descricao": "..." }
+  ],
+  "demandas": [
+    { "title": "...", "responsible": "agency", "priority": "medium" }
+  ]
+}
+
+Regras:
+- Sugira 3-5 itens por seção, específicos para o nicho e momento do cliente
+- onboarding.category: "geral" | "redes_sociais" | "acessos" | "configuracao" | "documentos"
+- onboarding.responsible: "agency" | "client"
+- entregas.category: "social" | "story" | "video" | "arte" | "copy" | "email" | "relatorio" | "reuniao" | "trafego" | "calendario" | "estrategia" | "outro"
+- propostas.agent_id: "luna" | "queila" | "beatriz" | "marcela" | "rafaela" | "marina" | "pedro" | "lucas" | "teo" | "bobby"
+- Escolha o agente mais adequado para cada proposta
+- demandas.priority: "low" | "medium" | "high"
+- Não repita itens que já existem`;
+
+      const { data, error } = await supabase.functions.invoke("chat-ai", {
+        body: {
+          messages: [{ role: "user", content: prompt }],
+          maxTokens: 2000,
+          systemPrompt: "Você é um assistente de agência de marketing. Responda APENAS com JSON válido, sem markdown, sem explicações.",
+        },
+      });
+      if (error) throw error;
+      const raw = (data?.content ?? "").trim().replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "");
+      const parsed = JSON.parse(raw);
+      setAiPortalSuggestions(parsed);
+    } catch (e) {
+      toast.error("Erro ao gerar sugestões. Tente novamente.");
+    }
+    setAiPortalLoading(false);
   };
 
   const handleApprove = async (postId: string) => {
@@ -7482,6 +7548,14 @@ ${priorBlock}`;
                   <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full" style={{ background: "#B9FF4B18", color: "#B9FF4B", border: "1px solid #B9FF4B30" }}>Modo Agência</span>
                   <span className="text-[11px] flex-1" style={{ color: "rgba(255,255,255,0.35)" }}>Você está editando o que o cliente vê</span>
                   <span className="text-[11px] font-mono" style={{ color: "rgba(255,255,255,0.25)" }}>PIN: {client.portalPin || "—"}</span>
+                  <button onClick={fetchAiPortalSuggestions} disabled={aiPortalLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex-shrink-0 disabled:opacity-60"
+                    style={{ background: "rgba(185,255,75,0.12)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.2)" }}>
+                    {aiPortalLoading
+                      ? <div className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
+                      : <span>✨</span>}
+                    Sugerir com IA
+                  </button>
                   <button onClick={handleOpenPortal} disabled={openingPortal}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex-shrink-0"
                     style={{ background: "#B9FF4B", color: "#07080A" }}>
@@ -7489,6 +7563,115 @@ ${priorBlock}`;
                     Abrir portal real
                   </button>
                 </div>
+
+                {/* ── AI Suggestions Panel ── */}
+                {aiPortalSuggestions && (() => {
+                  const AGENT_COLORS: Record<string, string> = {
+                    luna: "#B9FF4B", queila: "#FBBF24", beatriz: "#A78BFA", marcela: "#D946EF",
+                    rafaela: "#F97316", marina: "#60A5FA", pedro: "#2DD4BF", lucas: "#34D399",
+                    teo: "#06B6D4", bobby: "#B9FF4B",
+                  };
+                  const s = aiPortalSuggestions;
+                  const addOnboard = async (item: typeof s.onboarding[number]) => {
+                    try {
+                      const { data: row } = await (supabase as any).from("client_onboarding").insert({
+                        client_uuid: portalClientUUID, title: item.title,
+                        category: item.category, responsible: item.responsible, status: "pending",
+                      }).select().single();
+                      if (row) { setPortalOnboarding(prev => [...prev, row]); toast.success("Item adicionado!"); }
+                    } catch { toast.error("Erro ao adicionar."); }
+                  };
+                  const addEntrega = async (item: typeof s.entregas[number]) => {
+                    const today = new Date().toISOString().slice(0, 10);
+                    try {
+                      const { data: { session } } = await supabase.auth.getSession();
+                      if (!session) return;
+                      const { data: row } = await (supabase as any).from("client_deliverables").insert({
+                        client_id: id, user_id: session.user.id,
+                        category: item.category, description: item.description,
+                        done_at: today, visible_to_client: true,
+                      }).select().single();
+                      if (row) { setDeliverables(prev => [row, ...prev]); toast.success("Entrega registrada!"); }
+                    } catch { toast.error("Erro ao registrar."); }
+                  };
+                  const addProposta = async (item: typeof s.propostas[number]) => {
+                    try {
+                      const { data: row } = await (supabase as any).from("agent_proposals").insert({
+                        client_id: id, agent_id: item.agent_id, agent_name: item.agent_name,
+                        agent_color: item.agent_color, titulo: item.titulo, descricao: item.descricao, status: "pending",
+                      }).select().single();
+                      if (row) { setAgentProposals(prev => [row, ...prev]); toast.success("Proposta criada!"); }
+                    } catch { toast.error("Erro ao criar proposta."); }
+                  };
+                  const addDemanda = async (item: typeof s.demandas[number]) => {
+                    try {
+                      const { data: row } = await (supabase as any).from("client_demands").insert({
+                        client_uuid: portalClientUUID, title: item.title,
+                        responsible: item.responsible, priority: item.priority, status: "pending",
+                      }).select().single();
+                      if (row) { setPortalDemands(prev => [...prev, row]); toast.success("Demanda adicionada!"); }
+                    } catch { toast.error("Erro ao adicionar."); }
+                  };
+
+                  type SectionKey = "onboarding" | "entregas" | "propostas" | "demandas";
+                  const sections: { key: SectionKey; label: string; items: unknown[]; addFn: (item: any) => void }[] = [
+                    { key: "onboarding", label: "✅ Onboarding", items: s.onboarding, addFn: addOnboard },
+                    { key: "entregas",   label: "📦 Entregas",   items: s.entregas,   addFn: addEntrega },
+                    { key: "propostas",  label: "⚡ Propostas",  items: s.propostas,  addFn: addProposta },
+                    { key: "demandas",   label: "📋 Demandas",   items: s.demandas,   addFn: addDemanda },
+                  ];
+
+                  return (
+                    <div style={{ background: "#0D0D0D", borderBottom: "1px solid rgba(185,255,75,0.12)" }}>
+                      <div className="max-w-3xl mx-auto px-5 py-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-2">
+                            <span style={{ fontSize: 14 }}>✨</span>
+                            <p className="text-xs font-semibold" style={{ color: "#B9FF4B" }}>Sugestões da Calu IA</p>
+                            <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>baseadas no briefing de {client.name}</p>
+                          </div>
+                          <button onClick={() => setAiPortalSuggestions(null)}
+                            style={{ color: "rgba(255,255,255,0.3)", background: "none", border: "none", cursor: "pointer", fontSize: 16, lineHeight: 1 }}>×</button>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3">
+                          {sections.map(({ key, label, items, addFn }) => (
+                            <div key={key} className="rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                              <div className="px-3 py-2 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                                <p className="text-[11px] font-semibold" style={{ color: "rgba(255,255,255,0.7)" }}>{label}</p>
+                                <button
+                                  onClick={async () => { for (const item of items) await addFn(item); toast.success(`Todos os itens de ${label} adicionados!`); }}
+                                  className="text-[10px] px-2 py-0.5 rounded-lg font-medium"
+                                  style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.2)" }}>
+                                  + Todos
+                                </button>
+                              </div>
+                              <div>
+                                {(items as any[]).map((item, i) => (
+                                  <div key={i} className="flex items-center gap-2 px-3 py-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                                    {key === "propostas" && (
+                                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: AGENT_COLORS[item.agent_id] ?? "#B9FF4B", display: "inline-block", flexShrink: 0 }} />
+                                    )}
+                                    <p className="text-[11px] flex-1" style={{ color: "rgba(255,255,255,0.75)" }}>
+                                      {key === "onboarding" ? item.title
+                                        : key === "entregas" ? item.description
+                                        : key === "propostas" ? `${item.agent_name}: ${item.titulo}`
+                                        : item.title}
+                                    </p>
+                                    <button onClick={() => addFn(item)}
+                                      className="text-[10px] px-2 py-0.5 rounded-lg font-medium flex-shrink-0"
+                                      style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                                      +
+                                    </button>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 {/* ── Portal content ── */}
                 <div className="max-w-3xl mx-auto px-5 py-6 space-y-5">
