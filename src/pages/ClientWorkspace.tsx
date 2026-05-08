@@ -757,7 +757,7 @@ export default function ClientWorkspace() {
   const [crmView, setCrmView] = useState<"contacts" | "pipeline" | "approvals" | "insights" | "whatsapp" | "deliverables">("contacts");
   const [deliverables, setDeliverables] = useState<any[]>([]);
   const [delivLoading, setDelivLoading] = useState(false);
-  const [delivForm, setDelivForm] = useState({ category: "", description: "", done_at: new Date().toISOString().slice(0, 10), visible_to_client: true });
+  const [delivForm, setDelivForm] = useState({ title: "", category: "", description: "", done_at: new Date().toISOString().slice(0, 10), visible_to_client: true, status: "completed" as "completed" | "in_progress" });
   const [savingDeliv, setSavingDeliv] = useState(false);
   const [portalClientUUID, setPortalClientUUID] = useState<string | null>(null);
   const [portalOnboarding, setPortalOnboarding] = useState<any[]>([]);
@@ -2455,13 +2455,20 @@ ${priorBlock}`;
     setDelivLoading(false);
   };
 
-  const saveDeliverable = async (category: string, description: string, doneAt: string, visible: boolean) => {
-    if (!id || !description.trim()) return;
+  const saveDeliverable = async (category: string, title: string, description: string, doneAt: string, visible: boolean, status: string) => {
+    if (!id || !title.trim()) return;
     setSavingDeliv(true);
-    const { data } = await (supabase as any).from("client_deliverables").insert({ client_id: id, category, description: description.trim(), done_at: doneAt, visible_to_client: visible }).select().single();
+    const { data } = await (supabase as any).from("client_deliverables").insert({
+      client_id: id, category,
+      title: title.trim(),
+      description: description.trim(),
+      done_at: doneAt,
+      visible_to_client: visible,
+      status,
+    }).select().single();
     if (data) setDeliverables((prev) => [data, ...prev]);
     setSavingDeliv(false);
-    setDelivForm({ category: "", description: "", done_at: new Date().toISOString().slice(0, 10), visible_to_client: true });
+    setDelivForm({ title: "", category: "", description: "", done_at: new Date().toISOString().slice(0, 10), visible_to_client: true, status: "completed" });
   };
 
   const toggleDelivVisible = async (delivId: string, current: boolean) => {
@@ -3682,8 +3689,8 @@ Regras:
                             {delivForm.visible_to_client ? "Visível ao cliente" : "Oculto"}
                           </button>
                           <button
-                            onClick={() => saveDeliverable(delivForm.category, delivForm.description, delivForm.done_at, delivForm.visible_to_client)}
-                            disabled={savingDeliv || !delivForm.description.trim()}
+                            onClick={() => saveDeliverable(delivForm.category, delivForm.title, delivForm.description, delivForm.done_at, delivForm.visible_to_client, delivForm.status)}
+                            disabled={savingDeliv || !delivForm.title.trim()}
                             className="px-4 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-40"
                             style={{ background: client.color, color: "#07080A" }}>
                             {savingDeliv ? "Salvando…" : "Registrar"}
@@ -7797,10 +7804,11 @@ Regras:
                     </div>
                     {showDelivForm && (
                       <div className="px-5 py-4 space-y-2.5" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)", background: "#FAFAF8" }}>
+                        {/* Category chips */}
                         <div className="flex flex-wrap gap-1.5">
                           {DELIV_PRESETS.map((p) => (
                             <button key={p.category}
-                              onClick={() => setDelivForm((f) => ({ ...f, category: p.category, description: p.label.replace(/^[^\s]+\s/, "") }))}
+                              onClick={() => setDelivForm((f) => ({ ...f, category: p.category }))}
                               className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
                               style={delivForm.category === p.category
                                 ? { background: "rgba(0,0,0,0.1)", color: "#111", border: "1px solid rgba(0,0,0,0.2)" }
@@ -7809,14 +7817,30 @@ Regras:
                             </button>
                           ))}
                         </div>
-                        <input value={delivForm.description} onChange={(e) => setDelivForm((f) => ({ ...f, description: e.target.value }))}
-                          placeholder="Descrição (ex: 3 posts feed setembro)…"
+                        {/* Title */}
+                        <input value={delivForm.title} onChange={(e) => setDelivForm((f) => ({ ...f, title: e.target.value }))}
+                          placeholder="Título (ex: 12 posts de feed — setembro)…"
                           className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none"
                           style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.14)", color: "#111" }} />
-                        <div className="flex items-center gap-2">
+                        {/* Description */}
+                        <textarea value={delivForm.description} onChange={(e) => setDelivForm((f) => ({ ...f, description: e.target.value }))}
+                          placeholder="Descrição / detalhes (opcional)…" rows={2}
+                          className="w-full rounded-xl px-3 py-2 text-xs focus:outline-none resize-none"
+                          style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.14)", color: "#555" }} />
+                        {/* Date + Status + Visibility + Save */}
+                        <div className="flex items-center gap-2 flex-wrap">
                           <input type="date" value={delivForm.done_at} onChange={(e) => setDelivForm((f) => ({ ...f, done_at: e.target.value }))}
-                            className="flex-1 rounded-xl px-3 py-2 text-xs focus:outline-none"
+                            className="rounded-xl px-3 py-2 text-xs focus:outline-none"
                             style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.14)", color: "#555" }} />
+                          {/* Status toggle */}
+                          <button onClick={() => setDelivForm((f) => ({ ...f, status: f.status === "completed" ? "in_progress" : "completed" }))}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all flex-shrink-0"
+                            style={delivForm.status === "completed"
+                              ? { background: "rgba(52,211,153,0.1)", color: "#059669", border: "1px solid rgba(52,211,153,0.2)" }
+                              : { background: "rgba(251,191,36,0.1)", color: "#d97706", border: "1px solid rgba(251,191,36,0.2)" }}>
+                            {delivForm.status === "completed" ? "✅ Concluído" : "⏳ Em andamento"}
+                          </button>
+                          {/* Visibility toggle */}
                           <button onClick={() => setDelivForm((f) => ({ ...f, visible_to_client: !f.visible_to_client }))}
                             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all flex-shrink-0"
                             style={delivForm.visible_to_client
@@ -7824,9 +7848,9 @@ Regras:
                               : { background: "rgba(0,0,0,0.04)", color: "#aaa", border: "1px solid rgba(0,0,0,0.08)" }}>
                             <Eye className="w-3.5 h-3.5" />{delivForm.visible_to_client ? "Visível" : "Oculto"}
                           </button>
-                          <button onClick={() => saveDeliverable(delivForm.category, delivForm.description, delivForm.done_at, delivForm.visible_to_client)}
-                            disabled={savingDeliv || !delivForm.description.trim()}
-                            className="px-4 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-40 flex-shrink-0"
+                          <button onClick={() => saveDeliverable(delivForm.category, delivForm.title, delivForm.description, delivForm.done_at, delivForm.visible_to_client, delivForm.status)}
+                            disabled={savingDeliv || !delivForm.title.trim()}
+                            className="ml-auto px-4 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-40 flex-shrink-0"
                             style={{ background: "#111", color: "#B9FF4B" }}>
                             {savingDeliv ? <Loader2 className="w-3 h-3 animate-spin" /> : "Salvar"}
                           </button>
@@ -7840,28 +7864,48 @@ Regras:
                       </div>
                     ) : (
                       <div>
-                        {deliverables.map((d) => (
-                          <div key={d.id} className="flex items-center gap-3 px-5 py-3" style={{ borderBottom: "1px solid rgba(0,0,0,0.04)" }}>
-                            <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
-                              style={{ background: d.visible_to_client ? "rgba(91,173,47,0.1)" : "rgba(0,0,0,0.04)" }}>
-                              <CheckCircle2 className="w-4 h-4" style={{ color: d.visible_to_client ? "#5BAD2F" : "#ccc" }} />
+                        {deliverables.map((d) => {
+                          const isCompleted = !d.status || d.status === "completed";
+                          return (
+                            <div key={d.id} className="flex items-start gap-3 px-5 py-3" style={{ borderBottom: "1px solid rgba(0,0,0,0.04)" }}>
+                              <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5"
+                                style={{ background: isCompleted ? "rgba(52,211,153,0.1)" : "rgba(251,191,36,0.1)" }}>
+                                {isCompleted
+                                  ? <CheckCircle2 className="w-4 h-4" style={{ color: "#059669" }} />
+                                  : <Clock className="w-4 h-4" style={{ color: "#d97706" }} />}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="text-sm font-medium" style={{ color: d.visible_to_client ? "#111" : "#aaa" }}>
+                                    {d.title || d.description}
+                                  </p>
+                                  <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded-full flex-shrink-0"
+                                    style={isCompleted
+                                      ? { background: "rgba(52,211,153,0.1)", color: "#059669" }
+                                      : { background: "rgba(251,191,36,0.1)", color: "#d97706" }}>
+                                    {isCompleted ? "Concluído" : "Em andamento"}
+                                  </span>
+                                </div>
+                                {d.title && d.description && (
+                                  <p className="text-xs mt-0.5" style={{ color: "#888" }}>{d.description}</p>
+                                )}
+                                <p className="text-xs mt-0.5" style={{ color: "#bbb" }}>
+                                  {new Date(d.done_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
+                                </p>
+                              </div>
+                              <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
+                                <button onClick={() => toggleDelivVisible(d.id, d.visible_to_client)}
+                                  title={d.visible_to_client ? "Visível ao cliente" : "Oculto do cliente"}
+                                  className="p-1.5 rounded-lg" style={{ color: d.visible_to_client ? "#5BAD2F" : "#ccc" }}>
+                                  <Eye className="w-3.5 h-3.5" />
+                                </button>
+                                <button onClick={() => deleteDeliv(d.id)} className="p-1.5 rounded-lg" style={{ color: "#ccc" }}>
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm" style={{ color: d.visible_to_client ? "#111" : "#aaa" }}>{d.description}</p>
-                              <p className="text-xs mt-0.5" style={{ color: "#bbb" }}>
-                                {new Date(d.done_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
-                              </p>
-                            </div>
-                            <button onClick={() => toggleDelivVisible(d.id, d.visible_to_client)}
-                              title={d.visible_to_client ? "Visível ao cliente" : "Oculto do cliente"}
-                              className="p-1.5 rounded-lg" style={{ color: d.visible_to_client ? "#5BAD2F" : "#ccc" }}>
-                              <Eye className="w-3.5 h-3.5" />
-                            </button>
-                            <button onClick={() => deleteDeliv(d.id)} className="p-1.5 rounded-lg" style={{ color: "#ccc" }}>
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
