@@ -7784,7 +7784,7 @@ ${priorBlock}`;
                 REDES SOCIAIS
             ══════════════════════════════════════════════════════ */}
             {activeTab === "social" && (
-              <SocialMediaTab clientId={client.id} clientColor={client.color} />
+              <SocialMediaTab clientId={client.id} clientName={client.name} clientColor={client.color} />
             )}
 
             {/* ══════════════════════════════════════════════════════
