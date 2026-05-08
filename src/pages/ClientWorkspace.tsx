@@ -774,6 +774,9 @@ export default function ClientWorkspace() {
   const [showDelivForm, setShowDelivForm] = useState(false);
   const [showOnboardForm, setShowOnboardForm] = useState(false);
   const [showDemandFormPortal, setShowDemandFormPortal] = useState(false);
+  const [answeringOnboard, setAnsweringOnboard] = useState<string | null>(null);
+  const [answeringAll, setAnsweringAll] = useState(false);
+  const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
   // ── Agentes Autônomos ─────────────────────────────────────────
   const [salesAgents, setSalesAgents] = useState<any[]>([]);
   const [salesAgentsLoading, setSalesAgentsLoading] = useState(false);
@@ -2604,6 +2607,55 @@ ${priorBlock}`;
   const deleteOnboardItem = async (itemId: string) => {
     await (supabase as any).from("client_onboarding").delete().eq("id", itemId);
     setPortalOnboarding((p) => p.filter((i) => i.id !== itemId));
+  };
+
+  const ONBOARD_AGENT: Record<string, { name: string; role: string; color: string }> = {
+    geral:         { name: "Luna",    role: "Orquestradora Geral da Calu Agência",          color: "#B9FF4B" },
+    redes_sociais: { name: "Marina",  role: "Social Media Specialist da Calu Agência",      color: "#60A5FA" },
+    acessos:       { name: "Lia",     role: "Agente de Diagnóstico e Onboarding",           color: "#38BDF8" },
+    configuracao:  { name: "Lia",     role: "Agente de Diagnóstico e Onboarding",           color: "#38BDF8" },
+    documentos:    { name: "Beatriz", role: "Copywriter da Calu Agência",                   color: "#A78BFA" },
+  };
+
+  const answerOnboardItem = async (item: any) => {
+    if (answeringOnboard) return;
+    setAnsweringOnboard(item.id);
+    await (supabase as any).from("client_onboarding").update({ status: "in_progress" }).eq("id", item.id);
+    setPortalOnboarding(p => p.map(i => i.id === item.id ? { ...i, status: "in_progress" } : i));
+    const b = clientBriefing as any;
+    const ctx = b
+      ? `Segmento: ${b.segmento || client.industry}\nPúblico-alvo: ${b.clienteIdeal || "não informado"}\nPlataformas: ${b.canaisAtivos?.join(", ") || "não informado"}\nDiferenciais: ${b.diferencial || "não informado"}\nMeta 90 dias: ${b.meta90dias || "não informado"}`
+      : `Segmento: ${client.industry}`;
+    const agent = ONBOARD_AGENT[item.category] ?? ONBOARD_AGENT.geral;
+    try {
+      const { data: res } = await supabase.functions.invoke("chat-ai", {
+        body: {
+          systemPrompt: `Você é ${agent.name}, ${agent.role}. Responda tarefas de onboarding de forma concreta, prática e acionável para o cliente. Seja direto e entregue algo que possa ser usado imediatamente. Português brasileiro. Máximo 200 palavras.`,
+          maxTokens: 500,
+          messages: [{ role: "user", content: `Cliente: ${client.name}\n${ctx}\n\nTarefa de onboarding:\nTítulo: "${item.title}"${item.description ? `\nDescrição: "${item.description}"` : ""}\n\nGere uma resposta/entrega concreta para esta tarefa.` }],
+        },
+      });
+      const answer = res?.content?.trim() || "Sem resposta gerada.";
+      const patch = { notes: answer, status: "completed", completed_at: new Date().toISOString() };
+      await (supabase as any).from("client_onboarding").update(patch).eq("id", item.id);
+      setPortalOnboarding(p => p.map(i => i.id === item.id ? { ...i, ...patch } : i));
+      setExpandedNotes(prev => new Set([...prev, item.id]));
+    } catch {
+      await (supabase as any).from("client_onboarding").update({ status: "pending" }).eq("id", item.id);
+      setPortalOnboarding(p => p.map(i => i.id === item.id ? { ...i, status: "pending" } : i));
+    } finally {
+      setAnsweringOnboard(null);
+    }
+  };
+
+  const answerAllOnboard = async () => {
+    const pending = portalOnboarding.filter(i => i.responsible === "agency" && i.status === "pending");
+    if (!pending.length) return;
+    setAnsweringAll(true);
+    for (const item of pending) {
+      await answerOnboardItem(item);
+    }
+    setAnsweringAll(false);
   };
 
   const saveDemandItem = async () => {
@@ -8239,11 +8291,23 @@ Regras:
                           {portalOnboarding.filter(i => i.status === "completed").length}/{portalOnboarding.length} concluídos
                         </p>
                       </div>
-                      <button onClick={() => setShowOnboardForm(s => !s)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
-                        style={{ background: showOnboardForm ? "#111" : "rgba(0,0,0,0.06)", color: showOnboardForm ? "#B9FF4B" : "#555" }}>
-                        + Adicionar item
-                      </button>
+                      <div className="flex items-center gap-2">
+                        {portalOnboarding.some(i => i.responsible === "agency" && i.status === "pending") && (
+                          <button
+                            onClick={answerAllOnboard}
+                            disabled={!!answeringOnboard || answeringAll}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all disabled:opacity-50"
+                            style={{ background: "rgba(185,255,75,0.12)", color: "#3a6e00", border: "1px solid rgba(185,255,75,0.35)" }}>
+                            {answeringAll ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
+                            Agentes respondem
+                          </button>
+                        )}
+                        <button onClick={() => setShowOnboardForm(s => !s)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
+                          style={{ background: showOnboardForm ? "#111" : "rgba(0,0,0,0.06)", color: showOnboardForm ? "#B9FF4B" : "#555" }}>
+                          + Adicionar
+                        </button>
+                      </div>
                     </div>
                     {showOnboardForm && (
                       <div className="px-5 py-4 space-y-2.5" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)", background: "#FAFAF8" }}>
@@ -8277,22 +8341,59 @@ Regras:
                       <div className="px-5 py-6 text-center"><p className="text-sm" style={{ color: "#bbb" }}>Nenhum item ainda</p></div>
                     ) : (
                       <div>
-                        {portalOnboarding.map((item) => (
-                          <div key={item.id} className="flex items-center gap-3 px-5 py-3" style={{ borderBottom: "1px solid rgba(0,0,0,0.04)" }}>
-                            <button onClick={() => toggleOnboardStatus(item.id, item.status)} className="flex-shrink-0">
-                              {item.status === "completed"
-                                ? <CheckCircle2 className="w-4 h-4" style={{ color: "#34D399" }} />
-                                : <Circle className="w-4 h-4" style={{ color: "#ddd" }} />}
-                            </button>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm" style={{ color: item.status === "completed" ? "#aaa" : "#111", textDecoration: item.status === "completed" ? "line-through" : "none" }}>{item.title}</p>
-                              <p className="text-xs mt-0.5" style={{ color: "#bbb" }}>{OB_CAT_LABEL[item.category] ?? item.category} · {item.responsible === "client" ? "Cliente" : "Agência"}</p>
+                        {portalOnboarding.map((item) => {
+                          const isAnswering = answeringOnboard === item.id;
+                          const hasNotes = !!item.notes;
+                          const notesOpen = expandedNotes.has(item.id);
+                          const agentInfo = ONBOARD_AGENT[item.category] ?? ONBOARD_AGENT.geral;
+                          return (
+                            <div key={item.id} style={{ borderBottom: "1px solid rgba(0,0,0,0.04)" }}>
+                              <div className="flex items-center gap-3 px-5 py-3">
+                                <button onClick={() => toggleOnboardStatus(item.id, item.status)} className="flex-shrink-0">
+                                  {item.status === "completed"
+                                    ? <CheckCircle2 className="w-4 h-4" style={{ color: "#34D399" }} />
+                                    : isAnswering
+                                    ? <Loader2 className="w-4 h-4 animate-spin" style={{ color: "#B9FF4B" }} />
+                                    : <Circle className="w-4 h-4" style={{ color: "#ddd" }} />}
+                                </button>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm" style={{ color: item.status === "completed" ? "#aaa" : "#111", textDecoration: item.status === "completed" ? "line-through" : "none" }}>{item.title}</p>
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <p className="text-xs" style={{ color: "#bbb" }}>{OB_CAT_LABEL[item.category] ?? item.category} · {item.responsible === "client" ? "Cliente" : "Agência"}</p>
+                                    {hasNotes && (
+                                      <button onClick={() => setExpandedNotes(prev => { const n = new Set(prev); notesOpen ? n.delete(item.id) : n.add(item.id); return n; })}
+                                        className="text-[10px] font-semibold px-1.5 py-0.5 rounded-md"
+                                        style={{ background: `${agentInfo.color}18`, color: agentInfo.color }}>
+                                        {notesOpen ? "▲ fechar" : "▼ ver resposta"}
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                                {item.responsible === "agency" && item.status !== "completed" && !isAnswering && (
+                                  <button
+                                    onClick={() => answerOnboardItem(item)}
+                                    disabled={!!answeringOnboard}
+                                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold flex-shrink-0 disabled:opacity-40 transition-all"
+                                    style={{ background: "rgba(185,255,75,0.1)", color: "#3a6e00", border: "1px solid rgba(185,255,75,0.3)" }}>
+                                    <Zap className="w-3 h-3" /> Responder
+                                  </button>
+                                )}
+                                <button onClick={() => deleteOnboardItem(item.id)} className="p-1.5 rounded-lg flex-shrink-0" style={{ color: "#ccc" }}>
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                              {hasNotes && notesOpen && (
+                                <div className="mx-5 mb-3 rounded-xl p-3 text-xs leading-relaxed whitespace-pre-wrap"
+                                  style={{ background: `${agentInfo.color}08`, border: `1px solid ${agentInfo.color}20`, color: "#444" }}>
+                                  <span className="text-[10px] font-bold uppercase tracking-wider block mb-1.5" style={{ color: agentInfo.color }}>
+                                    {agentInfo.name} respondeu
+                                  </span>
+                                  {item.notes}
+                                </div>
+                              )}
                             </div>
-                            <button onClick={() => deleteOnboardItem(item.id)} className="p-1.5 rounded-lg flex-shrink-0" style={{ color: "#ccc" }}>
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
