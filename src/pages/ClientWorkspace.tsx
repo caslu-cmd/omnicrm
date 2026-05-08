@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
 import { CLIENTS, GeneratedOutput } from "@/data/agencyData";
 import { useClients } from "@/contexts/ClientsContext";
+import { usePageContext } from "@/contexts/PageContext";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import PostCanvas from "@/components/PostCanvas";
@@ -750,6 +751,7 @@ export default function ClientWorkspace() {
   const [searchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") ?? "";
   const { user } = useAuth();
+  const { setPageContext, clearPageContext } = usePageContext();
   const [openingPortal, setOpeningPortal] = useState(false);
   const [tasks, setTasks] = useState(MOCK_TASKS_TEMPLATE);
   const [crmView, setCrmView] = useState<"contacts" | "pipeline" | "approvals" | "insights" | "whatsapp" | "deliverables">("contacts");
@@ -2370,6 +2372,41 @@ ${priorBlock}`;
 
   useEffect(() => { if (activeTab === "integrations" && id) fetchSocialIntegrations(); }, [activeTab, id]);
   useEffect(() => { if (activeTab === "courses" && id) loadDbCourses(); }, [activeTab, id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Injeta contexto do cliente na Calu IA
+  useEffect(() => {
+    if (!client) return;
+    const TAB_NAMES: Record<string, string> = {
+      "":           "Visão Geral",
+      overview:     "Visão Geral",
+      social:       "Redes Sociais",
+      portal:       "Portal do Cliente",
+      crm:          "CRM",
+      agents:       "Agentes IA",
+      content:      "Conteúdo",
+      courses:      "Cursos",
+      integrations: "Integrações",
+      webhooks:     "Webhooks",
+      files:        "Arquivos",
+    };
+    const b = clientBriefing;
+    const briefingLines = b ? [
+      b.segmento      && `Segmento: ${b.segmento}`,
+      b.produtos      && `Produtos/Serviços: ${b.produtos}`,
+      b.clienteIdeal  && `Público-alvo: ${b.clienteIdeal}`,
+      b.dorPrincipal  && `Principal dor: ${b.dorPrincipal}`,
+      b.diferencial   && `Diferencial: ${b.diferencial}`,
+      b.meta90dias    && `Meta 90 dias: ${b.meta90dias}`,
+      b.canaisAtivos?.length && `Canais ativos: ${b.canaisAtivos.join(", ")}`,
+    ].filter(Boolean).join(" | ") : "";
+    const ctx = [
+      `Página atual: Workspace do cliente "${client.name}" (${client.industry || client.segment || "—"}).`,
+      `Aba ativa: ${TAB_NAMES[activeTab] ?? activeTab}.`,
+      briefingLines && `Briefing resumido — ${briefingLines}.`,
+    ].filter(Boolean).join(" ");
+    setPageContext(ctx);
+    return () => clearPageContext();
+  }, [client?.id, activeTab, clientBriefing]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Manter WhatsApp conectado: verifica status ao abrir a aba e a cada 30s
   useEffect(() => {

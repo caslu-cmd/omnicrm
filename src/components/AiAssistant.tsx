@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles, X, Send, Minimize2, Maximize2, Bot, User,
@@ -7,6 +8,29 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
+import { usePageContext } from "@/contexts/PageContext";
+
+const ROUTE_LABELS: Record<string, string> = {
+  "/dashboard":    "Dashboard da agência",
+  "/agency":       "Dashboard da agência — visão geral dos clientes",
+  "/inbox":        "Caixa de entrada — mensagens, leads e conversas",
+  "/contacts":     "Contatos — base de leads e clientes",
+  "/pipelines":    "Pipelines de vendas — funil de negociação",
+  "/automations":  "Automações — fluxos automáticos de marketing",
+  "/campaigns":    "Campanhas — e-mail marketing e disparos",
+  "/scheduling":   "Agendamento — calendário de publicações",
+  "/whatsapp":     "WhatsApp — conversas e automações",
+  "/groups":       "Grupos — gestão de grupos",
+  "/voice":        "Voz — gravações e transcrições",
+  "/sites":        "Sites — landing pages e páginas web",
+  "/members":      "Membros — gestão da equipe",
+  "/payments":     "Pagamentos — faturamento e cobranças",
+  "/reports":      "Relatórios — métricas e resultados",
+  "/integrations": "Integrações — conexões com plataformas externas",
+  "/settings":     "Configurações da plataforma",
+  "/notebook":     "Notebook — anotações e documentos",
+  "/video-editor": "Editor de vídeo — Bobby IA",
+};
 
 interface Message {
   id: number;
@@ -39,6 +63,17 @@ const AiAssistant = () => {
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
+  const { pageContext } = usePageContext();
+
+  const buildSystemPrompt = () => {
+    const routeLabel = Object.entries(ROUTE_LABELS).find(([route]) =>
+      location.pathname === route || location.pathname.startsWith(route + "/")
+    )?.[1];
+    const autoCtx = pageContext || (routeLabel ? `Página atual: ${routeLabel}.` : "");
+    if (!autoCtx) return undefined;
+    return `Você é a Caroline IA, assistente especializada em marketing digital e gestão de clientes para agências de publicidade brasileiras.\n\nVocê domina:\n- Estratégia de conteúdo para redes sociais (Instagram, Facebook, TikTok, LinkedIn)\n- Criação de copy para posts, stories, legendas, campanhas e landing pages\n- Gestão de tráfego pago (Facebook Ads, Google Ads)\n- Briefing e posicionamento de marca\n- Calendário editorial e planejamento de campanhas\n- Análise de métricas e resultados\n- Gestão de relacionamento com clientes (CRM)\n\nRegras de comportamento:\n- Responda sempre em português brasileiro, de forma profissional mas acolhedora\n- Seja direta e prática — dê respostas que a pessoa possa executar imediatamente\n- Quando sugerir copy ou textos, entregue prontos para uso\n- Formate respostas com markdown quando ajudar na leitura\n- Sugira próximos passos sempre que relevante\n\n=== CONTEXTO ATUAL ===\n${autoCtx}`;
+  };
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -63,8 +98,9 @@ const AiAssistant = () => {
     setError(null);
 
     try {
+      const systemPrompt = buildSystemPrompt();
       const { data, error: fnError } = await supabase.functions.invoke("chat-ai", {
-        body: { messages: updatedHistory },
+        body: { messages: updatedHistory, ...(systemPrompt ? { systemPrompt } : {}) },
       });
 
       if (fnError) throw new Error(fnError.message);

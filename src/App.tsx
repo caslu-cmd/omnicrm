@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ClientsProvider } from "@/contexts/ClientsContext";
 import { SocialPostingProvider } from "@/contexts/SocialPostingContext";
+import { PageContextProvider } from "@/contexts/PageContext";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
@@ -185,9 +186,11 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <ClientsProvider>
-            <SocialPostingProvider>
-              <AppRoutes />
-            </SocialPostingProvider>
+            <PageContextProvider>
+              <SocialPostingProvider>
+                <AppRoutes />
+              </SocialPostingProvider>
+            </PageContextProvider>
           </ClientsProvider>
         </AuthProvider>
       </BrowserRouter>
