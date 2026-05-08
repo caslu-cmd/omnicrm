@@ -766,6 +766,12 @@ export default function ClientWorkspace() {
   const [savingOnboard, setSavingOnboard] = useState(false);
   const [savingDemand, setSavingDemand] = useState(false);
   const [portalSection, setPortalSection] = useState<"onboarding" | "entregas" | "demandas">("onboarding");
+  const [showAgentForm, setShowAgentForm] = useState(false);
+  const [agentForm, setAgentForm] = useState({ agent_id: "luna", agent_name: "Luna", agent_color: "#B9FF4B", titulo: "", descricao: "" });
+  const [savingAgent, setSavingAgent] = useState(false);
+  const [showDelivForm, setShowDelivForm] = useState(false);
+  const [showOnboardForm, setShowOnboardForm] = useState(false);
+  const [showDemandFormPortal, setShowDemandFormPortal] = useState(false);
   const [contactSearch, setContactSearch] = useState("");
   const [activeSegment, setActiveSegment] = useState<string>("Todos");
   const [dbContacts, setDbContacts] = useState<any[]>([]);
@@ -2538,6 +2544,27 @@ ${priorBlock}`;
   const handleRejectProposal = async (proposalId: string) => {
     await (supabase as any).from("agent_proposals").update({ status: "rejected" }).eq("id", proposalId);
     setAgentProposals(prev => prev.filter(p => p.id !== proposalId));
+  };
+
+  const saveAgentProposal = async () => {
+    if (!agentForm.titulo.trim()) return;
+    setSavingAgent(true);
+    try {
+      const { data: row } = await (supabase as any).from("agent_proposals").insert({
+        client_id: id,
+        agent_id: agentForm.agent_id,
+        agent_name: agentForm.agent_name,
+        agent_color: agentForm.agent_color,
+        titulo: agentForm.titulo,
+        descricao: agentForm.descricao,
+        status: "pending",
+      }).select().single();
+      if (row) setAgentProposals(prev => [row, ...prev]);
+      setAgentForm({ agent_id: "luna", agent_name: "Luna", agent_color: "#B9FF4B", titulo: "", descricao: "" });
+      setShowAgentForm(false);
+      toast.success("Proposta criada!");
+    } catch { toast.error("Erro ao criar proposta."); }
+    setSavingAgent(false);
   };
 
   const handleApprove = async (postId: string) => {
@@ -7408,7 +7435,7 @@ ${priorBlock}`;
             )}
 
             {/* ══════════════════════════════════════════════════════
-                PORTAL DO CLIENTE — EDITOR + PREVIEW
+                PORTAL DO CLIENTE — VISÃO DA AGÊNCIA
             ══════════════════════════════════════════════════════ */}
             {activeTab === "portal" && (() => {
               const DELIV_PRESETS = [
@@ -7425,356 +7452,364 @@ ${priorBlock}`;
                 { category: "estrategia", label: "💡 Planejamento" },
                 { category: "outro",      label: "➕ Outro" },
               ];
+              const AGENTS = [
+                { id: "luna",      name: "Luna",    color: "#B9FF4B", role: "Orquestradora" },
+                { id: "queila",    name: "Queila",  color: "#FBBF24", role: "Estrategista" },
+                { id: "beatriz",   name: "Beatriz", color: "#A78BFA", role: "Copywriter" },
+                { id: "marcela",   name: "Marcela", color: "#D946EF", role: "Designer" },
+                { id: "rafaela",   name: "Rafaela", color: "#F97316", role: "Tráfego" },
+                { id: "marina",    name: "Marina",  color: "#60A5FA", role: "Social Media" },
+                { id: "pedro",     name: "Pedro",   color: "#2DD4BF", role: "Calendário" },
+                { id: "lucas",     name: "Lucas",   color: "#34D399", role: "Analista" },
+                { id: "teo",       name: "Teo",     color: "#06B6D4", role: "Editor de Site" },
+                { id: "bobby",     name: "Bobby",   color: "#B9FF4B", role: "Editor de Vídeo" },
+              ];
               const visibleDelivs = deliverables.filter(d => d.visible_to_client);
-              const PROP_STATUS: Record<string, { label: string; color: string; bg: string }> = {
-                pending:     { label: "Aguardando",   color: "#FBBF24", bg: "rgba(251,191,36,0.1)" },
-                approved:    { label: "Aprovado",     color: "#60A5FA", bg: "rgba(96,165,250,0.1)" },
-                in_progress: { label: "Em andamento", color: "#B9FF4B", bg: "rgba(185,255,75,0.1)" },
-                completed:   { label: "Concluído",    color: "#6B7280", bg: "rgba(107,114,128,0.1)" },
-              };
               const OB_CATS = ["geral","redes_sociais","acessos","configuracao","documentos"];
               const OB_CAT_LABEL: Record<string,string> = { geral:"Geral", redes_sociais:"Redes Sociais", acessos:"Acessos & Senhas", configuracao:"Configuração", documentos:"Documentos" };
+              const PROP_STATUS: Record<string, { label: string; color: string; bg: string }> = {
+                pending:     { label: "Aguardando",   color: "#FBBF24", bg: "rgba(251,191,36,0.12)" },
+                approved:    { label: "Aprovado",     color: "#60A5FA", bg: "rgba(96,165,250,0.12)" },
+                in_progress: { label: "Em andamento", color: "#B9FF4B", bg: "rgba(185,255,75,0.12)" },
+                completed:   { label: "Concluído",    color: "#34D399", bg: "rgba(52,211,153,0.12)" },
+                rejected:    { label: "Rejeitado",    color: "#6B7280", bg: "rgba(107,114,128,0.1)" },
+              };
               return (
-              <div className="flex gap-6 items-start h-full">
+              <div style={{ margin: "-24px", minHeight: "100%", background: "#F2F1EE", fontFamily: "system-ui,-apple-system,sans-serif" }}>
 
-                {/* ── LEFT: Editor ── */}
-                <div className="flex-1 min-w-0 space-y-4">
+                {/* ── Agency bar ── */}
+                <div className="px-5 py-3 flex items-center gap-3 flex-shrink-0" style={{ background: "#111", borderBottom: "2px solid #B9FF4B22" }}>
+                  <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-full" style={{ background: "#B9FF4B18", color: "#B9FF4B", border: "1px solid #B9FF4B30" }}>Modo Agência</span>
+                  <span className="text-[11px] flex-1" style={{ color: "rgba(255,255,255,0.35)" }}>Você está editando o que o cliente vê</span>
+                  <span className="text-[11px] font-mono" style={{ color: "rgba(255,255,255,0.25)" }}>PIN: {client.portalPin || "—"}</span>
+                  <button onClick={handleOpenPortal} disabled={openingPortal}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex-shrink-0"
+                    style={{ background: "#B9FF4B", color: "#07080A" }}>
+                    {openingPortal ? <div className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" /> : <ExternalLink className="w-3 h-3" />}
+                    Abrir portal real
+                  </button>
+                </div>
 
-                  {/* Link bar */}
-                  <div className="rounded-2xl p-3 flex items-center gap-3" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${client.color}25` }}>
-                    <Globe className="w-4 h-4 flex-shrink-0" style={{ color: client.color }} />
-                    <span className="text-xs flex-1 truncate" style={{ color: "rgba(255,255,255,0.35)" }}>Portal de {client.name}</span>
-                    <span className="text-xs font-mono" style={{ color: "rgba(255,255,255,0.25)" }}>PIN: {client.portalPin || "—"}</span>
-                    <button onClick={handleOpenPortal} disabled={openingPortal}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex-shrink-0"
-                      style={{ background: client.color, color: "#07080A" }}>
-                      {openingPortal ? <div className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" /> : <ExternalLink className="w-3 h-3" />}
-                      Abrir portal
-                    </button>
-                  </div>
+                {/* ── Portal content ── */}
+                <div className="max-w-3xl mx-auto px-5 py-6 space-y-5">
 
-                  {/* Section tabs */}
-                  <div className="flex gap-1 p-1 rounded-xl w-fit" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                    {([["onboarding","✅ Onboarding"],["entregas","📦 Entregas"],["demandas","📋 Demandas"]] as const).map(([s, label]) => (
-                      <button key={s} onClick={() => setPortalSection(s)}
-                        className="px-4 py-1.5 rounded-lg text-xs font-medium transition-all"
-                        style={portalSection === s
-                          ? { background: `${client.color}22`, color: client.color, border: `1px solid ${client.color}30` }
-                          : { color: "rgba(255,255,255,0.4)" }}>
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* ── ONBOARDING EDITOR ── */}
-                  {portalSection === "onboarding" && (
-                    <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
-                      <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
-                        <p className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.7)" }}>Checklist de onboarding</p>
-                        <button onClick={() => portalClientUUID && loadPortalContent(portalClientUUID)} disabled={portalLoading} className="p-1 rounded" style={{ color: "rgba(255,255,255,0.25)" }}>
-                          <RefreshCw className={`w-3.5 h-3.5 ${portalLoading ? "animate-spin" : ""}`} />
-                        </button>
+                  {/* ── ONBOARDING ── */}
+                  <div className="rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.08)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+                    <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                      <div>
+                        <p className="text-sm font-bold" style={{ color: "#111" }}>✅ Onboarding</p>
+                        <p className="text-xs mt-0.5" style={{ color: "#999" }}>
+                          {portalOnboarding.filter(i => i.status === "completed").length}/{portalOnboarding.length} concluídos
+                        </p>
                       </div>
-                      {/* Add form */}
-                      <div className="px-4 py-3 space-y-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                      <button onClick={() => setShowOnboardForm(s => !s)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
+                        style={{ background: showOnboardForm ? "#111" : "rgba(0,0,0,0.06)", color: showOnboardForm ? "#B9FF4B" : "#555" }}>
+                        + Adicionar item
+                      </button>
+                    </div>
+                    {showOnboardForm && (
+                      <div className="px-5 py-4 space-y-2.5" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)", background: "#FAFAF8" }}>
                         <input value={onboardForm.title} onChange={(e) => setOnboardForm(f => ({ ...f, title: e.target.value }))}
                           placeholder="Título do item (ex: Enviar acesso ao Instagram)…"
-                          className="w-full rounded-xl px-3 py-2 text-xs focus:outline-none"
-                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.85)" }} />
+                          className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none"
+                          style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.14)", color: "#111" }} />
                         <div className="flex gap-2">
                           <select value={onboardForm.category} onChange={(e) => setOnboardForm(f => ({ ...f, category: e.target.value }))}
                             className="flex-1 rounded-xl px-3 py-2 text-xs focus:outline-none"
-                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.7)" }}>
+                            style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.14)", color: "#555" }}>
                             {OB_CATS.map(c => <option key={c} value={c}>{OB_CAT_LABEL[c]}</option>)}
                           </select>
                           <select value={onboardForm.responsible} onChange={(e) => setOnboardForm(f => ({ ...f, responsible: e.target.value as any }))}
                             className="rounded-xl px-3 py-2 text-xs focus:outline-none"
-                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.7)" }}>
+                            style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.14)", color: "#555" }}>
                             <option value="agency">Agência</option>
                             <option value="client">Cliente</option>
                           </select>
                           <button onClick={saveOnboardItem} disabled={savingOnboard || !onboardForm.title.trim() || !portalClientUUID}
                             className="px-4 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-40 flex-shrink-0"
-                            style={{ background: client.color, color: "#07080A" }}>
-                            {savingOnboard ? <Loader2 className="w-3 h-3 animate-spin" /> : "+ Adicionar"}
+                            style={{ background: "#111", color: "#B9FF4B" }}>
+                            {savingOnboard ? <Loader2 className="w-3 h-3 animate-spin" /> : "Salvar"}
                           </button>
                         </div>
                       </div>
-                      {/* Items list */}
-                      {!portalClientUUID ? (
-                        <div className="px-4 py-4 text-center"><p className="text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>Abra o portal uma vez para ativar a edição</p></div>
-                      ) : portalOnboarding.length === 0 ? (
-                        <div className="px-4 py-4 text-center"><p className="text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhum item ainda</p></div>
-                      ) : (
-                        <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
-                          {portalOnboarding.map((item) => (
-                            <div key={item.id} className="flex items-center gap-3 px-4 py-2.5">
-                              <button onClick={() => toggleOnboardStatus(item.id, item.status)} className="flex-shrink-0">
-                                {item.status === "completed"
-                                  ? <CheckCircle2 className="w-4 h-4" style={{ color: "#34D399" }} />
-                                  : <Circle className="w-4 h-4" style={{ color: "rgba(255,255,255,0.2)" }} />}
-                              </button>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-xs truncate" style={{ color: item.status === "completed" ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.8)", textDecoration: item.status === "completed" ? "line-through" : "none" }}>{item.title}</p>
-                                <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>{OB_CAT_LABEL[item.category] ?? item.category} · {item.responsible === "client" ? "Cliente" : "Agência"}</p>
-                              </div>
-                              <button onClick={() => deleteOnboardItem(item.id)} className="p-1 rounded flex-shrink-0" style={{ color: "rgba(255,255,255,0.1)" }}>
-                                <Trash2 className="w-3 h-3" />
-                              </button>
+                    )}
+                    {!portalClientUUID ? (
+                      <div className="px-5 py-6 text-center"><p className="text-sm" style={{ color: "#bbb" }}>Abra o portal uma vez para ativar</p></div>
+                    ) : portalOnboarding.length === 0 ? (
+                      <div className="px-5 py-6 text-center"><p className="text-sm" style={{ color: "#bbb" }}>Nenhum item ainda</p></div>
+                    ) : (
+                      <div>
+                        {portalOnboarding.map((item) => (
+                          <div key={item.id} className="flex items-center gap-3 px-5 py-3" style={{ borderBottom: "1px solid rgba(0,0,0,0.04)" }}>
+                            <button onClick={() => toggleOnboardStatus(item.id, item.status)} className="flex-shrink-0">
+                              {item.status === "completed"
+                                ? <CheckCircle2 className="w-4 h-4" style={{ color: "#34D399" }} />
+                                : <Circle className="w-4 h-4" style={{ color: "#ddd" }} />}
+                            </button>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm" style={{ color: item.status === "completed" ? "#aaa" : "#111", textDecoration: item.status === "completed" ? "line-through" : "none" }}>{item.title}</p>
+                              <p className="text-xs mt-0.5" style={{ color: "#bbb" }}>{OB_CAT_LABEL[item.category] ?? item.category} · {item.responsible === "client" ? "Cliente" : "Agência"}</p>
                             </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* ── ENTREGAS EDITOR ── */}
-                  {portalSection === "entregas" && (
-                    <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
-                      <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
-                        <p className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.7)" }}>Entregas — O que fizemos por você</p>
-                        <button onClick={loadDeliverables} disabled={delivLoading} className="p-1 rounded" style={{ color: "rgba(255,255,255,0.25)" }}>
-                          <RefreshCw className={`w-3.5 h-3.5 ${delivLoading ? "animate-spin" : ""}`} />
-                        </button>
+                            <button onClick={() => deleteOnboardItem(item.id)} className="p-1.5 rounded-lg flex-shrink-0" style={{ color: "#ccc" }}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ))}
                       </div>
-                      <div className="px-4 py-3 space-y-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                    )}
+                  </div>
+
+                  {/* ── ENTREGAS ── */}
+                  <div className="rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.08)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+                    <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                      <div>
+                        <p className="text-sm font-bold" style={{ color: "#111" }}>O que fizemos por você</p>
+                        <p className="text-xs mt-0.5" style={{ color: "#999" }}>
+                          {deliverables.length} entrega{deliverables.length !== 1 ? "s" : ""} · {visibleDelivs.length} visível{visibleDelivs.length !== 1 ? "s" : ""} ao cliente
+                        </p>
+                      </div>
+                      <button onClick={() => setShowDelivForm(s => !s)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
+                        style={{ background: showDelivForm ? "#111" : "rgba(0,0,0,0.06)", color: showDelivForm ? "#B9FF4B" : "#555" }}>
+                        + Registrar
+                      </button>
+                    </div>
+                    {showDelivForm && (
+                      <div className="px-5 py-4 space-y-2.5" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)", background: "#FAFAF8" }}>
                         <div className="flex flex-wrap gap-1.5">
                           {DELIV_PRESETS.map((p) => (
                             <button key={p.category}
                               onClick={() => setDelivForm((f) => ({ ...f, category: p.category, description: p.label.replace(/^[^\s]+\s/, "") }))}
                               className="px-2.5 py-1 rounded-lg text-xs font-medium transition-all"
                               style={delivForm.category === p.category
-                                ? { background: `${client.color}25`, color: client.color, border: `1px solid ${client.color}40` }
-                                : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                                ? { background: "rgba(0,0,0,0.1)", color: "#111", border: "1px solid rgba(0,0,0,0.2)" }
+                                : { background: "rgba(0,0,0,0.04)", color: "#888", border: "1px solid rgba(0,0,0,0.08)" }}>
                               {p.label}
                             </button>
                           ))}
                         </div>
                         <input value={delivForm.description} onChange={(e) => setDelivForm((f) => ({ ...f, description: e.target.value }))}
                           placeholder="Descrição (ex: 3 posts feed setembro)…"
-                          className="w-full rounded-xl px-3 py-2 text-xs focus:outline-none"
-                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.85)" }} />
+                          className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none"
+                          style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.14)", color: "#111" }} />
                         <div className="flex items-center gap-2">
                           <input type="date" value={delivForm.done_at} onChange={(e) => setDelivForm((f) => ({ ...f, done_at: e.target.value }))}
                             className="flex-1 rounded-xl px-3 py-2 text-xs focus:outline-none"
-                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.7)", colorScheme: "dark" }} />
+                            style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.14)", color: "#555" }} />
                           <button onClick={() => setDelivForm((f) => ({ ...f, visible_to_client: !f.visible_to_client }))}
                             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all flex-shrink-0"
                             style={delivForm.visible_to_client
-                              ? { background: "rgba(185,255,75,0.12)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.2)" }
-                              : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.3)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                              ? { background: "rgba(91,173,47,0.1)", color: "#5BAD2F", border: "1px solid rgba(91,173,47,0.2)" }
+                              : { background: "rgba(0,0,0,0.04)", color: "#aaa", border: "1px solid rgba(0,0,0,0.08)" }}>
                             <Eye className="w-3.5 h-3.5" />{delivForm.visible_to_client ? "Visível" : "Oculto"}
                           </button>
                           <button onClick={() => saveDeliverable(delivForm.category, delivForm.description, delivForm.done_at, delivForm.visible_to_client)}
                             disabled={savingDeliv || !delivForm.description.trim()}
                             className="px-4 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-40 flex-shrink-0"
-                            style={{ background: client.color, color: "#07080A" }}>
-                            {savingDeliv ? <Loader2 className="w-3 h-3 animate-spin" /> : "+ Registrar"}
+                            style={{ background: "#111", color: "#B9FF4B" }}>
+                            {savingDeliv ? <Loader2 className="w-3 h-3 animate-spin" /> : "Salvar"}
                           </button>
                         </div>
                       </div>
-                      <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
-                        {deliverables.length === 0 ? (
-                          <div className="px-4 py-4 text-center"><p className="text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhuma entrega registrada</p></div>
-                        ) : deliverables.map((d) => (
-                          <div key={d.id} className="flex items-center gap-3 px-4 py-2.5">
-                            <div className="flex-1 min-w-0">
-                              <p className="text-xs truncate" style={{ color: d.visible_to_client ? "rgba(255,255,255,0.8)" : "rgba(255,255,255,0.35)" }}>{d.description}</p>
-                              <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>{new Date(d.done_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</p>
+                    )}
+                    {deliverables.length === 0 ? (
+                      <div className="px-5 py-8 flex flex-col items-center gap-2">
+                        <CheckCircle2 className="w-7 h-7" style={{ color: "#ddd" }} />
+                        <p className="text-sm" style={{ color: "#bbb" }}>Nenhuma entrega registrada ainda</p>
+                      </div>
+                    ) : (
+                      <div>
+                        {deliverables.map((d) => (
+                          <div key={d.id} className="flex items-center gap-3 px-5 py-3" style={{ borderBottom: "1px solid rgba(0,0,0,0.04)" }}>
+                            <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                              style={{ background: d.visible_to_client ? "rgba(91,173,47,0.1)" : "rgba(0,0,0,0.04)" }}>
+                              <CheckCircle2 className="w-4 h-4" style={{ color: d.visible_to_client ? "#5BAD2F" : "#ccc" }} />
                             </div>
-                            <button onClick={() => toggleDelivVisible(d.id, d.visible_to_client)} title={d.visible_to_client ? "Visível" : "Oculto"} className="p-1 rounded" style={{ color: d.visible_to_client ? "#B9FF4B" : "rgba(255,255,255,0.15)" }}>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm" style={{ color: d.visible_to_client ? "#111" : "#aaa" }}>{d.description}</p>
+                              <p className="text-xs mt-0.5" style={{ color: "#bbb" }}>
+                                {new Date(d.done_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}
+                              </p>
+                            </div>
+                            <button onClick={() => toggleDelivVisible(d.id, d.visible_to_client)}
+                              title={d.visible_to_client ? "Visível ao cliente" : "Oculto do cliente"}
+                              className="p-1.5 rounded-lg" style={{ color: d.visible_to_client ? "#5BAD2F" : "#ccc" }}>
                               <Eye className="w-3.5 h-3.5" />
                             </button>
-                            <button onClick={() => deleteDeliv(d.id)} className="p-1 rounded" style={{ color: "rgba(255,255,255,0.1)" }}>
-                              <Trash2 className="w-3 h-3" />
+                            <button onClick={() => deleteDeliv(d.id)} className="p-1.5 rounded-lg" style={{ color: "#ccc" }}>
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         ))}
                       </div>
-                    </div>
-                  )}
+                    )}
+                  </div>
 
-                  {/* ── DEMANDAS EDITOR ── */}
-                  {portalSection === "demandas" && (
-                    <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
-                      <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
-                        <p className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.7)" }}>Demandas & Pendências</p>
+                  {/* ── PROPOSTAS & AGENTES ── */}
+                  <div className="rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.08)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+                    <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                      <div>
+                        <p className="text-sm font-bold" style={{ color: "#111" }}>Propostas & Agentes</p>
+                        <p className="text-xs mt-0.5" style={{ color: "#999" }}>
+                          {agentProposals.filter(p => p.status === "pending").length} aguardando aprovação
+                        </p>
                       </div>
-                      <div className="px-4 py-3 space-y-2" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                      <button onClick={() => setShowAgentForm(s => !s)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
+                        style={{ background: showAgentForm ? "#111" : "rgba(0,0,0,0.06)", color: showAgentForm ? "#B9FF4B" : "#555" }}>
+                        ⚡ Iniciar agente
+                      </button>
+                    </div>
+                    {showAgentForm && (
+                      <div className="px-5 py-4 space-y-2.5" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)", background: "#FAFAF8" }}>
+                        <div className="flex flex-wrap gap-1.5">
+                          {AGENTS.map((a) => (
+                            <button key={a.id} onClick={() => setAgentForm(f => ({ ...f, agent_id: a.id, agent_name: a.name, agent_color: a.color }))}
+                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium transition-all"
+                              style={agentForm.agent_id === a.id
+                                ? { background: `${a.color}18`, color: a.color, border: `1px solid ${a.color}35` }
+                                : { background: "rgba(0,0,0,0.04)", color: "#888", border: "1px solid rgba(0,0,0,0.08)" }}>
+                              <span style={{ width: 7, height: 7, borderRadius: "50%", background: a.color, display: "inline-block", flexShrink: 0 }} />
+                              {a.name}
+                            </button>
+                          ))}
+                        </div>
+                        <input value={agentForm.titulo} onChange={(e) => setAgentForm(f => ({ ...f, titulo: e.target.value }))}
+                          placeholder="Título da proposta…"
+                          className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none"
+                          style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.14)", color: "#111" }} />
+                        <div className="flex gap-2">
+                          <textarea value={agentForm.descricao} onChange={(e) => setAgentForm(f => ({ ...f, descricao: e.target.value }))}
+                            placeholder="Descrição (opcional)…" rows={2}
+                            className="flex-1 rounded-xl px-3 py-2 text-xs focus:outline-none resize-none"
+                            style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.14)", color: "#555" }} />
+                          <button onClick={saveAgentProposal} disabled={savingAgent || !agentForm.titulo.trim()}
+                            className="px-4 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-40 self-end flex-shrink-0"
+                            style={{ background: "#111", color: "#B9FF4B" }}>
+                            {savingAgent ? <Loader2 className="w-3 h-3 animate-spin" /> : "Criar"}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    {agentProposals.length === 0 ? (
+                      <div className="px-5 py-8 flex flex-col items-center gap-2">
+                        <p className="text-sm" style={{ color: "#bbb" }}>Nenhuma proposta ainda</p>
+                      </div>
+                    ) : (
+                      <div>
+                        {agentProposals.map((p) => {
+                          const st = PROP_STATUS[p.status] ?? PROP_STATUS.pending;
+                          return (
+                            <div key={p.id} className="flex items-center gap-3 px-5 py-3" style={{ borderBottom: "1px solid rgba(0,0,0,0.04)" }}>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <p className="text-sm font-medium" style={{ color: "#111" }}>{p.titulo}</p>
+                                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0"
+                                    style={{ background: st.bg, color: st.color }}>{st.label}</span>
+                                </div>
+                                <p className="text-xs mt-0.5" style={{ color: "#999" }}>
+                                  {p.agent_name}{p.descricao ? ` · ${p.descricao}` : ""}
+                                </p>
+                              </div>
+                              {p.status === "pending" && (
+                                <div className="flex items-center gap-1.5 flex-shrink-0">
+                                  <button onClick={() => handleApproveProposal(p.id)}
+                                    className="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
+                                    style={{ background: "rgba(52,211,153,0.1)", color: "#059669", border: "1px solid rgba(52,211,153,0.2)" }}>
+                                    Aprovar
+                                  </button>
+                                  <button onClick={() => handleRejectProposal(p.id)}
+                                    className="px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
+                                    style={{ background: "rgba(239,68,68,0.07)", color: "#dc2626", border: "1px solid rgba(239,68,68,0.15)" }}>
+                                    Rejeitar
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* ── DEMANDAS ── */}
+                  <div className="rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.08)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+                    <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                      <div>
+                        <p className="text-sm font-bold" style={{ color: "#111" }}>📋 Demandas & Pendências</p>
+                        <p className="text-xs mt-0.5" style={{ color: "#999" }}>
+                          {portalDemands.filter(d => d.status !== "completed").length} pendente{portalDemands.filter(d => d.status !== "completed").length !== 1 ? "s" : ""}
+                        </p>
+                      </div>
+                      <button onClick={() => setShowDemandFormPortal(s => !s)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
+                        style={{ background: showDemandFormPortal ? "#111" : "rgba(0,0,0,0.06)", color: showDemandFormPortal ? "#B9FF4B" : "#555" }}>
+                        + Nova demanda
+                      </button>
+                    </div>
+                    {showDemandFormPortal && (
+                      <div className="px-5 py-4 space-y-2.5" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)", background: "#FAFAF8" }}>
                         <input value={demandForm.title} onChange={(e) => setDemandForm(f => ({ ...f, title: e.target.value }))}
                           placeholder="Título da demanda (ex: Aprovar artes de outubro)…"
-                          className="w-full rounded-xl px-3 py-2 text-xs focus:outline-none"
-                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.85)" }} />
+                          className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none"
+                          style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.14)", color: "#111" }} />
                         <textarea value={demandForm.description} onChange={(e) => setDemandForm(f => ({ ...f, description: e.target.value }))}
                           placeholder="Descrição (opcional)…" rows={2}
                           className="w-full rounded-xl px-3 py-2 text-xs focus:outline-none resize-none"
-                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.7)" }} />
+                          style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.14)", color: "#555" }} />
                         <div className="flex gap-2">
                           <select value={demandForm.responsible} onChange={(e) => setDemandForm(f => ({ ...f, responsible: e.target.value as any }))}
                             className="flex-1 rounded-xl px-3 py-2 text-xs focus:outline-none"
-                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.7)" }}>
+                            style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.14)", color: "#555" }}>
                             <option value="agency">Responsável: Agência</option>
                             <option value="client">Responsável: Cliente</option>
                           </select>
                           <select value={demandForm.priority} onChange={(e) => setDemandForm(f => ({ ...f, priority: e.target.value as any }))}
                             className="rounded-xl px-3 py-2 text-xs focus:outline-none"
-                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.7)" }}>
+                            style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.14)", color: "#555" }}>
                             <option value="low">Baixa</option>
                             <option value="medium">Média</option>
                             <option value="high">Alta</option>
                           </select>
                           <button onClick={saveDemandItem} disabled={savingDemand || !demandForm.title.trim() || !portalClientUUID}
                             className="px-4 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-40 flex-shrink-0"
-                            style={{ background: client.color, color: "#07080A" }}>
-                            {savingDemand ? <Loader2 className="w-3 h-3 animate-spin" /> : "+ Adicionar"}
+                            style={{ background: "#111", color: "#B9FF4B" }}>
+                            {savingDemand ? <Loader2 className="w-3 h-3 animate-spin" /> : "Salvar"}
                           </button>
                         </div>
                       </div>
-                      <div className="divide-y" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
-                        {!portalClientUUID ? (
-                          <div className="px-4 py-4 text-center"><p className="text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>Abra o portal uma vez para ativar a edição</p></div>
-                        ) : portalDemands.length === 0 ? (
-                          <div className="px-4 py-4 text-center"><p className="text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhuma demanda</p></div>
-                        ) : portalDemands.map((d) => (
-                          <div key={d.id} className="flex items-center gap-3 px-4 py-2.5">
+                    )}
+                    {!portalClientUUID ? (
+                      <div className="px-5 py-6 text-center"><p className="text-sm" style={{ color: "#bbb" }}>Abra o portal uma vez para ativar</p></div>
+                    ) : portalDemands.length === 0 ? (
+                      <div className="px-5 py-6 text-center"><p className="text-sm" style={{ color: "#bbb" }}>Nenhuma demanda ainda</p></div>
+                    ) : (
+                      <div>
+                        {portalDemands.map((d) => (
+                          <div key={d.id} className="flex items-center gap-3 px-5 py-3" style={{ borderBottom: "1px solid rgba(0,0,0,0.04)" }}>
                             <button onClick={() => toggleDemandStatus(d.id, d.status)} className="flex-shrink-0">
                               {d.status === "completed"
                                 ? <CheckCircle2 className="w-4 h-4" style={{ color: "#34D399" }} />
-                                : <Circle className="w-4 h-4" style={{ color: "rgba(255,255,255,0.2)" }} />}
+                                : <Circle className="w-4 h-4" style={{ color: "#ddd" }} />}
                             </button>
                             <div className="flex-1 min-w-0">
-                              <p className="text-xs truncate" style={{ color: d.status === "completed" ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.8)", textDecoration: d.status === "completed" ? "line-through" : "none" }}>{d.title}</p>
-                              <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>{d.responsible === "client" ? "Cliente" : "Agência"} · {d.priority}</p>
+                              <p className="text-sm" style={{ color: d.status === "completed" ? "#aaa" : "#111", textDecoration: d.status === "completed" ? "line-through" : "none" }}>{d.title}</p>
+                              <p className="text-xs mt-0.5" style={{ color: "#bbb" }}>
+                                {d.responsible === "client" ? "Cliente" : "Agência"} · {d.priority === "high" ? "Alta" : d.priority === "medium" ? "Média" : "Baixa"}
+                              </p>
                             </div>
-                            <button onClick={() => deleteDemandItem(d.id)} className="p-1 rounded flex-shrink-0" style={{ color: "rgba(255,255,255,0.1)" }}>
-                              <Trash2 className="w-3 h-3" />
+                            <button onClick={() => deleteDemandItem(d.id)} className="p-1.5 rounded-lg flex-shrink-0" style={{ color: "#ccc" }}>
+                              <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         ))}
                       </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* ── RIGHT: Portal preview ── */}
-                <div className="w-80 flex-shrink-0 sticky top-0">
-                  <div className="rounded-2xl overflow-hidden" style={{ background: "#f8f9fa", border: "1px solid rgba(0,0,0,0.08)", maxHeight: "calc(100vh - 140px)", overflowY: "auto" }}>
-                    {/* Preview header */}
-                    <div className="px-5 pt-5 pb-4" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)", background: "#fff" }}>
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="w-6 h-6 rounded-lg flex items-center justify-center text-xs font-black" style={{ background: client.color, color: "#07080A" }}>
-                          {client.name.charAt(0)}
-                        </div>
-                        <span className="text-xs font-bold" style={{ color: "#111" }}>{client.name}</span>
-                        <span className="text-[10px] ml-auto px-2 py-0.5 rounded-full font-medium" style={{ background: "rgba(185,255,75,0.15)", color: "#3a7a00" }}>preview</span>
-                      </div>
-                      <p className="text-[10px]" style={{ color: "#999" }}>Assim o cliente vê o portal</p>
-                    </div>
-
-                    <div className="p-4 space-y-3">
-                      {/* Onboarding checklist */}
-                      {portalOnboarding.length > 0 && (
-                        <div className="rounded-xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.07)" }}>
-                          <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
-                            <p className="text-xs font-bold" style={{ color: "#111" }}>✅ Onboarding</p>
-                            <p className="text-[10px]" style={{ color: "#999" }}>
-                              {portalOnboarding.filter(i => i.status === "completed").length}/{portalOnboarding.length} concluídos
-                            </p>
-                          </div>
-                          <div className="divide-y" style={{ borderColor: "rgba(0,0,0,0.05)" }}>
-                            {portalOnboarding.map((item) => (
-                              <div key={item.id} className="flex items-center gap-2.5 px-4 py-2.5">
-                                {item.status === "completed"
-                                  ? <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#34D399" }} />
-                                  : <Circle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#ddd" }} />}
-                                <p className="text-xs flex-1 truncate" style={{ color: item.status === "completed" ? "#aaa" : "#111", textDecoration: item.status === "completed" ? "line-through" : "none" }}>{item.title}</p>
-                                <span className="text-[10px] flex-shrink-0" style={{ color: "#bbb" }}>{item.responsible === "client" ? "Cliente" : "Agência"}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Entregas */}
-                      {visibleDelivs.length > 0 ? (
-                        <div className="rounded-xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.07)" }}>
-                          <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
-                            <p className="text-xs font-bold" style={{ color: "#111" }}>O que fizemos por você</p>
-                            <p className="text-[10px]" style={{ color: "#999" }}>{visibleDelivs.length} entrega{visibleDelivs.length !== 1 ? "s" : ""}</p>
-                          </div>
-                          <div className="divide-y" style={{ borderColor: "rgba(0,0,0,0.05)" }}>
-                            {visibleDelivs.map((d) => (
-                              <div key={d.id} className="flex items-center gap-3 px-4 py-3">
-                                <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(185,255,75,0.12)" }}>
-                                  <CheckCircle2 className="w-3.5 h-3.5" style={{ color: "#5BAD2F" }} />
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs font-medium" style={{ color: "#111" }}>{d.description}</p>
-                                  <p className="text-[10px]" style={{ color: "#aaa" }}>
-                                    {new Date(d.done_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
-                                  </p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="rounded-xl py-6 flex flex-col items-center gap-1 bg-white" style={{ border: "1px dashed rgba(0,0,0,0.1)" }}>
-                          <CheckCircle2 className="w-6 h-6" style={{ color: "#ddd" }} />
-                          <p className="text-xs" style={{ color: "#ccc" }}>Nenhuma entrega visível ainda</p>
-                        </div>
-                      )}
-
-                      {/* Propostas visíveis */}
-                      {agentProposals.filter(p => p.status !== "rejected").length > 0 && (
-                        <div className="rounded-xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.07)" }}>
-                          <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
-                            <p className="text-xs font-bold" style={{ color: "#111" }}>Propostas & Ações</p>
-                          </div>
-                          <div className="divide-y" style={{ borderColor: "rgba(0,0,0,0.05)" }}>
-                            {agentProposals.filter(p => p.status !== "rejected").map((p) => {
-                              const st = PROP_STATUS[p.status] ?? PROP_STATUS.pending;
-                              return (
-                                <div key={p.id} className="flex items-center gap-3 px-4 py-3">
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-xs font-medium truncate" style={{ color: "#111" }}>{p.titulo}</p>
-                                    <p className="text-[10px]" style={{ color: "#aaa" }}>{p.agent_name}</p>
-                                  </div>
-                                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full flex-shrink-0" style={{ background: st.bg, color: st.color }}>{st.label}</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Demandas */}
-                      {portalDemands.length > 0 && (
-                        <div className="rounded-xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.07)" }}>
-                          <div className="px-4 py-3" style={{ borderBottom: "1px solid rgba(0,0,0,0.05)" }}>
-                            <p className="text-xs font-bold" style={{ color: "#111" }}>📋 Demandas & Pendências</p>
-                            <p className="text-[10px]" style={{ color: "#999" }}>
-                              {portalDemands.filter(d => d.status !== "completed").length} pendente{portalDemands.filter(d => d.status !== "completed").length !== 1 ? "s" : ""}
-                            </p>
-                          </div>
-                          <div className="divide-y" style={{ borderColor: "rgba(0,0,0,0.05)" }}>
-                            {portalDemands.map((d) => (
-                              <div key={d.id} className="flex items-center gap-2.5 px-4 py-2.5">
-                                {d.status === "completed"
-                                  ? <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#34D399" }} />
-                                  : <Circle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#ddd" }} />}
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-xs truncate" style={{ color: d.status === "completed" ? "#aaa" : "#111", textDecoration: d.status === "completed" ? "line-through" : "none" }}>{d.title}</p>
-                                  <p className="text-[10px]" style={{ color: "#bbb" }}>{d.responsible === "client" ? "Cliente" : "Agência"} · {d.priority === "high" ? "Alta" : d.priority === "medium" ? "Média" : "Baixa"}</p>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                    )}
                   </div>
                 </div>
+
+
 
               </div>
               );
