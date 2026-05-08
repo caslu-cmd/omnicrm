@@ -2650,6 +2650,56 @@ ${priorBlock}`;
     })();
   }, [id]);
 
+  // Auto-sync localStorage briefing → Supabase client_briefings (runs once per client)
+  useEffect(() => {
+    if (!portalClientUUID || !user?.id || !clientBriefing) return;
+    (async () => {
+      const { data: existing } = await (supabase as any)
+        .from("client_briefings").select("id, completeness_score")
+        .eq("client_id", portalClientUUID).maybeSingle();
+      if (existing?.completeness_score > 0) return; // já tem dados, não sobrescrever
+      const b = clientBriefing as any;
+      const budgetMap: Record<string, number> = {
+        "Até R$ 1.000/mês": 1000, "R$ 1.000–3.000/mês": 2000,
+        "R$ 3.000–7.000/mês": 5000, "R$ 7.000–15.000/mês": 11000,
+        "Acima de R$ 15.000/mês": 15000,
+      };
+      const audience = b.clienteIdeal
+        ? `${b.clienteIdeal}${b.faixaEtaria ? ` (${b.faixaEtaria})` : ""}` : null;
+      const comps = b.concorrentes
+        ? b.concorrentes.split(/[,;]/).map((s: string) => s.trim()).filter(Boolean) : [];
+      const goals = b.meta90dias ? [b.meta90dias] : [];
+      const notes = [b.dorPrincipal, b.preocupacoes, b.jaTentou].filter(Boolean).join("\n\n") || null;
+      const required = [b.empresa || client.name, b.segmento, audience, goals.length > 0,
+        (b.canaisAtivos?.length ?? 0) > 0, b.frequencia, b.diferencial];
+      const score = Math.round((required.filter(Boolean).length / (required.length + 1)) * 100);
+      const missing: string[] = [];
+      if (!b.segmento)              missing.push("segment");
+      if (!audience)                missing.push("target_audience");
+      missing.push("brand_voice");
+      if (!goals.length)            missing.push("goals");
+      if (!b.canaisAtivos?.length)  missing.push("active_platforms");
+      if (!b.frequencia)            missing.push("post_frequency");
+      if (!b.diferencial)           missing.push("differentials");
+      const payload: any = {
+        client_id: portalClientUUID, user_id: user.id,
+        brand_name: b.empresa || client.name,
+        segment: b.segmento || null, target_audience: audience,
+        competitors: comps, goals, active_platforms: b.canaisAtivos || [],
+        monthly_budget: budgetMap[b.budgetMarketing] ?? null,
+        post_frequency: b.frequencia || null, differentials: b.diferencial || null,
+        notes, completeness_score: score, missing_fields: missing,
+        updated_at: new Date().toISOString(),
+      };
+      if (existing?.id) {
+        const { client_id: _c, user_id: _u, ...upd } = payload;
+        await (supabase as any).from("client_briefings").update(upd).eq("id", existing.id);
+      } else {
+        await (supabase as any).from("client_briefings").insert(payload);
+      }
+    })();
+  }, [portalClientUUID, user?.id]);
+
   const handleApproveProposal = async (proposalId: string) => {
     setApprovingProposalId(proposalId);
     await (supabase as any).from("agent_proposals").update({ status: "approved" }).eq("id", proposalId);
