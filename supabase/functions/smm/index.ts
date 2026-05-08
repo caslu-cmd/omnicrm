@@ -40,6 +40,8 @@ const META_SCOPE = [
   "pages_show_list",
   "business_management",
   "public_profile",
+  "instagram_basic",
+  "instagram_content_publish",
 ].join(",");
 
 const LINKEDIN_SCOPE = "w_member_social";

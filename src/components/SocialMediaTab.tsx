@@ -51,7 +51,7 @@ interface Metric {
 
 // ── Meta OAuth ─────────────────────────────────────────────────
 const META_APP_ID = "1718744112773878";
-const META_SCOPE = "pages_show_list,pages_read_engagement,pages_manage_posts,business_management,public_profile";
+const META_SCOPE = "pages_show_list,pages_read_engagement,pages_manage_posts,business_management,public_profile,instagram_basic,instagram_content_publish";
 // Redirect goes through Supabase edge function (trusted domain — avoids browser security warnings)
 const META_REDIRECT_URI = "https://caluagencia.com.br/oauth/meta";
 
