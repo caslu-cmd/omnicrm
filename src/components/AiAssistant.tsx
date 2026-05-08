@@ -1,14 +1,15 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { motion, AnimatePresence, useDragControls } from "framer-motion";
 import {
   Sparkles, X, Send, Minimize2, Maximize2, Bot, User,
   ThumbsUp, ThumbsDown, Copy, RotateCcw, Lightbulb,
-  TrendingUp, MessageSquare, GripHorizontal,
+  TrendingUp, MessageSquare, GripHorizontal, Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { usePageContext } from "@/contexts/PageContext";
+import { useAuth } from "@/hooks/useAuth";
 
 const ROUTE_LABELS: Record<string, string> = {
   "/dashboard":    "Dashboard da agência",
@@ -62,11 +63,13 @@ const AiAssistant = () => {
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [convId, setConvId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const constraintsRef = useRef<HTMLDivElement>(null);
   const dragControls = useDragControls();
   const location = useLocation();
   const { pageContext } = usePageContext();
+  const { session } = useAuth();
 
   const buildSystemPrompt = () => {
     const routeLabel = Object.entries(ROUTE_LABELS).find(([route]) =>
@@ -75,6 +78,54 @@ const AiAssistant = () => {
     const autoCtx = pageContext || (routeLabel ? `Página atual: ${routeLabel}.` : "");
     if (!autoCtx) return undefined;
     return `Você é a Caroline IA, assistente especializada em marketing digital e gestão de clientes para agências de publicidade brasileiras.\n\nVocê domina:\n- Estratégia de conteúdo para redes sociais (Instagram, Facebook, TikTok, LinkedIn)\n- Criação de copy para posts, stories, legendas, campanhas e landing pages\n- Gestão de tráfego pago (Facebook Ads, Google Ads)\n- Briefing e posicionamento de marca\n- Calendário editorial e planejamento de campanhas\n- Análise de métricas e resultados\n- Gestão de relacionamento com clientes (CRM)\n\nRegras de comportamento:\n- Responda sempre em português brasileiro, de forma profissional mas acolhedora\n- Seja direta e prática — dê respostas que a pessoa possa executar imediatamente\n- Quando sugerir copy ou textos, entregue prontos para uso\n- Formate respostas com markdown quando ajudar na leitura\n- Sugira próximos passos sempre que relevante\n\n=== CONTEXTO ATUAL ===\n${autoCtx}`;
+  };
+
+  // Load latest conversation from DB when panel opens
+  useEffect(() => {
+    if (!isOpen || !session) return;
+    if (history.length > 0) return; // already loaded
+    (async () => {
+      const { data: convs } = await (supabase as any)
+        .from("calu_ia_conversations")
+        .select("id, messages")
+        .eq("user_id", session.user.id)
+        .order("updated_at", { ascending: false })
+        .limit(1);
+      if (convs && convs.length > 0) {
+        const saved = convs[0];
+        setConvId(saved.id);
+        const msgs: { role: "user" | "assistant"; content: string }[] = saved.messages ?? [];
+        if (msgs.length > 0) {
+          setHistory(msgs);
+          setMessages([
+            initialMessages[0],
+            ...msgs.map((m, i) => ({
+              id: i + 2,
+              role: m.role,
+              content: m.content,
+              timestamp: "",
+            })),
+          ]);
+        }
+      }
+    })();
+  }, [isOpen, session]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const persistConversation = useCallback(async (updatedHistory: { role: "user" | "assistant"; content: string }[]) => {
+    if (!session) return;
+    if (convId) {
+      await (supabase as any).from("calu_ia_conversations").update({ messages: updatedHistory, updated_at: new Date().toISOString() }).eq("id", convId);
+    } else {
+      const { data } = await (supabase as any).from("calu_ia_conversations").insert({ user_id: session.user.id, messages: updatedHistory }).select("id").single();
+      if (data) setConvId(data.id);
+    }
+  }, [session, convId]);
+
+  const startNewConversation = () => {
+    setConvId(null);
+    setMessages(initialMessages);
+    setHistory([]);
+    setError(null);
   };
 
   useEffect(() => {
@@ -115,8 +166,10 @@ const AiAssistant = () => {
         timestamp: "Agora",
       };
 
+      const finalHistory = [...updatedHistory, { role: "assistant" as const, content: data.content }];
       setMessages((prev) => [...prev, assistantMessage]);
-      setHistory((prev) => [...prev, { role: "assistant", content: data.content }]);
+      setHistory(finalHistory);
+      persistConversation(finalHistory);
     } catch (err) {
       setError(`Erro: ${err instanceof Error ? err.message : String(err)}`);
     } finally {
@@ -215,6 +268,15 @@ const AiAssistant = () => {
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
                 <GripHorizontal style={{ width: 14, height: 14, color: "rgba(255,255,255,0.2)", marginRight: 6 }} />
+                <button
+                  onPointerDown={(e) => e.stopPropagation()}
+                  onClick={startNewConversation}
+                  className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"
+                  style={{ cursor: "pointer" }}
+                  title="Nova conversa"
+                >
+                  <Plus className="h-4 w-4" />
+                </button>
                 <button
                   onPointerDown={(e) => e.stopPropagation()}
                   onClick={() => setIsExpanded(!isExpanded)}
