@@ -14,12 +14,6 @@ function respond(body: unknown, status = 200) {
   });
 }
 
-function normalizeScheduledPostMediaType(mediaType: unknown, mediaUrl: unknown): "text" | "image" | "video" {
-  if (mediaType === "video") return "video";
-  if (mediaType === "text" && !mediaUrl) return "text";
-  return mediaUrl ? "image" : "text";
-}
-
 function obfuscate(text: string, key: string): string {
   const result: number[] = [];
   for (let i = 0; i < text.length; i++) {
@@ -51,6 +45,14 @@ const META_SCOPE = [
 ].join(",");
 
 const LINKEDIN_SCOPE = "w_member_social";
+
+function normalizeScheduledPostMediaType(mediaType: unknown, mediaUrl: unknown): "text" | "image" | "video" {
+  const value = typeof mediaType === "string" ? mediaType.toLowerCase() : "";
+  if (value === "video") return "video";
+  if (value === "text" && !mediaUrl) return "text";
+  if (mediaUrl) return "image";
+  return "text";
+}
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -319,13 +321,13 @@ Deno.serve(async (req) => {
 
     // ── Create / schedule post ───────────────────────────────────
     if (action === "create-post") {
-      const { client_id, platforms, caption, media_url, media_type, post_type, scheduled_at, link_url } = body;
+      const { client_id, platforms, caption, media_url, media_type, scheduled_at, link_url } = body;
       if (!client_id || !platforms?.length) return respond({ error: "client_id e platforms obrigatórios" }, 400);
-      const dbMediaType = normalizeScheduledPostMediaType(media_type, media_url);
 
       const scheduledDate = scheduled_at ? new Date(scheduled_at) : null;
       const isScheduled   = scheduledDate && scheduledDate > new Date();
-      const isStory       = media_type === "story" || post_type === "story";
+      const isStory       = media_type === "story";
+      const dbMediaType   = normalizeScheduledPostMediaType(media_type, media_url);
       let status          = "publishing";
       let fbPostId: string | null = null;
       let igMediaId: string | null = null;

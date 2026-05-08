@@ -483,7 +483,7 @@ export default function SocialMediaTab({
           d.setDate(d.getDate() + i);
           scheduledAt = d.toISOString().slice(0, 16);
         }
-        await callFn({ action: "create-post", client_id: clientId, platforms: composer.platforms, caption: isStory ? null : (item.caption || null), media_url: publicUrl, media_type: "image", post_type: isStory ? "story" : "post", link_url: isStory ? (composer.link_url || null) : null, scheduled_at: scheduledAt || null });
+        await callFn({ action: "create-post", client_id: clientId, platforms: composer.platforms, caption: isStory ? null : (item.caption || null), media_url: publicUrl, media_type: isStory ? "story" : "image", link_url: isStory ? (composer.link_url || null) : null, scheduled_at: scheduledAt || null });
         success++;
       } catch { /* continue with next */ }
     }
@@ -544,8 +544,7 @@ export default function SocialMediaTab({
         platforms: composer.platforms,
         caption: composer.media_type === "story" ? null : (composer.caption || null),
         media_url: finalMediaUrl,
-        media_type: finalMediaUrl ? "image" : "text",
-        post_type: composer.media_type === "story" ? "story" : "post",
+        media_type: composer.media_type === "story" ? "story" : (composer.media_url ? "image" : "text"),
         link_url: composer.media_type === "story" ? (composer.link_url || null) : null,
         scheduled_at: composer.post_now ? null : composer.scheduled_at,
       });

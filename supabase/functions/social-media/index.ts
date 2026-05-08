@@ -40,6 +40,14 @@ const META_SCOPE = [
   "public_profile",
 ].join(",");
 
+function normalizeScheduledPostMediaType(mediaType: unknown, mediaUrl: unknown): "text" | "image" | "video" {
+  const value = typeof mediaType === "string" ? mediaType.toLowerCase() : "";
+  if (value === "video") return "video";
+  if (value === "text" && !mediaUrl) return "text";
+  if (mediaUrl) return "image";
+  return "text";
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return respond({ error: "Method not allowed" }, 405);
@@ -179,6 +187,7 @@ Deno.serve(async (req) => {
       if (!client_id || !platforms?.length) return respond({ error: "client_id e platforms obrigatórios" }, 400);
 
       const isStory = media_type === "story";
+      const dbMediaType = normalizeScheduledPostMediaType(media_type, media_url);
       const isScheduled = scheduled_at && new Date(scheduled_at) > new Date();
       let status = isScheduled ? "scheduled" : "publishing";
       let fbPostId: string | null = null;
@@ -257,7 +266,7 @@ Deno.serve(async (req) => {
 
       const { data: post, error: insertError } = await supabase.from("scheduled_posts").insert({
         user_id: userId, client_id, platforms, caption,
-        media_url: media_url || null, media_type: media_type ?? "text",
+        media_url: media_url || null, media_type: dbMediaType,
         scheduled_at: scheduled_at || null,
         published_at: status === "published" ? new Date().toISOString() : null,
         status, fb_post_id: fbPostId, ig_media_id: igMediaId, error_message: errorMessage,
