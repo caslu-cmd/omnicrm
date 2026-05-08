@@ -135,6 +135,7 @@ export default function SocialMediaTab({
   const [connecting, setConnecting] = useState<string | null>(null);
   const [disconnecting, setDisconnecting] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [submitProgress, setSubmitProgress] = useState<{ current: number; total: number } | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [localMediaFile, setLocalMediaFile] = useState<File | null>(null);
@@ -467,9 +468,12 @@ export default function SocialMediaTab({
   const handleBatchSubmit = async () => {
     if (!batchItems.length) { toast.error("Adicione ao menos uma imagem."); return; }
     if (!composer.platforms.length) { toast.error("Selecione ao menos uma plataforma."); return; }
+    const isStory = composer.media_type === "story" || (composer.media_type === "batch" && batchSubType === "story");
     setSubmitting(true);
+    setSubmitProgress({ current: 0, total: batchItems.length });
     let success = 0;
     for (let i = 0; i < batchItems.length; i++) {
+      setSubmitProgress({ current: i + 1, total: batchItems.length });
       const item = batchItems[i];
       try {
         const publicUrl = await uploadMediaToSupabase(item.file);
@@ -479,16 +483,17 @@ export default function SocialMediaTab({
           d.setDate(d.getDate() + i);
           scheduledAt = d.toISOString().slice(0, 16);
         }
-        const isStory = composer.media_type === "story" || (composer.media_type === "batch" && batchSubType === "story");
         await callFn({ action: "create-post", client_id: clientId, platforms: composer.platforms, caption: isStory ? null : (item.caption || null), media_url: publicUrl, media_type: isStory ? "story" : "image", link_url: isStory ? (composer.link_url || null) : null, scheduled_at: scheduledAt || null });
         success++;
       } catch { /* continue with next */ }
     }
+    setSubmitProgress(null);
     setBatchItems([]);
     setShowComposer(false);
     setComposer((p) => ({ ...p, media_type: "post" }));
     loadPosts();
-    toast.success(`${success} post${success !== 1 ? "s" : ""} agendado${success !== 1 ? "s" : ""}!`);
+    if (isStory) toast.success(`${success} stor${success !== 1 ? "ies" : "y"} ${batchDistribute && batchStartDate ? "agendado" : "publicado"}${success !== 1 ? "s" : ""}!`);
+    else toast.success(`${success} post${success !== 1 ? "s" : ""} agendado${success !== 1 ? "s" : ""}!`);
     setSubmitting(false);
   };
 
@@ -1507,12 +1512,31 @@ export default function SocialMediaTab({
                   {(() => {
                     const isStoryMode = composer.media_type === "story" || (composer.media_type === "batch" && batchSubType === "story");
                     const isBatch = composer.media_type === "batch" || composer.media_type === "story";
-                    if (submitting) return <><RefreshCw className="w-4 h-4 animate-spin" /> {isStoryMode ? `Publicando ${batchItems.length} stor${batchItems.length !== 1 ? "ies" : "y"}…` : isBatch ? "Agendando lote…" : composer.post_now ? "Publicando…" : "Agendando…"}</>;
+                    if (submitting && submitProgress) {
+                      const pct = Math.round((submitProgress.current / submitProgress.total) * 100);
+                      return (
+                        <span className="flex items-center gap-2 w-full justify-center">
+                          <RefreshCw className="w-4 h-4 animate-spin flex-shrink-0" />
+                          <span className="flex-1 text-left">
+                            {isStoryMode ? `Story ${submitProgress.current} de ${submitProgress.total}` : `Post ${submitProgress.current} de ${submitProgress.total}`}
+                          </span>
+                          <span className="text-[11px] font-bold opacity-70">{pct}%</span>
+                        </span>
+                      );
+                    }
+                    if (submitting) return <><RefreshCw className="w-4 h-4 animate-spin" /> {isStoryMode ? "Enviando stories…" : isBatch ? "Agendando lote…" : composer.post_now ? "Publicando…" : "Agendando…"}</>;
                     if (isStoryMode) return <><Send className="w-4 h-4" /> {batchItems.length > 0 ? `${composer.post_now ? "Publicar" : "Agendar"} ${batchItems.length} stor${batchItems.length !== 1 ? "ies" : "y"}` : "Adicione stories acima"}</>;
                     if (composer.media_type === "batch") return <><Send className="w-4 h-4" /> {batchItems.length > 0 ? `Agendar ${batchItems.length} post${batchItems.length !== 1 ? "s" : ""}` : "Adicione imagens acima"}</>;
                     return <><Send className="w-4 h-4" /> {composer.post_now ? "Publicar" : "Agendar"}</>;
                   })()}
                 </button>
+                {/* Progress bar */}
+                {submitting && submitProgress && (
+                  <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
+                    <div className="h-full rounded-full transition-all duration-300"
+                      style={{ width: `${Math.round((submitProgress.current / submitProgress.total) * 100)}%`, background: (composer.media_type === "story" || (composer.media_type === "batch" && batchSubType === "story")) ? "#F472B6" : clientColor }} />
+                  </div>
+                )}
               </div>
               </div>{/* end left col wrapper */}
 
