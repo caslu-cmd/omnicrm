@@ -192,7 +192,6 @@ export default function ClientPortal() {
   const [expandedDemand, setExpandedDemand] = useState<string | null>(null);
   const [proposals, setProposals] = useState<AgentProposal[]>([]);
   const [proposalsLoading, setProposalsLoading] = useState(false);
-  const [approvingProposalId, setApprovingProposalId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!token) { setNotFound(true); setLoading(false); return; }
@@ -215,18 +214,6 @@ export default function ClientPortal() {
         setProposalsLoading(false);
       });
   }, [data?.client?.workspace_id]);
-
-  const approveProposal = async (proposalId: string) => {
-    setApprovingProposalId(proposalId);
-    await (supabase as any).from("agent_proposals").update({ status: "approved" }).eq("id", proposalId);
-    setProposals(prev => prev.map(p => p.id === proposalId ? { ...p, status: "approved" } : p));
-    setApprovingProposalId(null);
-  };
-
-  const rejectProposal = async (proposalId: string) => {
-    await (supabase as any).from("agent_proposals").update({ status: "rejected" }).eq("id", proposalId);
-    setProposals(prev => prev.filter(p => p.id !== proposalId));
-  };
 
   const [deliverables, setDeliverables] = useState<any[]>([]);
   useEffect(() => {
@@ -470,123 +457,56 @@ export default function ClientPortal() {
 
         {/* ── Propostas & Ações dos Agentes ───────────────── */}
         {(proposalsLoading || proposals.length > 0) && (() => {
-          const pendingProposals = proposals.filter(p => p.status === "pending");
-          const activeProposals  = proposals.filter(p => p.status !== "pending");
           const PROP_STATUS: Record<string, { label: string; color: string; bg: string; border: string }> = {
-            approved:    { label: "Aprovado",      color: "#2563EB", bg: "rgba(37,99,235,0.07)",   border: "rgba(37,99,235,0.18)"   },
-            in_progress: { label: "Em andamento",  color: "#059669", bg: "rgba(5,150,105,0.07)",   border: "rgba(5,150,105,0.18)"   },
-            completed:   { label: "Concluído",     color: "#6B7280", bg: "rgba(107,114,128,0.06)", border: "rgba(107,114,128,0.15)" },
+            pending:     { label: "Aguardando",    color: "#D97706", bg: "rgba(251,191,36,0.08)",   border: "rgba(251,191,36,0.2)"   },
+            approved:    { label: "Aprovado",      color: "#2563EB", bg: "rgba(37,99,235,0.07)",    border: "rgba(37,99,235,0.18)"   },
+            in_progress: { label: "Em andamento",  color: "#059669", bg: "rgba(5,150,105,0.07)",    border: "rgba(5,150,105,0.18)"   },
+            completed:   { label: "Concluído",     color: "#6B7280", bg: "rgba(107,114,128,0.06)",  border: "rgba(107,114,128,0.15)" },
           };
           return (
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>
               <div className="rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.07)" }}>
                 <div className="px-6 py-5" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h2 className="text-base font-bold mb-0.5" style={{ color: "#111" }}>Propostas & Ações</h2>
-                      <p className="text-xs" style={{ color: "#888" }}>
-                        {pendingProposals.length > 0 ? `${pendingProposals.length} aguardando sua aprovação · ` : ""}
-                        {activeProposals.length > 0 ? `${activeProposals.length} em andamento` : ""}
-                        {proposals.length === 0 ? "Ações propostas pelos agentes" : ""}
-                      </p>
-                    </div>
-                    {pendingProposals.length > 0 && (
-                      <div className="text-xs px-3 py-1.5 rounded-full font-semibold flex-shrink-0"
-                        style={{ background: "rgba(251,191,36,0.1)", color: "#D97706", border: "1px solid rgba(251,191,36,0.25)" }}>
-                        {pendingProposals.length} aguardando você
-                      </div>
-                    )}
-                  </div>
+                  <h2 className="text-base font-bold mb-0.5" style={{ color: "#111" }}>Propostas & Ações</h2>
+                  <p className="text-xs" style={{ color: "#888" }}>
+                    {proposals.length > 0 ? `${proposals.length} ação${proposals.length !== 1 ? "ões" : ""} dos agentes` : "Ações propostas pelos agentes"}
+                  </p>
                 </div>
 
-                <div className="p-4 space-y-3">
+                <div className="p-4 space-y-2">
                   {proposalsLoading && (
                     <div className="flex justify-center py-6">
                       <div className="w-5 h-5 rounded-full border-2 border-gray-200 border-t-gray-500 animate-spin" />
                     </div>
                   )}
 
-                  {/* Pendentes — aguardando aprovação do cliente */}
-                  {!proposalsLoading && pendingProposals.length > 0 && (
-                    <div className="space-y-2">
-                      <p className="text-[10px] uppercase tracking-wider font-semibold px-1" style={{ color: "#D97706" }}>Aguardando sua aprovação</p>
-                      {pendingProposals.map((proposal) => (
-                        <div key={proposal.id} className="rounded-xl p-4 space-y-3"
-                          style={{ background: "rgba(251,191,36,0.04)", border: "1px solid rgba(251,191,36,0.2)" }}>
-                          <div className="flex items-start gap-3">
-                            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-xs font-bold flex-shrink-0"
-                              style={{ background: `${proposal.agent_color}18`, color: proposal.agent_color, border: `1px solid ${proposal.agent_color}30` }}>
-                              {proposal.agent_name?.[0]}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                                <span className="text-xs font-semibold" style={{ color: proposal.agent_color }}>{proposal.agent_name}</span>
-                                <span className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
-                                  style={{ background: "rgba(251,191,36,0.12)", color: "#D97706", border: "1px solid rgba(251,191,36,0.25)" }}>
-                                  Proposta
-                                </span>
-                              </div>
-                              <p className="text-sm font-semibold mb-1" style={{ color: "#111" }}>{proposal.titulo}</p>
-                              <p className="text-xs leading-relaxed" style={{ color: "#666" }}>{proposal.descricao}</p>
-                            </div>
-                          </div>
-                          <div className="flex gap-2">
-                            <button
-                              onClick={() => approveProposal(proposal.id)}
-                              disabled={approvingProposalId === proposal.id}
-                              className="flex-1 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-all disabled:opacity-50"
-                              style={{ background: "#B9FF4B", color: "#07080A", boxShadow: "0 0 16px -4px rgba(185,255,75,0.4)" }}>
-                              {approvingProposalId === proposal.id
-                                ? <><span className="w-3 h-3 rounded-full border-2 border-black/30 border-t-black animate-spin" /> Aprovando…</>
-                                : <><CheckCircle2 className="w-3.5 h-3.5" /> Aprovar esta ação</>}
-                            </button>
-                            <button
-                              onClick={() => rejectProposal(proposal.id)}
-                              className="px-4 py-2.5 rounded-xl text-xs font-medium transition-all"
-                              style={{ background: "rgba(239,68,68,0.07)", color: "#EF4444", border: "1px solid rgba(239,68,68,0.18)" }}>
-                              Rejeitar
-                            </button>
-                          </div>
+                  {!proposalsLoading && proposals.map((proposal) => {
+                    const st = PROP_STATUS[proposal.status] ?? PROP_STATUS.approved;
+                    return (
+                      <div key={proposal.id} className="rounded-xl p-3.5 flex items-start gap-3"
+                        style={{ background: "#FAFAF9", border: `1px solid ${st.border}` }}>
+                        <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[11px] font-bold flex-shrink-0"
+                          style={{ background: `${proposal.agent_color}15`, color: proposal.agent_color, border: `1px solid ${proposal.agent_color}25` }}>
+                          {proposal.agent_name?.[0]}
                         </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Aprovadas / em andamento / concluídas */}
-                  {!proposalsLoading && activeProposals.length > 0 && (
-                    <div className="space-y-2">
-                      {pendingProposals.length > 0 && (
-                        <p className="text-[10px] uppercase tracking-wider font-semibold px-1 pt-1" style={{ color: "#059669" }}>Em andamento</p>
-                      )}
-                      {activeProposals.map((proposal) => {
-                        const st = PROP_STATUS[proposal.status] ?? PROP_STATUS.approved;
-                        return (
-                          <div key={proposal.id} className="rounded-xl p-3.5 flex items-start gap-3"
-                            style={{ background: "#FAFAF9", border: `1px solid ${st.border}` }}>
-                            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[11px] font-bold flex-shrink-0"
-                              style={{ background: `${proposal.agent_color}15`, color: proposal.agent_color, border: `1px solid ${proposal.agent_color}25` }}>
-                              {proposal.agent_name?.[0]}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                                <span className="text-xs font-semibold" style={{ color: "#111" }}>{proposal.titulo}</span>
-                                <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0"
-                                  style={{ background: st.bg, color: st.color, border: `1px solid ${st.border}` }}>
-                                  {proposal.status === "in_progress" && (
-                                    <span className="inline-block w-1.5 h-1.5 rounded-full mr-1 align-middle animate-pulse" style={{ background: st.color }} />
-                                  )}
-                                  {st.label}
-                                </span>
-                              </div>
-                              <p className="text-[11px]" style={{ color: "#888" }}>
-                                {proposal.agent_name} · {proposal.descricao?.slice(0, 90)}{(proposal.descricao?.length ?? 0) > 90 ? "…" : ""}
-                              </p>
-                            </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                            <span className="text-xs font-semibold" style={{ color: "#111" }}>{proposal.titulo}</span>
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0"
+                              style={{ background: st.bg, color: st.color, border: `1px solid ${st.border}` }}>
+                              {proposal.status === "in_progress" && (
+                                <span className="inline-block w-1.5 h-1.5 rounded-full mr-1 align-middle animate-pulse" style={{ background: st.color }} />
+                              )}
+                              {st.label}
+                            </span>
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                          <p className="text-[11px]" style={{ color: "#888" }}>
+                            {proposal.agent_name} · {proposal.descricao?.slice(0, 90)}{(proposal.descricao?.length ?? 0) > 90 ? "…" : ""}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </motion.div>
