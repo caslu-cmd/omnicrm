@@ -773,9 +773,11 @@ export default function ClientWorkspace() {
   const [portalDemands, setPortalDemands] = useState<any[]>([]);
   const [portalLoading, setPortalLoading] = useState(false);
   const [onboardForm, setOnboardForm] = useState({ title: "", description: "", responsible: "agency" as "agency" | "client", category: "geral" });
-  const [demandForm, setDemandForm] = useState({ title: "", description: "", responsible: "agency" as "agency" | "client", priority: "medium" as "low" | "medium" | "high" });
+  const [demandForm, setDemandForm] = useState({ title: "", description: "", responsible: "agency" as "agency" | "client", priority: "medium" as "low" | "medium" | "high", due_date: "", agent: "luna" });
   const [savingOnboard, setSavingOnboard] = useState(false);
   const [savingDemand, setSavingDemand] = useState(false);
+  const [generatingDemands, setGeneratingDemands] = useState(false);
+  const [editingDemand, setEditingDemand] = useState<{ id: string; field: "title" | "description"; value: string } | null>(null);
   const [portalSection, setPortalSection] = useState<"onboarding" | "entregas" | "demandas">("onboarding");
   const [showAgentForm, setShowAgentForm] = useState(false);
   const [agentForm, setAgentForm] = useState({ agent_id: "luna", agent_name: "Luna", agent_color: "#B9FF4B", titulo: "", descricao: "" });
@@ -2681,17 +2683,113 @@ Português brasileiro. Máximo 200 palavras.`,
     setAnsweringAll(false);
   };
 
+  const DEMAND_STATUS_CYCLE = ["pending", "in_progress", "waiting_client", "completed"] as const;
+  const DEMAND_STATUS_LABEL: Record<string, { label: string; color: string; bg: string }> = {
+    pending:        { label: "Pendente",          color: "#888",    bg: "rgba(0,0,0,0.05)" },
+    in_progress:    { label: "Em andamento",      color: "#3B82F6", bg: "#EFF6FF" },
+    waiting_client: { label: "Aguardando você",   color: "#F97316", bg: "#FFF7ED" },
+    completed:      { label: "Concluído",          color: "#22C55E", bg: "#F0FDF4" },
+  };
+
   const saveDemandItem = async () => {
     if (!portalClientUUID || !demandForm.title.trim() || !user) return;
     setSavingDemand(true);
+    const agent = WS_AGENTS.find(a => a.id === demandForm.agent) ?? WS_AGENTS[0];
     const { data, error } = await (supabase as any).from("client_demands").insert({
       client_id: portalClientUUID, user_id: user.id,
       title: demandForm.title.trim(), description: demandForm.description.trim() || null,
       responsible: demandForm.responsible, priority: demandForm.priority,
       type: "task", status: "pending",
+      due_date: demandForm.due_date ? new Date(demandForm.due_date).toISOString() : null,
+      agents: [{ id: agent.id, name: agent.name, color: agent.color }],
     }).select().single();
-    if (!error && data) { setPortalDemands((p) => [data, ...p]); setDemandForm({ title: "", description: "", responsible: "agency", priority: "medium" }); }
+    if (!error && data) {
+      setPortalDemands((p) => [{ ...data, activities: [] }, ...p]);
+      setDemandForm({ title: "", description: "", responsible: "agency", priority: "medium", due_date: "", agent: "luna" });
+      setShowDemandFormPortal(false);
+    }
     setSavingDemand(false);
+  };
+
+  const saveEditDemand = async () => {
+    if (!editingDemand) return;
+    const { id, field, value } = editingDemand;
+    await (supabase as any).from("client_demands").update({ [field]: value.trim() || null }).eq("id", id);
+    setPortalDemands(p => p.map(d => d.id === id ? { ...d, [field]: value.trim() } : d));
+    setEditingDemand(null);
+  };
+
+  const cycleDemandStatus = async (demId: string, current: string) => {
+    const idx = DEMAND_STATUS_CYCLE.indexOf(current as any);
+    const next = DEMAND_STATUS_CYCLE[(idx + 1) % DEMAND_STATUS_CYCLE.length];
+    await (supabase as any).from("client_demands").update({ status: next }).eq("id", demId);
+    setPortalDemands(p => p.map(d => d.id === demId ? { ...d, status: next } : d));
+  };
+
+  const generateDemandsWithAI = async () => {
+    if (!portalClientUUID || !user) return;
+    setGeneratingDemands(true);
+    const b = clientBriefing;
+    const briefText = [
+      b?.nome_empresa && `Empresa: ${b.nome_empresa}`,
+      b?.segmento && `Segmento: ${b.segmento}`,
+      b?.objetivo && `Objetivo: ${b.objetivo}`,
+      b?.publico_alvo && `Público-alvo: ${b.publico_alvo}`,
+      b?.servicos && `Serviços: ${b.servicos}`,
+      b?.diferenciais && `Diferenciais: ${b.diferenciais}`,
+    ].filter(Boolean).join("\n") || `Cliente: ${client?.name}`;
+
+    const prompt = `Você é a coordenadora da Calu Agência. Com base no briefing do cliente, crie uma lista de demandas concretas de marketing para o próximo mês.
+
+BRIEFING:
+${briefText}
+
+Retorne SOMENTE um array JSON válido. Não inclua texto antes ou depois do JSON:
+[
+  {
+    "title": "título curto e claro",
+    "description": "o que será feito e qual o resultado esperado",
+    "responsible": "agency",
+    "priority": "high",
+    "agent": "Luna",
+    "due_days": 7
+  }
+]
+
+Regras:
+- Crie entre 4 e 7 demandas relevantes e acionáveis
+- due_days = dias a partir de hoje para entrega
+- Agentes disponíveis: Luna (estratégia), Queila (conteúdo/copy), Beatriz (design), Marina (tráfego pago), Rafaela (social media), Lia (diagnóstico/IA)
+- priority: low, medium, high
+- responsible: agency ou client`;
+
+    try {
+      const { data: res } = await supabase.functions.invoke("chat-ai", {
+        body: { messages: [{ role: "user", content: prompt }], stream: false, agentId: "copywriter" },
+      });
+      const content: string = res?.content ?? res?.text ?? "";
+      const match = content.match(/\[[\s\S]*\]/);
+      if (!match) throw new Error("JSON não encontrado");
+      const demands: any[] = JSON.parse(match[0]);
+
+      let created = 0;
+      for (const dem of demands) {
+        const agent = WS_AGENTS.find(a => a.name === dem.agent) ?? WS_AGENTS[0];
+        const dueDate = dem.due_days ? new Date(Date.now() + dem.due_days * 86400000).toISOString() : null;
+        const { data: row } = await (supabase as any).from("client_demands").insert({
+          client_id: portalClientUUID, user_id: user.id,
+          title: dem.title, description: dem.description || null,
+          responsible: dem.responsible || "agency", priority: dem.priority || "medium",
+          type: "task", status: "pending", due_date: dueDate,
+          agents: [{ id: agent.id, name: agent.name, color: agent.color }],
+        }).select().single();
+        if (row) { setPortalDemands(p => [...p, { ...row, activities: [] }]); created++; }
+      }
+      toast.success(`${created} demanda${created !== 1 ? "s" : ""} gerada${created !== 1 ? "s" : ""} com IA!`);
+    } catch {
+      toast.error("Erro ao gerar demandas. Tente novamente.");
+    }
+    setGeneratingDemands(false);
   };
 
   const WS_AGENTS = [
@@ -8909,11 +9007,18 @@ Regras:
                           {portalDemands.filter(d => d.status !== "completed").length} pendente{portalDemands.filter(d => d.status !== "completed").length !== 1 ? "s" : ""}
                         </p>
                       </div>
-                      <button onClick={() => setShowDemandFormPortal(s => !s)}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
-                        style={{ background: showDemandFormPortal ? "#111" : "rgba(0,0,0,0.06)", color: showDemandFormPortal ? "#B9FF4B" : "#555" }}>
-                        + Nova demanda
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <button onClick={generateDemandsWithAI} disabled={generatingDemands || !clientBriefing}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all disabled:opacity-40"
+                          style={{ background: "rgba(185,255,75,0.12)", color: "#5BAD2F", border: "1px solid rgba(91,173,47,0.25)" }}>
+                          {generatingDemands ? <Loader2 className="w-3 h-3 animate-spin" /> : "✨"} Gerar com IA
+                        </button>
+                        <button onClick={() => setShowDemandFormPortal(s => !s)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
+                          style={{ background: showDemandFormPortal ? "#111" : "rgba(0,0,0,0.06)", color: showDemandFormPortal ? "#B9FF4B" : "#555" }}>
+                          + Nova demanda
+                        </button>
+                      </div>
                     </div>
                     {showDemandFormPortal && (
                       <div className="px-5 py-4 space-y-2.5" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)", background: "#FAFAF8" }}>
@@ -8925,10 +9030,10 @@ Regras:
                           placeholder="Descrição (opcional)…" rows={2}
                           className="w-full rounded-xl px-3 py-2 text-xs focus:outline-none resize-none"
                           style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.14)", color: "#555" }} />
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
                           <select value={demandForm.responsible} onChange={(e) => setDemandForm(f => ({ ...f, responsible: e.target.value as any }))}
                             className="flex-1 rounded-xl px-3 py-2 text-xs focus:outline-none"
-                            style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.14)", color: "#555" }}>
+                            style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.14)", color: "#555", minWidth: 140 }}>
                             <option value="agency">Responsável: Agência</option>
                             <option value="client">Responsável: Cliente</option>
                           </select>
@@ -8939,6 +9044,14 @@ Regras:
                             <option value="medium">Média</option>
                             <option value="high">Alta</option>
                           </select>
+                          <select value={demandForm.agent} onChange={(e) => setDemandForm(f => ({ ...f, agent: e.target.value }))}
+                            className="rounded-xl px-3 py-2 text-xs focus:outline-none"
+                            style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.14)", color: "#555" }}>
+                            {WS_AGENTS.map(ag => <option key={ag.id} value={ag.id}>{ag.name}</option>)}
+                          </select>
+                          <input type="date" value={demandForm.due_date} onChange={(e) => setDemandForm(f => ({ ...f, due_date: e.target.value }))}
+                            className="rounded-xl px-3 py-2 text-xs focus:outline-none"
+                            style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.14)", color: "#555" }} />
                           <button onClick={saveDemandItem} disabled={savingDemand || !demandForm.title.trim() || !portalClientUUID}
                             className="px-4 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-40 flex-shrink-0"
                             style={{ background: "#111", color: "#B9FF4B" }}>
@@ -8961,18 +9074,66 @@ Regras:
                             <div key={d.id}>
                               {/* Row */}
                               <div className="flex items-start gap-3 px-5 py-3">
-                                <button onClick={() => toggleDemandStatus(d.id, d.status)} className="flex-shrink-0 mt-0.5">
-                                  {d.status === "completed"
-                                    ? <CheckCircle2 className="w-4 h-4" style={{ color: "#34D399" }} />
-                                    : <Circle className="w-4 h-4" style={{ color: "#ddd" }} />}
-                                </button>
-                                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => {
-                                  const next = isExp ? null : d.id;
-                                  setExpandedWorkspaceDemand(next);
-                                  if (next) loadDemandActivities(next);
-                                }}>
-                                  <p className="text-sm" style={{ color: d.status === "completed" ? "#aaa" : "#111", textDecoration: d.status === "completed" ? "line-through" : "none" }}>{d.title}</p>
-                                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                {/* Status badge — click to cycle */}
+                                {(() => {
+                                  const st = DEMAND_STATUS_LABEL[d.status] ?? DEMAND_STATUS_LABEL.pending;
+                                  return (
+                                    <button onClick={() => cycleDemandStatus(d.id, d.status)}
+                                      className="flex-shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold mt-0.5 whitespace-nowrap transition-all"
+                                      style={{ background: st.bg, color: st.color, border: `1px solid ${st.color}30` }}
+                                      title="Clique para avançar o status">
+                                      {st.label}
+                                    </button>
+                                  );
+                                })()}
+                                <div className="flex-1 min-w-0">
+                                  {/* Title — click to edit */}
+                                  {editingDemand?.id === d.id && editingDemand.field === "title" ? (
+                                    <input
+                                      autoFocus
+                                      value={editingDemand.value}
+                                      onChange={(e) => setEditingDemand(ed => ed ? { ...ed, value: e.target.value } : ed)}
+                                      onBlur={saveEditDemand}
+                                      onKeyDown={(e) => { if (e.key === "Enter") saveEditDemand(); if (e.key === "Escape") setEditingDemand(null); }}
+                                      className="w-full rounded-lg px-2 py-0.5 text-sm focus:outline-none"
+                                      style={{ background: "#fff", border: "1px solid rgba(91,173,47,0.4)", color: "#111" }}
+                                    />
+                                  ) : (
+                                    <p className="text-sm cursor-pointer hover:text-[#5BAD2F] transition-colors"
+                                      style={{ color: d.status === "completed" ? "#aaa" : "#111", textDecoration: d.status === "completed" ? "line-through" : "none" }}
+                                      onClick={() => setEditingDemand({ id: d.id, field: "title", value: d.title })}>
+                                      {d.title}
+                                    </p>
+                                  )}
+                                  {/* Description — show/click to edit */}
+                                  {editingDemand?.id === d.id && editingDemand.field === "description" ? (
+                                    <textarea
+                                      autoFocus
+                                      value={editingDemand.value}
+                                      onChange={(e) => setEditingDemand(ed => ed ? { ...ed, value: e.target.value } : ed)}
+                                      onBlur={saveEditDemand}
+                                      onKeyDown={(e) => { if (e.key === "Escape") setEditingDemand(null); }}
+                                      rows={2}
+                                      className="w-full rounded-lg px-2 py-1 text-xs focus:outline-none resize-none mt-0.5"
+                                      style={{ background: "#fff", border: "1px solid rgba(91,173,47,0.4)", color: "#555" }}
+                                    />
+                                  ) : (
+                                    <p className="text-xs mt-0.5 cursor-pointer"
+                                      style={{ color: d.description ? "#888" : "#ccc" }}
+                                      onClick={() => setEditingDemand({ id: d.id, field: "description", value: d.description ?? "" })}>
+                                      {d.description || "Adicionar descrição…"}
+                                    </p>
+                                  )}
+                                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                                    {d.due_date && (() => {
+                                      const daysLeft = Math.ceil((new Date(d.due_date).getTime() - Date.now()) / 86400000);
+                                      return (
+                                        <span className="text-[10px] font-semibold"
+                                          style={{ color: daysLeft < 0 ? "#EF4444" : daysLeft <= 2 ? "#F97316" : "#888" }}>
+                                          {daysLeft < 0 ? `${Math.abs(daysLeft)}d atrasado` : daysLeft === 0 ? "Hoje" : `${daysLeft}d`}
+                                        </span>
+                                      );
+                                    })()}
                                     <span className="text-xs" style={{ color: "#bbb" }}>{d.priority === "high" ? "Alta" : d.priority === "medium" ? "Média" : "Baixa"}</span>
                                     {agts.slice(0, 4).map((ag: any) => (
                                       <div key={ag.id} title={ag.name}
@@ -8984,6 +9145,17 @@ Regras:
                                     {acts.length > 0 && <span className="text-[10px]" style={{ color: "#bbb" }}>· {acts.length} atualiz.</span>}
                                   </div>
                                 </div>
+                                <button
+                                  onClick={() => {
+                                    const next = isExp ? null : d.id;
+                                    setExpandedWorkspaceDemand(next);
+                                    if (next) loadDemandActivities(next);
+                                  }}
+                                  className="p-1.5 rounded-lg flex-shrink-0 mt-0.5 transition-colors"
+                                  style={{ color: isExp ? "#5BAD2F" : "#ccc" }}
+                                  title="Expandir detalhes">
+                                  <ChevronDown className="w-3.5 h-3.5" style={{ transform: isExp ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+                                </button>
                                 <button onClick={() => deleteDemandItem(d.id)} className="p-1.5 rounded-lg flex-shrink-0 mt-0.5" style={{ color: "#ccc" }}>
                                   <Trash2 className="w-3.5 h-3.5" />
                                 </button>
