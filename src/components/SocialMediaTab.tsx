@@ -1732,7 +1732,7 @@ export default function SocialMediaTab({
                     const isBatch = composer.media_type === "batch" || composer.media_type === "story";
                     if (submitting && submitProgress) return <><RefreshCw className="w-4 h-4 animate-spin" /> Enviando {submitProgress.current}/{submitProgress.total}…</>;
                     if (submitting) return <><RefreshCw className="w-4 h-4 animate-spin" /> {composer.post_now ? "Publicando…" : "Agendando…"}</>;
-                    if (composer.media_type === "carousel") return <><Send className="w-4 h-4" /> {carouselItems.length >= 2 ? `Publicar carrossel (${carouselItems.length})` : "Adicione 2+ imagens"}</>;
+                    if (composer.media_type === "carousel") return <><Send className="w-4 h-4" /> {carouselItems.length >= 2 ? `${composer.post_now ? "Publicar" : "Agendar"} carrossel (${carouselItems.length})` : "Adicione 2+ imagens"}</>;
                     if (isStoryMode) return <><Send className="w-4 h-4" /> {batchItems.length > 0 ? `Publicar ${batchItems.length} stor${batchItems.length !== 1 ? "ies" : "y"}` : "Adicione stories acima"}</>;
                     if (isBatch) return <><Send className="w-4 h-4" /> {batchItems.length > 0 ? `Publicar ${batchItems.length} post${batchItems.length !== 1 ? "s" : ""}` : "Adicione imagens acima"}</>;
                     return <><Send className="w-4 h-4" /> {composer.post_now ? "Publicar" : "Agendar"}</>;
