@@ -548,29 +548,42 @@ export default function SocialMediaTab({
         setSubmitProgress({ current: i + 1, total: carouselItems.length });
       }
 
-      const data = await callFn({
-        action: "create-post",
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { toast.error("Sessão expirada."); return; }
+
+      const isScheduling = !composer.post_now && !!composer.scheduled_at;
+
+      // INSERT directly — bypasses edge function RLS issues
+      const { data: post, error: insertError } = await supabase.from("scheduled_posts" as any).insert({
+        user_id: session.user.id,
         client_id: clientId,
         platforms: composer.platforms,
         caption: composer.caption || null,
         media_url: uploadedUrls[0],
         media_urls: uploadedUrls,
         media_type: "carousel",
-        scheduled_at: composer.post_now ? null : composer.scheduled_at,
-      });
+        scheduled_at: isScheduling ? composer.scheduled_at : null,
+        status: isScheduling ? "scheduled" : "publishing",
+        fb_post_id: null, ig_media_id: null, error_message: null,
+      }).select().single();
 
-      if (data.error) { toast.error(data.error); return; }
-      if (data.error_message) toast.warning(`Publicado com aviso: ${data.error_message}`);
+      if (insertError) { toast.error(insertError.message); return; }
 
-      if (!composer.post_now && composer.scheduled_at) {
-        confirmScheduled(composer.scheduled_at, () => {
+      if (isScheduling) {
+        confirmScheduled(composer.scheduled_at!, () => {
           setCarouselItems([]);
           setComposer({ platforms: [], caption: "", media_url: "", media_type: "post", link_url: "", post_now: true, scheduled_at: "" });
         });
         return;
       }
 
-      toast.success("Carrossel publicado!");
+      // Immediate publish — call edge function to hit the platform APIs
+      try {
+        const pub = await callFn({ action: "approve-post", post_id: post.id });
+        if (pub.error_message) toast.warning(`Publicado com aviso: ${pub.error_message}`);
+        else toast.success("Carrossel publicado!");
+      } catch { toast.warning("Carrossel salvo, mas falhou ao publicar nas redes. Tente novamente."); }
+
       setShowComposer(false);
       setCarouselItems([]);
       setComposer({ platforms: [], caption: "", media_url: "", media_type: "post", link_url: "", post_now: true, scheduled_at: "" });
@@ -616,41 +629,54 @@ export default function SocialMediaTab({
 
     setSubmitting(true);
     try {
-      // Se tem arquivo local, sobe pro Supabase agora para gerar URL pública
       let finalMediaUrl = composer.media_url || null;
       if (localMediaFile && composer.media_url.startsWith("blob:")) {
         const uploaded = await uploadMediaToSupabase(localMediaFile);
         if (uploaded) finalMediaUrl = uploaded;
-        // se falhou, tenta com blob mesmo (plataformas reais vão rejeitar, mas não trava o fluxo)
       }
 
-      const data = await callFn({
-        action: "create-post",
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { toast.error("Sessão expirada."); return; }
+
+      const isScheduling = !composer.post_now && !!composer.scheduled_at;
+      const mediaType = composer.media_type === "story" ? "image" : (finalMediaUrl ? "image" : "text");
+
+      // INSERT directly — bypasses edge function RLS issues
+      const { data: post, error: insertError } = await supabase.from("scheduled_posts" as any).insert({
+        user_id: session.user.id,
         client_id: clientId,
         platforms: composer.platforms,
         caption: composer.media_type === "story" ? null : (composer.caption || null),
         media_url: finalMediaUrl,
-        media_type: composer.media_type === "story" ? "story" : (composer.media_url ? "image" : "text"),
-        link_url: composer.media_type === "story" ? (composer.link_url || null) : null,
-        scheduled_at: composer.post_now ? null : composer.scheduled_at,
-      });
+        media_type: mediaType,
+        scheduled_at: isScheduling ? composer.scheduled_at : null,
+        status: isScheduling ? "scheduled" : "publishing",
+        fb_post_id: null, ig_media_id: null, error_message: null,
+      }).select().single();
 
-      if (data.error) { toast.error(data.error); return; }
-      if (data.linkedin_intent_url) {
-        window.open(data.linkedin_intent_url, "_blank");
-        toast.success("LinkedIn aberto — escolha a Página de Empresa e publique!");
-      }
-      if (data.error_message) toast.warning(`Publicado com aviso: ${data.error_message}`);
+      if (insertError) { toast.error(insertError.message); return; }
 
-      if (!composer.post_now && composer.scheduled_at) {
-        confirmScheduled(composer.scheduled_at, () => {
+      if (isScheduling) {
+        confirmScheduled(composer.scheduled_at!, () => {
           setComposer({ platforms: [], caption: "", media_url: "", media_type: "post", link_url: "", post_now: true, scheduled_at: "" });
           setLocalMediaFile(null);
         });
         return;
       }
 
-      toast.success(composer.media_type === "story" ? "Story publicado!" : "Post publicado!");
+      // Immediate publish — call edge function to hit the platform APIs
+      try {
+        const pub = await callFn({ action: "approve-post", post_id: post.id });
+        if (pub.linkedin_intent_url) {
+          window.open(pub.linkedin_intent_url, "_blank");
+          toast.success("LinkedIn aberto — escolha a Página de Empresa e publique!");
+        } else if (pub.error_message) {
+          toast.warning(`Publicado com aviso: ${pub.error_message}`);
+        } else {
+          toast.success(composer.media_type === "story" ? "Story publicado!" : "Post publicado!");
+        }
+      } catch { toast.warning("Post salvo, mas falhou ao publicar nas redes. Tente novamente."); }
+
       setShowComposer(false);
       setComposer({ platforms: [], caption: "", media_url: "", media_type: "post", link_url: "", post_now: true, scheduled_at: "" });
       setLocalMediaFile(null);
