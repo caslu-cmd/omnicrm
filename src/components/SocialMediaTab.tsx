@@ -134,7 +134,7 @@ export default function SocialMediaTab({
   const [metrics, setMetrics] = useState<Metric[]>([]);
   const [loading, setLoading] = useState(true);
   const [metricsLoading, setMetricsLoading] = useState(false);
-  const [postFilter, setPostFilter] = useState<"all" | "scheduled" | "published" | "draft">("all");
+  const [postFilter, setPostFilter] = useState<"all" | "scheduled" | "published" | "draft" | "failed">("all");
   const { startPosting, posting } = useSocialPosting();
   const [showComposer, setShowComposer] = useState(false);
   const [connecting, setConnecting] = useState<string | null>(null);
@@ -948,23 +948,30 @@ export default function SocialMediaTab({
         </div>
       )}
 
-      {/* ── Stats ──────────────────────────────────────────── */}
-      {posts.length > 0 && (() => {
-        const today = new Date().toDateString();
-        const stats = [
-          { label: "Publicados", value: posts.filter(p => p.status === "published").length, color: "#34D399" },
-          { label: "Stories", value: posts.filter(p => p.media_type === "story").length, color: "#F472B6" },
-          { label: "Agendados", value: posts.filter(p => p.status === "scheduled").length, color: "#FBBF24" },
-          { label: "Hoje", value: posts.filter(p => p.scheduled_at && new Date(p.scheduled_at).toDateString() === today).length, color: clientColor },
-        ];
+      {/* ── Stats / Filter tabs ─────────────────────────────── */}
+      {(() => {
+        const tabs = [
+          { key: "all",       label: "Todos",      value: posts.length,                                              color: s(0.6) },
+          { key: "scheduled", label: "Agendados",  value: posts.filter(p => p.status === "scheduled").length,        color: "#FBBF24" },
+          { key: "published", label: "Publicados", value: posts.filter(p => p.status === "published").length,        color: "#34D399" },
+          { key: "draft",     label: "Rascunhos",  value: posts.filter(p => p.status === "draft").length,            color: s(0.4) },
+          { key: "failed",    label: "Falhos",     value: posts.filter(p => p.status === "failed").length,           color: "#F87171" },
+        ].filter(t => t.key === "all" || t.value > 0);
         return (
-          <div className="grid grid-cols-4 gap-2">
-            {stats.map(({ label, value, color }) => (
-              <div key={label} className="rounded-xl p-3 text-center" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                <p className="text-xl font-bold" style={{ color }}>{value}</p>
-                <p className="text-[10px] mt-0.5" style={{ color: s(0.35) }}>{label}</p>
-              </div>
-            ))}
+          <div className="flex gap-2 flex-wrap">
+            {tabs.map(({ key, label, value, color }) => {
+              const active = postFilter === key;
+              return (
+                <button key={key} onClick={() => setPostFilter(key as typeof postFilter)}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold transition-all flex-1 min-w-0"
+                  style={active
+                    ? { background: `${color}18`, color, border: `1px solid ${color}40` }
+                    : { background: "rgba(255,255,255,0.03)", color: s(0.3), border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <span className="text-base font-black" style={{ color: active ? color : s(0.5) }}>{value}</span>
+                  <span className="truncate">{label}</span>
+                </button>
+              );
+            })}
           </div>
         );
       })()}
@@ -972,21 +979,13 @@ export default function SocialMediaTab({
       {/* ── Posts ───────────────────────────────────────────── */}
       <div>
         <div className="flex items-center justify-between mb-3">
-          <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: s(0.3) }}>Posts</h3>
+          <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: s(0.3) }}>
+            {({ all: "Todos os posts", scheduled: "Agendados", published: "Publicados", draft: "Rascunhos", failed: "Falhos" } as Record<string,string>)[postFilter]}
+          </h3>
           <div className="flex items-center gap-1">
             {/* View toggle */}
             <button onClick={() => setViewMode("list")} className="p-1.5 rounded-lg transition-all" style={viewMode === "list" ? { background: `${clientColor}18`, color: clientColor } : { color: s(0.3) }}><List className="w-3.5 h-3.5" /></button>
             <button onClick={() => setViewMode("calendar")} className="p-1.5 rounded-lg transition-all" style={viewMode === "calendar" ? { background: `${clientColor}18`, color: clientColor } : { color: s(0.3) }}><Calendar className="w-3.5 h-3.5" /></button>
-            <div className="w-px h-4 mx-1" style={{ background: "rgba(255,255,255,0.08)" }} />
-            {(["all", "scheduled", "published", "draft"] as const).map((f) => {
-              const labels = { all: "Todos", scheduled: "Agendados", published: "Publicados", draft: "Rascunhos" };
-              return (
-                <button key={f} onClick={() => setPostFilter(f)} className="px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all"
-                  style={postFilter === f ? { background: `${clientColor}18`, color: clientColor, border: `1px solid ${clientColor}30` } : { background: "rgba(255,255,255,0.03)", color: s(0.3), border: "1px solid rgba(255,255,255,0.06)" }}>
-                  {labels[f]}
-                </button>
-              );
-            })}
           </div>
         </div>
 
