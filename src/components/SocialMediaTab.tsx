@@ -159,6 +159,7 @@ export default function SocialMediaTab({
   const [carouselItems, setCarouselItems] = useState<{ id: string; file: File; url: string }[]>([]);
   const [carouselDragOver, setCarouselDragOver] = useState(false);
   const carouselInputRef = useRef<HTMLInputElement>(null);
+  const [scheduledConfirm, setScheduledConfirm] = useState<string | null>(null);
   const [linkedinStep, setLinkedinStep] = useState<null | "enter-url" | "oauth">(null);
   const [linkedinOrgUrl, setLinkedinOrgUrl] = useState("");
   const pendingOAuthStateRef = useRef<string>("");
@@ -497,6 +498,21 @@ export default function SocialMediaTab({
     toast.info(`Publicando ${batchItems.length} ${isStory ? `stor${batchItems.length !== 1 ? "ies" : "y"}` : `post${batchItems.length !== 1 ? "s" : ""}`} em segundo plano…`);
   };
 
+  // ── Schedule confirmation ──────────────────────────────────
+  const confirmScheduled = (scheduledAt: string, cleanupFn: () => void) => {
+    const d = new Date(scheduledAt);
+    const msg = `${d.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })} às ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`;
+    setScheduledConfirm(msg);
+    setViewMode("calendar");
+    setCalendarDate({ year: d.getFullYear(), month: d.getMonth() });
+    setTimeout(() => {
+      setScheduledConfirm(null);
+      setShowComposer(false);
+      cleanupFn();
+      loadPosts();
+    }, 2500);
+  };
+
   // ── Carousel helpers ───────────────────────────────────────
   const addCarouselFiles = (files: FileList | File[]) => {
     const newItems = Array.from(files)
@@ -545,13 +561,16 @@ export default function SocialMediaTab({
 
       if (data.error) { toast.error(data.error); return; }
       if (data.error_message) toast.warning(`Publicado com aviso: ${data.error_message}`);
-      else if (!composer.post_now && composer.scheduled_at) {
-        const d = new Date(composer.scheduled_at);
-        toast.success(`📅 Carrossel agendado para ${d.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })} às ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`, { duration: 6000 });
-        setViewMode("calendar");
-        setCalendarDate({ year: d.getFullYear(), month: d.getMonth() });
-      } else toast.success("Carrossel publicado!");
 
+      if (!composer.post_now && composer.scheduled_at) {
+        confirmScheduled(composer.scheduled_at, () => {
+          setCarouselItems([]);
+          setComposer({ platforms: [], caption: "", media_url: "", media_type: "post", link_url: "", post_now: true, scheduled_at: "" });
+        });
+        return;
+      }
+
+      toast.success("Carrossel publicado!");
       setShowComposer(false);
       setCarouselItems([]);
       setComposer({ platforms: [], caption: "", media_url: "", media_type: "post", link_url: "", post_now: true, scheduled_at: "" });
@@ -622,14 +641,16 @@ export default function SocialMediaTab({
         toast.success("LinkedIn aberto — escolha a Página de Empresa e publique!");
       }
       if (data.error_message) toast.warning(`Publicado com aviso: ${data.error_message}`);
-      else if (!composer.post_now && composer.scheduled_at) {
-        const d = new Date(composer.scheduled_at);
-        const label = composer.media_type === "story" ? "Story" : "Post";
-        toast.success(`📅 ${label} agendado para ${d.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })} às ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`, { duration: 6000 });
-        setViewMode("calendar");
-        setCalendarDate({ year: d.getFullYear(), month: d.getMonth() });
-      } else toast.success(composer.media_type === "story" ? "Story publicado!" : "Post publicado!");
 
+      if (!composer.post_now && composer.scheduled_at) {
+        confirmScheduled(composer.scheduled_at, () => {
+          setComposer({ platforms: [], caption: "", media_url: "", media_type: "post", link_url: "", post_now: true, scheduled_at: "" });
+          setLocalMediaFile(null);
+        });
+        return;
+      }
+
+      toast.success(composer.media_type === "story" ? "Story publicado!" : "Post publicado!");
       setShowComposer(false);
       setComposer({ platforms: [], caption: "", media_url: "", media_type: "post", link_url: "", post_now: true, scheduled_at: "" });
       setLocalMediaFile(null);
@@ -1163,6 +1184,24 @@ export default function SocialMediaTab({
               <div className="flex overflow-hidden flex-1 min-h-0">
               {/* Left: Form */}
               <div className="flex-1 flex flex-col min-h-0" style={{ minWidth: 0 }}>
+
+              {/* ── Schedule confirmation screen ── */}
+              {scheduledConfirm ? (
+                <div className="flex-1 flex flex-col items-center justify-center gap-6 p-10 text-center">
+                  <motion.div initial={{ scale: 0.7, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} transition={{ type: "spring", stiffness: 260, damping: 18 }}
+                    className="w-20 h-20 rounded-full flex items-center justify-center"
+                    style={{ background: `${clientColor}20`, border: `2px solid ${clientColor}40` }}>
+                    <CheckCircle2 className="w-10 h-10" style={{ color: clientColor }} />
+                  </motion.div>
+                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+                    <p className="text-2xl font-bold mb-2" style={{ color: s(0.95) }}>Agendado!</p>
+                    <p className="text-sm mb-1" style={{ color: s(0.4) }}>Publicação programada para</p>
+                    <p className="text-base font-semibold" style={{ color: clientColor }}>{scheduledConfirm}</p>
+                  </motion.div>
+                  <p className="text-xs" style={{ color: s(0.2) }}>Esta janela fechará em instantes…</p>
+                </div>
+              ) : (
+              <>
               <div className="flex-1 overflow-y-auto p-6 space-y-5">
                 {/* Platform selector */}
                 <div>
@@ -1700,6 +1739,8 @@ export default function SocialMediaTab({
                   })()}
                 </button>
               </div>
+              </>
+              )}
               </div>{/* end left col wrapper */}
 
               {/* Right: Preview — for single post and carousel */}
