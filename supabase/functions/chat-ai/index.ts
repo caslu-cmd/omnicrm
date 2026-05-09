@@ -133,12 +133,27 @@ Deno.serve(async (req) => {
       return response.json() as Promise<{ stop_reason: string; content: ContentBlock[] }>;
     };
 
-    let currentMessages: unknown[] = [...messages];
-    const postsCreated: unknown[] = [];
-    let finalContent = "";
+    // Stream whitespace as keep-alive to avoid edge function 150s IDLE_TIMEOUT.
+    // JSON.parse ignores leading whitespace, so the client's res.json() still works.
+    const encoder = new TextEncoder();
+    const stream = new TransformStream<Uint8Array, Uint8Array>();
+    const writer = stream.writable.getWriter();
+    const keepAlive = setInterval(() => {
+      writer.write(encoder.encode(" ")).catch(() => {});
+    }, 10000);
 
-    let data = await callClaude(currentMessages);
-    let iterations = 0;
+    const response = new Response(stream.readable, {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
+    (async () => {
+      try {
+        let currentMessages: unknown[] = [...messages];
+        const postsCreated: unknown[] = [];
+        let finalContent = "";
+
+        let data = await callClaude(currentMessages);
+        let iterations = 0;
 
     while (data.stop_reason === "tool_use" && iterations < 5) {
       iterations++;
