@@ -1349,6 +1349,7 @@ export default function ClientWorkspace() {
       } catch {}
     }
     if (extra) lines.push(extra);
+    lines.push(`\n⚠️ REGRA ABSOLUTA — ANTI-ALUCINAÇÃO: Use SOMENTE as informações acima. NUNCA invente métricas, números, propostas, leads no CRM, campanhas ativas, resultados, contratos, contas em redes sociais ou qualquer dado que não foi explicitamente fornecido no briefing. Se algo não existe ainda, descreva o que SERÁ feito — nunca finja que já existe ou está acontecendo.`);
     return lines.length ? `\n\n${lines.join("\n")}` : "";
   };
 
@@ -1424,7 +1425,9 @@ export default function ClientWorkspace() {
       const systemWithCtx = `${AGENT_PROMPTS[agentId] ?? `Você é ${agent?.name}, ${agent?.role} da Calu Agência.`}
 
 CONTEXTO DO CLIENTE:
-Cliente: ${client.name} | Segmento: ${segmento}${client.teamInstructions ? `\nInstruções permanentes: ${client.teamInstructions}` : ""}${buildBriefingBlock()}`;
+Cliente: ${client.name} | Segmento: ${segmento}${client.teamInstructions ? `\nInstruções permanentes: ${client.teamInstructions}` : ""}${buildBriefingBlock()}
+
+⚠️ REGRA INVIOLÁVEL: Trabalhe SOMENTE com os dados do briefing acima. Se um dado não está no briefing, NÃO o invente. Nunca cite números de propostas, leads, CRM, campanhas, seguidores ou resultados que não foram fornecidos. Para tudo que ainda não existe, use linguagem de planejamento futuro ("vamos criar", "será configurado") — nunca de estado atual inventado.`;
       const { data: agData, error: agErr } = await supabase.functions.invoke("chat-ai", {
         body: {
           systemPrompt: systemWithCtx,
@@ -1611,10 +1614,11 @@ Responda APENAS JSON válido, sem markdown, sem texto extra:
 
         // (c) chama o agente individualmente
         const ctxBlock = `Cliente: ${clientContext.name} | Segmento: ${clientContext.industry} | Cor: ${clientContext.brandColor}
-Campanhas ativas: ${clientContext.campaigns.join(", ") || "nenhuma"}
 ${clientContext.teamInstructions ? `Instruções permanentes: ${clientContext.teamInstructions}` : ""}${buildBriefingBlock()}
 ${accumulated.strategist ? `\nESTRATÉGIA DA QUEILA (referencie):\n${accumulated.strategist.slice(0, 1500)}` : ""}
-${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copywriter.slice(0, 1000)}` : ""}`;
+${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copywriter.slice(0, 1000)}` : ""}
+
+⚠️ NUNCA invente dados, métricas, propostas no CRM, leads, campanhas ativas ou resultados. Use somente o que está no briefing acima. Se algo não existe, diga que será criado — não que já existe.`;
 
         let outputText = "";
         try {
@@ -2643,9 +2647,15 @@ ${priorBlock}`;
     try {
       const { data: res } = await supabase.functions.invoke("chat-ai", {
         body: {
-          systemPrompt: `Você é ${agent.name}, ${agent.role}. Responda tarefas de onboarding de forma concreta, prática e acionável para o cliente. Seja direto e entregue algo que possa ser usado imediatamente. Português brasileiro. Máximo 200 palavras.`,
+          systemPrompt: `Você é ${agent.name}, ${agent.role}.
+
+REGRA ABSOLUTA: Use SOMENTE as informações do briefing fornecido abaixo. NUNCA invente métricas, números, propostas, leads, resultados, CRM, campanhas ativas ou qualquer dado que não foi explicitamente informado. Se algo ainda não existe na plataforma, descreva o que SERÁ feito — nunca finja que já está feito ou que já existe.
+
+Responda a tarefa de onboarding com um plano de ação direto: o que vai ser executado, como e em qual ordem. Sem dados inventados.
+
+Português brasileiro. Máximo 200 palavras.`,
           maxTokens: 500,
-          messages: [{ role: "user", content: `Cliente: ${client.name}\n${ctx}\n\nTarefa de onboarding:\nTítulo: "${item.title}"${item.description ? `\nDescrição: "${item.description}"` : ""}\n\nGere uma resposta/entrega concreta para esta tarefa.` }],
+          messages: [{ role: "user", content: `Cliente: ${client.name}\n${ctx}\n\nTarefa de onboarding a ser executada:\nTítulo: "${item.title}"${item.description ? `\nDescrição: "${item.description}"` : ""}\n\nDescreva o que você vai fazer para concluir esta tarefa. Use somente o que está no briefing. Não invente dados, números ou situações que não existem.` }],
         },
       });
       const answer = res?.content?.trim() || "Sem resposta gerada.";
