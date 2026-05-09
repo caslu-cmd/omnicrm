@@ -545,8 +545,12 @@ export default function SocialMediaTab({
 
       if (data.error) { toast.error(data.error); return; }
       if (data.error_message) toast.warning(`Publicado com aviso: ${data.error_message}`);
-      else if (!composer.post_now) toast.success("Carrossel agendado!");
-      else toast.success("Carrossel publicado!");
+      else if (!composer.post_now && composer.scheduled_at) {
+        const d = new Date(composer.scheduled_at);
+        toast.success(`📅 Carrossel agendado para ${d.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })} às ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`, { duration: 6000 });
+        setViewMode("calendar");
+        setCalendarDate({ year: d.getFullYear(), month: d.getMonth() });
+      } else toast.success("Carrossel publicado!");
 
       setShowComposer(false);
       setCarouselItems([]);
@@ -616,8 +620,13 @@ export default function SocialMediaTab({
         toast.success("LinkedIn aberto — escolha a Página de Empresa e publique!");
       }
       if (data.error_message) toast.warning(`Publicado com aviso: ${data.error_message}`);
-      else if (!composer.post_now) toast.success(composer.media_type === "story" ? "Story agendado!" : "Post agendado!");
-      else toast.success(composer.media_type === "story" ? "Story publicado!" : "Post publicado!");
+      else if (!composer.post_now && composer.scheduled_at) {
+        const d = new Date(composer.scheduled_at);
+        const label = composer.media_type === "story" ? "Story" : "Post";
+        toast.success(`📅 ${label} agendado para ${d.toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })} às ${d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}`, { duration: 6000 });
+        setViewMode("calendar");
+        setCalendarDate({ year: d.getFullYear(), month: d.getMonth() });
+      } else toast.success(composer.media_type === "story" ? "Story publicado!" : "Post publicado!");
 
       setShowComposer(false);
       setComposer({ platforms: [], caption: "", media_url: "", media_type: "post", link_url: "", post_now: true, scheduled_at: "" });
