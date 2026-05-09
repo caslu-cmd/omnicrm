@@ -308,8 +308,56 @@ const ContactsPage = () => {
         </div>
       </motion.div>
 
-      {/* Table */}
-      <motion.div variants={row} className="rounded-xl border border-border bg-card shadow-card overflow-hidden">
+      {/* Mobile cards */}
+      <motion.div variants={row} className="md:hidden space-y-2.5">
+        {filtered.map((c) => {
+          const heat = getHeat(c);
+          const hcfg = HEAT_CFG[heat];
+          const src = c.channel && SOURCES[c.channel] ? SOURCES[c.channel] : null;
+          const SrcIcon = src?.Icon;
+          return (
+            <div key={c.id} className="rounded-xl border border-border bg-card p-3.5 shadow-card">
+              <div className="flex items-start gap-3 min-w-0">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary flex-shrink-0">
+                  {c.name.split(" ").map(n => n[0]).join("").slice(0, 2)}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <button onClick={() => setActiveContact(c)} className="block text-sm font-semibold text-foreground hover:underline text-left truncate w-full">
+                    {c.name}
+                  </button>
+                  <p className="text-xs text-muted-foreground truncate">{c.email || c.phone || c.company || "—"}</p>
+                  <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                    <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-semibold" style={{ background: hcfg.bg, color: hcfg.color, border: `1px solid ${hcfg.border}` }}>
+                      {hcfg.emoji} {hcfg.label}
+                    </span>
+                    {src && SrcIcon && (
+                      <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[10px] font-medium" style={{ background: src.bg, color: src.color }}>
+                        <SrcIcon className="h-3 w-3" />{src.label}
+                      </span>
+                    )}
+                    {c.status && (
+                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md text-[10px] font-medium ${statusColor(c.status)}`}>{c.status}</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-1 mt-3 pt-3 border-t border-border">
+                <button onClick={() => toast.info(`Enviando e-mail para ${c.name}…`)} className="flex-1 py-2 rounded-md hover:bg-muted text-muted-foreground flex items-center justify-center"><Mail className="h-4 w-4" /></button>
+                <button onClick={() => toast.info(`Ligando para ${c.name}…`)} className="flex-1 py-2 rounded-md hover:bg-muted text-muted-foreground flex items-center justify-center"><Phone className="h-4 w-4" /></button>
+                <button onClick={() => { setWaContact(c); setWaMessage(""); }} className="flex-1 py-2 rounded-md hover:bg-muted flex items-center justify-center" style={{ color: "#25D366" }}><MessageCircle className="h-4 w-4" /></button>
+                <button onClick={() => openEdit(c)} className="flex-1 py-2 rounded-md hover:bg-muted text-muted-foreground flex items-center justify-center"><Pencil className="h-4 w-4" /></button>
+                <button onClick={() => handleDelete(c.id)} className="flex-1 py-2 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive flex items-center justify-center"><Trash2 className="h-4 w-4" /></button>
+              </div>
+            </div>
+          );
+        })}
+        {filtered.length === 0 && (
+          <div className="text-center py-8 text-sm text-muted-foreground">Nenhum contato encontrado</div>
+        )}
+      </motion.div>
+
+      {/* Desktop Table */}
+      <motion.div variants={row} className="hidden md:block rounded-xl border border-border bg-card shadow-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
