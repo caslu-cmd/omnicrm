@@ -1349,7 +1349,7 @@ export default function ClientWorkspace() {
       } catch {}
     }
     if (extra) lines.push(extra);
-    lines.push(`\n⚠️ REGRA ABSOLUTA — ANTI-ALUCINAÇÃO: Use SOMENTE as informações acima. NUNCA invente métricas, números, propostas, leads no CRM, campanhas ativas, resultados, contratos, contas em redes sociais ou qualquer dado que não foi explicitamente fornecido no briefing. Se algo não existe ainda, descreva o que SERÁ feito — nunca finja que já existe ou está acontecendo.`);
+    lines.push(`\n⚠️ REGRA — DADOS REAIS vs. INVENÇÃO: Você PODE e DEVE entregar estratégias completas, prazos estimados, benchmarks do setor e recomendações profissionais. O que é PROIBIDO é fingir que algo JÁ EXISTE quando não foi informado: não cite propostas no CRM, leads cadastrados, campanhas em andamento, seguidores atuais, resultados passados ou qualquer estado atual do cliente que não está no briefing. Use tempo futuro para o que será feito ("vamos criar", "será configurado") e tempo condicional para estimativas ("em média X dias", "espera-se Y%").`);
     return lines.length ? `\n\n${lines.join("\n")}` : "";
   };
 
@@ -1427,7 +1427,7 @@ export default function ClientWorkspace() {
 CONTEXTO DO CLIENTE:
 Cliente: ${client.name} | Segmento: ${segmento}${client.teamInstructions ? `\nInstruções permanentes: ${client.teamInstructions}` : ""}${buildBriefingBlock()}
 
-⚠️ REGRA INVIOLÁVEL: Trabalhe SOMENTE com os dados do briefing acima. Se um dado não está no briefing, NÃO o invente. Nunca cite números de propostas, leads, CRM, campanhas, seguidores ou resultados que não foram fornecidos. Para tudo que ainda não existe, use linguagem de planejamento futuro ("vamos criar", "será configurado") — nunca de estado atual inventado.`;
+⚠️ REGRA: Estratégias, prazos estimados e benchmarks do setor são bem-vindos. O que é proibido é citar estado atual inventado — não mencione propostas no CRM, leads cadastrados, campanhas em andamento ou resultados que não foram fornecidos no briefing. Use futuro para o que será feito, condicional para estimativas.`;
       const { data: agData, error: agErr } = await supabase.functions.invoke("chat-ai", {
         body: {
           systemPrompt: systemWithCtx,
@@ -1618,7 +1618,7 @@ ${clientContext.teamInstructions ? `Instruções permanentes: ${clientContext.te
 ${accumulated.strategist ? `\nESTRATÉGIA DA QUEILA (referencie):\n${accumulated.strategist.slice(0, 1500)}` : ""}
 ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copywriter.slice(0, 1000)}` : ""}
 
-⚠️ NUNCA invente dados, métricas, propostas no CRM, leads, campanhas ativas ou resultados. Use somente o que está no briefing acima. Se algo não existe, diga que será criado — não que já existe.`;
+⚠️ Estratégias, estimativas de prazo e benchmarks são permitidos. Não invente estado atual do cliente (propostas no CRM, leads, campanhas ativas, resultados) que não foi informado. Use futuro para o que será feito.`;
 
         let outputText = "";
         try {
