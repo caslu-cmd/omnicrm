@@ -73,13 +73,13 @@ const SchedulingPage = () => {
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6">
-      <motion.div variants={item} className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold font-display text-foreground">Agendamentos</h1>
-          <p className="text-sm text-muted-foreground mt-1">Março 2026 · {events.length} eventos esta semana</p>
+      <motion.div variants={item} className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-xl md:text-2xl font-bold font-display text-foreground">Agendamentos</h1>
+          <p className="text-xs md:text-sm text-muted-foreground mt-1">Março 2026 · {events.length} eventos esta semana</p>
         </div>
-        <button onClick={() => setShowNewEvent(true)} className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">
-          <Plus className="h-4 w-4" /> Novo Evento
+        <button onClick={() => setShowNewEvent(true)} className="flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">
+          <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Novo Evento</span>
         </button>
       </motion.div>
 
@@ -108,19 +108,19 @@ const SchedulingPage = () => {
             </div>
             <div className="p-4 space-y-2 min-h-[300px]">
               {todayEvents.length > 0 ? todayEvents.map(e => (
-                <div key={e.id} className={cn("flex items-center gap-4 p-4 rounded-lg border-l-4", typeColors[e.type])}>
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted text-sm font-semibold text-foreground">{e.avatar}</div>
+                <div key={e.id} className={cn("flex items-start gap-3 md:gap-4 p-3 md:p-4 rounded-lg border-l-4 min-w-0", typeColors[e.type])}>
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-foreground">{e.avatar}</div>
                   <div className="flex-1 min-w-0">
-                    <h4 className="text-sm font-semibold text-foreground">{e.title}</h4>
-                    <div className="flex items-center gap-3 mt-0.5 text-xs text-muted-foreground">
+                    <h4 className="text-sm font-semibold text-foreground break-words">{e.title}</h4>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
                       <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {e.time} · {e.duration}</span>
-                      <span className="flex items-center gap-1"><User className="h-3 w-3" /> {e.contact}</span>
-                      <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {e.location}</span>
+                      <span className="flex items-center gap-1 min-w-0"><User className="h-3 w-3 shrink-0" /> <span className="truncate">{e.contact}</span></span>
+                      <span className="flex items-center gap-1 min-w-0"><MapPin className="h-3 w-3 shrink-0" /> <span className="truncate">{e.location}</span></span>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 shrink-0">
                     <button onClick={() => toast.info(`Abrindo ${e.location}...`)} className="p-2 rounded-lg hover:bg-muted text-primary"><Video className="h-4 w-4" /></button>
-                    <button onClick={() => toast.success(`Lembrete definido para ${e.title}`)} className="p-2 rounded-lg hover:bg-muted text-muted-foreground"><Bell className="h-4 w-4" /></button>
+                    <button onClick={() => toast.success(`Lembrete definido para ${e.title}`)} className="p-2 rounded-lg hover:bg-muted text-muted-foreground hidden sm:inline-flex"><Bell className="h-4 w-4" /></button>
                     <button onClick={() => handleDeleteEvent(e.id)} className="p-2 rounded-lg hover:bg-destructive/10 text-muted-foreground hover:text-destructive"><Trash2 className="h-4 w-4" /></button>
                   </div>
                 </div>
