@@ -556,6 +556,8 @@ export default function SocialMediaTab({
       setCarouselItems([]);
       setComposer({ platforms: [], caption: "", media_url: "", media_type: "post", link_url: "", post_now: true, scheduled_at: "" });
       loadPosts();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar. Verifique sua conexão e tente novamente.");
     } finally {
       setSubmitting(false);
       setSubmitProgress(null);
@@ -632,6 +634,8 @@ export default function SocialMediaTab({
       setComposer({ platforms: [], caption: "", media_url: "", media_type: "post", link_url: "", post_now: true, scheduled_at: "" });
       setLocalMediaFile(null);
       loadPosts();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar. Verifique sua conexão e tente novamente.");
     } finally {
       setSubmitting(false);
     }
