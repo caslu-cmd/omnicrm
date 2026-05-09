@@ -501,9 +501,9 @@ export default function SocialMediaTab({
   const addCarouselFiles = (files: FileList | File[]) => {
     const newItems = Array.from(files)
       .filter((f) => f.type.startsWith("image/"))
-      .slice(0, 10 - carouselItems.length)
+      .slice(0, 15 - carouselItems.length)
       .map((file) => ({ id: `${Date.now()}-${Math.random()}`, file, url: URL.createObjectURL(file) }));
-    setCarouselItems((prev) => [...prev, ...newItems].slice(0, 10));
+    setCarouselItems((prev) => [...prev, ...newItems].slice(0, 15));
   };
 
   const moveCarouselItem = (idx: number, dir: -1 | 1) => {
@@ -1359,9 +1359,9 @@ export default function SocialMediaTab({
                       style={{ background: carouselDragOver ? "rgba(167,139,250,0.08)" : "rgba(255,255,255,0.03)", border: `1px dashed ${carouselDragOver ? "#A78BFA" : "rgba(255,255,255,0.12)"}` }}>
                       <Upload className="w-5 h-5" style={{ color: carouselDragOver ? "#A78BFA" : s(0.3) }} />
                       <span className="text-xs font-medium" style={{ color: carouselDragOver ? "#A78BFA" : s(0.4) }}>
-                        {carouselDragOver ? "Solte para adicionar" : carouselItems.length > 0 ? `+ Adicionar mais (${carouselItems.length}/10)` : "Arraste ou clique para adicionar imagens"}
+                        {carouselDragOver ? "Solte para adicionar" : carouselItems.length > 0 ? `+ Adicionar mais (${carouselItems.length}/15)` : "Arraste ou clique para adicionar imagens"}
                       </span>
-                      <span className="text-[10px]" style={{ color: s(0.2) }}>2 a 10 imagens · JPG, PNG, WEBP</span>
+                      <span className="text-[10px]" style={{ color: s(0.2) }}>2 a 15 imagens · JPG, PNG, WEBP</span>
                     </div>
 
                     {/* Thumbnails with reorder */}
@@ -1740,7 +1740,7 @@ export default function SocialMediaTab({
                         const previewUrl = composer.media_type === "carousel" ? carouselItems[0]?.url : composer.media_url;
                         return previewUrl ? (
                           <div className="relative">
-                            <img src={previewUrl} alt="" className="w-full aspect-square object-cover" />
+                            <img src={previewUrl} alt="" className="w-full object-cover" style={{ aspectRatio: "4/5" }} />
                             {composer.media_type === "carousel" && carouselItems.length > 1 && (
                               <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 rounded-full"
                                 style={{ background: "rgba(0,0,0,0.6)" }}>
@@ -1749,7 +1749,7 @@ export default function SocialMediaTab({
                             )}
                           </div>
                         ) : (
-                          <div className="w-full aspect-square flex flex-col items-center justify-center gap-2" style={{ background: "#f5f5f5" }}>
+                          <div className="w-full flex flex-col items-center justify-center gap-2" style={{ background: "#f5f5f5", aspectRatio: "4/5" }}>
                             <ImageIcon className="w-8 h-8 text-gray-300" />
                             <p className="text-[10px] text-gray-400">{composer.media_type === "carousel" ? "Adicione imagens" : "Sem imagem"}</p>
                           </div>
