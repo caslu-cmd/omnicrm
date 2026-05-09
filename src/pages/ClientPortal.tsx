@@ -200,15 +200,41 @@ export default function ClientPortal() {
   const [expandedDemand, setExpandedDemand] = useState<string | null>(null);
   const [proposals, setProposals] = useState<AgentProposal[]>([]);
   const [proposalsLoading, setProposalsLoading] = useState(false);
+  const [passwordRequired, setPasswordRequired] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [passwordError, setPasswordError] = useState(false);
+  const [checkingPassword, setCheckingPassword] = useState(false);
 
   useEffect(() => {
     if (!token) { setNotFound(true); setLoading(false); return; }
-    supabase.rpc("get_portal_data", { p_token: token }).then(({ data: res, error }) => {
-      if (error || !res) { setNotFound(true); }
-      else { setData(res as PortalData); }
-      setLoading(false);
+    supabase.rpc("portal_check", { p_token: token } as any).then(({ data: check, error }) => {
+      if (error || !check) { setNotFound(true); setLoading(false); return; }
+      if ((check as any).password_required) {
+        setPasswordRequired(true);
+        setLoading(false);
+        return;
+      }
+      supabase.rpc("get_portal_data", { p_token: token } as any).then(({ data: res, error: err }) => {
+        if (err || !res) { setNotFound(true); }
+        else { setData(res as PortalData); }
+        setLoading(false);
+      });
     });
   }, [token]);
+
+  const handlePasswordSubmit = async () => {
+    if (!token || !passwordInput.trim()) return;
+    setCheckingPassword(true);
+    setPasswordError(false);
+    const { data: res, error } = await (supabase as any).rpc("get_portal_data", { p_token: token, p_password: passwordInput.trim() });
+    setCheckingPassword(false);
+    if (error || !res || (res as any).error === "wrong_password") {
+      setPasswordError(true);
+      return;
+    }
+    setPasswordRequired(false);
+    setData(res as PortalData);
+  };
 
   useEffect(() => {
     const wid = data?.client?.workspace_id;
@@ -234,7 +260,60 @@ export default function ClientPortal() {
   }, [data?.client?.workspace_id]);
 
   if (loading) return <LoadingScreen />;
-  if (notFound || !data) return <NotFoundScreen />;
+  if (notFound) return <NotFoundScreen />;
+
+  if (passwordRequired && !data) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "#07080A" }}>
+        <div className="w-full max-w-sm">
+          <div className="text-center mb-8">
+            <div className="text-2xl font-black tracking-tight text-white">
+              Calu<span style={{ color: "#B9FF4B" }}>.</span>
+            </div>
+            <div className="text-[10px] mt-1 uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>
+              Portal do Cliente
+            </div>
+          </div>
+          <div className="rounded-2xl p-6 space-y-4" style={{ background: "#0F1116", border: "1px solid rgba(255,255,255,0.08)" }}>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: "rgba(185,255,75,0.1)", border: "1px solid rgba(185,255,75,0.2)" }}>
+                <Key className="w-5 h-5" style={{ color: "#B9FF4B" }} />
+              </div>
+              <div>
+                <div className="text-sm font-bold text-white">Acesso protegido</div>
+                <div className="text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>Digite a senha para continuar</div>
+              </div>
+            </div>
+            <input
+              type="password"
+              value={passwordInput}
+              onChange={(e) => { setPasswordInput(e.target.value); setPasswordError(false); }}
+              onKeyDown={(e) => { if (e.key === "Enter") handlePasswordSubmit(); }}
+              placeholder="Senha de acesso"
+              autoFocus
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none"
+              style={{
+                background: "rgba(255,255,255,0.05)",
+                border: `1px solid ${passwordError ? "rgba(239,68,68,0.5)" : "rgba(255,255,255,0.1)"}`,
+                color: "#F0F0F0",
+              }}
+            />
+            {passwordError && (
+              <div className="text-xs" style={{ color: "#FCA5A5" }}>Senha incorreta. Tente novamente.</div>
+            )}
+            <button onClick={handlePasswordSubmit} disabled={checkingPassword || !passwordInput.trim()}
+              className="w-full py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
+              style={{ background: "#B9FF4B", color: "#07080A" }}>
+              {checkingPassword ? "Verificando..." : "Entrar"}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!data) return <NotFoundScreen />;
 
   const { client, briefing, onboarding, demands } = data;
 

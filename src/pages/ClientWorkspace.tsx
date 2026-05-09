@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Instagram, Facebook, Zap, FileText, Megaphone, BarChart2,
-  CheckCircle2, Clock, TrendingUp, Eye, Heart, Users, ExternalLink,
+  CheckCircle2, Clock, TrendingUp, Eye, EyeOff, Heart, Users, ExternalLink,
   Calendar, Image, Film, BookOpen, Bot, Activity, Link2, ListTodo,
   Plus, Linkedin, MessageCircle, Circle, Send,
   Wifi, WifiOff, Search, ChevronRight, Mail, DollarSign,
@@ -753,6 +753,14 @@ export default function ClientWorkspace() {
   const { user } = useAuth();
   const { setPageContext, clearPageContext } = usePageContext();
   const [openingPortal, setOpeningPortal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [sharePortalToken, setSharePortalToken] = useState<string | null>(null);
+  const [sharePasswordInput, setSharePasswordInput] = useState("");
+  const [showSharePwd, setShowSharePwd] = useState(false);
+  const [savingSharePassword, setSavingSharePassword] = useState(false);
+  const [sharePasswordSaved, setSharePasswordSaved] = useState(false);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [openingShare, setOpeningShare] = useState(false);
   const [tasks, setTasks] = useState(MOCK_TASKS_TEMPLATE);
   const [crmView, setCrmView] = useState<"contacts" | "pipeline" | "approvals" | "insights" | "whatsapp" | "deliverables">("contacts");
   const [deliverables, setDeliverables] = useState<any[]>([]);
@@ -2998,6 +3006,57 @@ Regras:
     }
   };
 
+  const handleOpenShareModal = async () => {
+    if (!user) { toast.error("Você precisa estar logado."); return; }
+    setOpeningShare(true);
+    try {
+      const { data: existing } = await (supabase as any)
+        .from("clients")
+        .select("portal_token, workspace_id, portal_password")
+        .eq("user_id", user.id)
+        .eq("name", client.name)
+        .maybeSingle();
+      let token: string;
+      if (existing?.portal_token) {
+        if (!existing.workspace_id) {
+          await (supabase as any).from("clients").update({ workspace_id: id }).eq("user_id", user.id).eq("name", client.name);
+        }
+        token = existing.portal_token;
+        setSharePasswordInput(existing.portal_password ?? "");
+      } else {
+        const { data: created, error } = await supabase
+          .from("clients")
+          .insert({ user_id: user.id, name: client.name, segment: client.industry ?? null, status: client.status === "Ativo" ? "active" : "onboarding", workspace_id: id } as any)
+          .select("portal_token")
+          .single();
+        if (error || !created?.portal_token) { toast.error("Erro ao gerar link do portal."); return; }
+        token = created.portal_token;
+        setSharePasswordInput("");
+      }
+      setSharePortalToken(token);
+      setSharePasswordSaved(false);
+      setShareCopied(false);
+      setShowShareModal(true);
+    } finally {
+      setOpeningShare(false);
+    }
+  };
+
+  const handleSaveSharePassword = async () => {
+    if (!user) return;
+    setSavingSharePassword(true);
+    try {
+      await (supabase as any)
+        .from("clients")
+        .update({ portal_password: sharePasswordInput.trim() || null })
+        .eq("user_id", user.id)
+        .eq("name", client.name);
+      setSharePasswordSaved(true);
+      setTimeout(() => setSharePasswordSaved(false), 3000);
+    } catch { toast.error("Erro ao salvar senha."); }
+    finally { setSavingSharePassword(false); }
+  };
+
   return (
     <div className="min-h-full flex flex-col text-white" style={{ background: "#080810" }}>
 
@@ -3056,7 +3115,105 @@ Regras:
               : <ExternalLink className="w-3 h-3" />}
             Ver portal do cliente
           </button>
+          <button onClick={handleOpenShareModal} disabled={openingShare}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+            style={{ background: "rgba(185,255,75,0.08)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.2)", opacity: openingShare ? 0.6 : 1 }}>
+            {openingShare
+              ? <div className="w-3 h-3 rounded-full border-2 border-current border-t-transparent animate-spin" />
+              : <Link2 className="w-3 h-3" />}
+            Compartilhar
+          </button>
         </div>
+
+        {/* ── Modal: Compartilhar Portal ── */}
+        <AnimatePresence>
+          {showShareModal && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
+              onClick={(e) => { if (e.target === e.currentTarget) setShowShareModal(false); }}>
+              <motion.div initial={{ opacity: 0, scale: 0.95, y: 8 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
+                className="w-full max-w-md rounded-2xl p-6 space-y-5"
+                style={{ background: "#111318", border: "1px solid rgba(255,255,255,0.09)" }}>
+
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-bold text-white text-sm">Compartilhar Portal</div>
+                    <div className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>{client.name}</div>
+                  </div>
+                  <button onClick={() => setShowShareModal(false)} style={{ color: "rgba(255,255,255,0.3)" }}>
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                {/* Link */}
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>Link do portal</div>
+                  <div className="flex gap-2">
+                    <div className="flex-1 rounded-xl px-3 py-2.5 text-xs font-mono truncate"
+                      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.55)" }}>
+                      caluagencia.com.br/portal/{sharePortalToken}
+                    </div>
+                    <button
+                      onClick={() => {
+                        navigator.clipboard.writeText(`https://www.caluagencia.com.br/portal/${sharePortalToken}`);
+                        setShareCopied(true);
+                        setTimeout(() => setShareCopied(false), 2000);
+                      }}
+                      className="px-3 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5"
+                      style={{ background: shareCopied ? "rgba(185,255,75,0.12)" : "rgba(185,255,75,0.08)", color: shareCopied ? "#B9FF4B" : "#B9FF4B", border: `1px solid ${shareCopied ? "rgba(185,255,75,0.4)" : "rgba(185,255,75,0.2)"}` }}>
+                      {shareCopied ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Link2 className="w-3.5 h-3.5" />}
+                      {shareCopied ? "Copiado!" : "Copiar"}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Password */}
+                <div>
+                  <div className="text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>
+                    Senha de acesso <span style={{ color: "rgba(255,255,255,0.2)" }}>(opcional)</span>
+                  </div>
+                  <div className="flex gap-2">
+                    <div className="relative flex-1">
+                      <input
+                        type={showSharePwd ? "text" : "password"}
+                        value={sharePasswordInput}
+                        onChange={(e) => setSharePasswordInput(e.target.value)}
+                        onKeyDown={(e) => { if (e.key === "Enter") handleSaveSharePassword(); }}
+                        placeholder="Deixe em branco para acesso livre"
+                        className="w-full rounded-xl px-3 py-2.5 pr-9 text-xs outline-none"
+                        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0" }}
+                      />
+                      <button type="button" onClick={() => setShowSharePwd(p => !p)}
+                        className="absolute right-2.5 top-1/2 -translate-y-1/2"
+                        style={{ color: "rgba(255,255,255,0.3)" }}>
+                        {showSharePwd ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                    <button onClick={handleSaveSharePassword} disabled={savingSharePassword}
+                      className="px-4 rounded-xl text-xs font-bold transition-all disabled:opacity-50 flex items-center gap-1.5"
+                      style={{ background: "#B9FF4B", color: "#07080A" }}>
+                      {savingSharePassword ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : "Salvar"}
+                    </button>
+                  </div>
+                  {sharePasswordSaved && (
+                    <div className="text-xs mt-1.5 flex items-center gap-1" style={{ color: "#B9FF4B" }}>
+                      <CheckCircle2 className="w-3 h-3" /> Senha salva com sucesso
+                    </div>
+                  )}
+                </div>
+
+                {/* Open portal */}
+                <button onClick={() => window.open(`/portal/${sharePortalToken}`, "_blank")}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all"
+                  style={{ background: `${client.color}18`, color: client.color, border: `1px solid ${client.color}30` }}>
+                  <ExternalLink className="w-4 h-4" /> Abrir portal
+                </button>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* ── Modal: Limpar Dados ── */}
         <AnimatePresence>
