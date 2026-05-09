@@ -31,6 +31,7 @@ interface ScheduledPost {
   platforms: string[];
   caption: string | null;
   media_url: string | null;
+  media_urls: string[] | null;
   media_type: string;
   scheduled_at: string | null;
   published_at: string | null;
@@ -155,6 +156,9 @@ export default function SocialMediaTab({
   const [batchTime, setBatchTime] = useState("09:00");
   const [batchSubType, setBatchSubType] = useState<"post" | "story">("post");
   const batchInputRef = useRef<HTMLInputElement>(null);
+  const [carouselItems, setCarouselItems] = useState<{ id: string; file: File; url: string }[]>([]);
+  const [carouselDragOver, setCarouselDragOver] = useState(false);
+  const carouselInputRef = useRef<HTMLInputElement>(null);
   const [linkedinStep, setLinkedinStep] = useState<null | "enter-url" | "oauth">(null);
   const [linkedinOrgUrl, setLinkedinOrgUrl] = useState("");
   const pendingOAuthStateRef = useRef<string>("");
@@ -164,7 +168,7 @@ export default function SocialMediaTab({
     platforms: [] as string[],
     caption: "",
     media_url: "",
-    media_type: "post" as "post" | "story" | "batch",
+    media_type: "post" as "post" | "story" | "batch" | "carousel",
     link_url: "",
     post_now: true,
     scheduled_at: "",
@@ -491,6 +495,67 @@ export default function SocialMediaTab({
     setComposer((p) => ({ ...p, media_type: "post" }));
     loadPosts();
     toast.info(`Publicando ${batchItems.length} ${isStory ? `stor${batchItems.length !== 1 ? "ies" : "y"}` : `post${batchItems.length !== 1 ? "s" : ""}`} em segundo plano…`);
+  };
+
+  // ── Carousel helpers ───────────────────────────────────────
+  const addCarouselFiles = (files: FileList | File[]) => {
+    const newItems = Array.from(files)
+      .filter((f) => f.type.startsWith("image/"))
+      .slice(0, 10 - carouselItems.length)
+      .map((file) => ({ id: `${Date.now()}-${Math.random()}`, file, url: URL.createObjectURL(file) }));
+    setCarouselItems((prev) => [...prev, ...newItems].slice(0, 10));
+  };
+
+  const moveCarouselItem = (idx: number, dir: -1 | 1) => {
+    setCarouselItems((prev) => {
+      const arr = [...prev];
+      const target = idx + dir;
+      if (target < 0 || target >= arr.length) return arr;
+      [arr[idx], arr[target]] = [arr[target], arr[idx]];
+      return arr;
+    });
+  };
+
+  const handleCarouselSubmit = async () => {
+    if (carouselItems.length < 2) { toast.error("Adicione pelo menos 2 imagens para o carrossel."); return; }
+    if (!composer.platforms.length) { toast.error("Selecione ao menos uma plataforma."); return; }
+    if (!composer.post_now && !composer.scheduled_at) { toast.error("Selecione a data de agendamento."); return; }
+
+    setSubmitting(true);
+    try {
+      const uploadedUrls: string[] = [];
+      setSubmitProgress({ current: 0, total: carouselItems.length });
+      for (let i = 0; i < carouselItems.length; i++) {
+        const uploaded = await uploadMediaToSupabase(carouselItems[i].file);
+        if (!uploaded) { toast.error(`Erro ao fazer upload da imagem ${i + 1}.`); return; }
+        uploadedUrls.push(uploaded);
+        setSubmitProgress({ current: i + 1, total: carouselItems.length });
+      }
+
+      const data = await callFn({
+        action: "create-post",
+        client_id: clientId,
+        platforms: composer.platforms,
+        caption: composer.caption || null,
+        media_url: uploadedUrls[0],
+        media_urls: uploadedUrls,
+        media_type: "carousel",
+        scheduled_at: composer.post_now ? null : composer.scheduled_at,
+      });
+
+      if (data.error) { toast.error(data.error); return; }
+      if (data.error_message) toast.warning(`Publicado com aviso: ${data.error_message}`);
+      else if (!composer.post_now) toast.success("Carrossel agendado!");
+      else toast.success("Carrossel publicado!");
+
+      setShowComposer(false);
+      setCarouselItems([]);
+      setComposer({ platforms: [], caption: "", media_url: "", media_type: "post", link_url: "", post_now: true, scheduled_at: "" });
+      loadPosts();
+    } finally {
+      setSubmitting(false);
+      setSubmitProgress(null);
+    }
   };
 
   // ── Upload media ───────────────────────────────────────────
@@ -1118,12 +1183,12 @@ export default function SocialMediaTab({
                 </div>
 
                 {/* Post type */}
-                <div className="flex gap-2">
-                  {(["post", "story", "batch"] as const).map((t) => (
-                    <button key={t} onClick={() => { setComposer((p) => ({ ...p, media_type: t })); setBatchItems([]); }}
+                <div className="flex gap-2 flex-wrap">
+                  {(["post", "carousel", "story", "batch"] as const).map((t) => (
+                    <button key={t} onClick={() => { setComposer((p) => ({ ...p, media_type: t })); setBatchItems([]); setCarouselItems([]); }}
                       className="flex-1 py-2 rounded-xl text-xs font-semibold transition-all"
-                      style={composer.media_type === t ? { background: clientColor, color: "#07080A" } : { background: "rgba(255,255,255,0.05)", color: s(0.4), border: "1px solid rgba(255,255,255,0.09)" }}>
-                      {t === "post" ? "📝 Post" : t === "story" ? "📱 Story" : "📦 Lote"}
+                      style={composer.media_type === t ? { background: t === "carousel" ? "#A78BFA" : clientColor, color: "#07080A" } : { background: "rgba(255,255,255,0.05)", color: s(0.4), border: "1px solid rgba(255,255,255,0.09)" }}>
+                      {t === "post" ? "📝 Post" : t === "carousel" ? "🎠 Carrossel" : t === "story" ? "📱 Story" : "📦 Lote"}
                     </button>
                   ))}
                 </div>
@@ -1274,6 +1339,116 @@ export default function SocialMediaTab({
                         </div>
                       </div>
                     ); })()}
+                  </div>
+                )}
+
+                {/* ── Carousel mode ────────────────────────────── */}
+                {composer.media_type === "carousel" && (
+                  <div className="space-y-4">
+                    <input ref={carouselInputRef} type="file" multiple accept="image/jpeg,image/png,image/webp,image/gif" className="hidden"
+                      onChange={(e) => { if (e.target.files) addCarouselFiles(e.target.files); }} />
+
+                    {/* Drop zone */}
+                    <div
+                      onClick={() => carouselInputRef.current?.click()}
+                      onDragOver={(e) => { e.preventDefault(); setCarouselDragOver(true); }}
+                      onDragEnter={(e) => { e.preventDefault(); setCarouselDragOver(true); }}
+                      onDragLeave={() => setCarouselDragOver(false)}
+                      onDrop={(e) => { e.preventDefault(); setCarouselDragOver(false); if (e.dataTransfer.files) addCarouselFiles(e.dataTransfer.files); }}
+                      className="w-full py-6 rounded-xl flex flex-col items-center gap-2 cursor-pointer transition-all"
+                      style={{ background: carouselDragOver ? "rgba(167,139,250,0.08)" : "rgba(255,255,255,0.03)", border: `1px dashed ${carouselDragOver ? "#A78BFA" : "rgba(255,255,255,0.12)"}` }}>
+                      <Upload className="w-5 h-5" style={{ color: carouselDragOver ? "#A78BFA" : s(0.3) }} />
+                      <span className="text-xs font-medium" style={{ color: carouselDragOver ? "#A78BFA" : s(0.4) }}>
+                        {carouselDragOver ? "Solte para adicionar" : carouselItems.length > 0 ? `+ Adicionar mais (${carouselItems.length}/10)` : "Arraste ou clique para adicionar imagens"}
+                      </span>
+                      <span className="text-[10px]" style={{ color: s(0.2) }}>2 a 10 imagens · JPG, PNG, WEBP</span>
+                    </div>
+
+                    {/* Thumbnails with reorder */}
+                    {carouselItems.length > 0 && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium" style={{ color: s(0.5) }}>
+                            {carouselItems.length} {carouselItems.length === 1 ? "imagem" : "imagens"} — arraste ou use as setas para reordenar
+                          </span>
+                          <button onClick={() => setCarouselItems([])} className="text-[10px]" style={{ color: "#F87171" }}>Limpar tudo</button>
+                        </div>
+
+                        <div className="grid grid-cols-5 gap-2">
+                          {carouselItems.map((item, idx) => (
+                            <div key={item.id} className="relative rounded-xl overflow-hidden group" style={{ aspectRatio: "1/1", background: "rgba(255,255,255,0.04)" }}>
+                              <img src={item.url} alt="" className="w-full h-full object-cover" />
+
+                              {/* Index badge */}
+                              <div className="absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black"
+                                style={{ background: "#A78BFA", color: "#fff" }}>{idx + 1}</div>
+
+                              {/* Remove */}
+                              <button onClick={() => setCarouselItems((prev) => prev.filter((i) => i.id !== item.id))}
+                                className="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center"
+                                style={{ background: "rgba(0,0,0,0.7)" }}>
+                                <X className="w-2.5 h-2.5 text-white" />
+                              </button>
+
+                              {/* Reorder arrows */}
+                              <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-1 py-1"
+                                style={{ background: "rgba(0,0,0,0.55)" }}>
+                                <button
+                                  onClick={() => moveCarouselItem(idx, -1)}
+                                  disabled={idx === 0}
+                                  className="w-5 h-5 rounded flex items-center justify-center disabled:opacity-25 transition-opacity"
+                                  style={{ background: "rgba(255,255,255,0.15)" }}>
+                                  <ChevronLeft className="w-3 h-3 text-white" />
+                                </button>
+                                <button
+                                  onClick={() => moveCarouselItem(idx, 1)}
+                                  disabled={idx === carouselItems.length - 1}
+                                  className="w-5 h-5 rounded flex items-center justify-center disabled:opacity-25 transition-opacity"
+                                  style={{ background: "rgba(255,255,255,0.15)" }}>
+                                  <ChevronRight className="w-3 h-3 text-white" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Caption */}
+                    <div>
+                      <label className="block text-xs font-medium mb-2" style={{ color: s(0.4) }}>Legenda</label>
+                      <textarea
+                        value={composer.caption}
+                        onChange={(e) => setComposer((p) => ({ ...p, caption: e.target.value }))}
+                        rows={3}
+                        placeholder="Escreva a legenda do carrossel…"
+                        className="w-full rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none"
+                        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: s(0.8) }}
+                      />
+                      <p className="text-[10px] mt-1 text-right" style={{ color: s(0.2) }}>{composer.caption.length}/2200</p>
+                    </div>
+
+                    {/* Schedule */}
+                    <div>
+                      <label className="block text-xs font-medium mb-2" style={{ color: s(0.4) }}>Publicação</label>
+                      <div className="flex gap-2 mb-3">
+                        {[{ v: true, label: "Publicar agora" }, { v: false, label: "Agendar" }].map(({ v, label }) => (
+                          <button key={label} onClick={() => setComposer((p) => ({ ...p, post_now: v }))}
+                            className="flex-1 py-2 rounded-xl text-xs font-medium transition-all"
+                            style={composer.post_now === v
+                              ? { background: "rgba(167,139,250,0.15)", color: "#A78BFA", border: "1px solid rgba(167,139,250,0.3)" }
+                              : { background: "rgba(255,255,255,0.04)", color: s(0.4), border: "1px solid rgba(255,255,255,0.07)" }}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      {!composer.post_now && (
+                        <input type="datetime-local" value={composer.scheduled_at}
+                          onChange={(e) => setComposer((p) => ({ ...p, scheduled_at: e.target.value }))}
+                          className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none"
+                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: s(0.8), colorScheme: "dark" }} />
+                      )}
+                    </div>
                   </div>
                 )}
 
@@ -1492,14 +1667,20 @@ export default function SocialMediaTab({
                   Cancelar
                 </button>
                 <button
-                  onClick={(composer.media_type === "batch" || composer.media_type === "story") ? handleBatchSubmit : handleSubmitPost}
+                  onClick={
+                    composer.media_type === "carousel" ? handleCarouselSubmit :
+                    (composer.media_type === "batch" || composer.media_type === "story") ? handleBatchSubmit :
+                    handleSubmitPost
+                  }
                   disabled={submitting}
                   className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 transition-all"
-                  style={{ background: (composer.media_type === "story" || (composer.media_type === "batch" && batchSubType === "story")) ? "#F472B6" : clientColor, color: "#07080A" }}>
+                  style={{ background: composer.media_type === "carousel" ? "#A78BFA" : (composer.media_type === "story" || (composer.media_type === "batch" && batchSubType === "story")) ? "#F472B6" : clientColor, color: "#07080A" }}>
                   {(() => {
                     const isStoryMode = composer.media_type === "story" || (composer.media_type === "batch" && batchSubType === "story");
                     const isBatch = composer.media_type === "batch" || composer.media_type === "story";
+                    if (submitting && submitProgress) return <><RefreshCw className="w-4 h-4 animate-spin" /> Enviando {submitProgress.current}/{submitProgress.total}…</>;
                     if (submitting) return <><RefreshCw className="w-4 h-4 animate-spin" /> {composer.post_now ? "Publicando…" : "Agendando…"}</>;
+                    if (composer.media_type === "carousel") return <><Send className="w-4 h-4" /> {carouselItems.length >= 2 ? `Publicar carrossel (${carouselItems.length})` : "Adicione 2+ imagens"}</>;
                     if (isStoryMode) return <><Send className="w-4 h-4" /> {batchItems.length > 0 ? `Publicar ${batchItems.length} stor${batchItems.length !== 1 ? "ies" : "y"}` : "Adicione stories acima"}</>;
                     if (isBatch) return <><Send className="w-4 h-4" /> {batchItems.length > 0 ? `Publicar ${batchItems.length} post${batchItems.length !== 1 ? "s" : ""}` : "Adicione imagens acima"}</>;
                     return <><Send className="w-4 h-4" /> {composer.post_now ? "Publicar" : "Agendar"}</>;
@@ -1508,8 +1689,8 @@ export default function SocialMediaTab({
               </div>
               </div>{/* end left col wrapper */}
 
-              {/* Right: Preview — only for single post */}
-              {composer.media_type === "post" && <div className="w-72 flex-shrink-0 flex flex-col overflow-y-auto" style={{ borderLeft: "1px solid rgba(255,255,255,0.07)", background: "rgba(0,0,0,0.2)" }}>
+              {/* Right: Preview — for single post and carousel */}
+              {(composer.media_type === "post" || composer.media_type === "carousel") && <div className="w-72 flex-shrink-0 flex flex-col overflow-y-auto" style={{ borderLeft: "1px solid rgba(255,255,255,0.07)", background: "rgba(0,0,0,0.2)" }}>
                 <div className="p-4 space-y-4 flex-1">
                   {/* Preview type toggle */}
                   <div>
@@ -1555,14 +1736,25 @@ export default function SocialMediaTab({
                         <MoreHorizontal className="w-4 h-4 text-gray-400 flex-shrink-0" />
                       </div>
                       {/* Image */}
-                      {composer.media_url ? (
-                        <img src={composer.media_url} alt="" className="w-full aspect-square object-cover" />
-                      ) : (
-                        <div className="w-full aspect-square flex flex-col items-center justify-center gap-2" style={{ background: "#f5f5f5" }}>
-                          <ImageIcon className="w-8 h-8 text-gray-300" />
-                          <p className="text-[10px] text-gray-400">Sem imagem</p>
-                        </div>
-                      )}
+                      {(() => {
+                        const previewUrl = composer.media_type === "carousel" ? carouselItems[0]?.url : composer.media_url;
+                        return previewUrl ? (
+                          <div className="relative">
+                            <img src={previewUrl} alt="" className="w-full aspect-square object-cover" />
+                            {composer.media_type === "carousel" && carouselItems.length > 1 && (
+                              <div className="absolute top-2 right-2 flex items-center gap-1 px-2 py-0.5 rounded-full"
+                                style={{ background: "rgba(0,0,0,0.6)" }}>
+                                <span className="text-white text-[9px] font-bold">1/{carouselItems.length}</span>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="w-full aspect-square flex flex-col items-center justify-center gap-2" style={{ background: "#f5f5f5" }}>
+                            <ImageIcon className="w-8 h-8 text-gray-300" />
+                            <p className="text-[10px] text-gray-400">{composer.media_type === "carousel" ? "Adicione imagens" : "Sem imagem"}</p>
+                          </div>
+                        );
+                      })()}
                       {/* Actions */}
                       <div className="px-3 py-2 space-y-1.5">
                         <div className="flex items-center gap-3">
