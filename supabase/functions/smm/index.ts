@@ -429,7 +429,8 @@ Deno.serve(async (req) => {
         } catch (e) { errorMessage = e instanceof Error ? e.message : "Erro ao publicar"; status = "failed"; }
       }
 
-      if (status === "publishing") status = "published";
+      // If meant to be scheduled and no platform call changed the status, force "scheduled"
+      if (status === "publishing") status = isScheduled ? "scheduled" : "published";
 
       const { data: post, error: insertError } = await supabase.from("scheduled_posts").insert({
         user_id: userId, client_id, platforms, caption,
