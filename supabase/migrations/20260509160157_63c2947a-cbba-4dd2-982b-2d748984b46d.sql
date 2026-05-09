@@ -1,0 +1,6 @@
+ALTER TABLE public.scheduled_posts
+  DROP CONSTRAINT IF EXISTS scheduled_posts_media_type_check;
+
+ALTER TABLE public.scheduled_posts
+  ADD CONSTRAINT scheduled_posts_media_type_check
+  CHECK (media_type = ANY (ARRAY['text'::text, 'image'::text, 'video'::text, 'story'::text, 'carousel'::text]));

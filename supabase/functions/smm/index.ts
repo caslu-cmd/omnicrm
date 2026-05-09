@@ -46,9 +46,8 @@ const META_SCOPE = [
 
 const LINKEDIN_SCOPE = "w_member_social";
 
-function normalizeScheduledPostMediaType(mediaType: unknown, mediaUrl: unknown): "text" | "image" | "video" | "carousel" {
+function normalizeScheduledPostMediaType(mediaType: unknown, mediaUrl: unknown): "text" | "image" | "video" {
   const value = typeof mediaType === "string" ? mediaType.toLowerCase() : "";
-  if (value === "carousel") return "carousel";
   if (value === "video") return "video";
   if (value === "text" && !mediaUrl) return "text";
   if (mediaUrl) return "image";
