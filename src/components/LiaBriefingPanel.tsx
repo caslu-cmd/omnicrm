@@ -547,14 +547,45 @@ Com base neste briefing, gere agora o diagnóstico completo em markdown, seguind
       if (err) throw err;
       const diagnosisText = res?.content ?? "";
       setDiagnosis(diagnosisText);
-      const syntheticData: BriefingData = { ...EMPTY, empresa: clientName, segmento: clientIndustry, produtos: pasteText.slice(0, 500) };
+
+      // Extract structured fields from the paste text
+      let extracted: any = {};
       try {
-        localStorage.setItem(`client-briefing-${clientId}`, JSON.stringify(syntheticData));
+        const { data: extractRes } = await supabase.functions.invoke("chat-ai", {
+          body: {
+            systemPrompt: "Extrator de briefing. Retorne SOMENTE JSON válido sem markdown.",
+            maxTokens: 600,
+            messages: [{
+              role: "user",
+              content: `Extraia do texto de briefing abaixo os campos em JSON. Use null se não encontrado, array vazio [] para listas.\n{"target_audience":null,"active_platforms":[],"post_frequency":null,"differentials":null,"goals":[],"brand_voice":null,"main_pain":null}\n\nTEXTO:\n${pasteText.slice(0, 3000)}`,
+            }],
+          },
+        });
+        const rawJson = extractRes?.content ?? "";
+        const match = rawJson.match(/\{[\s\S]*\}/);
+        if (match) extracted = JSON.parse(match[0]);
+      } catch {}
+
+      const enrichedData: BriefingData = {
+        ...EMPTY,
+        empresa: clientName,
+        segmento: clientIndustry,
+        produtos: pasteText.slice(0, 500),
+        clienteIdeal: extracted.target_audience ?? "",
+        canaisAtivos: Array.isArray(extracted.active_platforms) ? extracted.active_platforms : [],
+        frequencia: extracted.post_frequency ?? "",
+        diferencial: extracted.differentials ?? "",
+        meta90dias: extracted.goals?.[0] ?? "",
+        dorPrincipal: extracted.main_pain ?? "",
+      };
+
+      try {
+        localStorage.setItem(`client-briefing-${clientId}`, JSON.stringify(enrichedData));
         localStorage.setItem(`client-briefing-diagnosis-${clientId}`, diagnosisText.slice(0, 3000));
         localStorage.setItem(`client-briefing-raw-${clientId}`, pasteText.slice(0, 5000));
-        onBriefingSaved?.(syntheticData);
+        onBriefingSaved?.(enrichedData);
       } catch {}
-      await upsertBriefing(syntheticData);
+      await upsertBriefing(enrichedData);
     } catch (e) {
       setPasteError(e instanceof Error ? e.message : String(e));
     } finally {

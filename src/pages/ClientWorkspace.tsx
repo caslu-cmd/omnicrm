@@ -2702,44 +2702,77 @@ ${priorBlock}`;
     })();
   }, [id]);
 
-  // Auto-sync localStorage briefing → Supabase client_briefings (runs once per client)
+  // Auto-sync localStorage briefing → Supabase client_briefings
   useEffect(() => {
     if (!portalClientUUID || !user?.id || !clientBriefing) return;
     (async () => {
       const { data: existing } = await (supabase as any)
         .from("client_briefings").select("id, completeness_score")
         .eq("client_id", portalClientUUID).maybeSingle();
-      if (existing?.completeness_score > 0) return; // já tem dados, não sobrescrever
+
       const b = clientBriefing as any;
+
+      // Enrich sparse briefings (paste-mode) from raw text via AI extraction
+      let enriched = { ...b };
+      const rawText = (() => { try { return localStorage.getItem(`client-briefing-raw-${id}`) || ""; } catch { return ""; } })();
+      if (rawText && (!b.clienteIdeal || !b.canaisAtivos?.length || !b.diferencial)) {
+        try {
+          const { data: extractRes } = await supabase.functions.invoke("chat-ai", {
+            body: {
+              systemPrompt: "Extrator de briefing. Retorne SOMENTE JSON válido sem markdown.",
+              maxTokens: 600,
+              messages: [{
+                role: "user",
+                content: `Extraia do texto abaixo em JSON. Use null se não encontrado.\n{"target_audience":null,"active_platforms":[],"post_frequency":null,"differentials":null,"goals":[],"brand_voice":null,"main_pain":null}\n\nTEXTO:\n${rawText.slice(0, 3000)}`,
+              }],
+            },
+          });
+          const rawJson = extractRes?.content ?? "";
+          const match = rawJson.match(/\{[\s\S]*\}/);
+          if (match) {
+            const ext = JSON.parse(match[0]);
+            if (ext.target_audience) enriched.clienteIdeal = ext.target_audience;
+            if (ext.active_platforms?.length) enriched.canaisAtivos = ext.active_platforms;
+            if (ext.post_frequency) enriched.frequencia = ext.post_frequency;
+            if (ext.differentials) enriched.diferencial = ext.differentials;
+            if (ext.goals?.[0]) enriched.meta90dias = ext.goals[0];
+            if (ext.main_pain) enriched.dorPrincipal = ext.main_pain;
+          }
+        } catch {}
+      }
+
       const budgetMap: Record<string, number> = {
         "Até R$ 1.000/mês": 1000, "R$ 1.000–3.000/mês": 2000,
         "R$ 3.000–7.000/mês": 5000, "R$ 7.000–15.000/mês": 11000,
         "Acima de R$ 15.000/mês": 15000,
       };
-      const audience = b.clienteIdeal
-        ? `${b.clienteIdeal}${b.faixaEtaria ? ` (${b.faixaEtaria})` : ""}` : null;
-      const comps = b.concorrentes
-        ? b.concorrentes.split(/[,;]/).map((s: string) => s.trim()).filter(Boolean) : [];
-      const goals = b.meta90dias ? [b.meta90dias] : [];
-      const notes = [b.dorPrincipal, b.preocupacoes, b.jaTentou].filter(Boolean).join("\n\n") || null;
-      const required = [b.empresa || client.name, b.segmento, audience, goals.length > 0,
-        (b.canaisAtivos?.length ?? 0) > 0, b.frequencia, b.diferencial];
+      const audience = enriched.clienteIdeal
+        ? `${enriched.clienteIdeal}${enriched.faixaEtaria ? ` (${enriched.faixaEtaria})` : ""}` : null;
+      const comps = enriched.concorrentes
+        ? enriched.concorrentes.split(/[,;]/).map((s: string) => s.trim()).filter(Boolean) : [];
+      const goals = enriched.meta90dias ? [enriched.meta90dias] : [];
+      const notes = [enriched.dorPrincipal, enriched.preocupacoes, enriched.jaTentou].filter(Boolean).join("\n\n") || null;
+      const required = [enriched.empresa || client.name, enriched.segmento, audience, goals.length > 0,
+        (enriched.canaisAtivos?.length ?? 0) > 0, enriched.frequencia, enriched.diferencial];
       const score = Math.round((required.filter(Boolean).length / (required.length + 1)) * 100);
+
+      if (existing?.completeness_score >= score) return; // existing data is already as good or better
+
       const missing: string[] = [];
-      if (!b.segmento)              missing.push("segment");
-      if (!audience)                missing.push("target_audience");
+      if (!enriched.segmento)              missing.push("segment");
+      if (!audience)                       missing.push("target_audience");
       missing.push("brand_voice");
-      if (!goals.length)            missing.push("goals");
-      if (!b.canaisAtivos?.length)  missing.push("active_platforms");
-      if (!b.frequencia)            missing.push("post_frequency");
-      if (!b.diferencial)           missing.push("differentials");
+      if (!goals.length)                   missing.push("goals");
+      if (!enriched.canaisAtivos?.length)  missing.push("active_platforms");
+      if (!enriched.frequencia)            missing.push("post_frequency");
+      if (!enriched.diferencial)           missing.push("differentials");
       const payload: any = {
         client_id: portalClientUUID, user_id: user.id,
-        brand_name: b.empresa || client.name,
-        segment: b.segmento || null, target_audience: audience,
-        competitors: comps, goals, active_platforms: b.canaisAtivos || [],
-        monthly_budget: budgetMap[b.budgetMarketing] ?? null,
-        post_frequency: b.frequencia || null, differentials: b.diferencial || null,
+        brand_name: enriched.empresa || client.name,
+        segment: enriched.segmento || null, target_audience: audience,
+        competitors: comps, goals, active_platforms: enriched.canaisAtivos || [],
+        monthly_budget: budgetMap[enriched.budgetMarketing] ?? null,
+        post_frequency: enriched.frequencia || null, differentials: enriched.diferencial || null,
         notes, completeness_score: score, missing_fields: missing,
         updated_at: new Date().toISOString(),
       };
