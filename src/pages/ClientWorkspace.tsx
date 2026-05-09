@@ -2755,39 +2755,37 @@ Português brasileiro. Máximo 200 palavras.`,
     const clientCtx = `Cliente: ${client?.name} | Segmento: ${clientBriefing?.segmento || client?.industry || "–"}${client?.teamInstructions ? `\nInstruções permanentes: ${client.teamInstructions}` : ""}`;
 
     const systemPrompt = `Você é a ARIA, orquestradora estratégica da Calu Agência de Marketing Digital.
-Sua função é analisar o briefing completo do cliente e gerar uma lista estruturada de demandas de marketing para o próximo ciclo (30 dias).
+Analise o briefing do cliente e distribua as demandas do próximo ciclo (30 dias) entre os agentes especialistas do time.
 
-Time disponível:
-- Queila (Estratégia de conteúdo e copy)
-- Beatriz (Design e identidade visual)
-- Marina (Tráfego pago e performance)
-- Rafaela (Social media e gestão de redes)
-- Lia (Diagnóstico, IA e automações)
-- Bobby (Edição de vídeo)
-- Vitória (Revisão e qualidade)
-
-Você representa a agência como um todo. Todas as demandas geradas são de responsabilidade da Calu Agência.`;
+Agentes disponíveis e suas especialidades:
+- queila: estratégia de conteúdo, copywriting, pauta editorial, posicionamento de marca
+- beatriz: design gráfico, identidade visual, criação de artes e peças visuais
+- rafaela: tráfego pago, campanhas Meta Ads / Google Ads, performance
+- marina: social media, publicação orgânica, gestão de redes sociais
+- lia: diagnóstico, automações, inteligência artificial, relatórios
+- luna: orquestração geral, planejamento estratégico, onboarding`;
 
     const userMsg = `${clientCtx}${briefingBlock}
 
-Com base em todo esse contexto, crie entre 4 e 8 demandas concretas e acionáveis de marketing para esse cliente.
+Crie entre 4 e 8 demandas concretas para o próximo mês, cada uma atribuída ao agente correto.
 
-Retorne SOMENTE um array JSON válido. Sem texto antes ou depois:
+Retorne SOMENTE um array JSON válido, sem texto antes ou depois:
 [
   {
-    "title": "título curto e claro",
-    "description": "o que será feito, como e qual o resultado esperado",
+    "title": "título curto e claro (máx 60 chars)",
+    "description": "o que será entregue e qual resultado o cliente verá",
+    "agent": "queila",
     "priority": "high",
     "due_days": 7
   }
 ]
 
 Regras:
-- title: máx 60 caracteres, ação clara (ex: "Criar calendário editorial de junho")
-- description: 1–2 frases descrevendo a entrega concreta
-- priority: "low", "medium" ou "high" — baseado no impacto e urgência para o cliente
-- due_days: prazo realista em dias a partir de hoje
-- Priorize demandas de alto impacto para os objetivos declarados no briefing`;
+- agent: use exatamente um dos IDs: queila, beatriz, rafaela, marina, lia, luna
+- Atribua cada tarefa ao agente cuja especialidade melhor se encaixa
+- due_days: prazo realista em dias corridos a partir de hoje
+- priority: "low", "medium" ou "high"
+- description: 1–2 frases concretas do que será feito e o que o cliente receberá`;
 
     try {
       const { data: res } = await supabase.functions.invoke("chat-ai", {
@@ -2803,16 +2801,17 @@ Regras:
       if (!match) throw new Error("JSON não encontrado");
       const demands: any[] = JSON.parse(match[0]);
 
-      const caluAgent = { id: "calu", name: "Calu Agência", color: "#B9FF4B" };
       let created = 0;
       for (const dem of demands) {
+        const agent = WS_AGENTS.find(a => a.id === dem.agent) ?? WS_AGENTS[0];
         const dueDate = dem.due_days ? new Date(Date.now() + dem.due_days * 86400000).toISOString() : null;
+        const agentEntry = { id: agent.id, name: agent.name, color: agent.color };
         const { data: row } = await (supabase as any).from("client_demands").insert({
           client_id: portalClientUUID, user_id: user.id,
           title: dem.title, description: dem.description || null,
           responsible: "agency", priority: dem.priority || "medium",
-          type: "task", status: "pending", due_date: dueDate,
-          agents: [caluAgent],
+          type: "task", status: "in_progress", due_date: dueDate,
+          agents: [agentEntry],
         }).select().single();
         if (row) { setPortalDemands(p => [...p, { ...row, activities: [] }]); created++; }
       }
