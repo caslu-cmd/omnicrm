@@ -2570,21 +2570,42 @@ ${priorBlock}`;
 
   useEffect(() => { if (id) loadDeliverables(); }, [id]);
 
-  // Fetch Supabase client UUID + backfill workspace_id
+  // Fetch Supabase client UUID — prefer workspace_id match, fall back to name match
   useEffect(() => {
     if (!id || !user) return;
     (async () => {
-      const { data: row } = await (supabase as any).from("clients")
+      // 1. Try by workspace_id (most reliable)
+      let { data: row } = await (supabase as any).from("clients")
         .select("id, workspace_id")
         .eq("user_id", user.id)
-        .eq("name", client.name)
+        .eq("workspace_id", id)
         .maybeSingle();
-      if (row?.id) {
-        setPortalClientUUID(row.id);
-        if (!row.workspace_id) {
-          await (supabase as any).from("clients").update({ workspace_id: id }).eq("id", row.id);
+
+      // 2. Fall back to name match and backfill workspace_id
+      if (!row) {
+        const { data: byName } = await (supabase as any).from("clients")
+          .select("id, workspace_id")
+          .eq("user_id", user.id)
+          .ilike("name", client.name)
+          .maybeSingle();
+        if (byName?.id) {
+          await (supabase as any).from("clients").update({ workspace_id: id }).eq("id", byName.id);
+          row = byName;
         }
       }
+
+      // 3. If no row at all, create it so demands can be linked
+      if (!row) {
+        const { data: created } = await (supabase as any).from("clients").insert({
+          user_id: user.id,
+          name: client.name,
+          workspace_id: id,
+          portal_token: crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, ""),
+        }).select("id, workspace_id").single();
+        if (created) row = created;
+      }
+
+      if (row?.id) setPortalClientUUID(row.id);
     })();
   }, [id, user?.id]);
 
