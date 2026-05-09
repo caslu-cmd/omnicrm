@@ -2729,59 +2729,69 @@ Português brasileiro. Máximo 200 palavras.`,
   const generateDemandsWithAI = async () => {
     if (!portalClientUUID || !user) return;
     setGeneratingDemands(true);
-    const b = clientBriefing;
-    const briefText = [
-      b?.nome_empresa && `Empresa: ${b.nome_empresa}`,
-      b?.segmento && `Segmento: ${b.segmento}`,
-      b?.objetivo && `Objetivo: ${b.objetivo}`,
-      b?.publico_alvo && `Público-alvo: ${b.publico_alvo}`,
-      b?.servicos && `Serviços: ${b.servicos}`,
-      b?.diferenciais && `Diferenciais: ${b.diferenciais}`,
-    ].filter(Boolean).join("\n") || `Cliente: ${client?.name}`;
 
-    const prompt = `Você é a coordenadora da Calu Agência. Com base no briefing do cliente, crie uma lista de demandas concretas de marketing para o próximo mês.
+    const briefingBlock = buildBriefingBlock();
+    const clientCtx = `Cliente: ${client?.name} | Segmento: ${clientBriefing?.segmento || client?.industry || "–"}${client?.teamInstructions ? `\nInstruções permanentes: ${client.teamInstructions}` : ""}`;
 
-BRIEFING:
-${briefText}
+    const systemPrompt = `Você é a ARIA, orquestradora estratégica da Calu Agência de Marketing Digital.
+Sua função é analisar o briefing completo do cliente e gerar uma lista estruturada de demandas de marketing para o próximo ciclo (30 dias).
 
-Retorne SOMENTE um array JSON válido. Não inclua texto antes ou depois do JSON:
+Time disponível:
+- Queila (Estratégia de conteúdo e copy)
+- Beatriz (Design e identidade visual)
+- Marina (Tráfego pago e performance)
+- Rafaela (Social media e gestão de redes)
+- Lia (Diagnóstico, IA e automações)
+- Bobby (Edição de vídeo)
+- Vitória (Revisão e qualidade)
+
+Você representa a agência como um todo. Todas as demandas geradas são de responsabilidade da Calu Agência.`;
+
+    const userMsg = `${clientCtx}${briefingBlock}
+
+Com base em todo esse contexto, crie entre 4 e 8 demandas concretas e acionáveis de marketing para esse cliente.
+
+Retorne SOMENTE um array JSON válido. Sem texto antes ou depois:
 [
   {
     "title": "título curto e claro",
-    "description": "o que será feito e qual o resultado esperado",
-    "responsible": "agency",
+    "description": "o que será feito, como e qual o resultado esperado",
     "priority": "high",
-    "agent": "Luna",
     "due_days": 7
   }
 ]
 
 Regras:
-- Crie entre 4 e 7 demandas relevantes e acionáveis
-- due_days = dias a partir de hoje para entrega
-- Agentes disponíveis: Luna (estratégia), Queila (conteúdo/copy), Beatriz (design), Marina (tráfego pago), Rafaela (social media), Lia (diagnóstico/IA)
-- priority: low, medium, high
-- responsible: agency ou client`;
+- title: máx 60 caracteres, ação clara (ex: "Criar calendário editorial de junho")
+- description: 1–2 frases descrevendo a entrega concreta
+- priority: "low", "medium" ou "high" — baseado no impacto e urgência para o cliente
+- due_days: prazo realista em dias a partir de hoje
+- Priorize demandas de alto impacto para os objetivos declarados no briefing`;
 
     try {
       const { data: res } = await supabase.functions.invoke("chat-ai", {
-        body: { messages: [{ role: "user", content: prompt }], stream: false, agentId: "copywriter" },
+        body: {
+          systemPrompt,
+          messages: [{ role: "user", content: userMsg }],
+          maxTokens: 2000,
+          stream: false,
+        },
       });
       const content: string = res?.content ?? res?.text ?? "";
       const match = content.match(/\[[\s\S]*\]/);
       if (!match) throw new Error("JSON não encontrado");
       const demands: any[] = JSON.parse(match[0]);
 
+      const caluAgent = { id: "calu", name: "Calu Agência", color: "#B9FF4B" };
       let created = 0;
       for (const dem of demands) {
-        const agent = WS_AGENTS.find(a => a.name === dem.agent) ?? WS_AGENTS[0];
         const dueDate = dem.due_days ? new Date(Date.now() + dem.due_days * 86400000).toISOString() : null;
         const { data: row } = await (supabase as any).from("client_demands").insert({
           client_id: portalClientUUID, user_id: user.id,
           title: dem.title, description: dem.description || null,
-          responsible: dem.responsible || "agency", priority: dem.priority || "medium",
+          responsible: "agency", priority: dem.priority || "medium",
           type: "task", status: "pending", due_date: dueDate,
-          agents: [{ id: agent.id, name: agent.name, color: agent.color }],
+          agents: [caluAgent],
         }).select().single();
         if (row) { setPortalDemands(p => [...p, { ...row, activities: [] }]); created++; }
       }
