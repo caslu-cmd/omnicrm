@@ -214,11 +214,7 @@ export default function ClientPortal() {
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState(false);
   const [checkingPassword, setCheckingPassword] = useState(false);
-  const [showNewDemand, setShowNewDemand] = useState(false);
-  const [newDemandTitle, setNewDemandTitle] = useState("");
-  const [newDemandDesc, setNewDemandDesc] = useState("");
-  const [submittingDemand, setSubmittingDemand] = useState(false);
-  const [localDemands, setLocalDemands] = useState<DemandItem[]>([]);
+  const [localDemands] = useState<DemandItem[]>([]);
 
   useEffect(() => {
     if (!token) { setNotFound(true); setLoading(false); return; }
@@ -273,27 +269,6 @@ export default function ClientPortal() {
       .order("done_at", { ascending: false })
       .then(({ data: rows }: any) => { if (rows) setDeliverables(rows); });
   }, [data?.client?.workspace_id]);
-
-  const handleSubmitDemand = async () => {
-    if (!newDemandTitle.trim() || !token) return;
-    setSubmittingDemand(true);
-    const { data: newId } = await (supabase as any).rpc("submit_portal_demand", {
-      p_token: token,
-      p_title: newDemandTitle.trim(),
-      p_description: newDemandDesc.trim() || null,
-    });
-    setSubmittingDemand(false);
-    if (newId) {
-      const optimistic: DemandItem = {
-        id: newId, title: newDemandTitle.trim(), description: newDemandDesc.trim() || null,
-        type: "manual", priority: "medium", status: "pending",
-        responsible: "agency", due_date: null, created_at: new Date().toISOString(),
-        agents: [], activities: [],
-      };
-      setLocalDemands(p => [optimistic, ...p]);
-      setNewDemandTitle(""); setNewDemandDesc(""); setShowNewDemand(false);
-    }
-  };
 
   const timeAgo = (dateStr: string) => {
     const diff = Date.now() - new Date(dateStr).getTime();
@@ -727,64 +702,26 @@ export default function ClientPortal() {
             <div className="px-6 py-5" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-base font-bold mb-0.5" style={{ color: "#111" }}>Demandas</h2>
+                  <h2 className="text-base font-bold mb-0.5" style={{ color: "#111" }}>Demandas em andamento</h2>
                   <p className="text-xs" style={{ color: "#888" }}>
                     {openDemands.length} abertas · {demands.filter(d => d.status === "completed").length} concluídas
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
-                  {waitingMe.length > 0 && (
-                    <div className="text-xs px-3 py-1.5 rounded-full font-semibold"
-                      style={{ background: "rgba(251,191,36,0.1)", color: "#D97706", border: "1px solid rgba(251,191,36,0.25)" }}>
-                      {waitingMe.length} aguardando você
-                    </div>
-                  )}
-                  <button onClick={() => setShowNewDemand(v => !v)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
-                    style={{ background: showNewDemand ? "#111" : "rgba(0,0,0,0.05)", color: showNewDemand ? "#B9FF4B" : "#555", border: "1px solid rgba(0,0,0,0.1)" }}>
-                    <MessageCircle className="w-3.5 h-3.5" />
-                    Enviar demanda
-                  </button>
-                </div>
+                {waitingMe.length > 0 && (
+                  <div className="text-xs px-3 py-1.5 rounded-full font-semibold"
+                    style={{ background: "rgba(251,191,36,0.1)", color: "#D97706", border: "1px solid rgba(251,191,36,0.25)" }}>
+                    {waitingMe.length} aguardando você
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* New demand form */}
-            <AnimatePresence>
-              {showNewDemand && (
-                <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }} style={{ overflow: "hidden" }}>
-                  <div className="px-5 py-4 space-y-2.5" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)", background: "#F9F9F7" }}>
-                    <input
-                      value={newDemandTitle} onChange={(e) => setNewDemandTitle(e.target.value)}
-                      placeholder="O que você precisa? (ex: Revisar arte da campanha, Criar proposta...)"
-                      className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
-                      style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.12)", color: "#111" }} />
-                    <textarea
-                      value={newDemandDesc} onChange={(e) => setNewDemandDesc(e.target.value)}
-                      placeholder="Detalhes adicionais (opcional)…" rows={2}
-                      className="w-full rounded-xl px-3 py-2.5 text-xs focus:outline-none resize-none"
-                      style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.12)", color: "#555" }} />
-                    <div className="flex gap-2 justify-end">
-                      <button onClick={() => setShowNewDemand(false)} className="px-4 py-2 rounded-xl text-xs font-medium" style={{ color: "#888" }}>
-                        Cancelar
-                      </button>
-                      <button onClick={handleSubmitDemand} disabled={submittingDemand || !newDemandTitle.trim()}
-                        className="px-5 py-2 rounded-xl text-xs font-bold transition-all disabled:opacity-40"
-                        style={{ background: "#111", color: "#B9FF4B" }}>
-                        {submittingDemand ? "Enviando..." : "Enviar demanda"}
-                      </button>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
             {/* Demand list */}
             <div className="p-4 space-y-2">
-              {demands.length === 0 && !showNewDemand && (
+              {demands.length === 0 && (
                 <div className="text-center py-8">
-                  <p className="text-sm" style={{ color: "#aaa" }}>Nenhuma demanda ainda.</p>
-                  <button onClick={() => setShowNewDemand(true)} className="mt-2 text-xs font-semibold underline" style={{ color: "#555" }}>Enviar sua primeira demanda</button>
+                  <p className="text-sm" style={{ color: "#aaa" }}>Nenhuma demanda em andamento.</p>
+                  <p className="text-xs mt-1" style={{ color: "#ccc" }}>Os agentes da agência criarão demandas conforme o planejamento avançar.</p>
                 </div>
               )}
               {demands.map((d, i) => {

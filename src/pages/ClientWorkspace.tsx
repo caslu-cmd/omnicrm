@@ -2834,7 +2834,35 @@ ${priorBlock}`;
 
   const handleApproveProposal = async (proposalId: string) => {
     setApprovingProposalId(proposalId);
+    const proposal = agentProposals.find(p => p.id === proposalId);
     await (supabase as any).from("agent_proposals").update({ status: "approved" }).eq("id", proposalId);
+
+    // Auto-create demand when proposal is approved
+    if (proposal && portalClientUUID && user?.id) {
+      const agents = [{ id: proposal.agent_id, name: proposal.agent_name, color: proposal.agent_color }];
+      const { data: newDemand } = await (supabase as any).from("client_demands").insert({
+        client_id: portalClientUUID,
+        user_id: user.id,
+        title: proposal.titulo,
+        description: proposal.descricao,
+        type: "agent",
+        responsible: "agency",
+        status: "in_progress",
+        priority: "high",
+        agents,
+      }).select().single();
+      if (newDemand?.id) {
+        await (supabase as any).from("demand_activities").insert({
+          demand_id: newDemand.id,
+          content: "Proposta aprovada. Execução iniciada.",
+          agent_name: proposal.agent_name,
+          agent_color: proposal.agent_color,
+        });
+        setPortalDemands(prev => [{ ...newDemand, agents, activities: [] }, ...prev]);
+        toast.success(`Demanda criada para ${proposal.agent_name}`);
+      }
+    }
+
     setAgentProposals(prev => prev.filter(p => p.id !== proposalId));
     setApprovingProposalId(null);
   };
