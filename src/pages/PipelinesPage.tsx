@@ -217,15 +217,15 @@ const PipelinesPage = () => {
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6 h-full flex flex-col">
-      <motion.div variants={item} className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold font-display text-foreground">Pipelines</h1>
-          <p className="text-sm text-muted-foreground mt-1">{deals.length} deals · R$ {(totalValue / 1000).toFixed(0)}k total</p>
+      <motion.div variants={item} className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-xl md:text-2xl font-bold font-display text-foreground">Pipelines</h1>
+          <p className="text-xs md:text-sm text-muted-foreground mt-1">{deals.length} deals · R$ {(totalValue / 1000).toFixed(0)}k total</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <div className="relative">
-            <button onClick={() => setShowPipelineMenu(!showPipelineMenu)} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-input bg-card text-sm font-medium text-foreground hover:bg-muted transition-colors">
-              {currentPipeline?.name || "Pipeline"} <ChevronDown className="h-4 w-4 text-muted-foreground" />
+            <button onClick={() => setShowPipelineMenu(!showPipelineMenu)} className="flex items-center gap-2 px-3 py-2 rounded-lg border border-input bg-card text-sm font-medium text-foreground hover:bg-muted transition-colors max-w-[180px]">
+              <span className="truncate">{currentPipeline?.name || "Pipeline"}</span> <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
             </button>
             {showPipelineMenu && (
               <div className="absolute top-10 right-0 z-50 w-56 rounded-lg border border-border bg-card shadow-elevated p-1.5">
@@ -240,7 +240,7 @@ const PipelinesPage = () => {
             )}
           </div>
           <button onClick={() => handleAddDeal()} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
-            <Plus className="h-4 w-4" /> Novo Deal
+            <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Novo Deal</span>
           </button>
         </div>
       </motion.div>
