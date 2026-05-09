@@ -2570,39 +2570,35 @@ ${priorBlock}`;
 
   useEffect(() => { if (id) loadDeliverables(); }, [id]);
 
-  // Fetch Supabase client UUID — prefer workspace_id match, fall back to name match
+  // Fetch Supabase client UUID — picks the oldest row with a portal_token for this workspace
   useEffect(() => {
     if (!id || !user) return;
     (async () => {
-      // 1. Try by workspace_id (most reliable)
-      let { data: row } = await (supabase as any).from("clients")
-        .select("id, workspace_id")
+      // Fetch all rows for this workspace, prefer ones that already have a portal_token
+      const { data: rows } = await (supabase as any).from("clients")
+        .select("id, workspace_id, portal_token")
         .eq("user_id", user.id)
         .eq("workspace_id", id)
-        .maybeSingle();
+        .order("created_at", { ascending: true });
 
-      // 2. Fall back to name match and backfill workspace_id
-      if (!row) {
-        const { data: byName } = await (supabase as any).from("clients")
-          .select("id, workspace_id")
-          .eq("user_id", user.id)
-          .ilike("name", client.name)
-          .maybeSingle();
-        if (byName?.id) {
-          await (supabase as any).from("clients").update({ workspace_id: id }).eq("id", byName.id);
-          row = byName;
-        }
+      let row: { id: string } | null = null;
+      if (rows && rows.length > 0) {
+        // Prefer a row that has a portal_token (meaning the portal was opened before)
+        row = rows.find((r: any) => r.portal_token) ?? rows[0];
       }
 
-      // 3. If no row at all, create it so demands can be linked
+      // Fallback: look up by name (in case workspace_id was never backfilled)
       if (!row) {
-        const { data: created } = await (supabase as any).from("clients").insert({
-          user_id: user.id,
-          name: client.name,
-          workspace_id: id,
-          portal_token: crypto.randomUUID().replace(/-/g, "") + crypto.randomUUID().replace(/-/g, ""),
-        }).select("id, workspace_id").single();
-        if (created) row = created;
+        const { data: byName } = await (supabase as any).from("clients")
+          .select("id, workspace_id, portal_token")
+          .eq("user_id", user.id)
+          .ilike("name", client.name)
+          .order("created_at", { ascending: true })
+          .limit(1);
+        if (byName?.[0]?.id) {
+          await (supabase as any).from("clients").update({ workspace_id: id }).eq("id", byName[0].id);
+          row = byName[0];
+        }
       }
 
       if (row?.id) setPortalClientUUID(row.id);
@@ -3204,31 +3200,36 @@ Regras:
     ? Math.round((wonDeals / client.pipeline.length) * 100)
     : 0;
 
+  // Shared helper: finds the canonical Supabase client row for this workspace
+  const findOrCreatePortalRow = async () => {
+    const { data: rows } = await (supabase as any)
+      .from("clients")
+      .select("id, portal_token, portal_password, workspace_id")
+      .eq("user_id", user!.id)
+      .eq("workspace_id", id)
+      .order("created_at", { ascending: true });
+
+    if (rows && rows.length > 0) {
+      // Pick the row that already has a portal_token; otherwise the oldest one
+      return (rows.find((r: any) => r.portal_token) ?? rows[0]) as any;
+    }
+
+    // No row with workspace_id — create one
+    const { data: created } = await supabase
+      .from("clients")
+      .insert({ user_id: user!.id, name: client.name, segment: client.industry ?? null, status: "active", workspace_id: id } as any)
+      .select("id, portal_token, portal_password, workspace_id")
+      .single();
+    return created;
+  };
+
   const handleOpenPortal = async () => {
     if (!user) { toast.error("Você precisa estar logado."); return; }
     setOpeningPortal(true);
     try {
-      const { data: existing } = await supabase
-        .from("clients")
-        .select("portal_token, workspace_id")
-        .eq("user_id", user.id)
-        .eq("name", client.name)
-        .maybeSingle();
-      if (existing?.portal_token) {
-        // Backfill workspace_id if missing
-        if (!existing.workspace_id) {
-          await (supabase as any).from("clients").update({ workspace_id: id }).eq("user_id", user.id).eq("name", client.name);
-        }
-        window.open(`/portal/${existing.portal_token}`, "_blank");
-        return;
-      }
-      const { data: created, error } = await supabase
-        .from("clients")
-        .insert({ user_id: user.id, name: client.name, segment: client.industry ?? null, status: client.status === "Ativo" ? "active" : "onboarding", workspace_id: id } as any)
-        .select("portal_token")
-        .single();
-      if (error || !created?.portal_token) { toast.error("Erro ao gerar link do portal."); return; }
-      window.open(`/portal/${created.portal_token}`, "_blank");
+      const row = await findOrCreatePortalRow();
+      if (!row?.portal_token) { toast.error("Erro ao gerar link do portal."); return; }
+      window.open(`/portal/${row.portal_token}`, "_blank");
     } finally {
       setOpeningPortal(false);
     }
@@ -3238,30 +3239,10 @@ Regras:
     if (!user) { toast.error("Você precisa estar logado."); return; }
     setOpeningShare(true);
     try {
-      const { data: existing } = await (supabase as any)
-        .from("clients")
-        .select("portal_token, workspace_id, portal_password")
-        .eq("user_id", user.id)
-        .eq("name", client.name)
-        .maybeSingle();
-      let token: string;
-      if (existing?.portal_token) {
-        if (!existing.workspace_id) {
-          await (supabase as any).from("clients").update({ workspace_id: id }).eq("user_id", user.id).eq("name", client.name);
-        }
-        token = existing.portal_token;
-        setSharePasswordInput(existing.portal_password ?? "");
-      } else {
-        const { data: created, error } = await supabase
-          .from("clients")
-          .insert({ user_id: user.id, name: client.name, segment: client.industry ?? null, status: client.status === "Ativo" ? "active" : "onboarding", workspace_id: id } as any)
-          .select("portal_token")
-          .single();
-        if (error || !created?.portal_token) { toast.error("Erro ao gerar link do portal."); return; }
-        token = created.portal_token;
-        setSharePasswordInput("");
-      }
-      setSharePortalToken(token);
+      const row = await findOrCreatePortalRow();
+      if (!row?.portal_token) { toast.error("Erro ao gerar link do portal."); return; }
+      setSharePortalToken(row.portal_token);
+      setSharePasswordInput(row.portal_password ?? "");
       setSharePasswordSaved(false);
       setShareCopied(false);
       setShowShareModal(true);
@@ -3278,7 +3259,7 @@ Regras:
         .from("clients")
         .update({ portal_password: sharePasswordInput.trim() || null })
         .eq("user_id", user.id)
-        .eq("name", client.name);
+        .eq("workspace_id", id);
       setSharePasswordSaved(true);
       setTimeout(() => setSharePasswordSaved(false), 3000);
     } catch { toast.error("Erro ao salvar senha."); }
