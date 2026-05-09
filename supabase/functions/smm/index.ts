@@ -330,6 +330,26 @@ Deno.serve(async (req) => {
       const isStory       = media_type === "story";
       const isCarousel    = media_type === "carousel" && Array.isArray(media_urls) && media_urls.length >= 2;
       const dbMediaType   = normalizeScheduledPostMediaType(media_type, media_url);
+
+      // Save the post to DB first — this way it always appears in the UI regardless of API outcomes
+      const { data: post, error: insertError } = await supabase.from("scheduled_posts").insert({
+        user_id: userId, client_id, platforms, caption,
+        media_url: media_url || null,
+        media_urls: isCarousel ? media_urls : null,
+        media_type: dbMediaType,
+        scheduled_at: scheduled_at || null,
+        published_at: null,
+        status: isScheduled ? "scheduled" : "publishing",
+        fb_post_id: null, ig_media_id: null, error_message: null,
+      }).select().single();
+      if (insertError) return respond({ error: insertError.message }, 500);
+
+      // For scheduled posts we are done — they will be published at the right time
+      if (isScheduled) {
+        return respond({ success: true, post, error_message: null, linkedin_intent_url: null });
+      }
+
+      // For immediate publishing, call each platform API then update the row
       let status          = "publishing";
       let fbPostId: string | null = null;
       let igMediaId: string | null = null;
@@ -349,14 +369,10 @@ Deno.serve(async (req) => {
             const postBody: Record<string, unknown> = media_url
               ? { url: media_url, caption: caption ?? "", access_token: accessToken }
               : { message: caption ?? "", access_token: accessToken };
-            if (isScheduled) {
-              postBody.scheduled_publish_time = Math.floor(scheduledDate!.getTime() / 1000);
-              postBody.published = false;
-            }
             const res = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(postBody) });
             const result = await res.json();
             if (result.error) { errorMessage = result.error.message; status = "failed"; }
-            else { fbPostId = result.post_id ?? result.id; status = isScheduled ? "scheduled" : "publishing"; }
+            else { fbPostId = result.post_id ?? result.id; status = "publishing"; }
 
           } else if (platform === "instagram") {
             if (!media_url) { errorMessage = "Instagram requer imagem"; status = "failed"; continue; }
@@ -376,16 +392,9 @@ Deno.serve(async (req) => {
               if (errorMessage) { status = "failed"; continue; }
 
               // Step 2: create carousel album container
-              const albumBody: Record<string, unknown> = {
-                media_type: "CAROUSEL_ALBUM",
-                caption: caption ?? "",
-                children: childIds.join(","),
-                access_token: accessToken,
-              };
-              if (isScheduled) { albumBody.published = false; albumBody.publish_at = scheduledDate!.toISOString(); }
               const albumRes = await fetch(`${GRAPH}/${conn.account_id}/media`, {
                 method: "POST", headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(albumBody),
+                body: JSON.stringify({ media_type: "CAROUSEL_ALBUM", caption: caption ?? "", children: childIds.join(","), access_token: accessToken }),
               });
               const albumData = await albumRes.json();
               if (albumData.error) { errorMessage = albumData.error.message; status = "failed"; continue; }
@@ -397,7 +406,7 @@ Deno.serve(async (req) => {
               });
               const published = await publishRes.json();
               if (published.error) { errorMessage = published.error.message; status = "failed"; }
-              else { igMediaId = published.id; status = isScheduled ? "scheduled" : "publishing"; }
+              else { igMediaId = published.id; status = "publishing"; }
 
             } else {
               const container: Record<string, unknown> = { image_url: media_url, access_token: accessToken };
@@ -407,8 +416,6 @@ Deno.serve(async (req) => {
               } else {
                 container.caption = caption ?? "";
               }
-              if (isScheduled) { container.published = false; container.publish_at = scheduledDate!.toISOString(); }
-
               const containerRes = await fetch(`${GRAPH}/${conn.account_id}/media`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(container) });
               const containerData = await containerRes.json();
               if (containerData.error) { errorMessage = containerData.error.message; status = "failed"; continue; }
@@ -416,7 +423,7 @@ Deno.serve(async (req) => {
               const publishRes = await fetch(`${GRAPH}/${conn.account_id}/media_publish`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ creation_id: containerData.id, access_token: accessToken }) });
               const published = await publishRes.json();
               if (published.error) { errorMessage = published.error.message; status = "failed"; }
-              else { igMediaId = published.id; status = isScheduled ? "scheduled" : "publishing"; }
+              else { igMediaId = published.id; status = "publishing"; }
             }
 
           } else if (platform === "linkedin") {
@@ -424,25 +431,19 @@ Deno.serve(async (req) => {
               ? `${caption ?? ""}\n\n${media_url}`.trim()
               : (caption ?? "");
             linkedinIntentUrl = `https://www.linkedin.com/intent/post?text=${encodeURIComponent(text)}`;
-            status = "publishing";
           }
         } catch (e) { errorMessage = e instanceof Error ? e.message : "Erro ao publicar"; status = "failed"; }
       }
 
-      // If meant to be scheduled and no platform call changed the status, force "scheduled"
-      if (status === "publishing") status = isScheduled ? "scheduled" : "published";
+      if (status === "publishing") status = "published";
 
-      const { data: post, error: insertError } = await supabase.from("scheduled_posts").insert({
-        user_id: userId, client_id, platforms, caption,
-        media_url: media_url || null,
-        media_urls: isCarousel ? media_urls : null,
-        media_type: dbMediaType,
-        scheduled_at: scheduled_at || null,
-        published_at: status === "published" ? new Date().toISOString() : null,
+      // Update row with final publish outcome
+      await supabase.from("scheduled_posts").update({
         status, fb_post_id: fbPostId, ig_media_id: igMediaId, error_message: errorMessage,
-      }).select().single();
-      if (insertError) return respond({ error: insertError.message }, 500);
-      return respond({ success: true, post, error_message: errorMessage, linkedin_intent_url: linkedinIntentUrl });
+        published_at: status === "published" ? new Date().toISOString() : null,
+      }).eq("id", post.id);
+
+      return respond({ success: true, post: { ...post, status }, error_message: errorMessage, linkedin_intent_url: linkedinIntentUrl });
     }
 
     // ── List posts ───────────────────────────────────────────────
