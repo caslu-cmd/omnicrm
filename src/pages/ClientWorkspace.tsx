@@ -783,6 +783,10 @@ export default function ClientWorkspace() {
   const [showDelivForm, setShowDelivForm] = useState(false);
   const [showOnboardForm, setShowOnboardForm] = useState(false);
   const [showDemandFormPortal, setShowDemandFormPortal] = useState(false);
+  const [expandedWorkspaceDemand, setExpandedWorkspaceDemand] = useState<string | null>(null);
+  const [activityInputs, setActivityInputs] = useState<Record<string, string>>({});
+  const [savingActivity, setSavingActivity] = useState<string | null>(null);
+  const [demandActivities, setDemandActivities] = useState<Record<string, any[]>>({});
   const [answeringOnboard, setAnsweringOnboard] = useState<string | null>(null);
   const [answeringAll, setAnsweringAll] = useState(false);
   const [expandedNotes, setExpandedNotes] = useState<Set<string>>(new Set());
@@ -2678,6 +2682,40 @@ ${priorBlock}`;
     }).select().single();
     if (!error && data) { setPortalDemands((p) => [data, ...p]); setDemandForm({ title: "", description: "", responsible: "agency", priority: "medium" }); }
     setSavingDemand(false);
+  };
+
+  const WS_AGENTS = [
+    { id: "luna",    name: "Luna",    color: "#B9FF4B" },
+    { id: "queila",  name: "Queila",  color: "#FBBF24" },
+    { id: "beatriz", name: "Beatriz", color: "#A78BFA" },
+    { id: "marina",  name: "Marina",  color: "#60A5FA" },
+    { id: "rafaela", name: "Rafaela", color: "#F97316" },
+    { id: "lia",     name: "Lia",     color: "#38BDF8" },
+  ];
+
+  const loadDemandActivities = async (demandId: string) => {
+    const { data } = await (supabase as any).from("demand_activities").select("*").eq("demand_id", demandId).order("created_at", { ascending: true });
+    if (data) setDemandActivities(p => ({ ...p, [demandId]: data }));
+  };
+
+  const addDemandActivity = async (demandId: string, agentName: string, agentColor: string) => {
+    const content = (activityInputs[demandId] ?? "").trim();
+    if (!content) return;
+    setSavingActivity(demandId);
+    const { data: row } = await (supabase as any).from("demand_activities").insert({ demand_id: demandId, content, agent_name: agentName, agent_color: agentColor }).select().single();
+    if (row) {
+      setDemandActivities(p => ({ ...p, [demandId]: [...(p[demandId] ?? []), row] }));
+      setActivityInputs(p => ({ ...p, [demandId]: "" }));
+    }
+    setSavingActivity(null);
+  };
+
+  const assignAgentToDemand = async (demand: any, agent: { id: string; name: string; color: string }) => {
+    const current: any[] = Array.isArray(demand.agents) ? demand.agents : [];
+    const alreadyIn = current.some((a: any) => a.id === agent.id);
+    const next = alreadyIn ? current.filter((a: any) => a.id !== agent.id) : [...current, agent];
+    await (supabase as any).from("client_demands").update({ agents: next }).eq("id", demand.id);
+    setPortalDemands(p => p.map(d => d.id === demand.id ? { ...d, agents: next } : d));
   };
 
   const toggleDemandStatus = async (demId: string, current: string) => {
@@ -8853,25 +8891,119 @@ Regras:
                     ) : portalDemands.length === 0 ? (
                       <div className="px-5 py-6 text-center"><p className="text-sm" style={{ color: "#bbb" }}>Nenhuma demanda ainda</p></div>
                     ) : (
-                      <div>
-                        {portalDemands.map((d) => (
-                          <div key={d.id} className="flex items-center gap-3 px-5 py-3" style={{ borderBottom: "1px solid rgba(0,0,0,0.04)" }}>
-                            <button onClick={() => toggleDemandStatus(d.id, d.status)} className="flex-shrink-0">
-                              {d.status === "completed"
-                                ? <CheckCircle2 className="w-4 h-4" style={{ color: "#34D399" }} />
-                                : <Circle className="w-4 h-4" style={{ color: "#ddd" }} />}
-                            </button>
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm" style={{ color: d.status === "completed" ? "#aaa" : "#111", textDecoration: d.status === "completed" ? "line-through" : "none" }}>{d.title}</p>
-                              <p className="text-xs mt-0.5" style={{ color: "#bbb" }}>
-                                {d.responsible === "client" ? "Cliente" : "Agência"} · {d.priority === "high" ? "Alta" : d.priority === "medium" ? "Média" : "Baixa"}
-                              </p>
+                      <div className="divide-y" style={{ borderColor: "rgba(0,0,0,0.04)" }}>
+                        {portalDemands.map((d) => {
+                          const isExp = expandedWorkspaceDemand === d.id;
+                          const acts = demandActivities[d.id] ?? [];
+                          const agts: any[] = Array.isArray(d.agents) ? d.agents : [];
+                          return (
+                            <div key={d.id}>
+                              {/* Row */}
+                              <div className="flex items-start gap-3 px-5 py-3">
+                                <button onClick={() => toggleDemandStatus(d.id, d.status)} className="flex-shrink-0 mt-0.5">
+                                  {d.status === "completed"
+                                    ? <CheckCircle2 className="w-4 h-4" style={{ color: "#34D399" }} />
+                                    : <Circle className="w-4 h-4" style={{ color: "#ddd" }} />}
+                                </button>
+                                <div className="flex-1 min-w-0 cursor-pointer" onClick={() => {
+                                  const next = isExp ? null : d.id;
+                                  setExpandedWorkspaceDemand(next);
+                                  if (next) loadDemandActivities(next);
+                                }}>
+                                  <p className="text-sm" style={{ color: d.status === "completed" ? "#aaa" : "#111", textDecoration: d.status === "completed" ? "line-through" : "none" }}>{d.title}</p>
+                                  <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                                    <span className="text-xs" style={{ color: "#bbb" }}>{d.priority === "high" ? "Alta" : d.priority === "medium" ? "Média" : "Baixa"}</span>
+                                    {agts.slice(0, 4).map((ag: any) => (
+                                      <div key={ag.id} title={ag.name}
+                                        className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black"
+                                        style={{ background: `${ag.color}20`, border: `1px solid ${ag.color}50`, color: ag.color }}>
+                                        {ag.name[0]}
+                                      </div>
+                                    ))}
+                                    {acts.length > 0 && <span className="text-[10px]" style={{ color: "#bbb" }}>· {acts.length} atualiz.</span>}
+                                  </div>
+                                </div>
+                                <button onClick={() => deleteDemandItem(d.id)} className="p-1.5 rounded-lg flex-shrink-0 mt-0.5" style={{ color: "#ccc" }}>
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+
+                              {/* Expanded panel */}
+                              {isExp && (
+                                <div className="px-5 pb-4 space-y-3" style={{ background: "#FAFAF8", borderTop: "1px solid rgba(0,0,0,0.05)" }}>
+                                  {/* Agents */}
+                                  <div className="pt-3">
+                                    <p className="text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: "#aaa" }}>Agentes responsáveis</p>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {WS_AGENTS.map((ag) => {
+                                        const active = agts.some((a: any) => a.id === ag.id);
+                                        return (
+                                          <button key={ag.id} onClick={() => assignAgentToDemand(d, ag)}
+                                            className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-semibold transition-all"
+                                            style={{ background: active ? `${ag.color}15` : "rgba(0,0,0,0.04)", color: active ? ag.color : "#888", border: `1px solid ${active ? `${ag.color}35` : "rgba(0,0,0,0.08)"}` }}>
+                                            <div className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black"
+                                              style={{ background: active ? `${ag.color}25` : "rgba(0,0,0,0.08)", color: active ? ag.color : "#aaa" }}>{ag.name[0]}</div>
+                                            {ag.name}
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+
+                                  {/* Activities */}
+                                  {acts.length > 0 && (
+                                    <div className="space-y-2">
+                                      <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: "#aaa" }}>Atualizações visíveis ao cliente</p>
+                                      {acts.map((act: any) => (
+                                        <div key={act.id} className="flex gap-2">
+                                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black flex-shrink-0 mt-0.5"
+                                            style={{ background: `${act.agent_color}20`, border: `1px solid ${act.agent_color}40`, color: act.agent_color }}>
+                                            {act.agent_name[0]}
+                                          </div>
+                                          <div>
+                                            <span className="text-[11px] font-semibold" style={{ color: "#333" }}>{act.agent_name} </span>
+                                            <span className="text-xs" style={{ color: "#666" }}>{act.content}</span>
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+
+                                  {/* Add activity */}
+                                  <div>
+                                    <p className="text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: "#aaa" }}>Registrar atualização</p>
+                                    <div className="flex gap-2">
+                                      <input
+                                        value={activityInputs[d.id] ?? ""}
+                                        onChange={(e) => setActivityInputs(p => ({ ...p, [d.id]: e.target.value }))}
+                                        onKeyDown={(e) => { if (e.key === "Enter") addDemandActivity(d.id, agts[0]?.name ?? "Agência", agts[0]?.color ?? "#B9FF4B"); }}
+                                        placeholder="O que está sendo feito nessa demanda?"
+                                        className="flex-1 rounded-xl px-3 py-2 text-xs focus:outline-none"
+                                        style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.12)", color: "#111" }} />
+                                      <select
+                                        id={`agent-sel-${d.id}`}
+                                        className="rounded-xl px-2 py-2 text-xs focus:outline-none"
+                                        style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.12)", color: "#555" }}>
+                                        {WS_AGENTS.map(ag => <option key={ag.id} value={`${ag.name}|${ag.color}`}>{ag.name}</option>)}
+                                      </select>
+                                      <button
+                                        disabled={savingActivity === d.id || !(activityInputs[d.id] ?? "").trim()}
+                                        onClick={() => {
+                                          const sel = (document.getElementById(`agent-sel-${d.id}`) as HTMLSelectElement)?.value ?? "";
+                                          const [aName, aColor] = sel.split("|");
+                                          addDemandActivity(d.id, aName || "Agência", aColor || "#B9FF4B");
+                                        }}
+                                        className="px-3 py-2 rounded-xl text-xs font-bold disabled:opacity-40 transition-all flex-shrink-0"
+                                        style={{ background: "#111", color: "#B9FF4B" }}>
+                                        {savingActivity === d.id ? <RefreshCw className="w-3 h-3 animate-spin" /> : "Salvar"}
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                            <button onClick={() => deleteDemandItem(d.id)} className="p-1.5 rounded-lg flex-shrink-0" style={{ color: "#ccc" }}>
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
