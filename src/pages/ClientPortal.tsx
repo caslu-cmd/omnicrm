@@ -2,11 +2,12 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 import {
   CheckCircle2, Clock, Zap, AlertCircle, Star, MessageCircle,
   Mail, Users, FileText, Megaphone, TrendingUp, Wallet,
   ChevronDown, ChevronUp, ArrowUpRight, Circle, Loader2,
-  ClipboardList, Building2, Key, Settings, FolderOpen,
+  ClipboardList, Building2, Key, Settings, FolderOpen, X,
 } from "lucide-react";
 
 // ── Types ──────────────────────────────────────────────────────
@@ -204,6 +205,7 @@ function NotFoundScreen() {
 // ── Main portal ──────────────────────────────────────────────
 export default function ClientPortal() {
   const { token } = useParams<{ token?: string }>();
+  const navigate = useNavigate();
   const [data, setData] = useState<PortalData | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
@@ -215,6 +217,35 @@ export default function ClientPortal() {
   const [passwordError, setPasswordError] = useState(false);
   const [checkingPassword, setCheckingPassword] = useState(false);
   const [localDemands] = useState<DemandItem[]>([]);
+
+  // Agency switcher — only visible when the viewer is logged in as the agency
+  const [agencyClients, setAgencyClients] = useState<{ name: string; portal_token: string; workspace_id: string }[]>([]);
+  const [showSwitcher, setShowSwitcher] = useState(false);
+
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (!session) return;
+      // Fetch all clients with a portal_token for this agency user
+      (supabase as any)
+        .from("clients")
+        .select("name, portal_token, workspace_id")
+        .eq("user_id", session.user.id)
+        .not("portal_token", "is", null)
+        .order("name")
+        .then(({ data: rows }: any) => {
+          if (!rows) return;
+          // Deduplicate by workspace_id, keep one per client
+          const seen = new Set<string>();
+          const unique = rows.filter((r: any) => {
+            const key = r.workspace_id || r.portal_token;
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          setAgencyClients(unique);
+        });
+    });
+  }, []);
 
   useEffect(() => {
     if (!token) { setNotFound(true); setLoading(false); return; }
@@ -360,6 +391,74 @@ export default function ClientPortal() {
 
   return (
     <div className="min-h-screen" style={{ background: "#F2F1EE", fontFamily: "system-ui, -apple-system, sans-serif" }}>
+
+      {/* ── Agency client switcher (only visible when logged in) ── */}
+      {agencyClients.length > 0 && (
+        <>
+          {/* Floating button */}
+          <button
+            onClick={() => setShowSwitcher(true)}
+            className="fixed z-50 flex items-center gap-2 px-4 py-2.5 rounded-full shadow-lg text-xs font-bold transition-all active:scale-95"
+            style={{ bottom: 24, right: 20, background: "#111", color: "#B9FF4B", boxShadow: "0 4px 20px rgba(0,0,0,0.3)" }}>
+            <Building2 className="w-3.5 h-3.5" />
+            Trocar cliente
+          </button>
+
+          {/* Backdrop */}
+          <AnimatePresence>
+            {showSwitcher && (
+              <>
+                <motion.div
+                  initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                  onClick={() => setShowSwitcher(false)}
+                  className="fixed inset-0 z-50"
+                  style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)" }}
+                />
+                {/* Bottom drawer */}
+                <motion.div
+                  initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
+                  transition={{ type: "spring", damping: 30, stiffness: 300 }}
+                  className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl overflow-hidden"
+                  style={{ background: "#fff", boxShadow: "0 -8px 40px rgba(0,0,0,0.15)", maxHeight: "70vh" }}>
+                  <div className="px-5 pt-4 pb-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
+                    <div>
+                      <p className="text-sm font-bold" style={{ color: "#111" }}>Clientes</p>
+                      <p className="text-xs mt-0.5" style={{ color: "#aaa" }}>{agencyClients.length} portais ativos</p>
+                    </div>
+                    <button onClick={() => setShowSwitcher(false)} className="p-2 rounded-xl" style={{ background: "rgba(0,0,0,0.05)" }}>
+                      <X className="w-4 h-4" style={{ color: "#555" }} />
+                    </button>
+                  </div>
+                  <div className="overflow-y-auto" style={{ maxHeight: "calc(70vh - 64px)" }}>
+                    {agencyClients.map((c) => {
+                      const isCurrent = c.portal_token === token;
+                      return (
+                        <button
+                          key={c.portal_token}
+                          onClick={() => { setShowSwitcher(false); navigate(`/portal/${c.portal_token}`); }}
+                          className="w-full flex items-center gap-3 px-5 py-3.5 text-left transition-colors active:bg-gray-50"
+                          style={{ borderBottom: "1px solid rgba(0,0,0,0.05)", background: isCurrent ? "rgba(185,255,75,0.08)" : "transparent" }}>
+                          <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0"
+                            style={{ background: isCurrent ? "#B9FF4B" : "rgba(0,0,0,0.06)", color: isCurrent ? "#111" : "#555" }}>
+                            {c.name[0].toUpperCase()}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold truncate" style={{ color: "#111" }}>{c.name}</p>
+                          </div>
+                          {isCurrent && (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0"
+                              style={{ background: "#B9FF4B", color: "#111" }}>atual</span>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+        </>
+      )}
 
       {/* ── Header ──────────────────────────────────────────── */}
       <div className="sticky top-0 z-40 px-6 py-3.5 flex items-center justify-between"
