@@ -227,10 +227,21 @@ Deno.serve(async (req) => {
 
     finalContent += lastText;
 
-    return new Response(
-      JSON.stringify({ content: finalContent.trim(), posts_created: postsCreated }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+        clearInterval(keepAlive);
+        await writer.write(encoder.encode(
+          JSON.stringify({ content: finalContent.trim(), posts_created: postsCreated })
+        ));
+        await writer.close();
+      } catch (err) {
+        clearInterval(keepAlive);
+        try {
+          await writer.write(encoder.encode(JSON.stringify({ error: String(err) })));
+        } catch {}
+        try { await writer.close(); } catch {}
+      }
+    })();
+
+    return response;
   } catch (error) {
     return new Response(JSON.stringify({ error: String(error) }), {
       status: 500,
