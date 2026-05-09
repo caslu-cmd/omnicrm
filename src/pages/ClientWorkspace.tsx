@@ -2718,6 +2718,12 @@ ${priorBlock}`;
     setPortalDemands(p => p.map(d => d.id === demand.id ? { ...d, agents: next } : d));
   };
 
+  const updateDemandDueDate = async (demandId: string, value: string) => {
+    const iso = value ? new Date(value).toISOString() : null;
+    await (supabase as any).from("client_demands").update({ due_date: iso }).eq("id", demandId);
+    setPortalDemands(p => p.map(d => d.id === demandId ? { ...d, due_date: iso } : d));
+  };
+
   const toggleDemandStatus = async (demId: string, current: string) => {
     const next = current === "completed" ? "pending" : "completed";
     await (supabase as any).from("client_demands").update({ status: next }).eq("id", demId);
@@ -2852,13 +2858,30 @@ ${priorBlock}`;
         agents,
       }).select().single();
       if (newDemand?.id) {
+        // Agent estimates delivery days autonomously
+        let dueDateIso: string | null = null;
+        try {
+          const { data: estRes } = await supabase.functions.invoke("chat-ai", {
+            body: {
+              systemPrompt: "Gerente de projetos de marketing. Retorne SOMENTE um número inteiro (dias corridos necessários, mínimo 1, máximo 60).",
+              maxTokens: 8,
+              messages: [{ role: "user", content: `Tarefa: ${proposal.titulo}\nDescrição: ${proposal.descricao}\nQuantos dias para concluir?` }],
+            },
+          });
+          const days = Math.min(60, Math.max(1, parseInt((estRes?.content ?? "7").replace(/\D/g, "")) || 7));
+          const due = new Date();
+          due.setDate(due.getDate() + days);
+          dueDateIso = due.toISOString();
+          await (supabase as any).from("client_demands").update({ due_date: dueDateIso }).eq("id", newDemand.id);
+        } catch {}
+
         await (supabase as any).from("demand_activities").insert({
           demand_id: newDemand.id,
           content: "Proposta aprovada. Execução iniciada.",
           agent_name: proposal.agent_name,
           agent_color: proposal.agent_color,
         });
-        setPortalDemands(prev => [{ ...newDemand, agents, activities: [] }, ...prev]);
+        setPortalDemands(prev => [{ ...newDemand, agents, due_date: dueDateIso, activities: [] }, ...prev]);
         toast.success(`Demanda criada para ${proposal.agent_name}`);
       }
     }
@@ -8959,8 +8982,31 @@ Regras:
                               {/* Expanded panel */}
                               {isExp && (
                                 <div className="px-5 pb-4 space-y-3" style={{ background: "#FAFAF8", borderTop: "1px solid rgba(0,0,0,0.05)" }}>
+                                  {/* Due date */}
+                                  <div className="pt-3 flex items-center gap-3">
+                                    <div>
+                                      <p className="text-[10px] uppercase tracking-wider font-semibold mb-1.5" style={{ color: "#aaa" }}>Data de entrega</p>
+                                      <input
+                                        type="date"
+                                        value={d.due_date ? new Date(d.due_date).toISOString().split("T")[0] : ""}
+                                        onChange={(e) => updateDemandDueDate(d.id, e.target.value)}
+                                        className="rounded-xl px-3 py-2 text-xs focus:outline-none"
+                                        style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.12)", color: "#111" }}
+                                      />
+                                    </div>
+                                    {d.due_date && (() => {
+                                      const daysLeft = Math.ceil((new Date(d.due_date).getTime() - Date.now()) / 86400000);
+                                      return (
+                                        <span className="text-[11px] font-semibold mt-4"
+                                          style={{ color: daysLeft < 0 ? "#EF4444" : daysLeft <= 2 ? "#F97316" : "#34D399" }}>
+                                          {daysLeft < 0 ? `${Math.abs(daysLeft)}d atrasado` : daysLeft === 0 ? "Entrega hoje" : `${daysLeft}d restantes`}
+                                        </span>
+                                      );
+                                    })()}
+                                  </div>
+
                                   {/* Agents */}
-                                  <div className="pt-3">
+                                  <div>
                                     <p className="text-[10px] uppercase tracking-wider font-semibold mb-2" style={{ color: "#aaa" }}>Agentes responsáveis</p>
                                     <div className="flex flex-wrap gap-1.5">
                                       {WS_AGENTS.map((ag) => {
