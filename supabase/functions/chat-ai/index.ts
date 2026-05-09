@@ -133,12 +133,27 @@ Deno.serve(async (req) => {
       return response.json() as Promise<{ stop_reason: string; content: ContentBlock[] }>;
     };
 
-    let currentMessages: unknown[] = [...messages];
-    const postsCreated: unknown[] = [];
-    let finalContent = "";
+    // Stream whitespace as keep-alive to avoid edge function 150s IDLE_TIMEOUT.
+    // JSON.parse ignores leading whitespace, so the client's res.json() still works.
+    const encoder = new TextEncoder();
+    const stream = new TransformStream<Uint8Array, Uint8Array>();
+    const writer = stream.writable.getWriter();
+    const keepAlive = setInterval(() => {
+      writer.write(encoder.encode(" ")).catch(() => {});
+    }, 10000);
 
-    let data = await callClaude(currentMessages);
-    let iterations = 0;
+    const response = new Response(stream.readable, {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+
+    (async () => {
+      try {
+        let currentMessages: unknown[] = [...messages];
+        const postsCreated: unknown[] = [];
+        let finalContent = "";
+
+        let data = await callClaude(currentMessages);
+        let iterations = 0;
 
     while (data.stop_reason === "tool_use" && iterations < 5) {
       iterations++;
@@ -212,10 +227,21 @@ Deno.serve(async (req) => {
 
     finalContent += lastText;
 
-    return new Response(
-      JSON.stringify({ content: finalContent.trim(), posts_created: postsCreated }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
-    );
+        clearInterval(keepAlive);
+        await writer.write(encoder.encode(
+          JSON.stringify({ content: finalContent.trim(), posts_created: postsCreated })
+        ));
+        await writer.close();
+      } catch (err) {
+        clearInterval(keepAlive);
+        try {
+          await writer.write(encoder.encode(JSON.stringify({ error: String(err) })));
+        } catch {}
+        try { await writer.close(); } catch {}
+      }
+    })();
+
+    return response;
   } catch (error) {
     return new Response(JSON.stringify({ error: String(error) }), {
       status: 500,
