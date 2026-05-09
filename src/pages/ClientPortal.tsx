@@ -207,18 +207,18 @@ export default function ClientPortal() {
 
   useEffect(() => {
     if (!token) { setNotFound(true); setLoading(false); return; }
-    supabase.rpc("portal_check", { p_token: token } as any).then(({ data: check, error }) => {
-      if (error || !check) { setNotFound(true); setLoading(false); return; }
-      if ((check as any).password_required) {
+    // Auto-read password from URL hash (shared link with password)
+    const hashPwd = window.location.hash ? decodeURIComponent(window.location.hash.slice(1)) : null;
+    (supabase as any).rpc("get_portal_data", { p_token: token, p_password: hashPwd }).then(({ data: res, error }: any) => {
+      if (error || !res) { setNotFound(true); setLoading(false); return; }
+      if ((res as any).error === "wrong_password") {
         setPasswordRequired(true);
         setLoading(false);
         return;
       }
-      supabase.rpc("get_portal_data", { p_token: token } as any).then(({ data: res, error: err }) => {
-        if (err || !res) { setNotFound(true); }
-        else { setData(res as PortalData); }
-        setLoading(false);
-      });
+      if (hashPwd) window.history.replaceState(null, "", window.location.pathname);
+      setData(res as PortalData);
+      setLoading(false);
     });
   }, [token]);
 

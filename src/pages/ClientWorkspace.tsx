@@ -760,6 +760,7 @@ export default function ClientWorkspace() {
   const [savingSharePassword, setSavingSharePassword] = useState(false);
   const [sharePasswordSaved, setSharePasswordSaved] = useState(false);
   const [shareCopied, setShareCopied] = useState(false);
+  const [shareCopiedWithPwd, setShareCopiedWithPwd] = useState(false);
   const [openingShare, setOpeningShare] = useState(false);
   const [tasks, setTasks] = useState(MOCK_TASKS_TEMPLATE);
   const [crmView, setCrmView] = useState<"contacts" | "pipeline" | "approvals" | "insights" | "whatsapp" | "deliverables">("contacts");
@@ -3168,6 +3169,22 @@ Regras:
                     </button>
                   </div>
                 </div>
+
+                {/* Copy link with password */}
+                {sharePasswordInput.trim() && sharePasswordSaved && (
+                  <button
+                    onClick={() => {
+                      const url = `https://www.caluagencia.com.br/portal/${sharePortalToken}#${encodeURIComponent(sharePasswordInput.trim())}`;
+                      navigator.clipboard.writeText(url);
+                      setShareCopiedWithPwd(true);
+                      setTimeout(() => setShareCopiedWithPwd(false), 2000);
+                    }}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-semibold transition-all"
+                    style={{ background: shareCopiedWithPwd ? "rgba(185,255,75,0.15)" : "rgba(185,255,75,0.06)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.25)" }}>
+                    {shareCopiedWithPwd ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Link2 className="w-3.5 h-3.5" />}
+                    {shareCopiedWithPwd ? "Copiado!" : "Copiar link com senha incluída"}
+                  </button>
+                )}
 
                 {/* Password */}
                 <div>
