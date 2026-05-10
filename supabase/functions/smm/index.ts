@@ -485,8 +485,10 @@ Deno.serve(async (req) => {
       let igMediaId: string | null = null;
       let errorMessage: string | null = null;
       let linkedinIntentUrl: string | null = null;
-      const { caption, media_url, media_type, platforms, client_id, scheduled_at } = post;
+      const { caption, media_url, media_urls, media_type, platforms, client_id, scheduled_at } = post;
       const isScheduled = scheduled_at ? new Date(scheduled_at) > new Date() : false;
+      const isCarousel = media_type === "carousel" && Array.isArray(media_urls) && media_urls.length > 1;
+      const allMediaUrls: string[] = isCarousel ? media_urls! : (media_url ? [media_url] : []);
 
       for (const platform of (platforms as string[])) {
         const { data: conn } = await supabase.from("social_connections")
@@ -496,31 +498,83 @@ Deno.serve(async (req) => {
         const accessToken = deobfuscate(conn.access_token, encKey);
         try {
           if (platform === "facebook") {
-            const endpoint = media_url ? `${GRAPH}/${conn.account_id}/photos` : `${GRAPH}/${conn.account_id}/feed`;
-            const postBody: Record<string, unknown> = media_url
-              ? { url: media_url, caption: caption ?? "", access_token: accessToken }
-              : { message: caption ?? "", access_token: accessToken };
-            const res = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(postBody) });
-            const result = await res.json();
-            if (result.error) { errorMessage = result.error.message; }
-            else { fbPostId = result.post_id ?? result.id; }
+            if (isCarousel && allMediaUrls.length > 1) {
+              // Facebook multi-photo post: upload each photo unpublished then attach
+              const photoIds: string[] = [];
+              for (const url of allMediaUrls) {
+                const r = await fetch(`${GRAPH}/${conn.account_id}/photos`, {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ url, published: false, access_token: accessToken }),
+                });
+                const rj = await r.json();
+                if (rj.id) photoIds.push(rj.id);
+              }
+              if (photoIds.length === 0) { errorMessage = "Nenhuma foto do carrossel foi processada"; continue; }
+              const feedBody = {
+                message: caption ?? "",
+                attached_media: photoIds.map(id => ({ media_fbid: id })),
+                access_token: accessToken,
+              };
+              const res = await fetch(`${GRAPH}/${conn.account_id}/feed`, {
+                method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(feedBody),
+              });
+              const result = await res.json();
+              if (result.error) { errorMessage = result.error.message; } else { fbPostId = result.id; }
+            } else {
+              const singleUrl = allMediaUrls[0];
+              const endpoint = singleUrl ? `${GRAPH}/${conn.account_id}/photos` : `${GRAPH}/${conn.account_id}/feed`;
+              const postBody: Record<string, unknown> = singleUrl
+                ? { url: singleUrl, caption: caption ?? "", access_token: accessToken }
+                : { message: caption ?? "", access_token: accessToken };
+              const res = await fetch(endpoint, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(postBody) });
+              const result = await res.json();
+              if (result.error) { errorMessage = result.error.message; } else { fbPostId = result.post_id ?? result.id; }
+            }
           } else if (platform === "instagram") {
-            if (!media_url) { errorMessage = "Instagram requer imagem"; continue; }
-            const containerRes = await fetch(`${GRAPH}/${conn.account_id}/media`, {
-              method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ image_url: media_url, caption: caption ?? "", access_token: accessToken }),
-            });
-            const containerData = await containerRes.json();
-            if (containerData.error) { errorMessage = containerData.error.message; continue; }
-            const publishRes = await fetch(`${GRAPH}/${conn.account_id}/media_publish`, {
-              method: "POST", headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ creation_id: containerData.id, access_token: accessToken }),
-            });
-            const published = await publishRes.json();
-            if (published.error) { errorMessage = published.error.message; }
-            else { igMediaId = published.id; }
+            if (allMediaUrls.length === 0) { errorMessage = "Instagram requer imagem"; continue; }
+            if (isCarousel && allMediaUrls.length > 1) {
+              // Step 1: create a container for each image
+              const childIds: string[] = [];
+              for (const url of allMediaUrls) {
+                const r = await fetch(`${GRAPH}/${conn.account_id}/media`, {
+                  method: "POST", headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ image_url: url, is_carousel_item: true, access_token: accessToken }),
+                });
+                const rj = await r.json();
+                if (rj.id) childIds.push(rj.id);
+              }
+              if (childIds.length === 0) { errorMessage = "Nenhum item do carrossel criado"; continue; }
+              // Step 2: create carousel container
+              const carouselRes = await fetch(`${GRAPH}/${conn.account_id}/media`, {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ media_type: "CAROUSEL", children: childIds.join(","), caption: caption ?? "", access_token: accessToken }),
+              });
+              const carouselData = await carouselRes.json();
+              if (carouselData.error) { errorMessage = carouselData.error.message; continue; }
+              // Step 3: publish carousel
+              const publishRes = await fetch(`${GRAPH}/${conn.account_id}/media_publish`, {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ creation_id: carouselData.id, access_token: accessToken }),
+              });
+              const published = await publishRes.json();
+              if (published.error) { errorMessage = published.error.message; } else { igMediaId = published.id; }
+            } else {
+              // Single image
+              const containerRes = await fetch(`${GRAPH}/${conn.account_id}/media`, {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ image_url: allMediaUrls[0], caption: caption ?? "", access_token: accessToken }),
+              });
+              const containerData = await containerRes.json();
+              if (containerData.error) { errorMessage = containerData.error.message; continue; }
+              const publishRes = await fetch(`${GRAPH}/${conn.account_id}/media_publish`, {
+                method: "POST", headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ creation_id: containerData.id, access_token: accessToken }),
+              });
+              const published = await publishRes.json();
+              if (published.error) { errorMessage = published.error.message; } else { igMediaId = published.id; }
+            }
           } else if (platform === "linkedin") {
-            const text = media_url ? `${caption ?? ""}\n\n${media_url}`.trim() : (caption ?? "");
+            const text = allMediaUrls[0] ? `${caption ?? ""}\n\n${allMediaUrls[0]}`.trim() : (caption ?? "");
             linkedinIntentUrl = `https://www.linkedin.com/intent/post?text=${encodeURIComponent(text)}`;
           }
         } catch (e) { errorMessage = e instanceof Error ? e.message : "Erro ao publicar"; }
