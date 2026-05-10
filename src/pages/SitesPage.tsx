@@ -73,18 +73,18 @@ const SitesPage = () => {
   };
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="p-6 space-y-6 h-full flex flex-col">
-      <motion.div variants={item} className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold font-display text-foreground">Sites & Landing Pages</h1>
-          <p className="text-sm text-muted-foreground mt-1">{sites.length} páginas · {sites.reduce((a, b) => a + b.visits, 0).toLocaleString()} visitas total</p>
+    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6 h-full flex flex-col min-w-0">
+      <motion.div variants={item} className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-xl md:text-2xl font-bold font-display text-foreground break-words">Sites & Landing Pages</h1>
+          <p className="text-xs md:text-sm text-muted-foreground mt-1 break-words">{sites.length} páginas · {sites.reduce((a, b) => a + b.visits, 0).toLocaleString()} visitas</p>
         </div>
-        <button onClick={() => setTab("templates")} className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">
-          <Plus className="h-4 w-4" /> Nova Página
+        <button onClick={() => setTab("templates")} className="flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 shrink-0">
+          <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Nova Página</span><span className="sm:hidden">Nova</span>
         </button>
       </motion.div>
 
-      <motion.div variants={item} className="flex gap-1 bg-muted rounded-lg p-1 w-fit">
+      <motion.div variants={item} className="flex gap-1 bg-muted rounded-lg p-1 w-fit max-w-full overflow-x-auto scrollbar-thin">
         {[{ key: "sites", label: "Minhas Páginas" }, { key: "templates", label: "Templates" }, { key: "editor", label: "Editor" }].map(t => (
           <button key={t.key} onClick={() => setTab(t.key as typeof tab)} className={cn("px-4 py-2 rounded-md text-sm font-medium transition-colors", tab === t.key ? "bg-card text-foreground shadow-card" : "text-muted-foreground hover:text-foreground")}>
             {t.label}
@@ -95,8 +95,8 @@ const SitesPage = () => {
       {tab === "sites" && (
         <motion.div variants={item} className="space-y-3">
           {sites.map(s => (
-            <div key={s.id} className="flex items-center gap-4 rounded-xl border border-border bg-card p-5 shadow-card hover:shadow-elevated transition-shadow">
-              <div className="flex h-14 w-20 items-center justify-center rounded-lg bg-muted border border-border text-2xl">🌐</div>
+            <div key={s.id} className="flex items-center gap-3 md:gap-4 rounded-xl border border-border bg-card p-3 md:p-5 shadow-card hover:shadow-elevated transition-shadow flex-wrap">
+              <div className="flex h-12 w-14 md:h-14 md:w-20 items-center justify-center rounded-lg bg-muted border border-border text-2xl shrink-0">🌐</div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <h3 className="text-sm font-semibold text-foreground">{s.name}</h3>
@@ -106,7 +106,7 @@ const SitesPage = () => {
                 </div>
                 {s.status === "published" && (
                   <p className="text-xs text-primary flex items-center gap-1 mt-0.5 cursor-pointer hover:underline" onClick={() => toast.info(`Abrindo ${s.url}`)}>
-                    {s.url} <ExternalLink className="h-3 w-3" />
+                    <span className="break-all">{s.url}</span> <ExternalLink className="h-3 w-3 shrink-0" />
                   </p>
                 )}
                 <p className="text-xs text-muted-foreground mt-0.5">Editado: {s.lastEdited}</p>

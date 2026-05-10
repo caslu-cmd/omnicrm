@@ -122,16 +122,16 @@ const AutomationsPage = () => {
   }
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="p-6 space-y-6 h-full flex flex-col">
-      <motion.div variants={item} className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold font-display text-foreground">Automações</h1>
-          <p className="text-sm text-muted-foreground mt-1">{automations.filter(a => a.status === "active").length} ativas · {automations.reduce((a, b) => a + (b.runs ?? 0), 0).toLocaleString()} execuções total</p>
+    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6 h-full flex flex-col min-w-0">
+      <motion.div variants={item} className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-xl md:text-2xl font-bold font-display text-foreground">Automações</h1>
+          <p className="text-xs md:text-sm text-muted-foreground mt-1 break-words">{automations.filter(a => a.status === "active").length} ativas · {automations.reduce((a, b) => a + (b.runs ?? 0), 0).toLocaleString()} execuções</p>
         </div>
-        <button onClick={() => setTab("builder")} className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"><Plus className="h-4 w-4" /> Nova Automação</button>
+        <button onClick={() => setTab("builder")} className="flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"><Plus className="h-4 w-4" /> <span className="hidden sm:inline">Nova Automação</span><span className="sm:hidden">Nova</span></button>
       </motion.div>
 
-      <motion.div variants={item} className="flex gap-1 bg-muted rounded-lg p-1 w-fit">
+      <motion.div variants={item} className="flex gap-1 bg-muted rounded-lg p-1 w-fit max-w-full overflow-x-auto scrollbar-thin">
         {[{ key: "my", label: "Minhas Automações" }, { key: "templates", label: "Templates" }, { key: "builder", label: "Builder Visual" }].map((t) => (
           <button key={t.key} onClick={() => setTab(t.key as typeof tab)} className={cn("px-4 py-2 rounded-md text-sm font-medium transition-colors", tab === t.key ? "bg-card text-foreground shadow-card" : "text-muted-foreground hover:text-foreground")}>{t.label}</button>
         ))}
@@ -146,14 +146,14 @@ const AutomationsPage = () => {
             const status = statusConfig[auto.status as keyof typeof statusConfig] || statusConfig.draft;
             const StatusIcon = status.icon;
             return (
-              <div key={auto.id} className="flex items-center gap-4 rounded-xl border border-border bg-card p-5 shadow-card hover:shadow-elevated transition-shadow">
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10"><Zap className="h-5 w-5 text-primary" /></div>
+              <div key={auto.id} className="flex items-center gap-3 md:gap-4 rounded-xl border border-border bg-card p-3 md:p-5 shadow-card hover:shadow-elevated transition-shadow flex-wrap">
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 shrink-0"><Zap className="h-5 w-5 text-primary" /></div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-sm font-semibold text-foreground">{auto.name}</h3>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-sm font-semibold text-foreground break-words">{auto.name}</h3>
                     <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium", status.color)}><StatusIcon className="h-3 w-3" /> {status.label}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">Trigger: {auto.trigger_type || "—"} · Última execução: {auto.last_run}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 break-words">Trigger: {auto.trigger_type || "—"} · Última: {auto.last_run}</p>
                 </div>
                 <div className="hidden md:flex items-center gap-8 text-center">
                   <div><p className="text-lg font-bold font-display text-foreground">{(auto.runs ?? 0).toLocaleString()}</p><p className="text-[11px] text-muted-foreground">Execuções</p></div>
@@ -175,12 +175,12 @@ const AutomationsPage = () => {
 
       {tab === "templates" && (
         <div className="space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="relative flex-1 max-w-sm">
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="relative flex-1 min-w-[200px] max-w-sm">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input value={searchTemplates} onChange={e => setSearchTemplates(e.target.value)} placeholder="Buscar templates..." className="w-full rounded-lg border border-input bg-card py-2 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20" />
             </div>
-            <div className="flex gap-1.5">
+            <div className="flex gap-1.5 flex-wrap">
               {categories.map(c => (
                 <button key={c} onClick={() => setSelectedCategory(c)} className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition-colors", selectedCategory === c ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground")}>{c}</button>
               ))}
