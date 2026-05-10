@@ -63,13 +63,13 @@ const ReportsPage = () => {
   const [reportTab, setReportTab] = useState<"analytics" | "cdp">("analytics");
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6">
-      <motion.div variants={item} className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold font-display text-foreground">Relatórios</h1>
-          <p className="text-sm text-muted-foreground mt-1">Analytics consolidados do seu CRM</p>
+    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6 min-w-0">
+      <motion.div variants={item} className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="min-w-0">
+          <h1 className="text-xl md:text-2xl font-bold font-display text-foreground">Relatórios</h1>
+          <p className="text-xs md:text-sm text-muted-foreground mt-1 break-words">Analytics consolidados do seu CRM</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           <div className="flex bg-muted rounded-lg p-0.5">
             {["7d", "30d", "90d", "1y"].map(p => (
               <button key={p} onClick={() => setPeriod(p)} className={cn("px-3 py-1.5 rounded-md text-xs font-medium transition-colors", period === p ? "bg-card text-foreground shadow-sm" : "text-muted-foreground")}>
@@ -140,8 +140,8 @@ const ReportsPage = () => {
         {/* Channel Distribution */}
         <motion.div variants={item} className="rounded-xl border border-border bg-card p-5 shadow-card">
           <h3 className="text-base font-semibold font-display text-foreground mb-4">Conversas por Canal</h3>
-          <div className="flex items-center gap-6">
-            <ResponsiveContainer width="50%" height={200}>
+          <div className="flex items-center gap-4 md:gap-6 flex-wrap">
+            <ResponsiveContainer width="100%" height={200} minWidth={0} className="!w-full sm:!w-1/2">
               <PieChart>
                 <Pie data={channelData} cx="50%" cy="50%" innerRadius={55} outerRadius={80} dataKey="value" paddingAngle={4}>
                   {channelData.map((entry, i) => <Cell key={i} fill={entry.color} />)}

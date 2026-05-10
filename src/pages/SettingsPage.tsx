@@ -23,28 +23,28 @@ const SettingsPage = () => {
   const [tab, setTab] = useState("org");
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6">
+    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6 min-w-0">
       <motion.div variants={item}>
-        <h1 className="text-2xl font-bold font-display text-foreground">Configurações</h1>
-        <p className="text-sm text-muted-foreground mt-1">Gerencie sua organização, segurança e compliance</p>
+        <h1 className="text-xl md:text-2xl font-bold font-display text-foreground">Configurações</h1>
+        <p className="text-xs md:text-sm text-muted-foreground mt-1 break-words">Gerencie sua organização, segurança e compliance</p>
       </motion.div>
 
-      <div className="flex gap-6">
-        {/* Sidebar tabs */}
-        <motion.div variants={item} className="w-52 shrink-0 space-y-1">
+      <div className="flex flex-col md:flex-row gap-4 md:gap-6">
+        {/* Sidebar tabs — horizontal on mobile, vertical on desktop */}
+        <motion.div variants={item} className="w-full md:w-52 shrink-0 flex md:flex-col gap-1 overflow-x-auto md:overflow-visible scrollbar-thin">
           {tabs.map(t => (
-            <button key={t.key} onClick={() => setTab(t.key)} className={cn("w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left", tab === t.key ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted")}>
+            <button key={t.key} onClick={() => setTab(t.key)} className={cn("shrink-0 md:w-full flex items-center gap-2.5 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left whitespace-nowrap", tab === t.key ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted")}>
               <t.icon className="h-4 w-4" /> {t.label}
             </button>
           ))}
         </motion.div>
 
-        <div className="flex-1 space-y-6">
+        <div className="flex-1 space-y-6 min-w-0">
           {tab === "org" && (
             <motion.div variants={item} className="space-y-6">
               <div className="rounded-xl border border-border bg-card p-6 shadow-card space-y-4">
                 <h3 className="text-base font-semibold font-display text-foreground">Informações da Organização</h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div><label className="text-xs font-medium text-muted-foreground">Nome</label><input defaultValue="Minha Empresa LTDA" className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
                   <div><label className="text-xs font-medium text-muted-foreground">CNPJ</label><input defaultValue="12.345.678/0001-90" className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
                   <div><label className="text-xs font-medium text-muted-foreground">E-mail</label><input defaultValue="admin@minhaempresa.com" className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>

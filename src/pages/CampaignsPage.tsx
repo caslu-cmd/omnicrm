@@ -62,10 +62,10 @@ const CampaignsPage = () => {
   };
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6">
-      <motion.div variants={item} className="flex items-center justify-between">
-        <div><h1 className="text-2xl font-bold font-display text-foreground">Campanhas</h1><p className="text-sm text-muted-foreground mt-1">{campaigns.length} campanhas · {avgOpenRate}% taxa de abertura média</p></div>
-        <button onClick={() => setTab("compose")} className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"><Plus className="h-4 w-4" /> Nova Campanha</button>
+    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6 min-w-0">
+      <motion.div variants={item} className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="min-w-0"><h1 className="text-xl md:text-2xl font-bold font-display text-foreground">Campanhas</h1><p className="text-xs md:text-sm text-muted-foreground mt-1 break-words">{campaigns.length} campanhas · {avgOpenRate}% abertura média</p></div>
+        <button onClick={() => setTab("compose")} className="flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"><Plus className="h-4 w-4" /> <span className="hidden sm:inline">Nova Campanha</span><span className="sm:hidden">Nova</span></button>
       </motion.div>
 
       <motion.div variants={item} className="grid grid-cols-1 sm:grid-cols-4 gap-4">
@@ -98,12 +98,12 @@ const CampaignsPage = () => {
               const openRate = c.delivered > 0 ? ((c.opened / c.delivered) * 100).toFixed(1) : "—";
               const clickRate = c.delivered > 0 ? ((c.clicked / c.delivered) * 100).toFixed(1) : "—";
               return (
-                <div key={c.id} className="rounded-xl border border-border bg-card p-5 shadow-card hover:shadow-elevated transition-shadow">
-                  <div className="flex items-center gap-4">
-                    <div className={cn("flex h-11 w-11 items-center justify-center rounded-xl", c.channel === "email" ? "bg-primary/10" : "bg-secondary/10")}><ChannelIcon className={cn("h-5 w-5", c.channel === "email" ? "text-primary" : "text-secondary")} /></div>
+                <div key={c.id} className="rounded-xl border border-border bg-card p-3 md:p-5 shadow-card hover:shadow-elevated transition-shadow">
+                  <div className="flex items-center gap-3 md:gap-4 flex-wrap">
+                    <div className={cn("flex h-11 w-11 items-center justify-center rounded-xl shrink-0", c.channel === "email" ? "bg-primary/10" : "bg-secondary/10")}><ChannelIcon className={cn("h-5 w-5", c.channel === "email" ? "text-primary" : "text-secondary")} /></div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2"><h3 className="text-sm font-semibold text-foreground">{c.name}</h3><span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium", status.color)}><StatusIcon className="h-3 w-3" /> {status.label}</span></div>
-                      <p className="text-xs text-muted-foreground mt-0.5">{c.channel === "email" ? "E-mail" : "WhatsApp"} · {c.audience.toLocaleString()} destinatários · {c.sentAt}</p>
+                      <div className="flex items-center gap-2 flex-wrap"><h3 className="text-sm font-semibold text-foreground break-words">{c.name}</h3><span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-xs font-medium", status.color)}><StatusIcon className="h-3 w-3" /> {status.label}</span></div>
+                      <p className="text-xs text-muted-foreground mt-0.5 break-words">{c.channel === "email" ? "E-mail" : "WhatsApp"} · {c.audience.toLocaleString()} dest · {c.sentAt}</p>
                     </div>
                     {c.status === "sent" && (
                       <div className="hidden lg:flex items-center gap-6 text-center">
