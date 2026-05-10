@@ -203,10 +203,10 @@ const IntegrationsPage = () => {
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6">
-      <motion.div variants={item} className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold font-display text-foreground">Integrações</h1>
-          <p className="text-sm text-muted-foreground mt-1">{connectedCount} conectadas · {connectorDefs.length} disponíveis</p>
+      <motion.div variants={item} className="flex flex-wrap items-center justify-between gap-3 min-w-0">
+        <div className="min-w-0">
+          <h1 className="text-xl md:text-2xl font-bold font-display text-foreground break-words">Integrações</h1>
+          <p className="text-xs md:text-sm text-muted-foreground mt-1 break-words">{connectedCount} conectadas · {connectorDefs.length} disponíveis</p>
         </div>
       </motion.div>
 
@@ -217,7 +217,7 @@ const IntegrationsPage = () => {
         </div>
       </motion.div>
 
-      <motion.div variants={item} className="flex gap-1.5 flex-wrap">
+      <motion.div variants={item} className="flex gap-1.5 flex-wrap overflow-x-auto scrollbar-thin -mx-3 px-3 md:mx-0 md:px-0">
         {categories.map(c => (
           <button key={c} onClick={() => setSelectedCategory(c)} className={cn("px-3 py-1.5 rounded-lg text-xs font-medium transition-colors", selectedCategory === c ? "bg-primary text-primary-foreground" : "bg-muted text-muted-foreground hover:text-foreground")}>
             {c}

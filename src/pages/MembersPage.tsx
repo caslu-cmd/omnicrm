@@ -356,13 +356,13 @@ const MembersPage = () => {
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6">
       {/* Header */}
-      <motion.div variants={item} className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold font-display text-foreground">Cursos & Membros</h1>
-          <p className="text-sm text-muted-foreground mt-1">{courses.length} cursos · {totalStudents} alunos</p>
+      <motion.div variants={item} className="flex flex-wrap items-center justify-between gap-3 min-w-0">
+        <div className="min-w-0">
+          <h1 className="text-xl md:text-2xl font-bold font-display text-foreground break-words">Cursos & Membros</h1>
+          <p className="text-xs md:text-sm text-muted-foreground mt-1 break-words">{courses.length} cursos · {totalStudents} alunos</p>
         </div>
-        <button onClick={() => { resetCourseForm(); setShowNewCourse(true); }} className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">
-          <Plus className="h-4 w-4" /> Novo Curso
+        <button onClick={() => { resetCourseForm(); setShowNewCourse(true); }} className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">
+          <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Novo Curso</span><span className="sm:hidden">Novo</span>
         </button>
       </motion.div>
 

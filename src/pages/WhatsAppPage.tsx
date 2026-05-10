@@ -216,18 +216,18 @@ const WhatsAppPage = () => {
   const onSend = tab === "wa" ? handleSendWa : tab === "crm" ? handleSendCrm : handleSendIndividual;
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-4xl p-3 md:p-0">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
-            <MessageCircle className="w-6 h-6" style={{ color: "#25D366" }} />
+      <div className="flex flex-wrap items-center justify-between gap-3 min-w-0">
+        <div className="min-w-0">
+          <h1 className="text-xl md:text-2xl font-bold text-white flex items-center gap-2 break-words">
+            <MessageCircle className="w-6 h-6 shrink-0" style={{ color: "#25D366" }} />
             WhatsApp — Z-API
           </h1>
-          <p className="text-sm text-white/40 mt-1">Envie mensagens para grupos e contatos direto do CRM</p>
+          <p className="text-xs md:text-sm text-white/40 mt-1 break-words">Envie mensagens para grupos e contatos direto do CRM</p>
         </div>
         <button onClick={() => checkStatus()} disabled={connStatus === "loading"}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all"
+          className="shrink-0 flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all"
           style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)" }}>
           <RefreshCw className={`w-3.5 h-3.5 ${connStatus === "loading" ? "animate-spin" : ""}`} />
           Atualizar
@@ -298,14 +298,14 @@ const WhatsAppPage = () => {
         style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.08)" }}>
 
         {/* Tabs */}
-        <div className="flex border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+        <div className="flex border-b overflow-x-auto scrollbar-thin" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
           {[
             { id: "wa",         label: "Grupos WhatsApp", icon: Users },
             { id: "crm",        label: "Grupos CRM",      icon: BookUser },
             { id: "individual", label: "Número Individual",icon: Phone },
           ].map(({ id, label, icon: Icon }) => (
             <button key={id} onClick={() => setTab(id as "wa" | "crm" | "individual")}
-              className="flex-1 flex items-center justify-center gap-2 py-3.5 text-sm font-medium transition-colors"
+              className="flex-1 min-w-[120px] flex items-center justify-center gap-2 py-3.5 text-xs sm:text-sm font-medium transition-colors whitespace-nowrap"
               style={{
                 color:        tab === id ? "#25D366" : "rgba(255,255,255,0.35)",
                 borderBottom: tab === id ? "2px solid #25D366" : "2px solid transparent",
