@@ -164,6 +164,7 @@ const AppRoutes = () => (
     {/* OAuth callbacks */}
     <Route path="/oauth/meta" element={<OAuthCallbackPage />} />
     <Route path="/oauth/linkedin" element={<OAuthCallbackPage />} />
+    <Route path="/oauth/google" element={<OAuthCallbackPage />} />
 
     {/* Páginas legais */}
     <Route path="/privacy" element={<PrivacyPage />} />

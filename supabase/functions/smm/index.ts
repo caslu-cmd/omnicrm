@@ -132,6 +132,27 @@ Deno.serve(async (req) => {
       const longToken = longData.access_token;
       const expiresIn = longData.expires_in ?? 5184000;
 
+      // Meta Ads: use user token to connect ad account
+      if (platform === "meta_ads") {
+        const adAccRes = await fetch(`${GRAPH}/me/adaccounts?fields=id,name,account_status,currency&access_token=${longToken}`);
+        const adAccData = await adAccRes.json();
+        if (adAccData.error) return respond({ error: adAccData.error.message }, 400);
+        const accounts: Array<{ id: string; name: string; account_status: number }> = adAccData.data ?? [];
+        const activeAccounts = accounts.filter((a) => a.account_status === 1);
+        if (!activeAccounts.length) return respond({ error: "Nenhuma conta de anúncios ativa encontrada. Verifique o Meta Business Manager." }, 400);
+        const adAcc = activeAccounts[0];
+        const encToken = obfuscate(longToken, encKey);
+        const { error: upsertErr } = await supabase.from("social_connections").upsert({
+          user_id: userId, client_id: clientId, platform: "meta_ads",
+          account_id: adAcc.id, account_name: adAcc.name,
+          account_username: null, followers_count: 0,
+          access_token: encToken, token_expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
+          connected: true, connected_at: new Date().toISOString(),
+        }, { onConflict: "user_id,client_id,platform" });
+        if (upsertErr) return respond({ error: upsertErr.message }, 500);
+        return respond({ success: true, account_name: adAcc.name, accounts: activeAccounts });
+      }
+
       const pagesRes = await fetch(`${GRAPH}/me/accounts?access_token=${longToken}`);
       const pagesData = await pagesRes.json();
       if (pagesData.error) return respond({ error: pagesData.error.message }, 400);
@@ -327,8 +348,8 @@ Deno.serve(async (req) => {
       const scheduledDate = scheduled_at ? new Date(scheduled_at) : null;
       const isScheduled   = scheduledDate && scheduledDate > new Date();
       const isStory       = media_type === "story";
-      const isCarousel    = media_type === "carousel" && Array.isArray(media_urls) && media_urls.length >= 2;
-      const dbMediaType   = normalizeScheduledPostMediaType(media_type, media_url);
+      const isCarousel    = Array.isArray(media_urls) && media_urls.length >= 2;
+      const dbMediaType   = isCarousel ? "carousel" : normalizeScheduledPostMediaType(media_type, media_url);
 
       // Save the post to DB first — this way it always appears in the UI regardless of API outcomes
       const { data: post, error: insertError } = await supabase.from("scheduled_posts").insert({
@@ -487,7 +508,7 @@ Deno.serve(async (req) => {
       let linkedinIntentUrl: string | null = null;
       const { caption, media_url, media_urls, media_type, platforms, client_id, scheduled_at } = post;
       const isScheduled = scheduled_at ? new Date(scheduled_at) > new Date() : false;
-      const isCarousel = media_type === "carousel" && Array.isArray(media_urls) && media_urls.length > 1;
+      const isCarousel = Array.isArray(media_urls) && media_urls.length > 1;
       const allMediaUrls: string[] = isCarousel ? media_urls! : (media_url ? [media_url] : []);
 
       for (const platform of (platforms as string[])) {
@@ -501,15 +522,18 @@ Deno.serve(async (req) => {
             if (isCarousel && allMediaUrls.length > 1) {
               // Facebook multi-photo post: upload each photo unpublished then attach
               const photoIds: string[] = [];
+              let uploadError: string | null = null;
               for (const url of allMediaUrls) {
                 const r = await fetch(`${GRAPH}/${conn.account_id}/photos`, {
                   method: "POST", headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({ url, published: false, access_token: accessToken }),
                 });
                 const rj = await r.json();
+                if (rj.error) { uploadError = rj.error.message; break; }
                 if (rj.id) photoIds.push(rj.id);
               }
-              if (photoIds.length === 0) { errorMessage = "Nenhuma foto do carrossel foi processada"; continue; }
+              if (uploadError) { errorMessage = `Erro upload foto: ${uploadError}`; continue; }
+              if (photoIds.length < 2) { errorMessage = `Apenas ${photoIds.length} foto(s) carregada(s), carrossel requer no mínimo 2`; continue; }
               const feedBody = {
                 message: caption ?? "",
                 attached_media: photoIds.map(id => ({ media_fbid: id })),
@@ -535,15 +559,18 @@ Deno.serve(async (req) => {
             if (isCarousel && allMediaUrls.length > 1) {
               // Step 1: create a container for each image
               const childIds: string[] = [];
+              let igUploadError: string | null = null;
               for (const url of allMediaUrls) {
                 const r = await fetch(`${GRAPH}/${conn.account_id}/media`, {
                   method: "POST", headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({ image_url: url, is_carousel_item: true, access_token: accessToken }),
                 });
                 const rj = await r.json();
+                if (rj.error) { igUploadError = rj.error.message; break; }
                 if (rj.id) childIds.push(rj.id);
               }
-              if (childIds.length === 0) { errorMessage = "Nenhum item do carrossel criado"; continue; }
+              if (igUploadError) { errorMessage = `Erro no item do carrossel: ${igUploadError}`; continue; }
+              if (childIds.length < 2) { errorMessage = `Apenas ${childIds.length} item(s) criado(s), carrossel requer no mínimo 2`; continue; }
               // Step 2: create carousel container
               const carouselRes = await fetch(`${GRAPH}/${conn.account_id}/media`, {
                 method: "POST", headers: { "Content-Type": "application/json" },
@@ -659,6 +686,232 @@ Deno.serve(async (req) => {
         } catch { /* skip */ }
       }
       return respond({ metrics });
+    }
+
+    // ── Ads OAuth URL (Meta Ads with ads_read scope) ─────────────
+    if (action === "ads-oauth-url") {
+      if (!metaAppId) return respond({ error: "META_APP_ID não configurado" }, 503);
+      const { client_id } = body;
+      const state = btoa(JSON.stringify({ userId, clientId: client_id, platform: "meta_ads", ts: Date.now() }));
+      const adsScope = META_SCOPE + ",ads_read,ads_management,pages_manage_ads";
+      const url =
+        `https://www.facebook.com/v22.0/dialog/oauth` +
+        `?client_id=${metaAppId}` +
+        `&redirect_uri=${encodeURIComponent(redirectUri)}` +
+        `&scope=${adsScope}` +
+        `&state=${encodeURIComponent(state)}` +
+        `&response_type=code`;
+      return respond({ url });
+    }
+
+    // ── Ads Metrics (Meta Ads account-level insights) ─────────────
+    if (action === "ads-metrics") {
+      const { client_id, date_preset = "last_30_days" } = body;
+      if (!client_id) return respond({ error: "client_id obrigatório" }, 400);
+
+      const { data: conn } = await supabase.from("social_connections")
+        .select("account_id,access_token,account_name")
+        .eq("user_id", userId).eq("client_id", client_id)
+        .eq("platform", "meta_ads").eq("connected", true).maybeSingle();
+      if (!conn) return respond({ connected: false });
+
+      const token = deobfuscate(conn.access_token, encKey);
+      const insRes = await fetch(
+        `${GRAPH}/${conn.account_id}/insights?fields=spend,impressions,clicks,ctr,cpm,cpc,reach,actions&date_preset=${date_preset}&access_token=${token}`
+      );
+      const insData = await insRes.json();
+      if (insData.error) return respond({ error: insData.error.message }, 400);
+
+      const d = insData.data?.[0] ?? {};
+      const purchaseAction = (d.actions ?? []).find(
+        (a: any) => a.action_type === "purchase" || a.action_type === "offsite_conversion.fb_pixel_purchase"
+      );
+      const purchaseValue = parseFloat(purchaseAction?.value ?? "0");
+      const spend = parseFloat(d.spend ?? "0");
+
+      return respond({
+        connected: true,
+        account_name: conn.account_name,
+        account_id: conn.account_id,
+        spend,
+        impressions: parseInt(d.impressions ?? "0"),
+        clicks: parseInt(d.clicks ?? "0"),
+        ctr: parseFloat(d.ctr ?? "0"),
+        cpm: parseFloat(d.cpm ?? "0"),
+        cpc: parseFloat(d.cpc ?? "0"),
+        reach: parseInt(d.reach ?? "0"),
+        roas: spend > 0 ? purchaseValue / spend : 0,
+        date_preset,
+      });
+    }
+
+    // ── Ads Campaigns ─────────────────────────────────────────────
+    if (action === "ads-campaigns") {
+      const { client_id, date_preset = "last_30_days" } = body;
+      if (!client_id) return respond({ error: "client_id obrigatório" }, 400);
+
+      const { data: conn } = await supabase.from("social_connections")
+        .select("account_id,access_token")
+        .eq("user_id", userId).eq("client_id", client_id)
+        .eq("platform", "meta_ads").eq("connected", true).maybeSingle();
+      if (!conn) return respond({ campaigns: [] });
+
+      const token = deobfuscate(conn.access_token, encKey);
+
+      const [campaignsRes, insRes] = await Promise.all([
+        fetch(`${GRAPH}/${conn.account_id}/campaigns?fields=id,name,status,objective&limit=25&access_token=${token}`),
+        fetch(`${GRAPH}/${conn.account_id}/insights?fields=campaign_id,spend,impressions,clicks,ctr,cpc,reach&level=campaign&date_preset=${date_preset}&access_token=${token}`),
+      ]);
+
+      const campaignsData = await campaignsRes.json();
+      const insData = await insRes.json();
+
+      if (campaignsData.error) return respond({ error: campaignsData.error.message }, 400);
+
+      const insMap: Record<string, any> = {};
+      for (const item of insData.data ?? []) insMap[item.campaign_id] = item;
+
+      const campaigns = (campaignsData.data ?? []).map((c: any) => {
+        const ins = insMap[c.id] ?? {};
+        return {
+          id: c.id, name: c.name, status: c.status, objective: c.objective ?? "",
+          spend: parseFloat(ins.spend ?? "0"),
+          impressions: parseInt(ins.impressions ?? "0"),
+          clicks: parseInt(ins.clicks ?? "0"),
+          ctr: parseFloat(ins.ctr ?? "0"),
+          cpc: parseFloat(ins.cpc ?? "0"),
+          reach: parseInt(ins.reach ?? "0"),
+        };
+      });
+
+      return respond({ campaigns });
+    }
+
+    // ── Toggle Campaign ───────────────────────────────────────────
+    if (action === "toggle-campaign") {
+      const { campaign_id, status, client_id } = body;
+      if (!campaign_id || !status || !client_id) return respond({ error: "campaign_id, status e client_id obrigatórios" }, 400);
+
+      const { data: conn } = await supabase.from("social_connections")
+        .select("account_id,access_token")
+        .eq("user_id", userId).eq("client_id", client_id)
+        .eq("platform", "meta_ads").eq("connected", true).maybeSingle();
+      if (!conn) return respond({ error: "Conta de anúncios não conectada" }, 404);
+
+      const token = deobfuscate(conn.access_token, encKey);
+      const res = await fetch(`${GRAPH}/${campaign_id}`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status, access_token: token }),
+      });
+      const result = await res.json();
+      if (result.error) return respond({ error: result.error.message }, 400);
+      return respond({ success: true });
+    }
+
+    // ── Google Ads OAuth URL ──────────────────────────────────────
+    if (action === "google-ads-oauth-url") {
+      const googleClientId = Deno.env.get("GOOGLE_CLIENT_ID") ?? "";
+      const googleRedirectUri = Deno.env.get("GOOGLE_REDIRECT_URI") ?? "https://omnicrm.lovable.app/oauth/google";
+      if (!googleClientId) return respond({ error: "GOOGLE_CLIENT_ID não configurado" }, 503);
+      const { client_id } = body;
+      const state = btoa(JSON.stringify({ userId, clientId: client_id, platform: "google_ads", ts: Date.now() }));
+      const url =
+        `https://accounts.google.com/o/oauth2/v2/auth` +
+        `?client_id=${googleClientId}` +
+        `&redirect_uri=${encodeURIComponent(googleRedirectUri)}` +
+        `&response_type=code` +
+        `&scope=${encodeURIComponent("https://www.googleapis.com/auth/adwords")}` +
+        `&access_type=offline&prompt=consent` +
+        `&state=${encodeURIComponent(state)}`;
+      return respond({ url });
+    }
+
+    // ── Google Ads Callback ───────────────────────────────────────
+    if (action === "google-ads-callback") {
+      const { code, state } = body;
+      if (!code || !state) return respond({ error: "code e state obrigatórios" }, 400);
+      const googleClientId = Deno.env.get("GOOGLE_CLIENT_ID") ?? "";
+      const googleClientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET") ?? "";
+      const googleRedirectUri = Deno.env.get("GOOGLE_REDIRECT_URI") ?? "https://omnicrm.lovable.app/oauth/google";
+      if (!googleClientId || !googleClientSecret) return respond({ error: "Credenciais Google não configuradas" }, 503);
+
+      const b64 = state.replace(/-/g, "+").replace(/_/g, "/");
+      const padded = b64 + "=".repeat((4 - b64.length % 4) % 4);
+      let sd: { userId: string; clientId: string };
+      try { sd = JSON.parse(atob(padded)); }
+      catch { return respond({ error: "State inválido" }, 400); }
+      const { clientId } = sd;
+
+      const tokenRes = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          code, client_id: googleClientId, client_secret: googleClientSecret,
+          redirect_uri: googleRedirectUri, grant_type: "authorization_code",
+        }).toString(),
+      });
+      const tokenData = await tokenRes.json();
+      if (tokenData.error) return respond({ error: tokenData.error_description ?? tokenData.error }, 400);
+
+      const encryptedToken = obfuscate(tokenData.access_token, encKey);
+      const { error: upsertError } = await supabase.from("social_connections").upsert({
+        user_id: userId, client_id: clientId, platform: "google_ads",
+        account_id: "google_ads", account_name: "Google Ads",
+        account_username: null, followers_count: 0,
+        access_token: encryptedToken,
+        token_expires_at: new Date(Date.now() + (tokenData.expires_in ?? 3600) * 1000).toISOString(),
+        connected: true, connected_at: new Date().toISOString(),
+      }, { onConflict: "user_id,client_id,platform" });
+      if (upsertError) return respond({ error: upsertError.message }, 500);
+      return respond({ success: true, account_name: "Google Ads" });
+    }
+
+    // ── Google Ads Metrics ────────────────────────────────────────
+    if (action === "google-ads-metrics") {
+      const { client_id, customer_id } = body;
+      if (!client_id) return respond({ error: "client_id obrigatório" }, 400);
+
+      const { data: conn } = await supabase.from("social_connections")
+        .select("access_token,account_name")
+        .eq("user_id", userId).eq("client_id", client_id)
+        .eq("platform", "google_ads").eq("connected", true).maybeSingle();
+      if (!conn) return respond({ connected: false });
+
+      const devToken = Deno.env.get("GOOGLE_ADS_DEVELOPER_TOKEN") ?? "";
+      if (!devToken) return respond({ connected: true, error: "GOOGLE_ADS_DEVELOPER_TOKEN não configurado — configure nas variáveis de ambiente do Supabase" });
+
+      const token = deobfuscate(conn.access_token, encKey);
+      const cid = customer_id?.replace(/-/g, "") ?? "";
+      if (!cid) return respond({ connected: true, error: "customer_id não informado" });
+
+      const gaqlRes = await fetch(
+        `https://googleads.googleapis.com/v18/customers/${cid}/googleAds:search`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "developer-token": devToken,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            query: `SELECT metrics.cost_micros, metrics.impressions, metrics.clicks, metrics.ctr, metrics.average_cpc
+                    FROM campaign
+                    WHERE segments.date DURING LAST_30_DAYS`,
+          }),
+        }
+      );
+      const gaqlData = await gaqlRes.json();
+      if (gaqlData.error) return respond({ connected: true, error: gaqlData.error.message ?? gaqlData.error.status }, 400);
+
+      let spend = 0, impressions = 0, clicks = 0;
+      for (const row of gaqlData.results ?? []) {
+        spend += (row.metrics?.costMicros ?? 0) / 1_000_000;
+        impressions += row.metrics?.impressions ?? 0;
+        clicks += row.metrics?.clicks ?? 0;
+      }
+      const ctr = impressions > 0 ? (clicks / impressions) * 100 : 0;
+      const cpc = clicks > 0 ? spend / clicks : 0;
+
+      return respond({ connected: true, spend, impressions, clicks, ctr, cpc, cpm: 0, reach: 0, roas: 0 });
     }
 
     return respond({ error: "Ação inválida" }, 400);

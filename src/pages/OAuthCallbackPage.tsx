@@ -9,7 +9,9 @@ export default function OAuthCallbackPage() {
   const [message, setMessage] = useState("Processando…");
 
   useEffect(() => {
-    const isLinkedIn = window.location.pathname.includes("/oauth/linkedin");
+    const path = window.location.pathname;
+    const isLinkedIn = path.includes("/oauth/linkedin");
+    const isGoogle   = path.includes("/oauth/google");
 
     const code         = searchParams.get("code");
     const state        = searchParams.get("state");
@@ -17,14 +19,32 @@ export default function OAuthCallbackPage() {
     const errorCode    = searchParams.get("error_code");
     const errorMessage = searchParams.get("error_message");
 
+    // Decode platform from state
+    let platform = "";
+    try {
+      const b64 = (state ?? "").replace(/-/g, "+").replace(/_/g, "/");
+      const padded = b64 + "=".repeat((4 - b64.length % 4) % 4);
+      platform = JSON.parse(atob(padded)).platform ?? "";
+    } catch { /* ignore */ }
+
+    const isMetaAds  = platform === "meta_ads";
+    const isGoogleAds = isGoogle || platform === "google_ads";
+
+    const msgType = isLinkedIn  ? "linkedin-oauth-exchange"
+                  : isMetaAds   ? "meta-ads-oauth-exchange"
+                  : isGoogleAds ? "google-ads-oauth-exchange"
+                  :               "meta-oauth-exchange";
+
+    const errType = isLinkedIn  ? "linkedin-oauth-error"
+                  : isMetaAds   ? "meta-ads-oauth-error"
+                  : isGoogleAds ? "google-ads-oauth-error"
+                  :               "meta-oauth-error";
+
     if (error || errorCode) {
       const msg = searchParams.get("error_description") ?? errorMessage ?? "Autorização negada.";
       setStatus("error");
       setMessage(msg);
-      window.opener?.postMessage({
-        type: isLinkedIn ? "linkedin-oauth-error" : "meta-oauth-error",
-        error: msg,
-      }, "*");
+      window.opener?.postMessage({ type: errType, error: msg }, "*");
       return;
     }
 
@@ -32,40 +52,38 @@ export default function OAuthCallbackPage() {
       const msg = "Código de autorização ausente.";
       setStatus("error");
       setMessage(msg);
-      window.opener?.postMessage({
-        type: isLinkedIn ? "linkedin-oauth-error" : "meta-oauth-error",
-        error: msg,
-      }, "*");
+      window.opener?.postMessage({ type: errType, error: msg }, "*");
       return;
     }
 
     // Normal popup flow — delegate to opener and close
     if (window.opener) {
-      window.opener.postMessage({
-        type: isLinkedIn ? "linkedin-oauth-exchange" : "meta-oauth-exchange",
-        code,
-        state: state ?? "",
-      }, "*");
+      window.opener.postMessage({ type: msgType, code, state: state ?? "" }, "*");
       setStatus("success");
-      setMessage(isLinkedIn ? "Conectando LinkedIn…" : "Conectando conta Meta…");
+      setMessage(
+        isLinkedIn  ? "Conectando LinkedIn…"   :
+        isMetaAds   ? "Conectando Meta Ads…"   :
+        isGoogleAds ? "Conectando Google Ads…" :
+                      "Conectando conta Meta…"
+      );
       setTimeout(() => window.close(), 3000);
       return;
     }
 
     // No opener (new tab) — store data and redirect back to workspace
     if (!isLinkedIn) {
+      const storageKey = isMetaAds   ? "meta-ads-oauth-pending"
+                       : isGoogleAds ? "google-ads-oauth-pending"
+                       :               "meta-oauth-pending";
       try {
-        sessionStorage.setItem("meta-oauth-pending", JSON.stringify({
-          code,
-          state: state ?? "",
-          redirect_uri: META_REDIRECT_URI,
+        sessionStorage.setItem(storageKey, JSON.stringify({
+          code, state: state ?? "", redirect_uri: META_REDIRECT_URI,
         }));
-      } catch { /* ignore storage errors */ }
+      } catch { /* ignore */ }
 
       setStatus("success");
       setMessage("Conectando… redirecionando");
 
-      // Decode clientId from state to redirect to the right workspace
       let redirectTo = "/agency";
       try {
         const b64 = (state ?? "").replace(/-/g, "+").replace(/_/g, "/");

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import AdsSection from "./AdsSection";
 import {
   Instagram, Facebook, Linkedin, Plus, Trash2, X,
   CheckCircle2, AlertCircle, Clock, Users, Eye,
@@ -1939,6 +1940,11 @@ export default function SocialMediaTab({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── Anúncios ──────────────────────────────────────── */}
+      <div className="pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <AdsSection clientId={clientId} clientColor={clientColor} />
+      </div>
     </div>
   );
 }
