@@ -142,6 +142,7 @@ export default function SocialMediaTab({
   const [submitting, setSubmitting] = useState(false);
   const [submitProgress, setSubmitProgress] = useState<{ current: number; total: number } | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [publishingNowId, setPublishingNowId] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [localMediaFile, setLocalMediaFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -688,6 +689,24 @@ export default function SocialMediaTab({
     }
   };
 
+  const handlePublishNow = async (postId: string) => {
+    setPublishingNowId(postId);
+    try {
+      const pub = await callFn({ action: "approve-post", post_id: postId });
+      if (pub?.error_message) {
+        toast.error(`Erro: ${pub.error_message}`);
+        setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, status: "failed", error_message: pub.error_message } : p));
+      } else {
+        toast.success("Post publicado!");
+        setPosts((prev) => prev.map((p) => p.id === postId ? { ...p, status: "published", published_at: new Date().toISOString(), error_message: null } : p));
+      }
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao publicar.");
+    } finally {
+      setPublishingNowId(null);
+    }
+  };
+
   const handleDeletePost = async (id: string) => {
     setDeletingId(id);
     try {
@@ -1161,18 +1180,33 @@ export default function SocialMediaTab({
                     </div>
                   </div>
 
-                  {(post.status === "draft" || post.status === "scheduled" || post.status === "failed") && (
-                    <button
-                      onClick={() => handleDeletePost(post.id)}
-                      disabled={deletingId === post.id}
-                      className="p-1.5 rounded-lg transition-all flex-shrink-0 disabled:opacity-40"
-                      style={{ color: s(0.25) }}
-                      onMouseEnter={(e) => { e.currentTarget.style.color = "#F87171"; e.currentTarget.style.background = "rgba(248,113,113,0.07)"; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.color = s(0.25); e.currentTarget.style.background = "transparent"; }}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
+                  <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                    {(post.status === "scheduled" || post.status === "failed") && (
+                      <button
+                        onClick={() => handlePublishNow(post.id)}
+                        disabled={publishingNowId === post.id}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[10px] font-bold transition-all disabled:opacity-40"
+                        style={{ background: `${clientColor}18`, color: clientColor, border: `1px solid ${clientColor}30` }}
+                      >
+                        {publishingNowId === post.id
+                          ? <Loader2 className="w-3 h-3 animate-spin" />
+                          : <Send className="w-3 h-3" />}
+                        Postar agora
+                      </button>
+                    )}
+                    {(post.status === "draft" || post.status === "scheduled" || post.status === "failed") && (
+                      <button
+                        onClick={() => handleDeletePost(post.id)}
+                        disabled={deletingId === post.id}
+                        className="p-1.5 rounded-lg transition-all disabled:opacity-40"
+                        style={{ color: s(0.2) }}
+                        onMouseEnter={(e) => { e.currentTarget.style.color = "#F87171"; e.currentTarget.style.background = "rgba(248,113,113,0.07)"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.color = s(0.2); e.currentTarget.style.background = "transparent"; }}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </motion.div>
               );
             })}
