@@ -5350,6 +5350,10 @@ Regras:
                                     style={{ color: "#B9FF4B", background: "rgba(185,255,75,0.08)", border: "1px solid rgba(185,255,75,0.25)" }}>
                                     + Importar
                                   </button>
+                                  <button onClick={refreshGroupCounts} className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg"
+                                    style={{ color: "#60A5FA", background: "rgba(96,165,250,0.08)", border: "1px solid rgba(96,165,250,0.25)" }}>
+                                    👥 Atualizar contagens
+                                  </button>
                                   <button onClick={refreshWpGroups} className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg"
                                     style={{ color: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
                                     <RefreshCw className="w-3 h-3" /> Atualizar
