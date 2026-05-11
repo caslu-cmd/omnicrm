@@ -48,7 +48,7 @@ interface Props {
   siteRepo: string;
 }
 
-export default function SiteEditorPanel({ clientId, siteUrl }: Props) {
+export default function SiteEditorPanel({ clientId, siteUrl, siteRepo }: Props) {
   const [files, setFiles] = useState<GitFile[]>([]);
   const [openDirs, setOpenDirs] = useState<Set<string>>(new Set());
   const [dirContents, setDirContents] = useState<Record<string, GitFile[]>>({});
@@ -66,12 +66,12 @@ export default function SiteEditorPanel({ clientId, siteUrl }: Props) {
   const [sending, setSending] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => { fetchDir(""); }, []);
+  useEffect(() => { fetchDir(""); }, [siteRepo]);
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
 
   async function fetchDir(path: string) {
     try {
-      const data = await callTeo("list_files", { path });
+      const data = await callTeo("list_files", { path, repo: siteRepo || undefined });
       const list: GitFile[] = (data.files ?? []).filter((f: GitFile) =>
         !["node_modules", ".git", "dist", "bun.lockb", "package-lock.json"].includes(f.name)
       );
@@ -86,7 +86,7 @@ export default function SiteEditorPanel({ clientId, siteUrl }: Props) {
     setCommitDone(false);
     setLoadingFile(true);
     try {
-      const data = await callTeo("read_file", { path });
+      const data = await callTeo("read_file", { path, repo });
       setFileContent(data.content ?? "");
       setFileSha(data.sha ?? "");
     } catch {
@@ -141,7 +141,9 @@ export default function SiteEditorPanel({ clientId, siteUrl }: Props) {
     try {
       const lastUserMsg = msgs.filter((m) => m.from === "user").pop();
       const commitMsg = `Teo: ${lastUserMsg?.content.slice(0, 72) ?? "atualiza " + selectedFile}`;
-      await callTeo("commit", { path: selectedFile, content: pendingContent, sha: fileSha, message: commitMsg });
+      await callTeo("commit", { path: selectedFile, content: pendingContent, sha: fileSha, message: commitMsg, repo });
+      // Update last_edited_at in site_pages
+      supabase.from("site_pages").update({ last_edited_at: new Date().toISOString() }).eq("client_id", clientId).eq("file_path", selectedFile).then(() => {});
       setFileContent(pendingContent);
       setPendingContent(null);
       setCommitDone(true);
