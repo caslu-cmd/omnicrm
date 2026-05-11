@@ -39,6 +39,7 @@ export default function TomasPage() {
 
   const [briefing, setBriefing]   = useState(() => searchParams.get("briefing") ?? "");
   const [arquivos, setArquivos]   = useState<File[]>([]);
+  const [dragOver, setDragOver]   = useState(false);
   const [etapa, setEtapa]         = useState<Etapa>("idle");
   const [statusMsg, setStatusMsg] = useState("");
   const [resultado, setResultado] = useState<Resultado | null>(null);
@@ -101,13 +102,23 @@ export default function TomasPage() {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token ?? "";
 
-      // Converte arquivos para base64 se houver
-      const arquivosB64: { name: string; content: string }[] = [];
+      // Lê texto de arquivos txt/md e injeta no briefing
+      const fileContents: string[] = [];
       for (const f of arquivos) {
-        const buf = await f.arrayBuffer();
-        const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
-        arquivosB64.push({ name: f.name, content: b64 });
+        if (/\.(txt|md)$/i.test(f.name)) {
+          const text = await new Promise<string>((resolve) => {
+            const fr = new FileReader();
+            fr.onload = () => resolve(fr.result as string);
+            fr.readAsText(f, "utf-8");
+          });
+          fileContents.push(`[${f.name}]\n${text.trim()}`);
+        } else {
+          fileContents.push(`[Arquivo de referência: ${f.name}]`);
+        }
       }
+      const briefingFinal = fileContents.length > 0
+        ? `${briefing}\n\n--- Materiais de referência ---\n${fileContents.join("\n\n")}`
+        : briefing;
 
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/tomas-lp`, {
         method: "POST",
@@ -115,7 +126,7 @@ export default function TomasPage() {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`,
         },
-        body: JSON.stringify({ briefing, client_name: clientName, arquivos: arquivosB64 }),
+        body: JSON.stringify({ briefing: briefingFinal, client_name: clientName }),
       });
 
       if (!resp.ok) throw new Error(`Erro ${resp.status}`);
@@ -242,25 +253,41 @@ export default function TomasPage() {
             onBlur={(e) => (e.currentTarget.style.borderColor = "#2A2A3A")}
           />
 
-          {/* Upload */}
+          {/* Upload — drag-and-drop */}
           <div className="flex flex-col gap-2 flex-shrink-0">
             <input ref={fileInputRef} type="file" multiple accept=".pdf,.docx,.doc,.txt,.md"
               className="hidden" disabled={gerandoAtivo}
               onChange={(e) => { setArquivos(prev => [...prev, ...Array.from(e.target.files ?? [])]); e.target.value = ""; }} />
-            <button onClick={() => fileInputRef.current?.click()} disabled={gerandoAtivo}
-              className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs"
-              style={{ background: "#141420", border: `1.5px dashed ${arquivos.length > 0 ? "#B9FF4B55" : "#2A2A3A"}`, color: arquivos.length > 0 ? "#B9FF4B" : "#555577" }}>
+            <div
+              onDragOver={(e) => { e.preventDefault(); if (!gerandoAtivo) setDragOver(true); }}
+              onDragLeave={() => setDragOver(false)}
+              onDrop={(e) => {
+                e.preventDefault();
+                setDragOver(false);
+                if (gerandoAtivo) return;
+                const files = Array.from(e.dataTransfer.files).filter(f => /\.(pdf|docx|doc|txt|md)$/i.test(f.name));
+                if (files.length) setArquivos(prev => [...prev, ...files]);
+              }}
+              onClick={() => !gerandoAtivo && fileInputRef.current?.click()}
+              className="flex flex-col items-center justify-center gap-1 py-3 rounded-xl text-xs transition-all"
+              style={{
+                background: dragOver ? "#B9FF4B0D" : "#141420",
+                border: `1.5px dashed ${dragOver ? "#B9FF4B" : arquivos.length > 0 ? "#B9FF4B55" : "#2A2A3A"}`,
+                color: dragOver ? "#B9FF4B" : arquivos.length > 0 ? "#B9FF4B" : "#555577",
+                cursor: gerandoAtivo ? "default" : "pointer",
+              }}>
               <Paperclip className="w-3.5 h-3.5" />
-              {arquivos.length > 0 ? `${arquivos.length} arquivo(s) anexado(s)` : "Anexar PDF, Word ou TXT"}
-            </button>
+              <span>{dragOver ? "Solte os arquivos aqui" : arquivos.length > 0 ? `${arquivos.length} arquivo(s) anexado(s)` : "Arraste arquivos ou clique para selecionar"}</span>
+              {!dragOver && <span className="text-[10px]" style={{ color: "#333355" }}>PDF, Word, TXT ou MD</span>}
+            </div>
             {arquivos.length > 0 && (
               <div className="flex flex-col gap-1 max-h-20 overflow-y-auto">
                 {arquivos.map((f, i) => (
                   <div key={i} className="flex items-center gap-2 px-2 py-1 rounded-lg" style={{ background: "#141420" }}>
                     <FileText className="w-3 h-3 flex-shrink-0" style={{ color: "#B9FF4B" }} />
                     <span className="text-[10px] truncate flex-1" style={{ color: "#888899" }}>{f.name}</span>
-                    <button onClick={() => setArquivos(prev => prev.filter((_, j) => j !== i))} disabled={gerandoAtivo}
-                      className="text-[10px]" style={{ color: "#444466" }}>✕</button>
+                    <button onClick={(ev) => { ev.stopPropagation(); setArquivos(prev => prev.filter((_, j) => j !== i)); }}
+                      disabled={gerandoAtivo} className="text-[10px]" style={{ color: "#444466" }}>✕</button>
                   </div>
                 ))}
               </div>
