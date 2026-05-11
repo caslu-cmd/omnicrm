@@ -6956,12 +6956,7 @@ Regras:
                           style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 100px", color: "rgba(255,255,255,0.25)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                           <span>Página</span><span>URL</span><span>Última edição</span><span>Status</span><span></span>
                         </div>
-                        {siteDbPagesLoading && (
-                          <div className="flex items-center justify-center py-8 gap-2" style={{ color: "rgba(255,255,255,0.3)" }}>
-                            <Loader2 className="w-4 h-4 animate-spin" /><span className="text-xs">Carregando páginas do GitHub...</span>
-                          </div>
-                        )}
-                        {!siteDbPagesLoading && pages.length === 0 && (
+                        {pages.length === 0 && (
                           <div className="px-5 py-6 text-center text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhuma página encontrada no repositório.</div>
                         )}
                         {pages.map((p, i) => {
