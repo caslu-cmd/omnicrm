@@ -876,6 +876,8 @@ export default function ClientWorkspace() {
   const [wpPhone, setWpPhone] = useState<string | null>(null);
   const [wpQr, setWpQr] = useState<string | null>(null);
   const [wpGroups, setWpGroups] = useState<{ id: string; name: string; participants: number }[]>([]);
+  const [wpImportOpen, setWpImportOpen] = useState(false);
+  const [wpImportText, setWpImportText] = useState("");
   const [wpSelectedGroups, setWpSelectedGroups] = useState<string[]>([]);
   const [wpSelectedContacts, setWpSelectedContacts] = useState<string[]>([]);
   const [wpMessage, setWpMessage] = useState("");
