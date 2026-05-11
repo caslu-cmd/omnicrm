@@ -32,6 +32,7 @@ import PixelSitePanel from "@/components/PixelSitePanel";
 import LiaBriefingPanel from "@/components/LiaBriefingPanel";
 import MetaAdsCampaignsSection from "@/components/MetaAdsCampaignsSection";
 import AdsSection from "@/components/AdsSection";
+import EditorialCalendarPanel from "@/components/EditorialCalendarPanel";
 
 const SOURCES: Record<string, { label: string; color: string; bg: string }> = {
   instagram: { label: "Instagram", color: "#E1306C", bg: "rgba(225,48,108,0.1)" },
