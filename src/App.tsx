@@ -110,7 +110,6 @@ const ProtectedRoutes = () => {
           <Route path="/agency" element={<AgencyDashboard />} />
           <Route path="/agency/clients/:id" element={<ClientWorkspace />} />
           <Route path="/video-editor" element={<VideoEditorPage />} />
-          <Route path="/tomas" element={<TomasPage />} />
           <Route path="/ben" element={<BenPage />} />
           <Route path="/notebook" element={<NotebookPage />} />
           <Route path="/apostila" element={<ApostilaPage />} />
@@ -183,6 +182,7 @@ const AppRoutes = () => (
     {/* Telas exclusivas sem sidebar — exigem sessão */}
     <Route path="/conta-report" element={<FullScreen page={<ContaReportPage />} />} />
     <Route path="/conta-colaborador" element={<FullScreen page={<ContaColaboradorPage />} />} />
+    <Route path="/tomas" element={<FullScreen page={<TomasPage />} />} />
 
     {/* Tudo mais exige autenticação */}
     <Route path="*" element={<ProtectedRoutes />} />

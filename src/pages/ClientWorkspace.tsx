@@ -899,6 +899,11 @@ export default function ClientWorkspace() {
   const [emailBlastBody, setEmailBlastBody] = useState("");
   const [emailBlastPrompt, setEmailBlastPrompt] = useState("");
   const [emailBlasting, setEmailBlasting] = useState(false);
+  // WordPress credentials per client (for Tomás LP publishing)
+  const [clientWpCreds, setClientWpCreds] = useState({ wp_url: "", wp_user: "", wp_password: "" });
+  const [clientWpCredsSaving, setClientWpCredsSaving] = useState(false);
+  const [clientWpCredsLoaded, setClientWpCredsLoaded] = useState(false);
+
   // Agent channel config per client
   const [agentChannelConfig, setAgentChannelConfig] = useState({
     whatsapp: { active: true, system_prompt: "" },
@@ -1239,6 +1244,12 @@ export default function ClientWorkspace() {
 
   const client = clients.find((c) => c.id === id);
   const [siteUrl, setSiteUrl] = useState(client?.siteUrl ?? "");
+
+  // ── Pixel (WordPress agent) inline state ──────────────────────
+  const [pixelMessages, setPixelMessages] = useState<{role:"user"|"assistant";content:string;toolCalls?:string[]}[]>([]);
+  const [pixelInput, setPixelInput] = useState("");
+  const [pixelLoading, setPixelLoading] = useState(false);
+  const [pixelSite, setPixelSite] = useState<{id:string;name:string;url:string}|null>(null);
 
   if (!client) {
     return (
@@ -2188,6 +2199,29 @@ Contexto do cliente: ${client.name}${(client as any).segment ? ` — segmento ${
     }, { onConflict: "user_id,connector_name" });
   };
 
+  const loadClientWpCreds = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    const { data } = await (supabase as any).from("integrations")
+      .select("config").eq("user_id", session.user.id).eq("connector_name", `wordpress_${id}`).maybeSingle();
+    if (data?.config) setClientWpCreds(prev => ({ ...prev, ...data.config }));
+    setClientWpCredsLoaded(true);
+  };
+
+  const saveClientWpCreds = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    setClientWpCredsSaving(true);
+    await (supabase as any).from("integrations").upsert({
+      user_id: session.user.id,
+      connector_name: `wordpress_${id}`,
+      config: clientWpCreds,
+      connected: !!clientWpCreds.wp_url, status: "active",
+    }, { onConflict: "user_id,connector_name" });
+    setClientWpCredsSaving(false);
+    toast.success("Credenciais WordPress salvas!");
+  };
+
   const loadFavoriteGroups = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
@@ -2865,6 +2899,7 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
   useEffect(() => { if (activeTab === "courses" && id) loadDbCourses(); }, [activeTab, id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (activeTab === "sales-agents" && id) { fetchSalesAgents(); loadAgentChannelConfig(); loadAgentLogs(); loadSocialAccounts(); } }, [activeTab, id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (activeTab === "agents" && id && !agentChatsLoaded) loadAgentChatsFromDb(); }, [activeTab, id, agentChatsLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (id && !clientWpCredsLoaded) loadClientWpCreds(); }, [id, clientWpCredsLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchOverviewData = async () => {
     if (!id) return;
@@ -2918,6 +2953,17 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
   };
   useEffect(() => { if (activeTab === 'agents' && id && client.siteRepo) fetchSitePages(); }, [activeTab, id, client?.siteRepo]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Load WordPress site for Pixel tab
+  useEffect(() => {
+    if (activeTab !== 'pixel') return;
+    fetch("http://localhost:8500/api/sites")
+      .then(r => r.json())
+      .then((sites: any[]) => {
+        const matched = sites.find((s: any) => s.client_name?.toLowerCase() === client.name.toLowerCase());
+        if (matched) setPixelSite(matched);
+      })
+      .catch(() => {});
+  }, [activeTab, client?.name]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Injeta contexto do cliente na Calu IA
   useEffect(() => {
@@ -6755,7 +6801,7 @@ Regras:
                               )}
                               {agent.id === "tomas" && (
                                 <button
-                                  onClick={() => window.open('/tomas', '_blank')}
+                                  onClick={() => window.open(`/tomas?clientId=${id}&clientName=${encodeURIComponent(client.name)}`, '_blank')}
                                   className="px-2.5 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1 whitespace-nowrap"
                                   style={{ background: `${agent.color}12`, color: agent.color, border: `1px solid ${agent.color}25` }}>
                                   🖥️ Criar LP
@@ -6959,6 +7005,7 @@ Regras:
                                 <button
                                   onClick={() => {
                                     const params = new URLSearchParams();
+                                    params.set("clientId", id ?? "");
                                     params.set("clientName", client.name);
                                     if (agentInstruction.trim()) params.set("briefing", agentInstruction.trim());
                                     window.open(`/tomas?${params.toString()}`, '_blank');
@@ -10402,9 +10449,58 @@ Regras:
                   </div>
                 )}
               </div>
-            )}
 
-                        {/* ══════════════════════════════════════════════════════
+              {/* ── WordPress do cliente (credenciais para Tomás) ── */}
+              {activeTab === "teo" && (
+                <div className="mt-4 rounded-2xl p-5 space-y-4" style={{ background: "rgba(185,255,75,0.03)", border: "1px solid rgba(185,255,75,0.1)" }}>
+                  <div className="flex items-center gap-3">
+                    <Globe className="w-4 h-4" style={{ color: "#B9FF4B" }} />
+                    <div>
+                      <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>WordPress do cliente</p>
+                      <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.35)" }}>Credenciais usadas pelo Tomás para publicar landing pages no site do cliente</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    {[
+                      { label: "URL do site", key: "wp_url", ph: "https://clientesite.com.br", type: "url" },
+                      { label: "Usuário WP",  key: "wp_user", ph: "admin", type: "text" },
+                      { label: "Senha de Aplicação", key: "wp_password", ph: "xxxx xxxx xxxx xxxx", type: "password" },
+                    ].map((f) => (
+                      <div key={f.key} className="flex flex-col gap-1">
+                        <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.3)" }}>{f.label}</label>
+                        <input
+                          type={f.type as any}
+                          value={(clientWpCreds as any)[f.key]}
+                          onChange={(e) => setClientWpCreds(prev => ({ ...prev, [f.key]: e.target.value }))}
+                          placeholder={f.ph}
+                          className="rounded-xl px-3 py-2 text-xs outline-none"
+                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#F0F0F0" }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={saveClientWpCreds}
+                      disabled={clientWpCredsSaving || !clientWpCreds.wp_url.trim()}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold disabled:opacity-40"
+                      style={{ background: "rgba(185,255,75,0.15)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.3)" }}>
+                      {clientWpCredsSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
+                      Salvar credenciais
+                    </button>
+                    {clientWpCreds.wp_url && (
+                      <button
+                        onClick={() => window.open(`/tomas?clientId=${id}&clientName=${encodeURIComponent(client.name)}`, '_blank')}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold"
+                        style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.6)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                        🖥️ Abrir Tomás
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
+            {/* ══════════════════════════════════════════════════════
                 REDES SOCIAIS
             ══════════════════════════════════════════════════════ */}
             {activeTab === "social" && (
