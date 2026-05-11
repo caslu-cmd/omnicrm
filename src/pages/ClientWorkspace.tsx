@@ -5179,7 +5179,7 @@ Regras:
                       {/* Conectado: envio de mensagens */}
                       {wpStatus === "connected" && (
                         <div className="space-y-5">
-                          {/* Tabs Grupos / Contatos */}
+                          {/* Tabs Modo de Envio: Grupos / Individual */}
                           <div className="flex gap-1 p-1 rounded-xl" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
                             {(["grupos", "contatos"] as const).map((tab) => (
                               <button key={tab} onClick={() => setWpTargetTab(tab)}
@@ -5187,10 +5187,40 @@ Regras:
                                 style={wpTargetTab === tab
                                   ? { background: "#25D366", color: "#fff" }
                                   : { color: "rgba(255,255,255,0.35)" }}>
-                                {tab === "grupos" ? `📢 Grupos (${wpSelectedGroups.length} sel.)` : `👤 Contatos (${wpSelectedContacts.length} sel.)`}
+                                {tab === "grupos" ? `📢 Grupos (${wpSelectedGroups.length} sel.)` : `👤 Individual (${wpSelectedContacts.length} sel.)`}
                               </button>
                             ))}
                           </div>
+
+                          {/* Modo rápido: TODOS os grupos */}
+                          {wpTargetTab === "grupos" && wpGroups.length > 0 && (() => {
+                            const allSelected = wpGroups.every(g => wpSelectedGroups.includes(g.id));
+                            return (
+                              <div className="flex flex-wrap items-center gap-2 p-3 rounded-xl"
+                                style={{ background: "rgba(37,211,102,0.05)", border: "1px solid rgba(37,211,102,0.18)" }}>
+                                <span className="text-[11px] font-semibold" style={{ color: "rgba(255,255,255,0.65)" }}>
+                                  Modo rápido:
+                                </span>
+                                <button
+                                  onClick={() => setWpSelectedGroups(allSelected ? [] : wpGroups.map(g => g.id))}
+                                  className="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-lg font-semibold transition-all"
+                                  style={allSelected
+                                    ? { background: "#25D366", color: "#07080A" }
+                                    : { background: "rgba(37,211,102,0.12)", color: "#25D366", border: "1px solid rgba(37,211,102,0.3)" }}>
+                                  {allSelected
+                                    ? `✓ Todos os ${wpGroups.length} grupos selecionados`
+                                    : `📢 Selecionar TODOS os ${wpGroups.length} grupos`}
+                                </button>
+                                {wpSelectedGroups.length > 0 && !allSelected && (
+                                  <button onClick={() => setWpSelectedGroups([])}
+                                    className="text-[10px] px-2 py-1 rounded-lg"
+                                    style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.5)" }}>
+                                    Limpar seleção
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })()}
 
                           {/* Lista de Grupos */}
                           {wpTargetTab === "grupos" && (
