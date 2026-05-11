@@ -2193,6 +2193,7 @@ ${priorBlock}`;
     }
   };
 
+  const doWpBlast = async () => {
     const allTargets = [...wpSelectedGroups, ...wpSelectedContacts];
     const hasMedia = wpMediaType !== "text" && !!wpMediaData;
     if (!allTargets.length || (!hasMedia && !wpMessage.trim())) return;
