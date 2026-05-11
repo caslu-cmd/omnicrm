@@ -194,7 +194,7 @@ export default function GroupsPage() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { error } = await supabase.from("contact_groups").insert({
+      const { error } = await (supabase as any).from("contact_groups").insert({
         user_id: user.id,
         name: form.name.trim(),
         description: form.description.trim() || null,
@@ -237,7 +237,7 @@ export default function GroupsPage() {
     if (!selected) return;
     setDeleting(true);
     try {
-      await supabase.from("contact_groups").delete().eq("id", selected.id);
+      await (supabase as any).from("contact_groups").delete().eq("id", selected.id);
       toast.success("Grupo removido");
       setSelected(null);
       setMembers([]);
@@ -250,7 +250,7 @@ export default function GroupsPage() {
   // ── Remove member ──────────────────────────────────────────────
   const removeMember = async (contactId: string) => {
     if (!selected) return;
-    await supabase.from("contact_group_members")
+    await (supabase as any).from("contact_group_members")
       .delete()
       .eq("group_id", selected.id)
       .eq("contact_id", contactId);
@@ -292,7 +292,7 @@ export default function GroupsPage() {
     setSaving(true);
     try {
       const rows = [...addingIds].map(contact_id => ({ group_id: selected.id, contact_id }));
-      const { error } = await supabase.from("contact_group_members").insert(rows);
+      const { error } = await (supabase as any).from("contact_group_members").insert(rows);
       if (error) throw error;
       toast.success(`${addingIds.size} contato(s) adicionado(s)!`);
       setShowAdd(false);

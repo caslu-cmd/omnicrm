@@ -2873,7 +2873,7 @@ Regras:
   useEffect(() => {
     if (!id || clientBriefing) return;
     (async () => {
-      const { data } = await supabase.from("lia_submissions" as any)
+      const { data } = await (supabase as any).from("lia_submissions" as any)
         .select("briefing_text, submitted_at")
         .eq("client_id", id)
         .order("submitted_at", { ascending: false })
