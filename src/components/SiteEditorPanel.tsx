@@ -141,9 +141,9 @@ export default function SiteEditorPanel({ clientId, siteUrl, siteRepo }: Props) 
     try {
       const lastUserMsg = msgs.filter((m) => m.from === "user").pop();
       const commitMsg = `Teo: ${lastUserMsg?.content.slice(0, 72) ?? "atualiza " + selectedFile}`;
-      await callTeo("commit", { path: selectedFile, content: pendingContent, sha: fileSha, message: commitMsg, repo });
+      await callTeo("commit", { path: selectedFile, content: pendingContent, sha: fileSha, message: commitMsg, repo: siteRepo || undefined });
       // Update last_edited_at in site_pages
-      supabase.from("site_pages").update({ last_edited_at: new Date().toISOString() }).eq("client_id", clientId).eq("file_path", selectedFile).then(() => {});
+      (supabase.from as any)("site_pages").update({ last_edited_at: new Date().toISOString() }).eq("client_id", clientId).eq("file_path", selectedFile).then(() => {});
       setFileContent(pendingContent);
       setPendingContent(null);
       setCommitDone(true);
