@@ -875,6 +875,8 @@ export default function ClientWorkspace() {
   const [wpTargetTab, setWpTargetTab] = useState<"grupos" | "contatos">("grupos");
   const [wpBlasting, setWpBlasting] = useState(false);
   const [wpBlastResult, setWpBlastResult] = useState<string | null>(null);
+  const [wpAiGenerating, setWpAiGenerating] = useState(false);
+  const [wpAiPrompt, setWpAiPrompt] = useState("");
   // Real courses from DB
   const [dbCourses, setDbCourses] = useState<any[]>([]);
   const [dbEnrollments, setDbEnrollments] = useState<Record<string, any[]>>({});
@@ -2046,6 +2048,31 @@ ${priorBlock}`;
 
   const toggleWpContact = (phone: string) =>
     setWpSelectedContacts((prev) => prev.includes(phone) ? prev.filter((p) => p !== phone) : [...prev, phone]);
+
+  const generateWpMessageWithAI = async () => {
+    if (!wpAiPrompt.trim()) return;
+    setWpAiGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("chat-ai", {
+        body: {
+          messages: [{ role: "user", content: wpAiPrompt }],
+          systemPrompt: `Você é especialista em comunicação via WhatsApp para cursos e eventos de capacitação profissional.
+Escreva mensagens diretas, calorosas e sem formatação markdown (sem asteriscos, sem #).
+Use linguagem natural de WhatsApp — pode usar emojis com moderação.
+Responda APENAS com o texto da mensagem, sem explicações ou introduções.
+Contexto do cliente: ${client.name}${client.segment ? ` — segmento ${client.segment}` : ""}.`,
+          maxTokens: 600,
+        },
+      });
+      if (error) throw new Error(error.message);
+      const msg = data?.content?.trim() ?? "";
+      if (msg) setWpMessage(msg);
+    } catch {
+      toast.error("Erro ao gerar mensagem");
+    } finally {
+      setWpAiGenerating(false);
+    }
+  };
 
   const renderCertificate = (template: string, name: string, xPct: number, yPct: number, fontSize: number, color: string): Promise<string> =>
     new Promise((resolve) => {
@@ -4653,11 +4680,31 @@ Regras:
                           {wpTargetTab === "grupos" && (
                             <div>
                               <div className="flex items-center justify-between mb-3">
-                                <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>Grupos ({wpGroups.length})</h3>
-                                <button onClick={refreshWpGroups} className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg"
-                                  style={{ color: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                                  <RefreshCw className="w-3 h-3" /> Atualizar
-                                </button>
+                                <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>
+                                  Grupos ({wpGroups.length})
+                                </h3>
+                                <div className="flex items-center gap-1.5">
+                                  {wpGroups.length > 0 && (
+                                    <button
+                                      onClick={() => {
+                                        const allIds = wpGroups.map(g => g.id);
+                                        const allSelected = allIds.every(id => wpSelectedGroups.includes(id));
+                                        setWpSelectedGroups(allSelected ? [] : allIds);
+                                      }}
+                                      className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg transition-all"
+                                      style={{
+                                        color: wpGroups.every(g => wpSelectedGroups.includes(g.id)) ? "#25D366" : "rgba(255,255,255,0.4)",
+                                        background: wpGroups.every(g => wpSelectedGroups.includes(g.id)) ? "rgba(37,211,102,0.1)" : "rgba(255,255,255,0.04)",
+                                        border: `1px solid ${wpGroups.every(g => wpSelectedGroups.includes(g.id)) ? "rgba(37,211,102,0.3)" : "rgba(255,255,255,0.08)"}`,
+                                      }}>
+                                      {wpGroups.every(g => wpSelectedGroups.includes(g.id)) ? "✓ Todos" : "Selecionar todos"}
+                                    </button>
+                                  )}
+                                  <button onClick={refreshWpGroups} className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg"
+                                    style={{ color: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                                    <RefreshCw className="w-3 h-3" /> Atualizar
+                                  </button>
+                                </div>
                               </div>
                               {wpGroups.length === 0
                                 ? <div className="py-6 text-center text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhum grupo. Clique em Atualizar.</div>
@@ -4739,6 +4786,29 @@ Regras:
 
                           {/* Compositor */}
                           <div className="space-y-3">
+                            {/* Gerar com IA */}
+                            <div className="rounded-xl p-3 space-y-2" style={{ background: "rgba(185,255,75,0.04)", border: "1px solid rgba(185,255,75,0.15)" }}>
+                              <div className="flex items-center gap-2 mb-1">
+                                <Sparkles className="w-3 h-3" style={{ color: "#B9FF4B" }} />
+                                <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#B9FF4B" }}>Agente escreve a mensagem</span>
+                              </div>
+                              <div className="flex gap-2">
+                                <input
+                                  value={wpAiPrompt}
+                                  onChange={e => setWpAiPrompt(e.target.value)}
+                                  onKeyDown={e => e.key === "Enter" && generateWpMessageWithAI()}
+                                  placeholder='Ex: "lembrar que a aula começa amanhã às 19h"'
+                                  className="flex-1 px-3 py-2 rounded-lg text-xs focus:outline-none"
+                                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(185,255,75,0.2)", color: "#F0F0F0" }} />
+                                <button onClick={generateWpMessageWithAI} disabled={wpAiGenerating || !wpAiPrompt.trim()}
+                                  className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-semibold disabled:opacity-40 whitespace-nowrap"
+                                  style={{ background: "rgba(185,255,75,0.15)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.3)" }}>
+                                  {wpAiGenerating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                  {wpAiGenerating ? "Gerando…" : "Gerar"}
+                                </button>
+                              </div>
+                            </div>
+
                             {wpMediaType !== "text" && (
                               <label className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer"
                                 style={{ background: "rgba(255,255,255,0.04)", border: "2px dashed rgba(255,255,255,0.12)" }}>
@@ -4758,7 +4828,7 @@ Regras:
                             )}
                             <textarea value={wpMessage} onChange={(e) => setWpMessage(e.target.value)}
                               rows={wpMediaType === "text" ? 4 : 2}
-                              placeholder={wpMediaType === "text" ? "Digite a mensagem..." : "Texto adicional (opcional)..."}
+                              placeholder={wpMediaType === "text" ? "Digite a mensagem ou gere com IA acima…" : "Texto adicional (opcional)..."}
                               className="w-full px-4 py-3 rounded-xl text-sm resize-none"
                               style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.8)", outline: "none" }} />
                           </div>
@@ -9786,11 +9856,31 @@ Regras:
                         {wpTargetTab === "grupos" && (
                           <div>
                             <div className="flex items-center justify-between mb-3">
-                              <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>Grupos ({wpGroups.length})</h3>
-                              <button onClick={refreshWpGroups} className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg transition-all"
-                                style={{ color: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                                <RefreshCw className="w-3 h-3" /> Atualizar
-                              </button>
+                              <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>
+                                Grupos ({wpGroups.length})
+                              </h3>
+                              <div className="flex items-center gap-1.5">
+                                {wpGroups.length > 0 && (
+                                  <button
+                                    onClick={() => {
+                                      const allIds = wpGroups.map(g => g.id);
+                                      const allSelected = allIds.every(id => wpSelectedGroups.includes(id));
+                                      setWpSelectedGroups(allSelected ? [] : allIds);
+                                    }}
+                                    className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg transition-all"
+                                    style={{
+                                      color: wpGroups.every(g => wpSelectedGroups.includes(g.id)) ? "#25D366" : "rgba(255,255,255,0.4)",
+                                      background: wpGroups.every(g => wpSelectedGroups.includes(g.id)) ? "rgba(37,211,102,0.1)" : "rgba(255,255,255,0.04)",
+                                      border: `1px solid ${wpGroups.every(g => wpSelectedGroups.includes(g.id)) ? "rgba(37,211,102,0.3)" : "rgba(255,255,255,0.08)"}`,
+                                    }}>
+                                    {wpGroups.every(g => wpSelectedGroups.includes(g.id)) ? "✓ Todos" : "Selecionar todos"}
+                                  </button>
+                                )}
+                                <button onClick={refreshWpGroups} className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg transition-all"
+                                  style={{ color: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                                  <RefreshCw className="w-3 h-3" /> Atualizar
+                                </button>
+                              </div>
                             </div>
                             {wpGroups.length === 0
                               ? <div className="py-6 text-center text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhum grupo. Clique em Atualizar.</div>
@@ -9868,6 +9958,29 @@ Regras:
 
                         {/* Compositor */}
                         <div className="space-y-3">
+                          {/* Gerar com IA */}
+                          <div className="rounded-xl p-3 space-y-2" style={{ background: "rgba(185,255,75,0.04)", border: "1px solid rgba(185,255,75,0.15)" }}>
+                            <div className="flex items-center gap-2 mb-1">
+                              <Sparkles className="w-3 h-3" style={{ color: "#B9FF4B" }} />
+                              <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#B9FF4B" }}>Agente escreve a mensagem</span>
+                            </div>
+                            <div className="flex gap-2">
+                              <input
+                                value={wpAiPrompt}
+                                onChange={e => setWpAiPrompt(e.target.value)}
+                                onKeyDown={e => e.key === "Enter" && generateWpMessageWithAI()}
+                                placeholder='Ex: "lembrar que a aula começa amanhã às 19h"'
+                                className="flex-1 px-3 py-2 rounded-lg text-xs focus:outline-none"
+                                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(185,255,75,0.2)", color: "#F0F0F0" }} />
+                              <button onClick={generateWpMessageWithAI} disabled={wpAiGenerating || !wpAiPrompt.trim()}
+                                className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-semibold disabled:opacity-40 whitespace-nowrap"
+                                style={{ background: "rgba(185,255,75,0.15)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.3)" }}>
+                                {wpAiGenerating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                {wpAiGenerating ? "Gerando…" : "Gerar"}
+                              </button>
+                            </div>
+                          </div>
+
                           {wpMediaType !== "text" && (
                             <label className="flex items-center gap-3 px-4 py-3 rounded-xl cursor-pointer transition-all"
                               style={{ background: "rgba(255,255,255,0.04)", border: "2px dashed rgba(255,255,255,0.12)" }}>
@@ -9887,7 +10000,7 @@ Regras:
                           )}
                           <textarea value={wpMessage} onChange={(e) => setWpMessage(e.target.value)}
                             rows={wpMediaType === "text" ? 5 : 2}
-                            placeholder={wpMediaType === "text" ? "Digite a mensagem..." : "Texto adicional (opcional)..."}
+                            placeholder={wpMediaType === "text" ? "Digite a mensagem ou gere com IA acima…" : "Texto adicional (opcional)..."}
                             className="w-full px-4 py-3 rounded-xl text-sm resize-none"
                             style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.8)", outline: "none" }} />
                         </div>
