@@ -39,6 +39,7 @@ const crmItems = [
   { to: "/video-editor", icon: Clapperboard, label: "Editor de Vídeo" },
   { to: "/tomas", icon: Layout, label: "Criador de LPs" },
   { to: "/ben", icon: TrendingUp, label: "Tendências — Ben" },
+  { to: "/wordpress", icon: Globe, label: "WordPress IA" },
   { to: "/notebook", icon: BookOpen, label: "Notebook IA" },
   { to: "/sites", icon: Globe, label: "Sites & LPs" },
   { to: "/members", icon: GraduationCap, label: "Membros" },

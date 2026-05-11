@@ -51,6 +51,7 @@ import BriefingPage from "@/pages/BriefingPage";
 import GroupsPage from "@/pages/GroupsPage";
 import NotebookPage from "@/pages/NotebookPage";
 import ApostilaPage from "@/pages/ApostilaPage";
+import WordPressPage from "@/pages/WordPressPage";
 
 const queryClient = new QueryClient();
 
@@ -112,6 +113,7 @@ const ProtectedRoutes = () => {
           <Route path="/ben" element={<BenPage />} />
           <Route path="/notebook" element={<NotebookPage />} />
           <Route path="/apostila" element={<ApostilaPage />} />
+          <Route path="/wordpress" element={<WordPressPage />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
