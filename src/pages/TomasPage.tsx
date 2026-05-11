@@ -217,7 +217,8 @@ export default function TomasPage() {
   }, [htmlEditado, resultado, wpUrl, wpUser, wpPassword, wpSlug, wpTitulo, wpTemplate, forminatorId]);
 
   const idxAtual = etapaIndex(etapa);
-  const htmlParaExibir = htmlEditado || resultado?.html || "";
+  const htmlParaExibir = htmlEditado || resultado?.html || parcial.html || "";
+  const temAlgumConteudo = !!(resultado || parcial.copy || parcial.design || parcial.html);
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: "#07080A" }}>
