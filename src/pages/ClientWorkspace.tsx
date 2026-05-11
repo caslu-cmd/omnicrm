@@ -4309,6 +4309,7 @@ Regras:
                   {([
                     ["contacts",     "Leads"],
                     ["pipeline",     "Pipeline"],
+                    ["calendar",     "🗓️ Calendário"],
                     ["approvals",    `Aprovações${(pendingPosts.length + agentProposals.length) > 0 ? ` (${pendingPosts.length + agentProposals.length})` : ""}`],
                     ["deliverables", "Entregas"],
                     ["insights",     "Insights IA"],
