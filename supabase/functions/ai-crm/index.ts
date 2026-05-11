@@ -1,5 +1,23 @@
-import Anthropic from "https://esm.sh/@anthropic-ai/sdk@0.39.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+
+// Lovable AI Gateway (OpenAI-compatible). Returns text content.
+async function callAI(apiKey: string, prompt: string, maxTokens = 1024): Promise<string> {
+  const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      max_tokens: maxTokens,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+  if (!r.ok) throw new Error(`AI Gateway ${r.status}: ${await r.text()}`);
+  const data = await r.json();
+  return data.choices?.[0]?.message?.content ?? "";
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -47,9 +65,9 @@ Deno.serve(async (req) => {
 
     const supabaseUrl    = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnon   = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const anthropicKey   = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
+    const aiKey = Deno.env.get("LOVABLE_API_KEY") ?? "";
 
-    if (!anthropicKey) return respond({ error: "ANTHROPIC_API_KEY não configurada" }, 503);
+    if (!aiKey) return respond({ error: "LOVABLE_API_KEY não configurada" }, 503);
 
     const supabase = createClient(supabaseUrl, supabaseAnon, {
       global: { headers: { Authorization: authHeader } },
@@ -122,14 +140,7 @@ Com base nesses dados, gere uma estratégia de vendas personalizada e objetiva. 
   "score_justificativa": "Por que este lead tem score ${score} e o que fazer para aumentá-lo."
 }`;
 
-      const anthropic = new Anthropic({ apiKey: anthropicKey });
-      const message = await anthropic.messages.create({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 1024,
-        messages: [{ role: "user", content: prompt }],
-      });
-
-      const raw = (message.content[0] as { type: string; text: string }).text.trim();
+      const raw = (await callAI(aiKey, prompt, 1024)).trim();
 
       // Parse JSON — strip any accidental markdown fences
       const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim();
@@ -162,14 +173,7 @@ Crie um post excelente e otimizado para as plataformas indicadas. Responda SOMEN
   "rationale": "Por que esse conteúdo vai funcionar — em 1 frase."
 }`;
 
-      const anthropic = new Anthropic({ apiKey: anthropicKey });
-      const message = await anthropic.messages.create({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 1024,
-        messages: [{ role: "user", content: prompt }],
-      });
-
-      const raw = (message.content[0] as { type: string; text: string }).text.trim();
+      const raw = (await callAI(aiKey, prompt, 1024)).trim();
       const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim();
       let draft: { caption: string; hashtags: string[]; best_time: string; rationale: string };
       try { draft = JSON.parse(cleaned); }
@@ -225,14 +229,7 @@ Crie ${count} posts distintos para formar uma campanha coesa e eficaz. Cada post
   ]
 }`;
 
-      const anthropic = new Anthropic({ apiKey: anthropicKey });
-      const message = await anthropic.messages.create({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 3000,
-        messages: [{ role: "user", content: prompt }],
-      });
-
-      const raw = (message.content[0] as { type: string; text: string }).text.trim();
+      const raw = (await callAI(aiKey, prompt, 3000)).trim();
       const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim();
       let campaign: { campaign_name: string; campaign_goal: string; posts: Array<{ day: number; angle: string; caption: string; hashtags: string[]; best_time: string; rationale: string }> };
       try { campaign = JSON.parse(cleaned); }
@@ -293,14 +290,7 @@ Analise os padrões e gere insights acionáveis. Responda SOMENTE com JSON:
   "proxima_sugestao": "Sugestão concreta para o próximo post baseada nos dados."
 }`;
 
-      const anthropic = new Anthropic({ apiKey: anthropicKey });
-      const message = await anthropic.messages.create({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 1024,
-        messages: [{ role: "user", content: prompt }],
-      });
-
-      const raw = (message.content[0] as { type: string; text: string }).text.trim();
+      const raw = (await callAI(aiKey, prompt, 1024)).trim();
       const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim();
       let result: unknown;
       try { result = JSON.parse(cleaned); }
