@@ -245,6 +245,9 @@ export const AppSidebar = ({ collapsed, onToggle, hideToggle }: AppSidebarProps)
             {[
               ...clientTools,
               { tab: "courses", icon: GraduationCap, label: "Cursos" },
+              ...(wpSites.find(s => s.client_name?.toLowerCase() === client.name.toLowerCase())
+                ? [{ tab: "pixel", icon: Globe, label: "Pixel — WordPress" }]
+                : []),
             ].map((tool) => {
               const isActive = currentTab === tool.tab;
               const href = `/agency/clients/${client.id}${tool.tab ? `?tab=${tool.tab}` : ""}`;

@@ -2931,6 +2931,7 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
       sites:        "Sites",
       agents:          "Agentes IA",
       "sales-agents":  "Agentes Autônomos",
+      pixel:           "Pixel — WordPress",
       content:         "Conteúdo",
       courses:      "Cursos",
       integrations: "Integrações",
