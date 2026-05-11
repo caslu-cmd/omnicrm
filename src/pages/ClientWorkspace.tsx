@@ -2754,7 +2754,7 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
       const { data: { session } } = await supabase.auth.getSession();
       const r = await fetch('https://proldgiyterqhthludlp.supabase.co/functions/v1/teo-site', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization:  } : {}) },
+        headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}) },
         body: JSON.stringify({ action: 'list_pages', repo: client.siteRepo }),
       });
       if (r.ok) {
