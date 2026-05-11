@@ -139,9 +139,35 @@ export default function AdsSection({
       const data = await callFn({ action: "ads-oauth-url", client_id: clientId });
       const popup = window.open(data.url, "meta-ads-oauth", "width=600,height=700,popup=1");
 
+      const cleanup = (ti: ReturnType<typeof setTimeout>, si: ReturnType<typeof setInterval>) => {
+        clearTimeout(ti);
+        clearInterval(si);
+        window.removeEventListener("message", handler);
+      };
+
+      // Timeout: reset after 2 minutes if nothing arrives
+      const timeoutId = setTimeout(() => {
+        cleanup(timeoutId, storageId);
+        setConnectingMeta(false);
+        toast.error("Tempo esgotado. Tente conectar novamente.");
+      }, 120_000);
+
+      // storageId declared below; forward-referenced via closure — hoisted with let
+      let storageId: ReturnType<typeof setInterval>;
+
       const handler = async (e: MessageEvent) => {
-        if (e.data?.type === "meta-ads-oauth-exchange") {
-          window.removeEventListener("message", handler);
+        const isAds = e.data?.type === "meta-ads-oauth-exchange";
+        // fallback: OAuthCallbackPage may send "meta-oauth-exchange" if state decode fails
+        const isFallback = e.data?.type === "meta-oauth-exchange" && (() => {
+          try {
+            const b64 = (e.data.state ?? "").replace(/-/g, "+").replace(/_/g, "/");
+            const padded = b64 + "=".repeat((4 - b64.length % 4) % 4);
+            return JSON.parse(atob(padded)).platform === "meta_ads";
+          } catch { return false; }
+        })();
+
+        if (isAds || isFallback) {
+          cleanup(timeoutId, storageId);
           const { code, state } = e.data;
           try {
             const res = await callFn({
@@ -161,19 +187,19 @@ export default function AdsSection({
           }
         }
         if (e.data?.type === "meta-ads-oauth-error") {
-          window.removeEventListener("message", handler);
+          cleanup(timeoutId, storageId);
           toast.error(e.data.error ?? "Erro ao conectar");
           setConnectingMeta(false);
         }
       };
       window.addEventListener("message", handler);
 
-      // Also handle sessionStorage fallback (new tab flow)
-      const storageInterval = setInterval(() => {
+      // sessionStorage fallback (new-tab flow)
+      storageId = setInterval(() => {
         const pending = sessionStorage.getItem("meta-ads-oauth-pending");
         if (pending) {
           sessionStorage.removeItem("meta-ads-oauth-pending");
-          clearInterval(storageInterval);
+          cleanup(timeoutId, storageId);
           const { code, state, redirect_uri } = JSON.parse(pending);
           callFn({ action: "oauth-callback", code, state, redirect_uri })
             .then((res) => {
@@ -183,7 +209,6 @@ export default function AdsSection({
             .finally(() => setConnectingMeta(false));
         }
       }, 800);
-      setTimeout(() => clearInterval(storageInterval), 120_000);
     } catch (e: any) {
       toast.error(e.message ?? "Erro ao iniciar conexão");
       setConnectingMeta(false);
