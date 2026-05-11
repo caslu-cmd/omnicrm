@@ -866,6 +866,11 @@ export default function ClientWorkspace() {
   const [expandedOutput, setExpandedOutput] = useState<string | null>(null);
   const [editingPage, setEditingPage] = useState<string | null>(null);
   const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
+  // Per-client ZApi credentials
+  const [wpCreds, setWpCreds] = useState<{ zapi_instance: string; zapi_token: string; zapi_client_token: string } | null>(null);
+  const [wpCredsForm, setWpCredsForm] = useState({ zapi_instance: "", zapi_token: "", zapi_client_token: "" });
+  const [wpCredsOpen, setWpCredsOpen] = useState(false);
+  const [wpCredsSaving, setWpCredsSaving] = useState(false);
   const [wpStatus, setWpStatus] = useState<"idle" | "loading" | "connected" | "disconnected">("idle");
   const [wpPhone, setWpPhone] = useState<string | null>(null);
   const [wpQr, setWpQr] = useState<string | null>(null);
@@ -894,6 +899,16 @@ export default function ClientWorkspace() {
   const [emailBlastBody, setEmailBlastBody] = useState("");
   const [emailBlastPrompt, setEmailBlastPrompt] = useState("");
   const [emailBlasting, setEmailBlasting] = useState(false);
+  // Agent channel config per client
+  const [agentChannelConfig, setAgentChannelConfig] = useState({
+    whatsapp: { active: true, system_prompt: "" },
+    instagram: { active: true, system_prompt: "" },
+    facebook: { active: false, system_prompt: "" },
+  });
+  const [agentConfigSaving, setAgentConfigSaving] = useState(false);
+  const [agentLogs, setAgentLogs] = useState([]);
+  const [agentLogsLoading, setAgentLogsLoading] = useState(false);
+  const [socialAccountsMap, setSocialAccountsMap] = useState({});
   // Real courses from DB
   const [dbCourses, setDbCourses] = useState<any[]>([]);
   const [dbEnrollments, setDbEnrollments] = useState<Record<string, any[]>>({});
@@ -2199,6 +2214,55 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
     } finally {
       setEmailBlasting(false);
     }
+  };
+
+  const loadAgentChannelConfig = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    const { data } = await (supabase as any).from("integrations")
+      .select("config").eq("user_id", session.user.id).eq("connector_name", `agent_${id}`).maybeSingle();
+    if (data?.config?.channels) {
+      setAgentChannelConfig(prev => ({ ...prev, ...data.config.channels }));
+    }
+  };
+
+  const saveAgentChannelConfig = async (channels) => {
+    setAgentConfigSaving(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      await (supabase as any).from("integrations").upsert({
+        user_id: session.user.id,
+        connector_name: `agent_${id}`,
+        config: { channels },
+        connected: true,
+        status: "active",
+      }, { onConflict: "user_id,connector_name" });
+      toast.success("Configuração salva!");
+    } catch {
+      toast.error("Erro ao salvar configuração");
+    } finally {
+      setAgentConfigSaving(false);
+    }
+  };
+
+  const loadAgentLogs = async () => {
+    setAgentLogsLoading(true);
+    try {
+      const { data } = await (supabase as any).from("agent_broadcast_logs")
+        .select("*").eq("client_id", id).order("created_at", { ascending: false }).limit(10);
+      setAgentLogs(data ?? []);
+    } finally {
+      setAgentLogsLoading(false);
+    }
+  };
+
+  const loadSocialAccounts = async () => {
+    const { data } = await (supabase as any).from("social_connections")
+      .select("*").eq("client_id", id);
+    const map = {};
+    for (const row of data ?? []) map[row.platform] = row;
+    setSocialAccountsMap(map);
   };
 
   const renderCertificate = (template: string, name: string, xPct: number, yPct: number, fontSize: number, color: string): Promise<string> =>
@@ -7372,6 +7436,103 @@ Regras:
               return (
               <div className="space-y-5">
 
+                {/* Configuração de Canais IA */}
+                <div className="rounded-2xl p-5 space-y-4" style={{ background: "rgba(185,255,75,0.03)", border: "1px solid rgba(185,255,75,0.12)" }}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#B9FF4B" }}>Configuração de Canais IA</p>
+                      <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>Configure qual canal o agente monitora e responde automaticamente para este cliente</p>
+                    </div>
+                    <button
+                      onClick={() => saveAgentChannelConfig(agentChannelConfig)}
+                      disabled={agentConfigSaving}
+                      className="flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-xl transition-all disabled:opacity-50"
+                      style={{ background: "#B9FF4B", color: "#07080A" }}
+                    >
+                      {agentConfigSaving ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                      Salvar
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3">
+                    {(["whatsapp", "instagram", "facebook"]).map(ch => {
+                      const cfg = agentChannelConfig[ch];
+                      const icons = { whatsapp: "💬", instagram: "📸", facebook: "👍" };
+                      const labels = { whatsapp: "WhatsApp", instagram: "Instagram", facebook: "Facebook" };
+                      const socialAcc = socialAccountsMap[ch];
+                      return (
+                        <div key={ch} className="rounded-xl p-4 space-y-3" style={{ background: "rgba(255,255,255,0.03)", border: cfg.active ? "1px solid rgba(185,255,75,0.2)" : "1px solid rgba(255,255,255,0.06)" }}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <span className="text-base">{icons[ch]}</span>
+                              <span className="text-sm font-semibold" style={{ color: cfg.active ? "#F0F0F0" : "rgba(255,255,255,0.4)" }}>{labels[ch]}</span>
+                              {socialAcc && <span className="text-[10px] px-1.5 py-0.5 rounded-full" style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B" }}>conectado</span>}
+                            </div>
+                            <button
+                              onClick={() => setAgentChannelConfig(prev => ({ ...prev, [ch]: { ...prev[ch], active: !prev[ch].active } }))}
+                              className="relative w-9 h-5 rounded-full transition-colors"
+                              style={{ background: cfg.active ? "#B9FF4B" : "rgba(255,255,255,0.1)" }}
+                            >
+                              <span className="absolute top-0.5 transition-all w-4 h-4 rounded-full" style={{ background: cfg.active ? "#07080A" : "rgba(255,255,255,0.5)", left: cfg.active ? "18px" : "2px" }} />
+                            </button>
+                          </div>
+
+                          {cfg.active && (
+                            <div className="space-y-2">
+                              <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.4)" }}>Prompt do sistema (opcional)</label>
+                              <textarea
+                                value={cfg.system_prompt}
+                                onChange={e => setAgentChannelConfig(prev => ({ ...prev, [ch]: { ...prev[ch], system_prompt: e.target.value } }))}
+                                placeholder={ch === "whatsapp" ? "Ex: Você é assistente de vendas da empresa X. Responda sobre cursos disponíveis..." : "Ex: Responda comentários de forma engajadora, convide para DM quando necessário..."}
+                                rows={2}
+                                className="w-full text-xs rounded-lg px-3 py-2 resize-none outline-none"
+                                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", color: "#F0F0F0" }}
+                              />
+                              {ch === "whatsapp" && (
+                                <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>
+                                  {wpFavoriteGroupIds.length} grupo(s) favorito(s) • Configure os grupos favoritos na aba WhatsApp ★
+                                </p>
+                              )}
+                              {(ch === "instagram" || ch === "facebook") && (
+                                <div className="rounded-lg p-3 space-y-1.5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                                  <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.4)" }}>Webhook Meta</p>
+                                  <div className="flex items-center gap-2">
+                                    <code className="text-[10px] flex-1 truncate" style={{ color: "rgba(185,255,75,0.8)" }}>{SUPABASE_URL}/functions/v1/social-agent</code>
+                                    <button onClick={() => { navigator.clipboard.writeText(SUPABASE_URL + "/functions/v1/social-agent"); toast.success("Copiado!"); }} className="text-[10px] px-2 py-0.5 rounded" style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B" }}>copiar</button>
+                                  </div>
+                                  <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>Verify token: <span style={{ color: "rgba(185,255,75,0.7)" }}>calu_verify_2025</span></p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {agentLogs.length > 0 && (
+                  <div className="rounded-2xl p-4 space-y-3" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                    <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>Atividade Recente</p>
+                    <div className="space-y-2">
+                      {agentLogs.slice(0, 5).map((log, i) => (
+                        <div key={i} className="flex items-start gap-3 py-2" style={{ borderBottom: i < Math.min(agentLogs.length, 5) - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
+                          <span className="text-base shrink-0">{log.channel === "whatsapp" ? "💬" : log.channel === "instagram" ? "📸" : log.channel === "email" ? "📧" : "🤖"}</span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-[11px] truncate" style={{ color: "rgba(255,255,255,0.7)" }}>{log.message ? log.message.slice(0, 80) : "—"}...</p>
+                            <p className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>
+                              {log.channel} · {log.status} · {new Date(log.created_at).toLocaleDateString("pt-BR")}
+                            </p>
+                          </div>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full shrink-0" style={{ background: log.status === "sent" ? "rgba(185,255,75,0.1)" : "rgba(239,68,68,0.1)", color: log.status === "sent" ? "#B9FF4B" : "#EF4444" }}>
+                            {log.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {/* Header */}
                 <div className="flex items-center justify-between">
                   <div>
@@ -10094,6 +10255,43 @@ Regras:
             )}
 
             {/* ══════════════════════════════════════════════════════
+                SITE — TEO
+            ══════════════════════════════════════════════════════ */}
+            {activeTab === "teo" && (
+              <div className="h-[calc(100vh-8rem)] flex flex-col">
+                {client.siteRepo ? (
+                  <SiteEditorPanel
+                    clientId={client.id}
+                    siteUrl={client.siteUrl ?? ""}
+                    siteRepo={client.siteRepo}
+                  />
+                ) : (
+                  <div className="flex-1 flex flex-col items-center justify-center gap-6">
+                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
+                      style={{ background: "rgba(185,255,75,0.08)", border: "1px solid rgba(185,255,75,0.2)" }}>
+                      <Code2 className="w-8 h-8" style={{ color: "#B9FF4B" }} />
+                    </div>
+                    <div className="text-center space-y-2">
+                      <p className="text-base font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>
+                        Repositório GitHub não configurado
+                      </p>
+                      <p className="text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
+                        Edite o cliente e informe o repositório no formato{" "}
+                        <span className="font-mono">usuario/repositorio</span>
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => setEditOpen(true)}
+                      className="px-4 py-2 rounded-lg text-sm font-medium"
+                      style={{ background: "rgba(185,255,75,0.12)", border: "1px solid rgba(185,255,75,0.25)", color: "#B9FF4B" }}>
+                      Configurar repositório
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
+                        {/* ══════════════════════════════════════════════════════
                 REDES SOCIAIS
             ══════════════════════════════════════════════════════ */}
             {activeTab === "social" && (

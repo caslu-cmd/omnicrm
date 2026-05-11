@@ -8,7 +8,7 @@ import {
   Palette, Bell, Crown, ArrowLeftRight, Star,
   ArrowLeft, Megaphone, BarChart2, ExternalLink,
   Bot, Activity, Link2, ListTodo, Share2, Clapperboard, Mic, CalendarDays, Webhook, Layout, TrendingUp, FileBarChart, BookOpen,
-  ChevronDown
+  ChevronDown, Code2
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
@@ -67,6 +67,7 @@ const clientTools = [
   { tab: "crm",          icon: Users,           label: "CRM" },
   { tab: "campaigns",    icon: Megaphone,       label: "Campanhas" },
   { tab: "sites",        icon: Globe,           label: "Sites" },
+  { tab: "teo",          icon: Code2,           label: "Site — Teo" },
   { tab: "agents",       icon: Bot,             label: "Agentes IA" },
   { tab: "sales-agents", icon: Zap,             label: "Agentes Autônomos" },
   { tab: "portal",       icon: ExternalLink,    label: "Portal do Cliente" },
