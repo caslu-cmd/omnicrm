@@ -6956,33 +6956,41 @@ Regras:
                           style={{ gridTemplateColumns: "2fr 1fr 1fr 1fr 100px", color: "rgba(255,255,255,0.25)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                           <span>Página</span><span>URL</span><span>Última edição</span><span>Status</span><span></span>
                         </div>
+                        {siteDbPagesLoading && (
+                          <div className="flex items-center justify-center py-8 gap-2" style={{ color: "rgba(255,255,255,0.3)" }}>
+                            <Loader2 className="w-4 h-4 animate-spin" /><span className="text-xs">Carregando páginas do GitHub...</span>
+                          </div>
+                        )}
+                        {!siteDbPagesLoading && pages.length === 0 && (
+                          <div className="px-5 py-6 text-center text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhuma página encontrada no repositório.</div>
+                        )}
                         {pages.map((p, i) => {
                           const statusColor = p.status === "publicado" ? "#34D399" : p.status === "editando" ? "#06B6D4" : "#94A3B8";
                           const statusBg   = p.status === "publicado" ? "rgba(52,211,153,0.1)" : p.status === "editando" ? "rgba(6,182,212,0.1)" : "rgba(148,163,184,0.1)";
-                          const isEditing  = editingPage === p.page;
+                          const isEditing  = editingPage === p.page_name;
                           return (
-                            <div key={p.page}>
+                            <div key={p.id ?? p.page_name}>
                               <div className="flex items-center gap-x-3 gap-y-1.5 flex-wrap px-4 sm:px-5 py-3 transition-colors"
                                 style={{ borderBottom: i < pages.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}>
                                 <div className="flex items-center gap-2 min-w-0 flex-wrap">
                                   <Globe className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "rgba(6,182,212,0.5)" }} />
-                                  <span className="text-sm font-medium break-words" style={{ color: "rgba(255,255,255,0.8)" }}>{p.page}</span>
-                                  {p.changes > 0 && (
+                                  <span className="text-sm font-medium break-words" style={{ color: "rgba(255,255,255,0.8)" }}>{p.page_name}</span>
+                                  {p.edit_count > 0 && (
                                     <span className="text-[9px] px-1.5 py-0.5 rounded-full whitespace-nowrap"
                                       style={{ background: "rgba(6,182,212,0.12)", color: "#06B6D4" }}>
-                                      {p.changes} edições
+                                      {p.edit_count} edições
                                     </span>
                                   )}
                                 </div>
                                 <span className="text-xs font-mono break-all min-w-0" style={{ color: "rgba(255,255,255,0.4)" }}>{p.url}</span>
-                                <span className="text-xs whitespace-nowrap" style={{ color: "rgba(255,255,255,0.35)" }}>{p.lastEdit}</span>
+                                <span className="text-xs whitespace-nowrap" style={{ color: "rgba(255,255,255,0.35)" }}>{p.last_edited_at ? new Date(p.last_edited_at).toLocaleDateString("pt-BR") : "—"}</span>
                                 <span className="text-[10px] px-2 py-0.5 rounded-full font-medium whitespace-nowrap"
                                   style={{ background: statusBg, color: statusColor }}>
                                   {p.status}
                                 </span>
                                 <div className="flex-1 min-w-0" />
                                 <button
-                                  onClick={() => setEditingPage(isEditing ? null : p.page)}
+                                  onClick={() => setEditingPage(isEditing ? null : p.page_name)}
                                   className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all whitespace-nowrap"
                                   style={{ background: isEditing ? "rgba(6,182,212,0.2)" : "rgba(6,182,212,0.08)", color: "#06B6D4", border: "1px solid rgba(6,182,212,0.2)" }}>
                                   <Pencil className="w-2.5 h-2.5" />
@@ -6999,7 +7007,7 @@ Regras:
                                     style={{ borderBottom: "1px solid rgba(6,182,212,0.12)", background: "rgba(6,182,212,0.03)" }}>
                                     <div className="px-5 py-4">
                                       <div className="text-[10px] uppercase tracking-wider mb-2" style={{ color: "rgba(6,182,212,0.6)" }}>
-                                        Editor — {p.page}
+                                        Editor — {p.page_name}
                                       </div>
                                       <textarea
                                         className="w-full rounded-xl px-3 py-2.5 text-sm resize-none"
