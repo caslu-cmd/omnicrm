@@ -49,13 +49,24 @@ Deno.serve(async (req) => {
     // Load access token from social_connections for this page/account
     const { data: conn } = await adminSb
       .from("social_connections")
-      .select("user_id, access_token, config")
-      .or(`connector_name.eq.instagram,connector_name.eq.facebook`)
-      .filter("config->>page_id", "eq", pageId)
+      .select("user_id, client_id, access_token")
+      .or(`platform.eq.instagram,platform.eq.facebook`)
+      .eq("account_id", pageId)
       .maybeSingle();
 
     const accessToken = conn?.access_token ?? Deno.env.get("META_PAGE_ACCESS_TOKEN") ?? "";
     const userId = conn?.user_id ?? null;
+    const clientId = conn?.client_id ?? null;
+
+    // Load per-client agent config (channels active/system_prompt)
+    let agentConfig: any = null;
+    if (userId && clientId) {
+      const { data: agentRow } = await adminSb.from("integrations")
+        .select("config").eq("user_id", userId).eq("connector_name", `agent_${clientId}`).maybeSingle();
+      agentConfig = agentRow?.config?.channels ?? null;
+    }
+
+    const platform = object === "instagram" ? "instagram" : "facebook";
 
     // --- DMs (messaging events) ---
     const messagingEvents = entry.messaging ?? [];
@@ -64,14 +75,19 @@ Deno.serve(async (req) => {
       const text = ev.message?.text as string | undefined;
       if (!text || senderId === pageId) continue; // ignore echo
 
-      const aiReply = await generateReply(anthropicKey, text, "dm");
+      // Check if channel is active for this client
+      if (agentConfig && agentConfig[platform]?.active === false) continue;
+
+      const systemPrompt = agentConfig?.[platform]?.system_prompt || undefined;
+      const aiReply = await generateReply(anthropicKey, text, "dm", systemPrompt);
       if (aiReply && accessToken) {
         await sendDM(accessToken, senderId, aiReply);
       }
 
       await logInteraction(adminSb, {
         user_id: userId,
-        platform: object === "instagram" ? "instagram" : "facebook",
+        client_id: clientId,
+        platform,
         type: "dm",
         sender_id: senderId,
         incoming_text: text,
@@ -90,14 +106,17 @@ Deno.serve(async (req) => {
         const commentText = val.message as string | undefined;
         const senderId = val.from?.id as string;
         if (!commentText || senderId === pageId) continue;
+        if (agentConfig && agentConfig["facebook"]?.active === false) continue;
 
-        const aiReply = await generateReply(anthropicKey, commentText, "comment");
+        const fbPrompt = agentConfig?.["facebook"]?.system_prompt || undefined;
+        const aiReply = await generateReply(anthropicKey, commentText, "comment", fbPrompt);
         if (aiReply && accessToken && commentId) {
           await replyToComment(accessToken, commentId, aiReply);
         }
 
         await logInteraction(adminSb, {
           user_id: userId,
+          client_id: clientId,
           platform: "facebook",
           type: "comment",
           sender_id: senderId,
@@ -112,14 +131,17 @@ Deno.serve(async (req) => {
         const commentText = val.text as string;
         const senderId = val.from?.id as string;
         if (!commentText) continue;
+        if (agentConfig && agentConfig["instagram"]?.active === false) continue;
 
-        const aiReply = await generateReply(anthropicKey, commentText, "comment");
+        const igPrompt = agentConfig?.["instagram"]?.system_prompt || undefined;
+        const aiReply = await generateReply(anthropicKey, commentText, "comment", igPrompt);
         if (aiReply && accessToken && commentId) {
           await replyToComment(accessToken, commentId, aiReply);
         }
 
         await logInteraction(adminSb, {
           user_id: userId,
+          client_id: clientId,
           platform: "instagram",
           type: "comment",
           sender_id: senderId,
@@ -133,8 +155,8 @@ Deno.serve(async (req) => {
   return json({ ok: true });
 });
 
-async function generateReply(apiKey: string, incomingText: string, context: "dm" | "comment"): Promise<string> {
-  const systemPrompt =
+async function generateReply(apiKey: string, incomingText: string, context: "dm" | "comment", customPrompt?: string): Promise<string> {
+  const defaultPrompt =
     context === "dm"
       ? `Você é um assistente da Calu Agência, especialista em cursos e capacitação profissional.
 Responda de forma cordial, direta e útil às mensagens diretas recebidas no Instagram/Facebook.
@@ -143,6 +165,7 @@ Responda APENAS com o texto da resposta.`
       : `Você é um assistente da Calu Agência respondendo comentários em redes sociais.
 Seja cordial, breve e engajador. Máximo 2 frases.
 Se for uma dúvida, convide para falar por DM. Responda APENAS com o texto.`;
+  const systemPrompt = customPrompt?.trim() ? customPrompt.trim() : defaultPrompt;
 
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -190,6 +213,7 @@ async function logInteraction(
   adminSb: ReturnType<typeof createClient>,
   data: {
     user_id: string | null;
+    client_id: string | null;
     platform: string;
     type: string;
     sender_id: string;
@@ -199,6 +223,7 @@ async function logInteraction(
 ) {
   await adminSb.from("agent_broadcast_logs").insert({
     user_id: data.user_id,
+    client_id: data.client_id,
     channel: data.platform,
     message: data.reply_text,
     prompt: data.incoming_text,

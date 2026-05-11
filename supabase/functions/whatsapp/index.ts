@@ -1,10 +1,9 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
-const INSTANCE     = Deno.env.get("ZAPI_INSTANCE_ID")!;
-const TOKEN        = Deno.env.get("ZAPI_TOKEN")!;
-const CLIENT_TOKEN = Deno.env.get("ZAPI_CLIENT_TOKEN") ?? "";
-const BASE         = `https://api.z-api.io/instances/${INSTANCE}/token/${TOKEN}`;
-const HEADERS      = { "Content-Type": "application/json", "Client-Token": CLIENT_TOKEN };
+// Fallback global secrets (used when the client hasn't configured their own ZApi)
+const ENV_INSTANCE     = Deno.env.get("ZAPI_INSTANCE_ID") ?? "";
+const ENV_TOKEN        = Deno.env.get("ZAPI_TOKEN") ?? "";
+const ENV_CLIENT_TOKEN = Deno.env.get("ZAPI_CLIENT_TOKEN") ?? "";
 
 const cors = {
   "Access-Control-Allow-Origin":  "*",
@@ -19,7 +18,18 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { action, phone, message, groups } = body;
+    const {
+      action, phone, message, groups,
+      // Per-client credentials (override global secrets when present)
+      zapi_instance, zapi_token, zapi_client_token,
+    } = body;
+
+    const INSTANCE     = zapi_instance     || ENV_INSTANCE;
+    const TOKEN        = zapi_token        || ENV_TOKEN;
+    const CLIENT_TOKEN = zapi_client_token || ENV_CLIENT_TOKEN;
+    const BASE         = `https://api.z-api.io/instances/${INSTANCE}/token/${TOKEN}`;
+    const HEADERS: Record<string, string> = { "Content-Type": "application/json" };
+    if (CLIENT_TOKEN) HEADERS["Client-Token"] = CLIENT_TOKEN;
 
     // ── Status ─────────────────────────────────────────────────
     if (action === "status") {
@@ -59,17 +69,21 @@ serve(async (req) => {
     // ── Envio único (texto ou mídia) ───────────────────────────
     if (action === "send") {
       if (!phone) return Response.json({ error: "phone obrigatório" }, { status: 400, headers: cors });
-      const { mediaType, mediaData, caption } = body;
+      const { mediaType, mediaData, caption, type, mediaBase64 } = body;
 
-      if (mediaType && mediaData) {
+      // Support legacy mediaBase64 + type fields
+      const effectiveMediaType = mediaType ?? type;
+      const effectiveMediaData = mediaData ?? mediaBase64;
+
+      if (effectiveMediaType && effectiveMediaData) {
         const ep: Record<string, string> = { image: "send-image", video: "send-video", audio: "send-audio", document: "send-document" };
         const payloads: Record<string, object> = {
-          image:    { phone, image:    b64(mediaData), caption: caption ?? message ?? "" },
-          video:    { phone, video:    b64(mediaData), caption: caption ?? message ?? "" },
-          audio:    { phone, audio:    b64(mediaData) },
-          document: { phone, document: b64(mediaData), fileName: caption ?? "arquivo", caption: message ?? "" },
+          image:    { phone, image:    b64(effectiveMediaData), caption: caption ?? message ?? "" },
+          video:    { phone, video:    b64(effectiveMediaData), caption: caption ?? message ?? "" },
+          audio:    { phone, audio:    b64(effectiveMediaData) },
+          document: { phone, document: b64(effectiveMediaData), fileName: caption ?? "arquivo", caption: message ?? "" },
         };
-        const mt = mediaType in ep ? mediaType : "image";
+        const mt = effectiveMediaType in ep ? effectiveMediaType : "image";
         const r  = await fetch(`${BASE}/${ep[mt]}`, { method: "POST", headers: HEADERS, body: JSON.stringify(payloads[mt]) });
         return Response.json(await r.json(), { headers: cors });
       }
@@ -107,7 +121,7 @@ serve(async (req) => {
             r = await fetch(`${BASE}/send-text`, { method: "POST", headers: HEADERS, body: JSON.stringify({ phone: target, message }) });
           }
           results.push({ target, ok: r.ok, status: r.status });
-        } catch (e) {
+        } catch (_e) {
           results.push({ target, ok: false });
         }
         await sleep(1200);

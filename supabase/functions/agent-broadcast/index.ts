@@ -49,15 +49,21 @@ Responda APENAS com o texto da mensagem, sem introduções ou explicações.`;
   const message = aiData.content?.[0]?.text?.trim() ?? "";
   if (!message) return json({ error: "Claude retornou mensagem vazia" }, 500);
 
-  // 2. Load Z-API config from integrations (for WhatsApp)
+  // 2. Load Z-API config — try per-client first, then global
   let zapiInstance = "", zapiToken = "", zapiClientToken = "";
   if (channel === "whatsapp") {
-    const { data: intRow } = await adminSb.from("integrations")
-      .select("config").eq("user_id", user_id).eq("connector_name", "zapi").single();
-    if (intRow?.config) {
-      zapiInstance    = intRow.config.instance    ?? "";
-      zapiToken       = intRow.config.token       ?? "";
-      zapiClientToken = intRow.config.clientToken ?? "";
+    const connectorNames = client_id
+      ? [`zapi_${client_id}`, "zapi"]
+      : ["zapi"];
+    for (const name of connectorNames) {
+      const { data: intRow } = await adminSb.from("integrations")
+        .select("config").eq("user_id", user_id).eq("connector_name", name).maybeSingle();
+      if (intRow?.config) {
+        zapiInstance    = intRow.config.instance    ?? "";
+        zapiToken       = intRow.config.token       ?? "";
+        zapiClientToken = intRow.config.clientToken ?? "";
+        break;
+      }
     }
   }
 

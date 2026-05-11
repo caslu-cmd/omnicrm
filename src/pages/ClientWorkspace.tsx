@@ -1248,15 +1248,19 @@ export default function ClientWorkspace() {
     );
   }
 
+  // Helper: invoke whatsapp edge function with per-client credentials
+  const wpInvoke = (body: object) =>
+    supabase.functions.invoke("whatsapp", { body: { ...wpCreds, ...body } });
+
   const checkWpStatus = async () => {
     setWpStatus("loading");
     setWpQr(null);
     try {
-      const { data } = await supabase.functions.invoke("whatsapp", { body: { action: "status" } });
+      const { data } = await wpInvoke({ action: "status" });
       if (data?.connected) {
         setWpStatus("connected");
         setWpPhone(data.phone ?? null);
-        const { data: grps } = await supabase.functions.invoke("whatsapp", { body: { action: "groups" } });
+        const { data: grps } = await wpInvoke({ action: "groups" });
         setWpGroups(Array.isArray(grps) ? grps : []);
       } else {
         setWpStatus("disconnected");
@@ -2046,12 +2050,12 @@ ${priorBlock}`;
 
   const fetchWpQr = async () => {
     setWpQr(null);
-    const { data } = await supabase.functions.invoke("whatsapp", { body: { action: "qrcode" } });
+    const { data } = await wpInvoke({ action: "qrcode" });
     setWpQr(data?.qrcode ?? null);
   };
 
   const refreshWpGroups = async () => {
-    const { data } = await supabase.functions.invoke("whatsapp", { body: { action: "groups" } });
+    const { data } = await wpInvoke({ action: "groups" });
     setWpGroups(Array.isArray(data) ? data : []);
     await loadFavoriteGroups();
   };
@@ -2066,7 +2070,7 @@ ${priorBlock}`;
     try {
       const body: Record<string, any> = { action: "blast", targets: allTargets, message: wpMessage };
       if (hasMedia) { body.mediaType = wpMediaType; body.mediaData = wpMediaData; body.caption = wpCaption || wpMessage; }
-      const { data } = await supabase.functions.invoke("whatsapp", { body });
+      const { data } = await wpInvoke(body);
       setWpBlastResult(`${data?.ok ?? 0} de ${allTargets.length} destinos receberam a mensagem`);
     } catch {
       setWpBlastResult("Erro ao enviar. Verifique a conexão Z-API.");
@@ -2112,6 +2116,33 @@ Contexto do cliente: ${client.name}${(client as any).segment ? ` — segmento ${
     } finally {
       setWpAiGenerating(false);
     }
+  };
+
+  const loadWpCreds = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    const { data } = await (supabase as any).from("integrations")
+      .select("config").eq("user_id", session.user.id).eq("connector_name", `whatsapp_${id}`).maybeSingle();
+    if (data?.config?.zapi_instance) {
+      setWpCreds(data.config);
+      setWpCredsForm(data.config);
+    }
+  };
+
+  const saveWpCreds = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    setWpCredsSaving(true);
+    await (supabase as any).from("integrations").upsert({
+      user_id: session.user.id,
+      connector_name: `whatsapp_${id}`,
+      config: wpCredsForm,
+      connected: true, status: "active",
+    }, { onConflict: "user_id,connector_name" });
+    setWpCreds(wpCredsForm);
+    setWpCredsSaving(false);
+    setWpCredsOpen(false);
+    toast.success("Credenciais ZApi salvas!");
   };
 
   const loadFavoriteGroups = async () => {
@@ -2331,9 +2362,7 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
   const sendCertViaWp = async (dataUrl: string, phone: string, name: string) => {
     try {
       const base64 = dataUrl.split(",")[1];
-      await supabase.functions.invoke("whatsapp", {
-        body: { action: "send", type: "image", to: phone, mediaBase64: base64, caption: `Certificado de conclusão — ${name}` },
-      });
+      await wpInvoke({ action: "send", type: "image", to: phone, mediaBase64: base64, caption: `Certificado de conclusão — ${name}` });
       toast.success(`Certificado enviado para ${name}`);
     } catch {
       toast.error("Falha ao enviar certificado");
@@ -2894,7 +2923,7 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
 
   useEffect(() => {
     if (activeTab === "crm" && crmView === "whatsapp" && id) {
-      checkWpStatus();
+      loadWpCreds().then(() => checkWpStatus());
       loadFavoriteGroups();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -4964,6 +4993,11 @@ Regras:
                         {wpStatus === "disconnected" && (
                           <span className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Desconectado</span>
                         )}
+                        <button onClick={() => setWpCredsOpen(v => !v)}
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all"
+                          style={wpCreds ? { background: "rgba(37,211,102,0.1)", color: "#25D366", border: "1px solid rgba(37,211,102,0.2)" } : { background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.12)" }}>
+                          <Settings2 className="w-3 h-3" /> {wpCreds ? "ZApi configurado" : "Configurar ZApi"}
+                        </button>
                         <button onClick={checkWpStatus} disabled={wpStatus === "loading"}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all disabled:opacity-50"
                           style={{ background: "rgba(37,211,102,0.1)", color: "#25D366", border: "1px solid rgba(37,211,102,0.2)" }}>
@@ -4974,8 +5008,57 @@ Regras:
                       </div>
                     </div>
 
+                    {/* ZApi credentials panel */}
+                    <AnimatePresence>
+                      {wpCredsOpen && (
+                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden"
+                          style={{ borderBottom: "1px solid rgba(37,211,102,0.15)" }}>
+                          <div className="px-6 py-4 space-y-3" style={{ background: "rgba(37,211,102,0.03)" }}>
+                            <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#25D366" }}>
+                              Credenciais ZApi — {client.name}
+                            </p>
+                            <div className="grid grid-cols-3 gap-2">
+                              {[
+                                { label: "Instance ID", key: "zapi_instance", ph: "Ex: 3EBC0C..." },
+                                { label: "Token", key: "zapi_token", ph: "Ex: BA4478..." },
+                                { label: "Client Token", key: "zapi_client_token", ph: "Ex: Fabc..." },
+                              ].map(({ label, key, ph }) => (
+                                <div key={key}>
+                                  <label className="block text-[9px] uppercase tracking-wider font-semibold mb-1" style={{ color: "rgba(255,255,255,0.3)" }}>{label}</label>
+                                  <input
+                                    value={(wpCredsForm as any)[key]}
+                                    onChange={e => setWpCredsForm(p => ({ ...p, [key]: e.target.value }))}
+                                    placeholder={ph}
+                                    className="w-full rounded-lg px-2.5 py-1.5 text-[11px] focus:outline-none font-mono"
+                                    style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#F0F0F0" }} />
+                                </div>
+                              ))}
+                            </div>
+                            <div className="flex gap-2">
+                              <button onClick={saveWpCreds} disabled={wpCredsSaving || !wpCredsForm.zapi_instance.trim() || !wpCredsForm.zapi_token.trim()}
+                                className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold disabled:opacity-40"
+                                style={{ background: "#25D366", color: "#07080A" }}>
+                                {wpCredsSaving ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />} Salvar
+                              </button>
+                              <button onClick={() => setWpCredsOpen(false)} className="px-3 py-2 text-xs rounded-xl" style={{ color: "rgba(255,255,255,0.35)" }}>Cancelar</button>
+                            </div>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
                     <div className="p-6 space-y-5">
                       {/* Desconectado: instruções */}
+                      {!wpCreds && (wpStatus === "disconnected" || wpStatus === "idle") && (
+                        <div className="rounded-xl px-4 py-3 flex items-start gap-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                          <AlertTriangle className="w-4 h-4 flex-shrink-0 mt-0.5" style={{ color: "#FBBF24" }} />
+                          <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.5)" }}>
+                            Configure as credenciais ZApi deste cliente para conectar o WhatsApp.
+                          </p>
+                        </div>
+                      )}
+                      {/* Desconectado: instruções (com creds já configuradas) */}
                       {(wpStatus === "disconnected" || wpStatus === "idle") && (
                         <div className="flex items-start gap-6">
                           <div className="flex-1">
@@ -5913,7 +5996,7 @@ Regras:
                             else if (wpGroups.length === 0) {
                               setAiraLoadingGroups(true);
                               try {
-                                const { data: grps } = await supabase.functions.invoke("whatsapp", { body: { action: "groups" } });
+                                const { data: grps } = await wpInvoke({ action: "groups" });
                                 if (Array.isArray(grps)) setWpGroups(grps);
                               } catch {}
                               setAiraLoadingGroups(false);
@@ -6106,7 +6189,7 @@ Regras:
                               onClick={async () => {
                                 setAiraLoadingGroups(true);
                                 try {
-                                  const { data: grps } = await supabase.functions.invoke("whatsapp", { body: { action: "groups" } });
+                                  const { data: grps } = await wpInvoke({ action: "groups" });
                                   if (Array.isArray(grps)) setWpGroups(grps);
                                 } catch {}
                                 setAiraLoadingGroups(false);
