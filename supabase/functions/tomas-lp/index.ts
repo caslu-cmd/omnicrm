@@ -82,7 +82,7 @@ REGRAS OBRIGATÓRIAS:
 - Design responsivo (mobile-first)
 - Seções: header/nav, hero, benefícios, prova social, sobre, oferta, CTA, footer
 - Formulário de captação simples (nome, email, telefone + botão)
-- Animações sutis via CSS (fade-in ao scroll usando IntersectionObserver simples)
+- Animações de entrada via CSS puro com @keyframes (ex: fadeInUp) — PROIBIDO usar opacity:0 como estado inicial de qualquer elemento, pois o preview roda em iframe e o IntersectionObserver não dispara lá
 - Cores e fontes EXATAMENTE como especificado pelo Designer
 - Imagens: use gradientes ou cores sólidas como placeholder (sem URLs de imagens externas quebradas)
 - Código limpo e semântico
@@ -155,7 +155,7 @@ serve(async (req) => {
           const design = await callClaude(apiKey, DESIGNER_SYSTEM, designContent, 2000, "claude-haiku-4-5-20251001");
           sse(ctrl, { etapa: "design", status: "Identidade visual definida ✓", conteudo: design });
 
-          // ── TOMÁS: HTML (streaming) ───────────────────────────────────────────
+          // ── TOMÁS: HTML (stream interno → evento único ao frontend) ──────────
           sse(ctrl, { etapa: "html", status: "Tomás montando a landing page..." });
 
           const tomasResp = await fetch("https://api.anthropic.com/v1/messages", {
@@ -176,6 +176,7 @@ serve(async (req) => {
 
           if (!tomasResp.ok) throw new Error(`Claude Tomás ${tomasResp.status}: ${await tomasResp.text()}`);
 
+          // Lê o stream internamente (mantém a função viva) sem enviar chunks ao frontend
           const tomasReader = tomasResp.body!.getReader();
           const dec = new TextDecoder();
           let htmlFull = "";
@@ -193,16 +194,19 @@ serve(async (req) => {
               if (raw === "[DONE]") continue;
               try {
                 const parsed = JSON.parse(raw);
+                if (parsed.type === "error") throw new Error(`Anthropic: ${JSON.stringify(parsed.error)}`);
                 if (parsed.type === "content_block_delta" && parsed.delta?.type === "text_delta") {
-                  const chunk = parsed.delta.text;
-                  htmlFull += chunk;
-                  sse(ctrl, { etapa: "html_chunk", chunk });
+                  htmlFull += parsed.delta.text;
                 }
-              } catch { /* ignora linhas malformadas */ }
+              } catch (innerErr) {
+                if (String(innerErr).includes("Anthropic:")) throw innerErr;
+              }
             }
           }
 
-          // Extrai HTML puro (remove code fences se presentes)
+          if (!htmlFull.trim()) throw new Error("Tomás não gerou conteúdo — tente novamente");
+
+          // Extrai HTML puro (remove code fences e texto introdutório se presentes)
           let htmlFinal = htmlFull.trim();
           if (htmlFinal.startsWith("```")) {
             const lines = htmlFinal.split("\n");
@@ -216,6 +220,8 @@ serve(async (req) => {
             const start = docIdx >= 0 ? docIdx : htmlIdx >= 0 ? htmlIdx : -1;
             if (start >= 0) htmlFinal = htmlFinal.slice(start).trim();
           }
+
+          if (!htmlFinal.startsWith("<")) throw new Error("HTML gerado inválido — tente novamente");
 
           sse(ctrl, { etapa: "html", status: "HTML pronto ✓", conteudo: htmlFinal });
           sse(ctrl, { etapa: "concluido" });
