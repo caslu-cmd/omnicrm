@@ -171,6 +171,7 @@ export default function TomasPage() {
             if (payload.etapa === "copy")   parcial.copy   = payload.conteudo;
             if (payload.etapa === "design") parcial.design = payload.conteudo;
             if (payload.etapa === "html")   parcial.html   = payload.conteudo;
+            setParcial({ ...parcial });
           }
         }
       }
