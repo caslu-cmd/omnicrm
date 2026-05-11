@@ -86,7 +86,7 @@ export default function SiteEditorPanel({ clientId, siteUrl, siteRepo }: Props) 
     setCommitDone(false);
     setLoadingFile(true);
     try {
-      const data = await callTeo("read_file", { path, repo });
+      const data = await callTeo("read_file", { path, repo: siteRepo || undefined });
       setFileContent(data.content ?? "");
       setFileSha(data.sha ?? "");
     } catch {
