@@ -66,6 +66,29 @@ serve(async (req) => {
       return Response.json(grps, { headers: cors });
     }
 
+    // ── Metadata em lote (busca participantes de uma lista de IDs) ──
+    if (action === "groups-metadata") {
+      const ids: string[] = Array.isArray(body.ids) ? body.ids : [];
+      const out: { id: string; name?: string; participants: number }[] = [];
+      // Z-API limita; fazemos sequencial com timeout curto pra evitar travar
+      for (const rawId of ids.slice(0, 200)) {
+        const gid = String(rawId).replace(/-group$/, "").includes("@g.us")
+          ? String(rawId)
+          : `${String(rawId).replace(/-group$/, "")}@g.us`;
+        try {
+          const rr = await fetch(`${BASE}/group-metadata/${encodeURIComponent(gid)}`, { headers: HEADERS });
+          const meta = await rr.json();
+          const count = Array.isArray(meta?.participants)
+            ? meta.participants.length
+            : (meta?.participantsCount ?? meta?.size ?? 0);
+          out.push({ id: rawId, name: meta?.subject ?? meta?.name, participants: Number(count) || 0 });
+        } catch {
+          out.push({ id: rawId, participants: 0 });
+        }
+      }
+      return Response.json(out, { headers: cors });
+    }
+
     // ── Envio único (texto ou mídia) ───────────────────────────
     if (action === "send") {
       if (!phone) return Response.json({ error: "phone obrigatório" }, { status: 400, headers: cors });

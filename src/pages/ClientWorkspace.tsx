@@ -2163,6 +2163,35 @@ ${priorBlock}`;
     toast.success(`${parsed.length} grupo${parsed.length !== 1 ? "s" : ""} importado${parsed.length !== 1 ? "s" : ""}.`);
   };
 
+  const refreshGroupCounts = async () => {
+    const ids = wpGroups.map(g => g.id);
+    if (ids.length === 0) return;
+    toast.info(`Buscando contagem de ${ids.length} grupos…`);
+    try {
+      const { data, error } = await wpInvoke({ action: "groups-metadata", ids });
+      if (error) throw error;
+      const meta: any[] = Array.isArray(data) ? data : [];
+      const map = new Map(meta.map((m: any) => [m.id, m]));
+      setWpGroups(prev => prev.map(g => {
+        const m = map.get(g.id);
+        return m ? { ...g, name: m.name || g.name, participants: m.participants ?? g.participants } : g;
+      }));
+      try {
+        const raw = localStorage.getItem(wpManualKey());
+        if (raw) {
+          const manual = JSON.parse(raw);
+          const updated = manual.map((g: any) => {
+            const m = map.get(g.id);
+            return m ? { ...g, name: m.name || g.name, participants: m.participants ?? g.participants } : g;
+          });
+          localStorage.setItem(wpManualKey(), JSON.stringify(updated));
+        }
+      } catch {}
+      toast.success("Contagem atualizada.");
+    } catch {
+      toast.error("Falha ao buscar metadados dos grupos.");
+    }
+  };
 
   const doWpBlast = async () => {
     const allTargets = [...wpSelectedGroups, ...wpSelectedContacts];
@@ -5320,6 +5349,10 @@ Regras:
                                   <button onClick={() => setWpImportOpen(v => !v)} className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg"
                                     style={{ color: "#B9FF4B", background: "rgba(185,255,75,0.08)", border: "1px solid rgba(185,255,75,0.25)" }}>
                                     + Importar
+                                  </button>
+                                  <button onClick={refreshGroupCounts} className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg"
+                                    style={{ color: "#60A5FA", background: "rgba(96,165,250,0.08)", border: "1px solid rgba(96,165,250,0.25)" }}>
+                                    👥 Atualizar contagens
                                   </button>
                                   <button onClick={refreshWpGroups} className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg"
                                     style={{ color: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
