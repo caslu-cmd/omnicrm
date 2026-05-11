@@ -10449,9 +10449,10 @@ Regras:
                   </div>
                 )}
               </div>
+            )}
 
-              {/* ── WordPress do cliente (credenciais para Tomás) ── */}
-              {activeTab === "teo" && (
+            {/* ── WordPress do cliente (credenciais para Tomás) ── */}
+            {activeTab === "teo" && (
                 <div className="mt-4 rounded-2xl p-5 space-y-4" style={{ background: "rgba(185,255,75,0.03)", border: "1px solid rgba(185,255,75,0.1)" }}>
                   <div className="flex items-center gap-3">
                     <Globe className="w-4 h-4" style={{ color: "#B9FF4B" }} />
