@@ -703,12 +703,13 @@ Deno.serve(async (req) => {
       if (!metaAppId) return respond({ error: "META_APP_ID não configurado" }, 503);
       const { client_id } = body;
       const state = btoa(JSON.stringify({ userId, clientId: client_id, platform: "meta_ads", ts: Date.now() }));
-      const adsScope = META_SCOPE + ",ads_read,ads_management,pages_manage_ads";
+      const adsScope = META_SCOPE + ",ads_read";
       const url =
         `https://www.facebook.com/v22.0/dialog/oauth` +
         `?client_id=${metaAppId}` +
         `&redirect_uri=${encodeURIComponent(redirectUri)}` +
         `&scope=${adsScope}` +
+        `&auth_type=rerequest` +
         `&state=${encodeURIComponent(state)}` +
         `&response_type=code`;
       return respond({ url });
@@ -733,7 +734,8 @@ Deno.serve(async (req) => {
       const insData = await insRes.json();
       if (insData.error) return respond({ error: insData.error.message }, 400);
 
-      const d = insData.data?.[0] ?? {};
+      const hasData = Array.isArray(insData.data) && insData.data.length > 0;
+      const d = hasData ? insData.data[0] : {};
       const purchaseAction = (d.actions ?? []).find(
         (a: any) => a.action_type === "purchase" || a.action_type === "offsite_conversion.fb_pixel_purchase"
       );
@@ -742,6 +744,7 @@ Deno.serve(async (req) => {
 
       return respond({
         connected: true,
+        has_data: hasData,
         account_name: conn.account_name,
         account_id: conn.account_id,
         spend,
@@ -778,7 +781,7 @@ Deno.serve(async (req) => {
       const campaignsData = await campaignsRes.json();
       const insData = await insRes.json();
 
-      if (campaignsData.error) return respond({ error: campaignsData.error.message }, 400);
+      if (campaignsData.error) return respond({ error: `Campanhas: ${campaignsData.error.message}` }, 400);
 
       const insMap: Record<string, any> = {};
       for (const item of insData.data ?? []) insMap[item.campaign_id] = item;

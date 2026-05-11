@@ -105,8 +105,9 @@ export default function AdsSection({
     try {
       const data = await callFn({ action: "ads-campaigns", client_id: clientId, date_preset: datePreset });
       setCampaigns(data.campaigns ?? []);
-    } catch { /* ignore */ }
-    finally { setLoadingCampaigns(false); }
+    } catch (e: any) {
+      toast.error(e?.message ?? "Erro ao carregar campanhas");
+    } finally { setLoadingCampaigns(false); }
   }, [clientId, datePreset]);
 
   // ── Check Google Ads connection ───────────────────────────
