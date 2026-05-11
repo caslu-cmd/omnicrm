@@ -229,14 +229,7 @@ Crie ${count} posts distintos para formar uma campanha coesa e eficaz. Cada post
   ]
 }`;
 
-      const anthropic = new Anthropic({ apiKey: anthropicKey });
-      const message = await anthropic.messages.create({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 3000,
-        messages: [{ role: "user", content: prompt }],
-      });
-
-      const raw = (message.content[0] as { type: string; text: string }).text.trim();
+      const raw = (await callAI(aiKey, prompt, 3000)).trim();
       const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim();
       let campaign: { campaign_name: string; campaign_goal: string; posts: Array<{ day: number; angle: string; caption: string; hashtags: string[]; best_time: string; rationale: string }> };
       try { campaign = JSON.parse(cleaned); }
