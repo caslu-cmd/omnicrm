@@ -2771,7 +2771,7 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
           edit_count: 0,
         }));
         if (pages.length > 0) {
-          const { data: inserted } = await supabase.from('site_pages').upsert(pages, { onConflict: 'client_id,file_path' }).select();
+          const { data: inserted } = await (supabase.from as any)('site_pages').upsert(pages, { onConflict: 'client_id,file_path' }).select();
           if (inserted) setSiteDbPages(inserted);
         }
       }
