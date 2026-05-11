@@ -290,14 +290,7 @@ Analise os padrões e gere insights acionáveis. Responda SOMENTE com JSON:
   "proxima_sugestao": "Sugestão concreta para o próximo post baseada nos dados."
 }`;
 
-      const anthropic = new Anthropic({ apiKey: anthropicKey });
-      const message = await anthropic.messages.create({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 1024,
-        messages: [{ role: "user", content: prompt }],
-      });
-
-      const raw = (message.content[0] as { type: string; text: string }).text.trim();
+      const raw = (await callAI(aiKey, prompt, 1024)).trim();
       const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim();
       let result: unknown;
       try { result = JSON.parse(cleaned); }
