@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Globe, Plus, Trash2, Send, Loader2, CheckCircle2,
@@ -140,6 +141,7 @@ function AddSiteModal({ onClose, onAdd }: { onClose: () => void; onAdd: (s: WPSi
 
 // ── Componente principal ──────────────────────────────────────────────────────
 const WordPressPage = () => {
+  const [searchParams] = useSearchParams();
   const [tab, setTab] = useState<"agente" | "sites">("agente");
   const [sites, setSites] = useState<WPSite[]>([]);
   const [selectedSite, setSelectedSite] = useState<WPSite | null>(null);
@@ -163,10 +165,20 @@ const WordPressPage = () => {
       .then(r => r.json())
       .then(data => {
         setSites(data);
-        if (data.length > 0) setSelectedSite(data[0]);
+        const paramSite = searchParams.get("site");
+        const target = paramSite ? data.find((s: WPSite) => s.id === paramSite) : data[0];
+        if (target) setSelectedSite(target);
       })
       .catch(() => {});
   }, []);
+
+  // quando a URL muda (clique no sidebar), sincroniza o site selecionado
+  useEffect(() => {
+    const paramSite = searchParams.get("site");
+    if (!paramSite || sites.length === 0) return;
+    const target = sites.find(s => s.id === paramSite);
+    if (target) setSelectedSite(target);
+  }, [searchParams, sites]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });

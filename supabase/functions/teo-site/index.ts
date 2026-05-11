@@ -5,12 +5,12 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const REPO = "caslu-cmd/abcer";
+const DEFAULT_REPO = "caslu-cmd/abcer";
 const GITHUB_API = "https://api.github.com";
 
 const TEO_SYSTEM = `Você é TEO, Editor de Site da Calu Agência.
 
-Você tem acesso direto ao repositório GitHub do cliente ABCER (abcer.lovable.com).
+Você tem acesso direto ao repositório GitHub do cliente via a Calu Agência.
 Stack do projeto: React + TypeScript + Tailwind CSS + Shadcn/ui (gerado no Lovable).
 
 Quando receber uma solicitação de alteração:
@@ -35,8 +35,17 @@ function ghHeaders(token: string) {
   };
 }
 
-async function listFiles(token: string, path = "") {
-  const url = `${GITHUB_API}/repos/${REPO}/contents/${path}`;
+function fileToPageInfo(name: string, filePath: string) {
+  const base = name.replace(/\.(tsx?|jsx?)$/, "");
+  const clean = base.replace(/Page$|View$|Screen$/, "");
+  const pageName = clean.replace(/([A-Z])/g, " $1").trim() || clean;
+  const slug = clean.replace(/([a-z])([A-Z])/g, "$1-$2").toLowerCase();
+  const url = slug === "index" || slug === "home" || slug === "" ? "/" : `/${slug}`;
+  return { page_name: pageName.trim(), url, file_path: filePath };
+}
+
+async function listFiles(token: string, repo: string, path = "") {
+  const url = `${GITHUB_API}/repos/${repo}/contents/${path}`;
   const r = await fetch(url, { headers: ghHeaders(token) });
   if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
   const data = await r.json();
@@ -46,8 +55,28 @@ async function listFiles(token: string, path = "") {
     .map((f: any) => ({ name: f.name, path: f.path, type: f.type, size: f.size }));
 }
 
-async function readFile(token: string, path: string) {
-  const url = `${GITHUB_API}/repos/${REPO}/contents/${path}`;
+async function listPages(token: string, repo: string) {
+  const candidates = ["src/pages", "pages", "src/app", "app"];
+  for (const dir of candidates) {
+    const url = `${GITHUB_API}/repos/${repo}/contents/${dir}`;
+    const r = await fetch(url, { headers: ghHeaders(token) });
+    if (!r.ok) continue;
+    const data = await r.json();
+    if (!Array.isArray(data)) continue;
+    const pageFiles = data.filter((f: any) =>
+      f.type === "file" &&
+      /\.(tsx?|jsx?)$/.test(f.name) &&
+      !f.name.startsWith("_") &&
+      !f.name.startsWith(".")
+    );
+    const pages = pageFiles.map((f: any) => fileToPageInfo(f.name, f.path));
+    return { pages, dir };
+  }
+  return { pages: [], dir: null };
+}
+
+async function readFile(token: string, repo: string, path: string) {
+  const url = `${GITHUB_API}/repos/${repo}/contents/${path}`;
   const r = await fetch(url, { headers: ghHeaders(token) });
   if (!r.ok) throw new Error(`GitHub ${r.status}: ${await r.text()}`);
   const data = await r.json();
@@ -55,8 +84,8 @@ async function readFile(token: string, path: string) {
   return { content, sha: data.sha };
 }
 
-async function commitFile(token: string, path: string, content: string, sha: string, message: string) {
-  const url = `${GITHUB_API}/repos/${REPO}/contents/${path}`;
+async function commitFile(token: string, repo: string, path: string, content: string, sha: string, message: string) {
+  const url = `${GITHUB_API}/repos/${repo}/contents/${path}`;
   const encoded = btoa(unescape(encodeURIComponent(content)));
   const r = await fetch(url, {
     method: "PUT",
@@ -107,11 +136,12 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const { action } = body;
+    const repo: string = body.repo ?? DEFAULT_REPO;
 
     const githubToken = Deno.env.get("GITHUB_TOKEN") ?? "";
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY") ?? "";
 
-    if (!githubToken && ["list_files", "read_file", "commit"].includes(action)) {
+    if (!githubToken && ["list_files", "list_pages", "read_file", "commit"].includes(action)) {
       return new Response(JSON.stringify({ error: "GITHUB_TOKEN não configurado no Supabase" }), {
         status: 500, headers: { ...cors, "Content-Type": "application/json" },
       });
@@ -119,18 +149,21 @@ Deno.serve(async (req) => {
 
     let result: any;
 
-    if (action === "list_files") {
-      result = { files: await listFiles(githubToken, body.path ?? "") };
+    if (action === "list_pages") {
+      result = await listPages(githubToken, repo);
+
+    } else if (action === "list_files") {
+      result = { files: await listFiles(githubToken, repo, body.path ?? "") };
 
     } else if (action === "read_file") {
-      result = await readFile(githubToken, body.path);
+      result = await readFile(githubToken, repo, body.path);
 
     } else if (action === "chat") {
       if (!apiKey) throw new Error("ANTHROPIC_API_KEY não configurada");
       result = await teoChat(apiKey, body.message, body.file_path, body.file_content, body.history ?? []);
 
     } else if (action === "commit") {
-      result = await commitFile(githubToken, body.path, body.content, body.sha, body.message ?? `Teo: atualiza ${body.path}`);
+      result = await commitFile(githubToken, repo, body.path, body.content, body.sha, body.message ?? `Teo: atualiza ${body.path}`);
 
     } else {
       return new Response(JSON.stringify({ error: `action inválida: ${action}` }), {

@@ -7,10 +7,11 @@ import {
   HelpCircle, Shield, ChevronLeft, ChevronRight, Phone,
   Palette, Bell, Crown, ArrowLeftRight, Star,
   ArrowLeft, Megaphone, BarChart2, ExternalLink,
-  Bot, Activity, Link2, ListTodo, Share2, Clapperboard, Mic, CalendarDays, Webhook, Layout, TrendingUp, FileBarChart, BookOpen
+  Bot, Activity, Link2, ListTodo, Share2, Clapperboard, Mic, CalendarDays, Webhook, Layout, TrendingUp, FileBarChart, BookOpen,
+  ChevronDown
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useIsAdmin } from "@/hooks/useAdmin";
 import { useAuth } from "@/hooks/useAuth";
@@ -39,7 +40,6 @@ const crmItems = [
   { to: "/video-editor", icon: Clapperboard, label: "Editor de Vídeo" },
   { to: "/tomas", icon: Layout, label: "Criador de LPs" },
   { to: "/ben", icon: TrendingUp, label: "Tendências — Ben" },
-  { to: "/wordpress", icon: Globe, label: "WordPress IA" },
   { to: "/notebook", icon: BookOpen, label: "Notebook IA" },
   { to: "/sites", icon: Globe, label: "Sites & LPs" },
   { to: "/members", icon: GraduationCap, label: "Membros" },
@@ -78,6 +78,8 @@ const clientTools = [
   { tab: "time",         icon: Users,        label: "Time do Cliente" },
 ];
 
+interface WPSite { id: string; name: string; url: string; client_name?: string; }
+
 export const AppSidebar = ({ collapsed, onToggle, hideToggle }: AppSidebarProps) => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -85,6 +87,16 @@ export const AppSidebar = ({ collapsed, onToggle, hideToggle }: AppSidebarProps)
   const { user } = useAuth();
   const { clients: CLIENTS } = useClients();
   const [openingPortal, setOpeningPortal] = useState(false);
+  const [wpSites, setWpSites] = useState<WPSite[]>([
+    { id: "grupo-licita", name: "Grupo Licita", url: "http://grupolicita.com.br", client_name: "Grupo Licita" }
+  ]);
+
+  useEffect(() => {
+    fetch("http://localhost:8500/api/sites")
+      .then(r => r.json())
+      .then(data => setWpSites(data))
+      .catch(() => {});
+  }, []);
 
   const openClientPortal = async (clientName: string, clientIndustry: string, clientStatus: string) => {
     if (!user) { toast.error("Você precisa estar logado."); return; }
@@ -269,6 +281,63 @@ export const AppSidebar = ({ collapsed, onToggle, hideToggle }: AppSidebarProps)
                 </NavLink>
               );
             })}
+
+            {/* ── Site WordPress do cliente ── */}
+            {(() => {
+              const wpSite = wpSites.find(
+                s => s.client_name?.toLowerCase() === client.name.toLowerCase()
+              );
+              if (!wpSite) return null;
+              const isWpActive = location.pathname === "/wordpress" &&
+                new URLSearchParams(location.search).get("site") === wpSite.id;
+              return (
+                <>
+                  {!collapsed && (
+                    <div className="pt-3 pb-1 px-3">
+                      <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.2)" }}>
+                        Site
+                      </p>
+                    </div>
+                  )}
+                  {collapsed && <div className="my-1 mx-3 border-t border-sidebar-border opacity-30" />}
+                  <NavLink
+                    to={`/wordpress?site=${wpSite.id}`}
+                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors relative"
+                    style={{
+                      color: isWpActive ? client.color : "rgba(255,255,255,0.45)",
+                      background: isWpActive ? `${client.color}14` : "transparent",
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isWpActive) e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isWpActive) e.currentTarget.style.background = "transparent";
+                    }}
+                  >
+                    {isWpActive && (
+                      <motion.div
+                        layoutId="client-sidebar-indicator"
+                        className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full"
+                        style={{ background: client.color }}
+                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
+                      />
+                    )}
+                    <Globe
+                      className="h-5 w-5 shrink-0"
+                      style={{ color: isWpActive ? client.color : "rgba(255,255,255,0.3)" }}
+                    />
+                    {!collapsed && (
+                      <div className="min-w-0 flex-1">
+                        <span className="truncate block text-sm">WordPress</span>
+                        <span className="truncate block text-[10px] opacity-40">
+                          {wpSite.url.replace(/https?:\/\//, "")}
+                        </span>
+                      </div>
+                    )}
+                  </NavLink>
+                </>
+              );
+            })()}
           </nav>
 
           {/* Portal link */}
@@ -375,6 +444,7 @@ export const AppSidebar = ({ collapsed, onToggle, hideToggle }: AppSidebarProps)
       >
         <nav className="flex-1 overflow-y-auto scrollbar-thin py-3 px-2 space-y-0.5">
           {crmItems.map((item, idx) => renderNavItem(item, idx))}
+
           {isAdmin && (
             <>
               {!collapsed && (

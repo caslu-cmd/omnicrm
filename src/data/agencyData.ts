@@ -298,6 +298,8 @@ export const CLIENTS: Client[] = [
     color: "#60A5FA",
     initials: "AB",
     status: "Ativo",
+    siteRepo: "caslu-cmd/abcer",
+    siteUrl: "https://abcer.lovable.app",
     agentActive: true,
     postsMonth: 18,
     campaigns: 2,

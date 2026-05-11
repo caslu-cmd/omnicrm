@@ -1,4 +1,5 @@
 ﻿import { useState, useRef, useEffect } from "react";
+import { QRCodeSVG } from "qrcode.react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
@@ -878,6 +879,18 @@ export default function ClientWorkspace() {
   const [wpBlastResult, setWpBlastResult] = useState<string | null>(null);
   const [wpAiGenerating, setWpAiGenerating] = useState(false);
   const [wpAiPrompt, setWpAiPrompt] = useState("");
+  // Agente autônomo WhatsApp
+  const [wpFavoriteGroupIds, setWpFavoriteGroupIds] = useState<string[]>([]);
+  const [agentSendPrompt, setAgentSendPrompt] = useState("");
+  const [agentSending, setAgentSending] = useState(false);
+  const [agentSendResult, setAgentSendResult] = useState<{ message: string; ok: number; total: number; status: string } | null>(null);
+  const [showAgentPanel, setShowAgentPanel] = useState(false);
+  // Email blast por contato
+  const [emailBlastContact, setEmailBlastContact] = useState<any>(null);
+  const [emailBlastSubject, setEmailBlastSubject] = useState("");
+  const [emailBlastBody, setEmailBlastBody] = useState("");
+  const [emailBlastPrompt, setEmailBlastPrompt] = useState("");
+  const [emailBlasting, setEmailBlasting] = useState(false);
   // Real courses from DB
   const [dbCourses, setDbCourses] = useState<any[]>([]);
   const [dbEnrollments, setDbEnrollments] = useState<Record<string, any[]>>({});
@@ -903,6 +916,9 @@ export default function ClientWorkspace() {
   const [generatedCerts, setGeneratedCerts] = useState<{ name: string; dataUrl: string }[]>([]);
   const [certManualName, setCertManualName] = useState("");
   const [certManualList, setCertManualList] = useState<string[]>([]);
+  // Course attendance
+  const [dbAttendance, setDbAttendance] = useState<Record<string, any[]>>({});
+  const [attendanceCourseId, setAttendanceCourseId] = useState<string | null>(null);
   // Course checklists
   const [dbChecklists, setDbChecklists] = useState<Record<string, any[]>>({});
   const [checklistGenerating, setChecklistGenerating] = useState<string | null>(null); // `${courseId}_${phase}`
@@ -2019,6 +2035,7 @@ ${priorBlock}`;
   const refreshWpGroups = async () => {
     const { data } = await supabase.functions.invoke("whatsapp", { body: { action: "groups" } });
     setWpGroups(Array.isArray(data) ? data : []);
+    await loadFavoriteGroups();
   };
 
 
@@ -2079,6 +2096,108 @@ Contexto do cliente: ${client.name}${client.segment ? ` — segmento ${client.se
     }
   };
 
+  const loadFavoriteGroups = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    const { data } = await (supabase as any).from("integrations")
+      .select("config").eq("user_id", session.user.id).eq("connector_name", `agent_whatsapp_${id}`).maybeSingle();
+    if (data?.config?.favorite_groups) {
+      setWpFavoriteGroupIds((data.config.favorite_groups as { id: string }[]).map(g => g.id));
+    }
+  };
+
+  const saveFavoriteGroups = async (newIds: string[]) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    const favoriteGroups = wpGroups.filter(g => newIds.includes(g.id)).map(g => ({ id: g.id, name: g.name }));
+    await (supabase as any).from("integrations").upsert({
+      user_id: session.user.id,
+      connector_name: `agent_whatsapp_${id}`,
+      config: { favorite_groups: favoriteGroups },
+      connected: true,
+      status: "active",
+    }, { onConflict: "user_id,connector_name" });
+  };
+
+  const toggleFavoriteGroup = async (groupId: string) => {
+    const newIds = wpFavoriteGroupIds.includes(groupId)
+      ? wpFavoriteGroupIds.filter(x => x !== groupId)
+      : [...wpFavoriteGroupIds, groupId];
+    setWpFavoriteGroupIds(newIds);
+    await saveFavoriteGroups(newIds);
+  };
+
+  const doAgentBroadcast = async () => {
+    if (!agentSendPrompt.trim() || wpFavoriteGroupIds.length === 0) return;
+    setAgentSending(true);
+    setAgentSendResult(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const favoriteGroups = wpGroups.filter(g => wpFavoriteGroupIds.includes(g.id));
+      const res = await supabase.functions.invoke("agent-broadcast", {
+        body: {
+          user_id: session?.user.id,
+          client_id: id,
+          channel: "whatsapp",
+          prompt: agentSendPrompt,
+          groups: favoriteGroups,
+          auto_send: true,
+        },
+      });
+      if (res.error) throw res.error;
+      setAgentSendResult(res.data);
+      toast.success(`Agente enviou para ${res.data.ok}/${res.data.total} grupos!`);
+    } catch {
+      toast.error("Erro no envio autônomo");
+    } finally {
+      setAgentSending(false);
+    }
+  };
+
+  const generateEmailWithAI = async () => {
+    if (!emailBlastPrompt.trim()) return;
+    const { data, error } = await supabase.functions.invoke("chat-ai", {
+      body: {
+        messages: [{ role: "user", content: emailBlastPrompt }],
+        systemPrompt: `Você é especialista em comunicação por e-mail para cursos e eventos de capacitação profissional.
+Escreva e-mails cordiais, diretos e profissionais em HTML simples (pode usar <b>, <p>, <br>).
+Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mail, sem introduções.`,
+        maxTokens: 800,
+      },
+    });
+    if (!error && data?.content) setEmailBlastBody(data.content.trim());
+  };
+
+  const sendEmailToContact = async () => {
+    if (!emailBlastContact || !emailBlastSubject.trim() || !emailBlastBody.trim()) return;
+    setEmailBlasting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const res = await supabase.functions.invoke("agent-broadcast", {
+        body: {
+          user_id: session?.user.id,
+          client_id: id,
+          channel: "email",
+          prompt: emailBlastBody,
+          system_context: "Responda APENAS com o texto fornecido, sem alterações.",
+          emails: [emailBlastContact.email],
+          subject: emailBlastSubject,
+          auto_send: true,
+        },
+      });
+      if (res.error) throw res.error;
+      toast.success("E-mail enviado!");
+      setEmailBlastContact(null);
+      setEmailBlastSubject("");
+      setEmailBlastBody("");
+      setEmailBlastPrompt("");
+    } catch {
+      toast.error("Erro ao enviar e-mail");
+    } finally {
+      setEmailBlasting(false);
+    }
+  };
+
   const renderCertificate = (template: string, name: string, xPct: number, yPct: number, fontSize: number, color: string): Promise<string> =>
     new Promise((resolve) => {
       const img = new (window as any).Image();
@@ -2121,8 +2240,11 @@ Contexto do cliente: ${client.name}${client.segment ? ` — segmento ${client.se
   const generateAllCerts = async (courseId: string) => {
     if (!certTemplate) return;
     setCertGenerating(true);
-    const leads = (client.whatsappLeads ?? []).filter(l => l.courseId === courseId).map(l => l.name);
-    const allNames = [...new Set([...leads, ...certManualList])].filter(Boolean);
+    const attending = (dbAttendance[courseId] ?? []).map((a: any) => a.student_name);
+    const enrolled = (dbEnrollments[courseId] ?? []).map((s: any) => s.student_name);
+    // Prefer attendance list; fall back to enrolled students + manual list
+    const base = attending.length > 0 ? attending : enrolled;
+    const allNames = [...new Set([...base, ...certManualList])].filter(Boolean);
     const certs: { name: string; dataUrl: string }[] = [];
     for (const name of allNames) {
       const dataUrl = await renderCertificate(certTemplate, name, certNameX, certNameY, certFontSize, certFontColor);
@@ -2165,6 +2287,7 @@ Contexto do cliente: ${client.name}${client.segment ? ` — segmento ${client.se
       setDbCourses(courses);
       const map: Record<string, any[]> = {};
       const checkMap: Record<string, any[]> = {};
+      const attendMap: Record<string, any[]> = {};
       await Promise.all(courses.map(async (c: any) => {
         const { data: enr } = await (supabase as any).from("course_enrollments").select("*")
           .eq("course_id", c.id).order("enrolled_at", { ascending: true });
@@ -2172,9 +2295,13 @@ Contexto do cliente: ${client.name}${client.segment ? ` — segmento ${client.se
         const { data: checks } = await (supabase as any).from("course_checklists").select("*")
           .eq("course_id", c.id).order("order_index", { ascending: true });
         checkMap[c.id] = checks ?? [];
+        const { data: attend } = await (supabase as any).from("course_attendance").select("*")
+          .eq("course_id", c.id).order("attended_at", { ascending: true });
+        attendMap[c.id] = attend ?? [];
       }));
       setDbEnrollments(map);
       setDbChecklists(checkMap);
+      setDbAttendance(attendMap);
     }
 
     // CRM contact_groups (user-level, all groups)
@@ -2612,6 +2739,45 @@ Contexto do cliente: ${client.name}${client.segment ? ` — segmento ${client.se
     setOverviewLoading(false);
   };
   useEffect(() => { if (activeTab === "" && id) fetchOverviewData(); }, [activeTab, id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const fetchSitePages = async () => {
+    if (!id || !client.siteRepo) return;
+    setSiteDbPagesLoading(true);
+    // Check Supabase first
+    const { data: existing } = await supabase.from('site_pages').select('*').eq('client_id', id).order('page_name');
+    if (existing && existing.length > 0) {
+      setSiteDbPages(existing);
+      setSiteDbPagesLoading(false);
+      return;
+    }
+    // Seed from GitHub via teo-site
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const r = await fetch('https://proldgiyterqhthludlp.supabase.co/functions/v1/teo-site', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...(session?.access_token ? { Authorization:  } : {}) },
+        body: JSON.stringify({ action: 'list_pages', repo: client.siteRepo }),
+      });
+      if (r.ok) {
+        const json = await r.json();
+        const pages: any[] = (json.pages ?? []).map((p: any) => ({
+          client_id: id,
+          user_id: session?.user?.id ?? null,
+          file_path: p.file_path,
+          page_name: p.page_name,
+          url: p.url,
+          status: 'publicado',
+          edit_count: 0,
+        }));
+        if (pages.length > 0) {
+          const { data: inserted } = await supabase.from('site_pages').upsert(pages, { onConflict: 'client_id,file_path' }).select();
+          if (inserted) setSiteDbPages(inserted);
+        }
+      }
+    } catch { /* ignore */ }
+    setSiteDbPagesLoading(false);
+  };
+  useEffect(() => { if (activeTab === 'agents' && id && client.siteRepo) fetchSitePages(); }, [activeTab, id, client?.siteRepo]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   // Injeta contexto do cliente na Calu IA
   useEffect(() => {
@@ -2661,6 +2827,7 @@ Contexto do cliente: ${client.name}${client.segment ? ` — segmento ${client.se
   useEffect(() => {
     if (activeTab === "crm" && crmView === "whatsapp" && id) {
       checkWpStatus();
+      loadFavoriteGroups();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, crmView, id]);
@@ -4133,7 +4300,16 @@ Regras:
                               </div>
                               <span className="text-[10px] font-medium" style={{ color: "rgba(255,255,255,0.4)" }}>{contact.score ?? 0}</span>
                             </div>
-                            <div className="flex justify-end">
+                            <div className="flex justify-end items-center gap-1">
+                              {contact.email && (
+                                <button onClick={(e) => { e.stopPropagation(); setEmailBlastContact(contact); setEmailBlastSubject(""); setEmailBlastBody(""); setEmailBlastPrompt(""); }}
+                                  title="Enviar e-mail" className="p-1.5 rounded-lg transition-all"
+                                  style={{ color: "rgba(255,255,255,0.25)", background: "transparent" }}
+                                  onMouseEnter={e => (e.currentTarget.style.color = "#60A5FA")}
+                                  onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.25)")}>
+                                  <Mail className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                               <button className="p-1.5 rounded-lg" style={{ color: "rgba(255,255,255,0.25)" }}>
                                 <ChevronRight className="w-4 h-4" />
                               </button>
@@ -4142,6 +4318,71 @@ Regras:
                         );
                       })}
                     </div>
+
+                    {/* Email blast modal */}
+                    <AnimatePresence>
+                      {emailBlastContact && (
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                          style={{ background: "rgba(0,0,0,0.7)" }}
+                          onClick={() => setEmailBlastContact(null)}>
+                          <motion.div initial={{ scale: 0.95, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 10 }}
+                            className="w-full max-w-lg rounded-2xl p-6 space-y-4"
+                            style={{ background: "#12141A", border: "1px solid rgba(96,165,250,0.3)" }}
+                            onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <Mail className="w-4 h-4" style={{ color: "#60A5FA" }} />
+                                <span className="text-sm font-semibold" style={{ color: "#F0F0F0" }}>
+                                  E-mail para {emailBlastContact.name}
+                                </span>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: "rgba(96,165,250,0.1)", color: "#60A5FA" }}>
+                                  {emailBlastContact.email}
+                                </span>
+                              </div>
+                              <button onClick={() => setEmailBlastContact(null)} style={{ color: "rgba(255,255,255,0.3)" }}>
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+
+                            <input value={emailBlastSubject} onChange={e => setEmailBlastSubject(e.target.value)}
+                              placeholder="Assunto do e-mail *"
+                              className="w-full px-3 py-2 rounded-lg text-sm focus:outline-none"
+                              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0" }} />
+
+                            <div className="rounded-xl p-3 space-y-2" style={{ background: "rgba(185,255,75,0.04)", border: "1px solid rgba(185,255,75,0.15)" }}>
+                              <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#B9FF4B" }}>Agente escreve</span>
+                              <div className="flex gap-2">
+                                <input value={emailBlastPrompt} onChange={e => setEmailBlastPrompt(e.target.value)}
+                                  onKeyDown={e => e.key === "Enter" && generateEmailWithAI()}
+                                  placeholder='Ex: "agendar reunião para semana que vem"'
+                                  className="flex-1 px-3 py-2 rounded-lg text-xs focus:outline-none"
+                                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(185,255,75,0.2)", color: "#F0F0F0" }} />
+                                <button onClick={generateEmailWithAI} disabled={!emailBlastPrompt.trim()}
+                                  className="px-3 py-2 rounded-lg text-[11px] font-semibold disabled:opacity-40"
+                                  style={{ background: "rgba(185,255,75,0.15)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.3)" }}>
+                                  <Sparkles className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+
+                            <textarea value={emailBlastBody} onChange={e => setEmailBlastBody(e.target.value)}
+                              rows={5} placeholder="Corpo do e-mail (pode usar HTML básico)…"
+                              className="w-full px-3 py-2.5 rounded-lg text-sm resize-none focus:outline-none"
+                              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.8)" }} />
+
+                            <div className="flex gap-2">
+                              <button onClick={sendEmailToContact}
+                                disabled={emailBlasting || !emailBlastSubject.trim() || !emailBlastBody.trim()}
+                                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40"
+                                style={{ background: "#60A5FA", color: "#07080A" }}>
+                                {emailBlasting ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Enviando…</> : <><Send className="w-3.5 h-3.5" /> Enviar e-mail</>}
+                              </button>
+                            </div>
+                          </motion.div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 )}
 
@@ -4747,22 +4988,36 @@ Regras:
                                 : <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
                                     {wpGroups.map((g) => {
                                       const sel = wpSelectedGroups.includes(g.id);
+                                      const fav = wpFavoriteGroupIds.includes(g.id);
                                       return (
-                                        <button key={g.id} onClick={() => toggleGroup(g.id)}
-                                          className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all"
-                                          style={{ background: sel ? "rgba(37,211,102,0.1)" : "rgba(255,255,255,0.03)", border: sel ? "1px solid rgba(37,211,102,0.3)" : "1px solid rgba(255,255,255,0.07)" }}>
-                                          <div className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0" style={{ background: sel ? "#25D366" : "rgba(255,255,255,0.08)" }}>
-                                            {sel && <CheckCircle2 className="w-3 h-3 text-white" />}
-                                          </div>
-                                          <div className="min-w-0">
-                                            <div className="text-[11px] font-medium truncate" style={{ color: sel ? "#25D366" : "rgba(255,255,255,0.65)" }}>{g.name}</div>
-                                            <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>{g.participants} membros</div>
-                                          </div>
-                                        </button>
+                                        <div key={g.id} className="relative">
+                                          <button onClick={() => toggleGroup(g.id)}
+                                            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all pr-8"
+                                            style={{ background: sel ? "rgba(37,211,102,0.1)" : "rgba(255,255,255,0.03)", border: sel ? "1px solid rgba(37,211,102,0.3)" : "1px solid rgba(255,255,255,0.07)" }}>
+                                            <div className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0" style={{ background: sel ? "#25D366" : "rgba(255,255,255,0.08)" }}>
+                                              {sel && <CheckCircle2 className="w-3 h-3 text-white" />}
+                                            </div>
+                                            <div className="min-w-0">
+                                              <div className="text-[11px] font-medium truncate" style={{ color: sel ? "#25D366" : "rgba(255,255,255,0.65)" }}>{g.name}</div>
+                                              <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>{g.participants} membros</div>
+                                            </div>
+                                          </button>
+                                          <button onClick={(e) => { e.stopPropagation(); toggleFavoriteGroup(g.id); }}
+                                            title={fav ? "Remover dos favoritos do agente" : "Adicionar aos favoritos do agente"}
+                                            className="absolute right-2 top-1/2 -translate-y-1/2 text-base leading-none"
+                                            style={{ color: fav ? "#FBBF24" : "rgba(255,255,255,0.18)" }}>
+                                            ★
+                                          </button>
+                                        </div>
                                       );
                                     })}
                                   </div>
                               }
+                              {wpFavoriteGroupIds.length > 0 && (
+                                <p className="text-[10px] mt-2" style={{ color: "rgba(251,191,36,0.6)" }}>
+                                  ★ {wpFavoriteGroupIds.length} grupo{wpFavoriteGroupIds.length !== 1 ? "s" : ""} favoritado{wpFavoriteGroupIds.length !== 1 ? "s" : ""} para o agente autônomo
+                                </p>
+                              )}
                             </div>
                           )}
 
@@ -4897,6 +5152,66 @@ Regras:
                           </div>
                         </div>
                       )}
+
+                      {/* ── Agente Autônomo ── */}
+                      <div className="mt-4 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                        <button onClick={() => setShowAgentPanel(v => !v)}
+                          className="flex items-center gap-2 w-full text-left"
+                          style={{ color: "rgba(255,255,255,0.5)" }}>
+                          <Bot className="w-4 h-4" style={{ color: "#B9FF4B" }} />
+                          <span className="text-xs font-semibold" style={{ color: "#B9FF4B" }}>Agente Autônomo</span>
+                          <span className="text-[10px] ml-1" style={{ color: "rgba(255,255,255,0.3)" }}>— gera e envia sem revisão humana</span>
+                          <ChevronDown className={`w-3.5 h-3.5 ml-auto transition-transform ${showAgentPanel ? "rotate-180" : ""}`} />
+                        </button>
+                        <AnimatePresence>
+                          {showAgentPanel && (
+                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }}
+                              className="overflow-hidden">
+                              <div className="pt-4 space-y-3">
+                                <div className="rounded-xl p-3 space-y-2" style={{ background: "rgba(185,255,75,0.04)", border: "1px solid rgba(185,255,75,0.12)" }}>
+                                  <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>
+                                    O agente vai gerar a mensagem com IA e enviar automaticamente para os grupos com ★.
+                                    Favorite grupos na lista acima para usá-los aqui.
+                                  </p>
+                                  {wpFavoriteGroupIds.length > 0 && (
+                                    <p className="text-[10px] font-medium" style={{ color: "#FBBF24" }}>
+                                      ★ {wpFavoriteGroupIds.length} grupo{wpFavoriteGroupIds.length !== 1 ? "s" : ""} selecionado{wpFavoriteGroupIds.length !== 1 ? "s" : ""}
+                                    </p>
+                                  )}
+                                </div>
+                                <div className="flex gap-2">
+                                  <input value={agentSendPrompt} onChange={e => setAgentSendPrompt(e.target.value)}
+                                    onKeyDown={e => e.key === "Enter" && doAgentBroadcast()}
+                                    placeholder='Ex: "confirmar presença no evento de amanhã"'
+                                    className="flex-1 px-3 py-2 rounded-lg text-xs focus:outline-none"
+                                    style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(185,255,75,0.2)", color: "#F0F0F0" }} />
+                                  <button onClick={doAgentBroadcast}
+                                    disabled={agentSending || !agentSendPrompt.trim() || wpFavoriteGroupIds.length === 0}
+                                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-semibold disabled:opacity-40 whitespace-nowrap"
+                                    style={{ background: "rgba(185,255,75,0.15)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.3)" }}>
+                                    {agentSending ? <><RefreshCw className="w-3 h-3 animate-spin" /> Enviando…</> : <><Bot className="w-3 h-3" /> Enviar agora</>}
+                                  </button>
+                                </div>
+                                <AnimatePresence>
+                                  {agentSendResult && (
+                                    <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                                      className="rounded-xl p-3 space-y-2"
+                                      style={{ background: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.2)" }}>
+                                      <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: "#34D399" }}>
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                        Enviado para {agentSendResult.ok}/{agentSendResult.total} grupos
+                                      </div>
+                                      <p className="text-[11px] leading-relaxed" style={{ color: "rgba(255,255,255,0.6)", whiteSpace: "pre-wrap" }}>
+                                        {agentSendResult.message}
+                                      </p>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </div>
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
                     </div>
                   </motion.div>
                 )}
@@ -6615,7 +6930,7 @@ Regras:
 
                 {/* ── Painel do Site (Teo) ── */}
                 {(() => {
-                  const pages = SITE_PAGES[client.id] ?? [];
+                  const pages = siteDbPages;
                   const siteTask = client.agentTasks["site"];
                   return (
                     <div>
@@ -7479,6 +7794,9 @@ Regras:
                   const students = dbEnrollments[course.id] ?? [];
                   const isOpen = expandedCourse === course.id;
                   const isCertOpen = certCourseId === course.id;
+                  const isAttendOpen = attendanceCourseId === course.id;
+                  const attending = dbAttendance[course.id] ?? [];
+                  const presencaUrl = `${window.location.origin}/presenca/${course.id}`;
 
                   return (
                     <motion.div key={course.id} className="rounded-2xl overflow-hidden"
@@ -7528,6 +7846,15 @@ Regras:
                               : { background: "rgba(250,204,21,0.08)", color: "#FBBF24", border: "1px solid rgba(250,204,21,0.2)" }}>
                             <Award className="w-3.5 h-3.5" />
                             Certificados
+                          </button>
+                          <button
+                            onClick={() => setAttendanceCourseId(isAttendOpen ? null : course.id)}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold transition-all"
+                            style={isAttendOpen
+                              ? { background: "rgba(52,211,153,0.18)", color: "#34D399", border: "1px solid rgba(52,211,153,0.35)" }
+                              : { background: "rgba(52,211,153,0.08)", color: "#34D399", border: "1px solid rgba(52,211,153,0.2)" }}>
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            Presença{attending.length > 0 && <span className="ml-1 px-1.5 rounded-full text-[9px] font-bold" style={{ background: "rgba(52,211,153,0.25)" }}>{attending.length}</span>}
                           </button>
                           <button
                             onClick={() => setShowAddStudent(showAddStudent === course.id ? null : course.id)}
@@ -9925,29 +10252,51 @@ Regras:
                             </div>
                             {wpGroups.length === 0
                               ? <div className="py-6 text-center text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhum grupo. Clique em Atualizar.</div>
-                              : <div className="grid grid-cols-2 gap-2">
+                              : (
+                              <div className="grid grid-cols-2 gap-2">
                                   {wpGroups.map((g) => {
                                     const sel = wpSelectedGroups.includes(g.id);
+                                    const fav2 = wpFavoriteGroupIds.includes(g.id);
                                     return (
-                                      <button key={g.id} onClick={() => toggleGroup(g.id)}
-                                        className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all"
-                                        style={{ background: sel ? "rgba(37,211,102,0.1)" : "rgba(255,255,255,0.03)", border: sel ? "1px solid rgba(37,211,102,0.3)" : "1px solid rgba(255,255,255,0.07)" }}>
-                                        <div className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0" style={{ background: sel ? "#25D366" : "rgba(255,255,255,0.08)" }}>
-                                          {sel && <CheckCircle2 className="w-3 h-3 text-white" />}
-                                        </div>
-                                        <div className="min-w-0">
-                                          <div className="text-[11px] font-medium truncate" style={{ color: sel ? "#25D366" : "rgba(255,255,255,0.65)" }}>{g.name}</div>
-                                          <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>{g.participants} membros</div>
-                                        </div>
-                                      </button>
+                                      <div key={g.id} className="relative">
+                                        <button
+                                          onClick={() => toggleGroup(g.id)}
+                                          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all pr-8"
+                                          style={{ background: sel ? "rgba(37,211,102,0.1)" : "rgba(255,255,255,0.03)", border: sel ? "1px solid rgba(37,211,102,0.3)" : "1px solid rgba(255,255,255,0.07)" }}
+                                        >
+                                          <div className="w-5 h-5 rounded flex items-center justify-center flex-shrink-0" style={{ background: sel ? "#25D366" : "rgba(255,255,255,0.08)" }}>
+                                            {sel && <CheckCircle2 className="w-3 h-3 text-white" />}
+                                          </div>
+                                          <div className="min-w-0">
+                                            <div className="text-[11px] font-medium truncate" style={{ color: sel ? "#25D366" : "rgba(255,255,255,0.65)" }}>{g.name}</div>
+                                            <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>{g.participants} membros</div>
+                                          </div>
+                                        </button>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleFavoriteGroup(g.id);
+                                          }}
+                                          className="absolute right-2 top-1/2 -translate-y-1/2 text-base leading-none"
+                                          style={{ color: fav2 ? "#FBBF24" : "rgba(255,255,255,0.18)" }}
+                                        >
+                                          ★
+                                        </button>
+                                      </div>
                                     );
                                   })}
                                 </div>
+                            )
                             }
+                            {wpFavoriteGroupIds.length > 0 && (
+                              <p className="text-[10px] mt-2" style={{ color: "rgba(251,191,36,0.6)" }}>
+                                ★ {wpFavoriteGroupIds.length} grupo{wpFavoriteGroupIds.length !== 1 ? "s" : ""} favoritado{wpFavoriteGroupIds.length !== 1 ? "s" : ""} para o agente
+                              </p>
+                            )}
                           </div>
                         )}
 
-                        {/* Contatos individuais do cliente */}
+                                                {/* Contatos individuais do cliente */}
                         {wpTargetTab === "contatos" && (
                           <div>
                             <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "rgba(255,255,255,0.3)" }}>Contatos do cliente</h3>

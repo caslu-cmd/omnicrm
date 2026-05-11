@@ -52,6 +52,7 @@ import GroupsPage from "@/pages/GroupsPage";
 import NotebookPage from "@/pages/NotebookPage";
 import ApostilaPage from "@/pages/ApostilaPage";
 import WordPressPage from "@/pages/WordPressPage";
+import AttendancePage from "@/pages/AttendancePage";
 
 const queryClient = new QueryClient();
 
@@ -160,6 +161,9 @@ const AppRoutes = () => (
 
     {/* Briefing interativo — captação de leads via Lia */}
     <Route path="/briefing" element={<BriefingPage />} />
+
+    {/* Lista de presença — pública para alunos */}
+    <Route path="/presenca/:courseId" element={<AttendancePage />} />
 
     {/* Convite para membros do time do cliente */}
     <Route path="/invite/:token" element={<InvitePage />} />

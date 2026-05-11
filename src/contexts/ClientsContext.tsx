@@ -10,6 +10,7 @@ type ClientEdit = {
   portalPin?: string;
   followers?: { instagram?: string; facebook?: string };
   siteUrl?: string;
+  siteRepo?: string;
   teamInstructions?: string;
   contacts?: Client["contacts"];
   pipeline?: Client["pipeline"];
