@@ -10818,9 +10818,6 @@ Regras:
                           </div>
                         </div>
 
-                      </div>
-
-
                         {/* Agente Autônomo */}
                         <div className="mt-4 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
                           <button
