@@ -1293,7 +1293,13 @@ export default function ClientWorkspace() {
         setWpStatus("connected");
         setWpPhone(data.phone ?? null);
         const { data: grps } = await wpInvoke({ action: "groups" });
-        setWpGroups(Array.isArray(grps) ? grps : []);
+        const zapi = Array.isArray(grps) ? grps : [];
+        try {
+          const raw = localStorage.getItem(`wp-manual-groups-${id ?? "default"}`);
+          const manual = raw ? JSON.parse(raw) : [];
+          const seen = new Set(zapi.map((g: any) => g.id));
+          setWpGroups([...zapi, ...manual.filter((g: any) => !seen.has(g.id))]);
+        } catch { setWpGroups(zapi); }
       } else {
         setWpStatus("disconnected");
       }
