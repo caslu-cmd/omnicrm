@@ -833,6 +833,65 @@ export default function ClientPortal() {
           </motion.div>
         )}
 
+        {/* ── Calendário aprovado pela agência ── */}
+        {calendarEvents.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+            <div className="rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.07)" }}>
+              <div className="px-6 py-5" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                <h2 className="text-base font-bold mb-0.5" style={{ color: "#111" }}>🗓️ Calendário</h2>
+                <p className="text-xs" style={{ color: "#888" }}>
+                  {calendarEvents.length} ações planejadas pela equipe da agência
+                </p>
+              </div>
+              <div className="divide-y" style={{ borderColor: "rgba(0,0,0,0.05)" }}>
+                {calendarEvents.slice(0, 12).map((ev: any) => {
+                  const KIND_ICON: Record<string, string> = {
+                    post: "📝", whatsapp: "💬", email: "📧", task: "✅",
+                    campaign: "🚀", ad: "📢", editorial: "🗓️",
+                  };
+                  const KIND_COLOR: Record<string, string> = {
+                    post: "#60A5FA", whatsapp: "#25D366", email: "#A78BFA",
+                    task: "#FBBF24", campaign: "#F97316", ad: "#EC4899", editorial: "#2DD4BF",
+                  };
+                  const icon = KIND_ICON[ev.kind] ?? "•";
+                  const color = KIND_COLOR[ev.kind] ?? "#94A3B8";
+                  const d = new Date(ev.event_date + "T00:00:00");
+                  return (
+                    <div key={ev.id} className="px-6 py-3 flex items-start gap-3 min-w-0">
+                      <div className="flex flex-col items-center justify-center rounded-xl px-2.5 py-1.5 shrink-0"
+                        style={{ background: `${color}12`, border: `1px solid ${color}25`, minWidth: 52 }}>
+                        <span className="text-[9px] font-bold uppercase" style={{ color }}>
+                          {d.toLocaleDateString("pt-BR", { month: "short" })}
+                        </span>
+                        <span className="text-base font-extrabold leading-none" style={{ color }}>
+                          {String(d.getDate()).padStart(2, "0")}
+                        </span>
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                          <span className="text-base shrink-0">{icon}</span>
+                          <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color }}>
+                            {ev.kind}
+                          </span>
+                          {ev.event_time && (
+                            <span className="text-[10px]" style={{ color: "#999" }}>
+                              {String(ev.event_time).slice(0, 5)}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-sm font-semibold break-words" style={{ color: "#111" }}>{ev.title}</p>
+                        {ev.description && (
+                          <p className="text-xs mt-0.5 break-words" style={{ color: "#666" }}>{ev.description}</p>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {/* ── Demandas ─────────────────────────────────────── */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <div className="rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.07)" }}>
