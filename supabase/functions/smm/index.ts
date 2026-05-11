@@ -706,7 +706,7 @@ Deno.serve(async (req) => {
 
     // ── Ads Metrics (Meta Ads account-level insights) ─────────────
     if (action === "ads-metrics") {
-      const { client_id, date_preset = "last_30_days" } = body;
+      const { client_id, date_preset = "last_30d" } = body;
       if (!client_id) return respond({ error: "client_id obrigatório" }, 400);
 
       const { data: conn } = await supabase.from("social_connections")
@@ -747,7 +747,7 @@ Deno.serve(async (req) => {
 
     // ── Ads Campaigns ─────────────────────────────────────────────
     if (action === "ads-campaigns") {
-      const { client_id, date_preset = "last_30_days" } = body;
+      const { client_id, date_preset = "last_30d" } = body;
       if (!client_id) return respond({ error: "client_id obrigatório" }, 400);
 
       const { data: conn } = await supabase.from("social_connections")
