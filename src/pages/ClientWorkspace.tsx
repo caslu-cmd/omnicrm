@@ -2084,7 +2084,7 @@ ${priorBlock}`;
 Escreva mensagens diretas, calorosas e sem formatação markdown (sem asteriscos, sem #).
 Use linguagem natural de WhatsApp — pode usar emojis com moderação.
 Responda APENAS com o texto da mensagem, sem explicações ou introduções.
-Contexto do cliente: ${client.name}${client.segment ? ` — segmento ${client.segment}` : ""}.`,
+Contexto do cliente: ${client.name}${(client as any).segment ? ` — segmento ${(client as any).segment}` : ""}.`,
           maxTokens: 600,
         },
       });
