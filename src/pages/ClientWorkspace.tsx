@@ -6823,6 +6823,14 @@ Regras:
                                   📚 Abrir
                                 </button>
                               )}
+                              {agent.id === "site" && (
+                                <button
+                                  onClick={() => window.open(`/teo?clientId=${id}&clientName=${encodeURIComponent(client.name)}`, '_blank')}
+                                  className="px-2.5 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1 whitespace-nowrap"
+                                  style={{ background: `${agent.color}18`, color: agent.color, border: `1px solid ${agent.color}40` }}>
+                                  🌐 Editar Site
+                                </button>
+                              )}
                             </div>
                           </div>
                         </motion.div>

@@ -40,6 +40,7 @@ import OAuthCallbackPage from "@/pages/OAuthCallbackPage";
 import NotFound from "@/pages/NotFound";
 import VideoEditorPage from "@/pages/VideoEditorPage";
 import TomasPage from "@/pages/TomasPage";
+import TeoPage from "@/pages/TeoPage";
 import BenPage from "@/pages/BenPage";
 import ContaReportPage from "@/pages/ContaReportPage";
 import ContaColaboradorPage from "@/pages/ContaColaboradorPage";
@@ -183,6 +184,7 @@ const AppRoutes = () => (
     <Route path="/conta-report" element={<FullScreen page={<ContaReportPage />} />} />
     <Route path="/conta-colaborador" element={<FullScreen page={<ContaColaboradorPage />} />} />
     <Route path="/tomas" element={<FullScreen page={<TomasPage />} />} />
+    <Route path="/teo" element={<FullScreen page={<TeoPage />} />} />
 
     {/* Tudo mais exige autenticação */}
     <Route path="*" element={<ProtectedRoutes />} />
