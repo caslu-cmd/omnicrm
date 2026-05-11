@@ -91,7 +91,7 @@ export const AppSidebar = ({ collapsed, onToggle, hideToggle }: AppSidebarProps)
     const clientMatch2 = location.pathname.match(/^\/agency\/clients\/([^/]+)/);
     const wsId = clientMatch2?.[1] ?? null;
     try {
-      const { data: existing } = await supabase
+      const { data: existing } = await (supabase as any)
         .from("clients")
         .select("portal_token, workspace_id")
         .eq("user_id", user.id)
@@ -104,7 +104,7 @@ export const AppSidebar = ({ collapsed, onToggle, hideToggle }: AppSidebarProps)
         window.open(`/portal/${existing.portal_token}`, "_blank");
         return;
       }
-      const { data: created, error } = await supabase
+      const { data: created, error } = await (supabase as any)
         .from("clients")
         .insert({ user_id: user.id, name: clientName, segment: clientIndustry ?? null, status: clientStatus === "Ativo" ? "active" : "onboarding", workspace_id: wsId } as any)
         .select("portal_token")

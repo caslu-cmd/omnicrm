@@ -455,7 +455,7 @@ export default function BriefingPage() {
   const saveBriefingToSupabase = async (briefingText: string) => {
     if (!linkedClientId) return;
     try {
-      await supabase.from("lia_submissions").insert({ client_id: linkedClientId, briefing_text: briefingText });
+      await (supabase as any).from("lia_submissions").insert({ client_id: linkedClientId, briefing_text: briefingText });
     } catch {}
   };
 

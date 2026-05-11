@@ -104,8 +104,8 @@ const MembersPage = () => {
       supabase.from("courses").select("*").order("created_at", { ascending: false }),
       supabase.from("course_enrollments").select("*").order("enrolled_at", { ascending: false }),
     ]);
-    setCourses((coursesRes.data as Course[]) || []);
-    setEnrollments((enrollRes.data as Enrollment[]) || []);
+    setCourses((coursesRes.data as unknown as Course[]) || []);
+    setEnrollments((enrollRes.data as unknown as Enrollment[]) || []);
     setLoading(false);
   };
 
@@ -261,7 +261,7 @@ const MembersPage = () => {
     new Promise((resolve, reject) => {
       const canvas = document.createElement("canvas");
       const ctx = canvas.getContext("2d")!;
-      const img = new Image();
+      const img = new (window as any).Image();
       img.onload = () => {
         canvas.width = img.width;
         canvas.height = img.height;

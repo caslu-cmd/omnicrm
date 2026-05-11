@@ -2031,7 +2031,7 @@ ${priorBlock}`;
 
   const renderCertificate = (template: string, name: string, xPct: number, yPct: number, fontSize: number, color: string): Promise<string> =>
     new Promise((resolve) => {
-      const img = new Image();
+      const img = new (window as any).Image();
       img.onload = () => {
         const canvas = document.createElement("canvas");
         canvas.width = img.width;
@@ -2487,7 +2487,7 @@ ${priorBlock}`;
       b.canaisAtivos?.length && `Canais ativos: ${b.canaisAtivos.join(", ")}`,
     ].filter(Boolean).join(" | ") : "";
     const ctx = [
-      `Página atual: Workspace do cliente "${client.name}" (${client.industry || client.segment || "—"}).`,
+      `Página atual: Workspace do cliente "${client.name}" (${client.industry || (client as any).segment || "—"}).`,
       `Aba ativa: ${TAB_NAMES[activeTab] ?? activeTab}.`,
       briefingLines && `Briefing resumido — ${briefingLines}.`,
     ].filter(Boolean).join(" ");
@@ -2873,7 +2873,7 @@ Regras:
   useEffect(() => {
     if (!id || clientBriefing) return;
     (async () => {
-      const { data } = await supabase.from("lia_submissions" as any)
+      const { data } = await (supabase as any).from("lia_submissions" as any)
         .select("briefing_text, submitted_at")
         .eq("client_id", id)
         .order("submitted_at", { ascending: false })
@@ -3215,7 +3215,7 @@ Regras:
     }
 
     // No row with workspace_id — create one
-    const { data: created } = await supabase
+    const { data: created } = await (supabase as any)
       .from("clients")
       .insert({ user_id: user!.id, name: client.name, segment: client.industry ?? null, status: "active", workspace_id: id } as any)
       .select("id, portal_token, portal_password, workspace_id")

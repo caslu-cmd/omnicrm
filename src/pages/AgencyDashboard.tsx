@@ -41,7 +41,7 @@ export default function AgencyDashboard() {
     if (!user) { toast.error("Você precisa estar logado."); return; }
     setOpeningPortal(clientId);
     try {
-      const { data: existing } = await supabase
+      const { data: existing } = await (supabase as any)
         .from("clients")
         .select("portal_token")
         .eq("user_id", user.id)
@@ -53,7 +53,7 @@ export default function AgencyDashboard() {
         return;
       }
 
-      const { data: created, error } = await supabase
+      const { data: created, error } = await (supabase as any)
         .from("clients")
         .insert({
           user_id: user.id,
