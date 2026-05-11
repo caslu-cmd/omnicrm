@@ -28,6 +28,7 @@ import TeamMembersPanel from "@/components/TeamMembersPanel";
 import ContactActivityPanel from "@/components/ContactActivityPanel";
 import SiteEditorPanel from "@/components/SiteEditorPanel";
 import LiaBriefingPanel from "@/components/LiaBriefingPanel";
+import MetaAdsCampaignsSection from "@/components/MetaAdsCampaignsSection";
 
 const SOURCES: Record<string, { label: string; color: string; bg: string }> = {
   instagram: { label: "Instagram", color: "#E1306C", bg: "rgba(225,48,108,0.1)" },
@@ -901,10 +902,11 @@ export default function ClientWorkspace() {
   const [certManualList, setCertManualList] = useState<string[]>([]);
   // Course checklists
   const [dbChecklists, setDbChecklists] = useState<Record<string, any[]>>({});
-  const [checklistGenerating, setChecklistGenerating] = useState<string | null>(null);
-  const [showAddChecklistItem, setShowAddChecklistItem] = useState<string | null>(null);
-  const [newChecklistItem, setNewChecklistItem] = useState({ title: "", description: "", responsible: "student" });
+  const [checklistGenerating, setChecklistGenerating] = useState<string | null>(null); // `${courseId}_${phase}`
+  const [showAddChecklistItem, setShowAddChecklistItem] = useState<string | null>(null); // `${courseId}_${phase}`
+  const [newChecklistItem, setNewChecklistItem] = useState({ title: "", description: "", responsible: "agency" });
   const [savingChecklistItem, setSavingChecklistItem] = useState(false);
+  const [selectedChecklistPhase, setSelectedChecklistPhase] = useState<Record<string, string>>({});
   const [generatedImages, setGeneratedImages] = useState<Array<{id: string, imageData: string, mimeType: string, prompt: string, createdAt: string}>>([]);
   const [marcelaLoading, setMarcelaLoading] = useState(false);
   const [marcelaError, setMarcelaError] = useState<string | null>(null);
@@ -2210,8 +2212,17 @@ ${priorBlock}`;
     toast.success("Curso removido");
   };
 
-  const handleGenerateChecklist = async (course: any) => {
-    setChecklistGenerating(course.id);
+  const PHASE_LABELS: Record<string, string> = {
+    pre_venda:  "Pré-venda",
+    venda:      "Venda",
+    pos_venda:  "Pós-venda",
+    dia_evento: "Dia do Evento",
+  };
+  const PHASES = ["pre_venda", "venda", "pos_venda", "dia_evento"] as const;
+
+  const handleGenerateChecklist = async (course: any, phase: string) => {
+    const key = `${course.id}_${phase}`;
+    setChecklistGenerating(key);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
@@ -2221,20 +2232,24 @@ ${priorBlock}`;
           course_description: course.description ?? "",
           course_level: course.level ?? "Básico",
           client_segment: client.segment ?? "",
+          phase,
         },
       });
       if (error || !data?.items?.length) throw new Error(error?.message ?? "Sem itens");
-      const rows = (data.items as any[]).map((item: any) => ({
+      await (supabase as any).from("course_checklists").delete()
+        .eq("course_id", course.id).eq("phase", phase);
+      const rows = (data.items as any[]).map((item: any, idx: number) => ({
         course_id: course.id, user_id: session.user.id, client_id: id ?? "",
         title: item.title, description: item.description || null,
-        responsible: item.responsible === "agency" ? "agency" : "student",
-        order_index: item.order_index ?? 0,
+        responsible: ["agency","client","student"].includes(item.responsible) ? item.responsible : "agency",
+        order_index: idx,
+        phase,
       }));
       await (supabase as any).from("course_checklists").insert(rows);
       const { data: fresh } = await (supabase as any).from("course_checklists").select("*")
         .eq("course_id", course.id).order("order_index", { ascending: true });
       setDbChecklists(prev => ({ ...prev, [course.id]: fresh ?? [] }));
-      toast.success(`${rows.length} itens gerados com IA!`);
+      toast.success(`${rows.length} itens gerados para ${PHASE_LABELS[phase]}!`);
     } catch {
       toast.error("Erro ao gerar checklist");
     } finally {
@@ -2242,18 +2257,19 @@ ${priorBlock}`;
     }
   };
 
-  const handleAddChecklistItem = async (courseId: string) => {
+  const handleAddChecklistItem = async (courseId: string, phase: string) => {
     if (!newChecklistItem.title.trim()) return;
     setSavingChecklistItem(true);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
-    const existing = dbChecklists[courseId] ?? [];
+    const existing = (dbChecklists[courseId] ?? []).filter(i => i.phase === phase);
     await (supabase as any).from("course_checklists").insert({
       course_id: courseId, user_id: session.user.id, client_id: id ?? "",
       title: newChecklistItem.title, description: newChecklistItem.description || null,
       responsible: newChecklistItem.responsible, order_index: existing.length,
+      phase,
     });
-    setNewChecklistItem({ title: "", description: "", responsible: "student" });
+    setNewChecklistItem({ title: "", description: "", responsible: "agency" });
     setShowAddChecklistItem(null);
     const { data: fresh } = await (supabase as any).from("course_checklists").select("*")
       .eq("course_id", courseId).order("order_index", { ascending: true });
@@ -4782,41 +4798,13 @@ Regras:
             )}
 
             {/* ══════════════════════════════════════════════════════
-                CAMPANHAS — COLABORAÇÃO DE AGENTES
+                CAMPANHAS — META ADS
             ══════════════════════════════════════════════════════ */}
             {activeTab === "campaigns" && (
-                <div className="space-y-6">
-                  {/* ── Summary bar ── */}
-                  <div className="grid grid-cols-4 gap-4">
-                    {[
-                      { label: "Campanhas ativas",  value: campList.filter(c => c.status === "ativa").length.toString(), icon: Megaphone, color: client.color },
-                      { label: "Leads gerados",      value: campList.reduce((s, c) => s + c.leads, 0).toString(), icon: Target, color: "#34D399" },
-                      { label: "No CRM",             value: campList.reduce((s, c) => s + c.crmLeads, 0).toString(), icon: Users, color: "#A78BFA" },
-                      { label: "Alcance total",      value: campList.reduce((s, c) => s + parseInt(c.reach.replace(/\D/g, ""), 10), 0).toLocaleString("pt-BR"), icon: Eye, color: "#60A5FA" },
-                    ].map((s) => (
-                      <div key={s.label} className="rounded-xl p-4 flex items-center gap-3"
-                        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                        <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
-                          style={{ background: `${s.color}15`, border: `1px solid ${s.color}25` }}>
-                          <s.icon className="w-4 h-4" style={{ color: s.color }} />
-                        </div>
-                        <div>
-                          <div className="text-[10px] uppercase tracking-wide mb-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>{s.label}</div>
-                          <div className="text-xl font-bold" style={{ color: "#F0F0F0" }}>{s.value}</div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                <MetaAdsCampaignsSection clientId={client.id} clientColor={client.color} />
+            )}
 
-                  {campList.length === 0 && (
-                    <div className="rounded-2xl p-16 text-center"
-                      style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.08)" }}>
-                      <Megaphone className="w-8 h-8 mx-auto mb-3" style={{ color: "rgba(255,255,255,0.15)" }} />
-                      <p className="text-sm" style={{ color: "rgba(255,255,255,0.25)" }}>Nenhuma campanha configurada</p>
-                    </div>
-                  )}
-
-                  {campList.map((camp) => {
+            {false && campList.map((camp) => {
                     const doneCount = camp.phases.filter(p => p.status === "done").length;
                     const progress = Math.round((doneCount / camp.phases.length) * 100);
                     const statusStyle = camp.status === "ativa"
@@ -7540,54 +7528,97 @@ Regras:
                         )}
                       </AnimatePresence>
 
-                      {/* ── Checklist do Curso ──────────────────── */}
+                      {/* ── Checklist por Fase ──────────────────── */}
                       <AnimatePresence>
                         {isOpen && (() => {
-                          const items = dbChecklists[course.id] ?? [];
-                          const done = items.filter(i => i.status === "completed").length;
-                          const isGenerating = checklistGenerating === course.id;
-                          const isAddingItem = showAddChecklistItem === course.id;
+                          const allItems = dbChecklists[course.id] ?? [];
+                          const totalDone = allItems.filter(i => i.status === "completed").length;
+                          const activePhase = selectedChecklistPhase[course.id] ?? "pre_venda";
+                          const phaseItems = allItems.filter(i => i.phase === activePhase);
+                          const phaseDone = phaseItems.filter(i => i.status === "completed").length;
+                          const genKey = `${course.id}_${activePhase}`;
+                          const isGenerating = checklistGenerating === genKey;
+                          const addKey = `${course.id}_${activePhase}`;
+                          const isAddingItem = showAddChecklistItem === addKey;
+
+                          const RESP_CFG: Record<string, { label: string; color: string; bg: string }> = {
+                            agency:  { label: "Agência", color: "#60A5FA", bg: "rgba(96,165,250,0.12)" },
+                            client:  { label: "Cliente", color: client.color, bg: `${client.color}12` },
+                            student: { label: "Aluno",   color: "#A78BFA", bg: "rgba(167,139,250,0.12)" },
+                          };
+
                           return (
                             <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
                               exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }} className="overflow-hidden"
                               style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
                               <div className="px-5 py-4 space-y-3">
-                                {/* Header checklist */}
+
+                                {/* Header */}
                                 <div className="flex items-center justify-between">
                                   <div className="flex items-center gap-2">
                                     <ListChecks className="w-3.5 h-3.5" style={{ color: client.color }} />
-                                    <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: client.color }}>Checklist do Curso</span>
-                                    {items.length > 0 && (
+                                    <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: client.color }}>Checklist Operacional</span>
+                                    {allItems.length > 0 && (
                                       <span className="text-[10px] px-1.5 py-0.5 rounded-full"
-                                        style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)" }}>
-                                        {done}/{items.length}
+                                        style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.35)" }}>
+                                        {totalDone}/{allItems.length} total
                                       </span>
                                     )}
                                   </div>
-                                  <div className="flex items-center gap-2">
-                                    {items.length === 0 && (
-                                      <button onClick={() => handleGenerateChecklist(course)} disabled={isGenerating}
-                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all disabled:opacity-50"
-                                        style={{ background: `${client.color}15`, color: client.color, border: `1px solid ${client.color}30` }}>
-                                        {isGenerating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
-                                        {isGenerating ? "Gerando…" : "Gerar com IA"}
+                                </div>
+
+                                {/* Abas de fase */}
+                                <div className="flex gap-1">
+                                  {PHASES.map(ph => {
+                                    const phItems = allItems.filter(i => i.phase === ph);
+                                    const phDone = phItems.filter(i => i.status === "completed").length;
+                                    const isActive = activePhase === ph;
+                                    return (
+                                      <button key={ph} onClick={() => setSelectedChecklistPhase(p => ({ ...p, [course.id]: ph }))}
+                                        className="flex-1 flex flex-col items-center gap-0.5 px-2 py-2 rounded-xl text-[10px] font-semibold transition-all"
+                                        style={isActive
+                                          ? { background: `${client.color}18`, color: client.color, border: `1px solid ${client.color}35` }
+                                          : { background: "rgba(255,255,255,0.03)", color: "rgba(255,255,255,0.35)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                                        {PHASE_LABELS[ph]}
+                                        {phItems.length > 0 && (
+                                          <span className="text-[9px] font-normal" style={{ color: isActive ? client.color : "rgba(255,255,255,0.25)" }}>
+                                            {phDone}/{phItems.length}
+                                          </span>
+                                        )}
                                       </button>
-                                    )}
-                                    <button onClick={() => setShowAddChecklistItem(isAddingItem ? null : course.id)}
-                                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all"
-                                      style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.09)" }}>
-                                      <Plus className="w-3 h-3" /> Item
+                                    );
+                                  })}
+                                </div>
+
+                                {/* Barra de progresso da fase ativa */}
+                                {phaseItems.length > 0 && (
+                                  <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
+                                    <div className="h-full rounded-full transition-all duration-500"
+                                      style={{ width: `${Math.round((phaseDone / phaseItems.length) * 100)}%`, background: client.color }} />
+                                  </div>
+                                )}
+
+                                {/* Ações da fase ativa */}
+                                <div className="flex items-center justify-between">
+                                  <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>
+                                    {phaseItems.length === 0 ? "Sem itens nesta fase" : `${phaseDone} de ${phaseItems.length} concluído${phaseDone !== 1 ? "s" : ""}`}
+                                  </span>
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      onClick={() => handleGenerateChecklist(course, activePhase)}
+                                      disabled={isGenerating}
+                                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-semibold transition-all disabled:opacity-50"
+                                      style={{ background: `${client.color}15`, color: client.color, border: `1px solid ${client.color}30` }}>
+                                      {isGenerating ? <RefreshCw className="w-2.5 h-2.5 animate-spin" /> : <Sparkles className="w-2.5 h-2.5" />}
+                                      {isGenerating ? "Agente gerando…" : phaseItems.length > 0 ? "Reagendar" : "Acionar Agente"}
+                                    </button>
+                                    <button onClick={() => setShowAddChecklistItem(isAddingItem ? null : addKey)}
+                                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-semibold"
+                                      style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                                      <Plus className="w-2.5 h-2.5" /> Item
                                     </button>
                                   </div>
                                 </div>
-
-                                {/* Barra de progresso */}
-                                {items.length > 0 && (
-                                  <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
-                                    <div className="h-full rounded-full transition-all duration-500"
-                                      style={{ width: `${Math.round((done / items.length) * 100)}%`, background: client.color }} />
-                                  </div>
-                                )}
 
                                 {/* Form adicionar item */}
                                 <AnimatePresence>
@@ -7610,12 +7641,13 @@ Regras:
                                             onChange={e => setNewChecklistItem(p => ({ ...p, responsible: e.target.value }))}
                                             className="rounded-lg px-3 py-2 text-xs focus:outline-none"
                                             style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#F0F0F0" }}>
-                                            <option value="student">Aluno</option>
                                             <option value="agency">Agência</option>
+                                            <option value="client">Cliente</option>
+                                            <option value="student">Aluno</option>
                                           </select>
                                         </div>
                                         <div className="flex gap-2">
-                                          <button onClick={() => handleAddChecklistItem(course.id)}
+                                          <button onClick={() => handleAddChecklistItem(course.id, activePhase)}
                                             disabled={savingChecklistItem || !newChecklistItem.title.trim()}
                                             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold disabled:opacity-40"
                                             style={{ background: client.color, color: "#07080A" }}>
@@ -7628,52 +7660,40 @@ Regras:
                                   )}
                                 </AnimatePresence>
 
-                                {/* Lista de itens */}
-                                {items.length === 0 && !isAddingItem && (
-                                  <p className="text-[11px] text-center py-2" style={{ color: "rgba(255,255,255,0.2)" }}>
-                                    Nenhum item ainda — gere com IA ou adicione manualmente.
-                                  </p>
-                                )}
-                                {items.map((item: any) => (
-                                  <div key={item.id} className="flex items-start gap-3 rounded-xl px-3 py-2.5 group"
-                                    style={{ background: "rgba(255,255,255,0.025)", border: `1px solid ${item.status === "completed" ? `${client.color}20` : "rgba(255,255,255,0.06)"}` }}>
-                                    <button onClick={() => handleToggleChecklist(item, course.id)}
-                                      className="mt-0.5 flex-shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all"
-                                      style={{ borderColor: item.status === "completed" ? client.color : "rgba(255,255,255,0.2)", background: item.status === "completed" ? client.color : "transparent" }}>
-                                      {item.status === "completed" && <CheckCircle2 className="w-2.5 h-2.5" style={{ color: "#07080A" }} />}
-                                    </button>
-                                    <div className="flex-1 min-w-0">
-                                      <span className="text-[11px] font-medium" style={{
-                                        color: item.status === "completed" ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.8)",
-                                        textDecoration: item.status === "completed" ? "line-through" : "none",
-                                      }}>{item.title}</span>
-                                      {item.description && (
-                                        <p className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.25)" }}>{item.description}</p>
-                                      )}
-                                    </div>
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0"
-                                      style={{
-                                        background: item.responsible === "agency" ? "rgba(96,165,250,0.12)" : `${client.color}12`,
-                                        color: item.responsible === "agency" ? "#60A5FA" : client.color,
-                                      }}>
-                                      {item.responsible === "agency" ? "Agência" : "Aluno"}
-                                    </span>
-                                    <button onClick={() => handleDeleteChecklistItem(item.id, course.id)}
-                                      className="opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded flex-shrink-0"
-                                      style={{ color: "rgba(248,113,113,0.5)" }}>
-                                      <X className="w-2.5 h-2.5" />
-                                    </button>
-                                  </div>
-                                ))}
-
-                                {items.length > 0 && (
-                                  <button onClick={() => handleGenerateChecklist(course)} disabled={isGenerating}
-                                    className="flex items-center gap-1.5 text-[10px] font-semibold transition-all disabled:opacity-40"
-                                    style={{ color: "rgba(255,255,255,0.2)" }}>
-                                    {isGenerating ? <RefreshCw className="w-2.5 h-2.5 animate-spin" /> : <Sparkles className="w-2.5 h-2.5" />}
-                                    {isGenerating ? "Gerando…" : "Regenerar com IA"}
-                                  </button>
-                                )}
+                                {/* Lista de itens da fase */}
+                                <div className="space-y-1.5">
+                                  {phaseItems.map((item: any) => {
+                                    const rc = RESP_CFG[item.responsible] ?? RESP_CFG.agency;
+                                    return (
+                                      <div key={item.id} className="flex items-start gap-3 rounded-xl px-3 py-2.5 group transition-all"
+                                        style={{ background: "rgba(255,255,255,0.025)", border: `1px solid ${item.status === "completed" ? `${client.color}22` : "rgba(255,255,255,0.06)"}` }}>
+                                        <button onClick={() => handleToggleChecklist(item, course.id)}
+                                          className="mt-0.5 flex-shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all"
+                                          style={{ borderColor: item.status === "completed" ? client.color : "rgba(255,255,255,0.25)", background: item.status === "completed" ? client.color : "transparent" }}>
+                                          {item.status === "completed" && <CheckCircle2 className="w-2.5 h-2.5" style={{ color: "#07080A" }} />}
+                                        </button>
+                                        <div className="flex-1 min-w-0">
+                                          <span className="text-[11px] font-medium leading-snug" style={{
+                                            color: item.status === "completed" ? "rgba(255,255,255,0.28)" : "rgba(255,255,255,0.82)",
+                                            textDecoration: item.status === "completed" ? "line-through" : "none",
+                                          }}>{item.title}</span>
+                                          {item.description && (
+                                            <p className="text-[10px] mt-0.5 leading-snug" style={{ color: "rgba(255,255,255,0.25)" }}>{item.description}</p>
+                                          )}
+                                        </div>
+                                        <span className="text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0 font-semibold"
+                                          style={{ background: rc.bg, color: rc.color }}>
+                                          {rc.label}
+                                        </span>
+                                        <button onClick={() => handleDeleteChecklistItem(item.id, course.id)}
+                                          className="opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded flex-shrink-0"
+                                          style={{ color: "rgba(248,113,113,0.45)" }}>
+                                          <X className="w-2.5 h-2.5" />
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
                               </div>
                             </motion.div>
                           );

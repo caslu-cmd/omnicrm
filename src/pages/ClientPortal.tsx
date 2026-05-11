@@ -301,6 +301,33 @@ export default function ClientPortal() {
       .then(({ data: rows }: any) => { if (rows) setDeliverables(rows); });
   }, [data?.client?.workspace_id]);
 
+  const [portalCourses, setPortalCourses] = useState<any[]>([]);
+  const [portalChecklists, setPortalChecklists] = useState<Record<string, any[]>>({});
+  const [expandedPortalCourse, setExpandedPortalCourse] = useState<string | null>(null);
+  const [selectedPortalPhase, setSelectedPortalPhase] = useState<Record<string, string>>({});
+
+  const PORTAL_PHASE_LABELS: Record<string, string> = {
+    pre_venda: "Pré-venda", venda: "Venda", pos_venda: "Pós-venda", dia_evento: "Dia do Evento",
+  };
+  const PORTAL_PHASES = ["pre_venda", "venda", "pos_venda", "dia_evento"] as const;
+  useEffect(() => {
+    const wid = data?.client?.workspace_id;
+    if (!wid) return;
+    (supabase as any).from("courses").select("*")
+      .eq("client_id", wid).order("created_at", { ascending: false })
+      .then(async ({ data: rows }: any) => {
+        if (!rows?.length) return;
+        setPortalCourses(rows);
+        const map: Record<string, any[]> = {};
+        await Promise.all(rows.map(async (c: any) => {
+          const { data: items } = await (supabase as any).from("course_checklists").select("*")
+            .eq("course_id", c.id).order("order_index", { ascending: true });
+          map[c.id] = items ?? [];
+        }));
+        setPortalChecklists(map);
+      });
+  }, [data?.client?.workspace_id]);
+
   const timeAgo = (dateStr: string) => {
     const diff = Date.now() - new Date(dateStr).getTime();
     const mins = Math.floor(diff / 60000);
@@ -949,6 +976,161 @@ export default function ClientPortal() {
               <p className="text-xs" style={{ color: "#aaa" }}>
                 O checklist e as demandas aparecerão aqui assim que a agência configurar sua conta.
               </p>
+            </div>
+          </motion.div>
+        )}
+
+        {/* ── Cursos ───────────────────────────────────────── */}
+        {portalCourses.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+            <div className="rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.07)" }}>
+              <div className="px-6 py-5" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                <h2 className="text-base font-bold mb-0.5" style={{ color: "#111" }}>Seus Cursos</h2>
+                <p className="text-xs" style={{ color: "#888" }}>
+                  {portalCourses.length} curso{portalCourses.length !== 1 ? "s" : ""} · acompanhe o checklist de cada etapa
+                </p>
+              </div>
+
+              <div className="divide-y" style={{ borderColor: "rgba(0,0,0,0.05)" }}>
+                {portalCourses.map((course) => {
+                  const allItems = portalChecklists[course.id] ?? [];
+                  const totalDone = allItems.filter((i: any) => i.status === "completed").length;
+                  const totalPct = allItems.length > 0 ? Math.round((totalDone / allItems.length) * 100) : 0;
+                  const isOpen = expandedPortalCourse === course.id;
+                  const activePhase = selectedPortalPhase[course.id] ?? "pre_venda";
+                  const phaseItems = allItems.filter((i: any) => i.phase === activePhase);
+                  const phaseDone = phaseItems.filter((i: any) => i.status === "completed").length;
+
+                  const RESP_PORTAL: Record<string, { label: string; color: string; bg: string; border: string }> = {
+                    agency:  { label: "Agência", color: "#2563EB", bg: "rgba(37,99,235,0.07)",   border: "rgba(37,99,235,0.15)" },
+                    client:  { label: "Você",    color: "#3a6e00", bg: "rgba(185,255,75,0.12)",  border: "rgba(185,255,75,0.25)" },
+                    student: { label: "Aluno",   color: "#7C3AED", bg: "rgba(124,58,237,0.08)",  border: "rgba(124,58,237,0.18)" },
+                  };
+
+                  return (
+                    <div key={course.id}>
+                      <button
+                        onClick={() => setExpandedPortalCourse(isOpen ? null : course.id)}
+                        className="w-full flex items-center gap-4 px-5 py-4 text-left"
+                        style={{ background: isOpen ? "rgba(185,255,75,0.025)" : "transparent" }}>
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+                          style={{ background: "rgba(185,255,75,0.1)", border: "1px solid rgba(185,255,75,0.25)" }}>
+                          <span style={{ fontSize: 16 }}>🎓</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="text-sm font-semibold" style={{ color: "#111" }}>{course.title}</span>
+                            {course.level && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full"
+                                style={{ background: "rgba(0,0,0,0.05)", color: "#888" }}>{course.level}</span>
+                            )}
+                          </div>
+                          {allItems.length > 0 && (
+                            <div className="flex items-center gap-2">
+                              <div className="flex-1 h-1 rounded-full overflow-hidden" style={{ background: "rgba(0,0,0,0.07)", maxWidth: 120 }}>
+                                <div className="h-full rounded-full transition-all duration-500"
+                                  style={{ width: `${totalPct}%`, background: "#B9FF4B" }} />
+                              </div>
+                              <span className="text-[10px] font-medium" style={{ color: totalPct === 100 ? "#3a6e00" : "#888" }}>
+                                {totalDone}/{allItems.length} {totalPct === 100 ? "✓" : `(${totalPct}%)`}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        <ChevronDown className="w-4 h-4 flex-shrink-0 transition-transform"
+                          style={{ color: "#aaa", transform: isOpen ? "rotate(180deg)" : "rotate(0deg)" }} />
+                      </button>
+
+                      <AnimatePresence>
+                        {isOpen && (
+                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }} className="overflow-hidden"
+                            style={{ borderTop: "1px solid rgba(0,0,0,0.04)" }}>
+                            <div className="px-5 pb-5 pt-4 space-y-3">
+                              {course.description && (
+                                <p className="text-xs" style={{ color: "#777" }}>{course.description}</p>
+                              )}
+
+                              {/* Abas de fase */}
+                              <div className="grid grid-cols-4 gap-1">
+                                {PORTAL_PHASES.map(ph => {
+                                  const phItems = allItems.filter((i: any) => i.phase === ph);
+                                  const phDone = phItems.filter((i: any) => i.status === "completed").length;
+                                  const isActive = activePhase === ph;
+                                  return (
+                                    <button key={ph}
+                                      onClick={() => setSelectedPortalPhase(p => ({ ...p, [course.id]: ph }))}
+                                      className="flex flex-col items-center gap-0.5 py-2 px-1 rounded-xl text-[10px] font-semibold transition-all"
+                                      style={isActive
+                                        ? { background: "rgba(185,255,75,0.12)", color: "#3a6e00", border: "1px solid rgba(185,255,75,0.3)" }
+                                        : { background: "rgba(0,0,0,0.03)", color: "#aaa", border: "1px solid rgba(0,0,0,0.05)" }}>
+                                      {PORTAL_PHASE_LABELS[ph]}
+                                      {phItems.length > 0 && (
+                                        <span className="text-[9px] font-normal" style={{ color: isActive ? "#5BAD2F" : "#ccc" }}>
+                                          {phDone}/{phItems.length}
+                                        </span>
+                                      )}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Barra de progresso da fase */}
+                              {phaseItems.length > 0 && (
+                                <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(0,0,0,0.07)" }}>
+                                  <div className="h-full rounded-full transition-all duration-500"
+                                    style={{ width: `${Math.round((phaseDone / phaseItems.length) * 100)}%`, background: "#B9FF4B" }} />
+                                </div>
+                              )}
+
+                              {/* Itens da fase */}
+                              {phaseItems.length === 0 ? (
+                                <p className="text-xs py-2 text-center" style={{ color: "#ccc" }}>
+                                  Nenhum item nesta fase ainda.
+                                </p>
+                              ) : (
+                                <div className="space-y-1.5">
+                                  {phaseItems.map((item: any) => {
+                                    const rc = RESP_PORTAL[item.responsible] ?? RESP_PORTAL.agency;
+                                    return (
+                                      <div key={item.id} className="flex items-start gap-3 rounded-xl px-3 py-2.5"
+                                        style={{
+                                          background: item.status === "completed" ? "rgba(185,255,75,0.04)" : "rgba(0,0,0,0.02)",
+                                          border: `1px solid ${item.status === "completed" ? "rgba(185,255,75,0.18)" : "rgba(0,0,0,0.05)"}`,
+                                          opacity: item.status === "completed" ? 0.72 : 1,
+                                        }}>
+                                        <div className="w-4 h-4 mt-0.5 rounded-full border-2 flex items-center justify-center flex-shrink-0"
+                                          style={{ borderColor: item.status === "completed" ? "#B9FF4B" : "#ddd", background: item.status === "completed" ? "#B9FF4B" : "transparent" }}>
+                                          {item.status === "completed" && (
+                                            <CheckCircle2 className="w-2.5 h-2.5" style={{ color: "#07080A" }} />
+                                          )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <span className="text-[11px] font-semibold"
+                                            style={{ color: "#222", textDecoration: item.status === "completed" ? "line-through" : "none" }}>
+                                            {item.title}
+                                          </span>
+                                          {item.description && (
+                                            <p className="text-[10px] mt-0.5" style={{ color: "#999" }}>{item.description}</p>
+                                          )}
+                                        </div>
+                                        <span className="text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0 font-semibold"
+                                          style={{ background: rc.bg, color: rc.color, border: `1px solid ${rc.border}` }}>
+                                          {rc.label}
+                                        </span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+                  );
+                })}
+              </div>
             </div>
           </motion.div>
         )}
