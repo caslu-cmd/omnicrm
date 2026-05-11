@@ -38,7 +38,7 @@ serve(async (req) => {
 
     // ── Lista páginas ──────────────────────────────────────────────────────────
     if (action === "list_pages") {
-      const r = await fetch(`${base}/wp-json/wp/v2/pages?per_page=50&status=any&_fields=id,title,slug,status,link,modified`, {
+      const r = await fetch(`${base}/wp-json/wp/v2/pages?per_page=50&_fields=id,title,slug,status,link,modified`, {
         headers: wpHeaders(wp_user, wp_password),
       });
       if (!r.ok) {
@@ -106,7 +106,7 @@ serve(async (req) => {
     // ── Atualiza página no WP ──────────────────────────────────────────────────
     if (action === "update_page") {
       const { page_id, content, title } = body;
-      const payload: Record<string, any> = { content, status: "publish" };
+      const payload: Record<string, any> = { content };
       if (title) payload.title = title;
       const r = await fetch(`${base}/wp-json/wp/v2/pages/${page_id}`, {
         method: "POST",
