@@ -668,7 +668,7 @@ export default function SocialMediaTab({
 
       // Immediate publish — call edge function to hit the platform APIs
       try {
-        const pub = await callFn({ action: "approve-post", post_id: post.id });
+        const pub = await callFn({ action: "approve-post", post_id: (post as any).id });
         if (pub.linkedin_intent_url) {
           window.open(pub.linkedin_intent_url, "_blank");
           toast.success("LinkedIn aberto — escolha a Página de Empresa e publique!");
