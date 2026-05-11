@@ -13,7 +13,7 @@ import {
   UserCheck, PhoneCall, MessageSquare as MsgSq, BadgeCheck,
   Paperclip, X, Palette, PenLine, BarChart3, Layout, Table2, AtSign,
   Target, ArrowRight, Repeat2, MousePointerClick, Filter, Trash2, Mic, MicOff, StopCircle,
-  Save, Settings2, Award, Download, Loader2, Sparkles, ListChecks,
+  Save, Settings2, Award, Download, Loader2, Sparkles, ListChecks, Code2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
@@ -1230,7 +1230,7 @@ export default function ClientWorkspace() {
   const [editForm, setEditForm] = useState<{
     name: string; industry: string; status: "Ativo" | "Onboarding" | "Em pausa";
     revenue: string; nextAction: string; followersIg: string; followersFb: string; portalPin: string;
-    siteUrl: string; teamInstructions: string;
+    siteUrl: string; siteRepo: string; teamInstructions: string;
   } | null>(null);
   const { clients, updateClient, deleteClient, clearClientData } = useClients();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -1251,6 +1251,23 @@ export default function ClientWorkspace() {
   // Helper: invoke whatsapp edge function with per-client credentials
   const wpInvoke = (body: object) =>
     supabase.functions.invoke("whatsapp", { body: { ...wpCreds, ...body } });
+
+  const openEditClient = () => {
+    setEditForm({
+      name: client.name,
+      industry: client.industry,
+      status: client.status,
+      revenue: client.revenue,
+      nextAction: client.nextAction,
+      followersIg: client.followers.instagram,
+      followersFb: client.followers.facebook,
+      portalPin: client.portalPin,
+      siteUrl: client.siteUrl ?? "",
+      siteRepo: client.siteRepo ?? "",
+      teamInstructions: client.teamInstructions ?? "",
+    });
+    setShowEditClient(true);
+  };
 
   const checkWpStatus = async () => {
     setWpStatus("loading");
