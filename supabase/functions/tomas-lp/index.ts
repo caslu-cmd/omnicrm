@@ -14,6 +14,7 @@ async function callClaude(
   system: string,
   content: unknown[],
   maxTokens = 8000,
+  model = "claude-sonnet-4-6",
 ): Promise<string> {
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -24,7 +25,7 @@ async function callClaude(
       "anthropic-beta": "pdfs-2024-09-25",
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-6",
+      model,
       max_tokens: maxTokens,
       system,
       messages: [{ role: "user", content }],
@@ -151,34 +152,64 @@ serve(async (req) => {
             },
           ];
 
-          const design = await callClaude(apiKey, DESIGNER_SYSTEM, designContent, 2000);
+          const design = await callClaude(apiKey, DESIGNER_SYSTEM, designContent, 2000, "claude-haiku-4-5-20251001");
           sse(ctrl, { etapa: "design", status: "Identidade visual definida ✓", conteudo: design });
 
-          // ── TOMÁS: HTML ────────────────────────────────────────────────────
+          // ── TOMÁS: HTML (streaming) ───────────────────────────────────────────
           sse(ctrl, { etapa: "html", status: "Tomás montando a landing page..." });
 
-          const tomasContent: unknown[] = [
-            {
-              type: "text",
-              text: `Copy da Beatriz:\n${copy}\n\nEspecificação visual do Designer:\n${design}\n\nCrie o HTML completo da landing page agora.`,
+          const tomasResp = await fetch("https://api.anthropic.com/v1/messages", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "x-api-key": apiKey,
+              "anthropic-version": "2023-06-01",
             },
-          ];
+            body: JSON.stringify({
+              model: "claude-sonnet-4-6",
+              max_tokens: 6000,
+              stream: true,
+              system: TOMAS_SYSTEM,
+              messages: [{ role: "user", content: [{ type: "text", text: `Copy da Beatriz:\n${copy}\n\nEspecificação visual do Designer:\n${design}\n\nCrie o HTML completo da landing page agora.` }] }],
+            }),
+          });
 
-          const html = await callClaude(apiKey, TOMAS_SYSTEM, tomasContent, 8000);
+          if (!tomasResp.ok) throw new Error(`Claude Tomás ${tomasResp.status}: ${await tomasResp.text()}`);
 
-          // Extrai HTML puro da resposta do Claude (pode vir com ou sem code fence)
-          let htmlFinal = html.trim();
+          const tomasReader = tomasResp.body!.getReader();
+          const dec = new TextDecoder();
+          let htmlFull = "";
+          let sseBuffer = "";
+
+          while (true) {
+            const { value, done } = await tomasReader.read();
+            if (done) break;
+            sseBuffer += dec.decode(value, { stream: true });
+            const lines = sseBuffer.split("\n");
+            sseBuffer = lines.pop() ?? "";
+            for (const line of lines) {
+              if (!line.startsWith("data: ")) continue;
+              const raw = line.slice(6).trim();
+              if (raw === "[DONE]") continue;
+              try {
+                const parsed = JSON.parse(raw);
+                if (parsed.type === "content_block_delta" && parsed.delta?.type === "text_delta") {
+                  const chunk = parsed.delta.text;
+                  htmlFull += chunk;
+                  sse(ctrl, { etapa: "html_chunk", chunk });
+                }
+              } catch { /* ignora linhas malformadas */ }
+            }
+          }
+
+          // Extrai HTML puro (remove code fences se presentes)
+          let htmlFinal = htmlFull.trim();
           if (htmlFinal.startsWith("```")) {
-            // Remove linha da fence de abertura (```html ou ```)
             const lines = htmlFinal.split("\n");
             lines.shift();
-            // Remove linha da fence de fechamento se existir
-            if (lines.length > 0 && lines[lines.length - 1].trimEnd() === "```") {
-              lines.pop();
-            }
+            if (lines.length > 0 && lines[lines.length - 1].trimEnd() === "```") lines.pop();
             htmlFinal = lines.join("\n").trim();
           }
-          // Garante que começa com < (descarta qualquer texto introdutório)
           if (!htmlFinal.startsWith("<")) {
             const docIdx = htmlFinal.indexOf("<!DOCTYPE");
             const htmlIdx = htmlFinal.indexOf("<html");
@@ -187,7 +218,6 @@ serve(async (req) => {
           }
 
           sse(ctrl, { etapa: "html", status: "HTML pronto ✓", conteudo: htmlFinal });
-
           sse(ctrl, { etapa: "concluido" });
         } catch (err) {
           sse(ctrl, { etapa: "erro", mensagem: String(err) });

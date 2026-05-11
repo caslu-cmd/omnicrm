@@ -155,6 +155,10 @@ export default function TomasPage() {
           if (!linha.startsWith("data: ")) continue;
           const payload = JSON.parse(linha.slice(6));
           if (payload.etapa === "erro") throw new Error(payload.mensagem);
+          if (payload.etapa === "html_chunk" && payload.chunk) {
+            parcial.html += payload.chunk;
+            continue;
+          }
           if (payload.etapa === "concluido") {
             setEtapa("concluido");
             setResultado({ ...parcial });
