@@ -2392,7 +2392,7 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
           course_title: course.title,
           course_description: course.description ?? "",
           course_level: course.level ?? "Básico",
-          client_segment: client.segment ?? "",
+          client_segment: (client as any).segment ?? "",
           phase,
         },
       });
