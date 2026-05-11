@@ -65,9 +65,9 @@ Deno.serve(async (req) => {
 
     const supabaseUrl    = Deno.env.get("SUPABASE_URL")!;
     const supabaseAnon   = Deno.env.get("SUPABASE_ANON_KEY")!;
-    const anthropicKey   = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
+    const aiKey = Deno.env.get("LOVABLE_API_KEY") ?? "";
 
-    if (!anthropicKey) return respond({ error: "ANTHROPIC_API_KEY não configurada" }, 503);
+    if (!aiKey) return respond({ error: "LOVABLE_API_KEY não configurada" }, 503);
 
     const supabase = createClient(supabaseUrl, supabaseAnon, {
       global: { headers: { Authorization: authHeader } },
