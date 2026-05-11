@@ -95,6 +95,7 @@ export default function TomasPage() {
     if (!briefing.trim()) { toast.error("Preencha o briefing antes de gerar."); return; }
     setEtapa("copy");
     setResultado(null);
+    setParcial({ copy: "", design: "", html: "" });
     setStatusMsg("Iniciando...");
 
     const parcial: Resultado = { copy: "", design: "", html: "" };
