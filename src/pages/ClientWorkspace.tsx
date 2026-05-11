@@ -12,7 +12,7 @@ import {
   UserCheck, PhoneCall, MessageSquare as MsgSq, BadgeCheck,
   Paperclip, X, Palette, PenLine, BarChart3, Layout, Table2, AtSign,
   Target, ArrowRight, Repeat2, MousePointerClick, Filter, Trash2, Mic, MicOff, StopCircle,
-  Save, Settings2, Award, Download, Loader2,
+  Save, Settings2, Award, Download, Loader2, Sparkles, ListChecks,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
@@ -190,6 +190,15 @@ const MARKETING_TEAM = [
     color: "#10B981",
     description: "Especialista em prestação de contas — calcula honorários, registra lançamentos, gera relatórios consolidados e compara períodos",
   },
+  {
+    id: "apolo",
+    name: "Apolo",
+    role: "Editor de Apostilas",
+    initial: "📚",
+    skill: "Layout PDF · Conteúdo · Formatação · Editoração",
+    color: "#A78BFA",
+    description: "Recebe o layout em PDF e os arquivos dos professores e monta a apostila completa, formatada e sequenciada como um editor profissional",
+  },
 ];
 
 const AGENT_OUTPUT_TYPE: Record<string, GeneratedOutput["type"]> = {
@@ -207,6 +216,7 @@ const AGENT_OUTPUT_TYPE: Record<string, GeneratedOutput["type"]> = {
   sales:      "report",
   ben:        "report",
   rico:       "report",
+  apolo:      "report",
 };
 
 // ── Prompts individuais por agente (orquestração sequencial) ─────────────
@@ -889,6 +899,12 @@ export default function ClientWorkspace() {
   const [generatedCerts, setGeneratedCerts] = useState<{ name: string; dataUrl: string }[]>([]);
   const [certManualName, setCertManualName] = useState("");
   const [certManualList, setCertManualList] = useState<string[]>([]);
+  // Course checklists
+  const [dbChecklists, setDbChecklists] = useState<Record<string, any[]>>({});
+  const [checklistGenerating, setChecklistGenerating] = useState<string | null>(null);
+  const [showAddChecklistItem, setShowAddChecklistItem] = useState<string | null>(null);
+  const [newChecklistItem, setNewChecklistItem] = useState({ title: "", description: "", responsible: "student" });
+  const [savingChecklistItem, setSavingChecklistItem] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<Array<{id: string, imageData: string, mimeType: string, prompt: string, createdAt: string}>>([]);
   const [marcelaLoading, setMarcelaLoading] = useState(false);
   const [marcelaError, setMarcelaError] = useState<string | null>(null);
@@ -2114,12 +2130,17 @@ ${priorBlock}`;
     if (courses) {
       setDbCourses(courses);
       const map: Record<string, any[]> = {};
+      const checkMap: Record<string, any[]> = {};
       await Promise.all(courses.map(async (c: any) => {
         const { data: enr } = await (supabase as any).from("course_enrollments").select("*")
           .eq("course_id", c.id).order("enrolled_at", { ascending: true });
         map[c.id] = enr ?? [];
+        const { data: checks } = await (supabase as any).from("course_checklists").select("*")
+          .eq("course_id", c.id).order("order_index", { ascending: true });
+        checkMap[c.id] = checks ?? [];
       }));
       setDbEnrollments(map);
+      setDbChecklists(checkMap);
     }
 
     // CRM contact_groups (user-level, all groups)
@@ -2187,6 +2208,77 @@ ${priorBlock}`;
     await (supabase as any).from("courses").delete().eq("id", courseId);
     setDbCourses(prev => prev.filter(c => c.id !== courseId));
     toast.success("Curso removido");
+  };
+
+  const handleGenerateChecklist = async (course: any) => {
+    setChecklistGenerating(course.id);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const { data, error } = await supabase.functions.invoke("generate-course-checklist", {
+        body: {
+          course_title: course.title,
+          course_description: course.description ?? "",
+          course_level: course.level ?? "Básico",
+          client_segment: client.segment ?? "",
+        },
+      });
+      if (error || !data?.items?.length) throw new Error(error?.message ?? "Sem itens");
+      const rows = (data.items as any[]).map((item: any) => ({
+        course_id: course.id, user_id: session.user.id, client_id: id ?? "",
+        title: item.title, description: item.description || null,
+        responsible: item.responsible === "agency" ? "agency" : "student",
+        order_index: item.order_index ?? 0,
+      }));
+      await (supabase as any).from("course_checklists").insert(rows);
+      const { data: fresh } = await (supabase as any).from("course_checklists").select("*")
+        .eq("course_id", course.id).order("order_index", { ascending: true });
+      setDbChecklists(prev => ({ ...prev, [course.id]: fresh ?? [] }));
+      toast.success(`${rows.length} itens gerados com IA!`);
+    } catch {
+      toast.error("Erro ao gerar checklist");
+    } finally {
+      setChecklistGenerating(null);
+    }
+  };
+
+  const handleAddChecklistItem = async (courseId: string) => {
+    if (!newChecklistItem.title.trim()) return;
+    setSavingChecklistItem(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    const existing = dbChecklists[courseId] ?? [];
+    await (supabase as any).from("course_checklists").insert({
+      course_id: courseId, user_id: session.user.id, client_id: id ?? "",
+      title: newChecklistItem.title, description: newChecklistItem.description || null,
+      responsible: newChecklistItem.responsible, order_index: existing.length,
+    });
+    setNewChecklistItem({ title: "", description: "", responsible: "student" });
+    setShowAddChecklistItem(null);
+    const { data: fresh } = await (supabase as any).from("course_checklists").select("*")
+      .eq("course_id", courseId).order("order_index", { ascending: true });
+    setDbChecklists(prev => ({ ...prev, [courseId]: fresh ?? [] }));
+    setSavingChecklistItem(false);
+  };
+
+  const handleToggleChecklist = async (item: any, courseId: string) => {
+    const next = item.status === "completed" ? "pending" : "completed";
+    await (supabase as any).from("course_checklists").update({
+      status: next,
+      completed_at: next === "completed" ? new Date().toISOString() : null,
+    }).eq("id", item.id);
+    setDbChecklists(prev => ({
+      ...prev,
+      [courseId]: (prev[courseId] ?? []).map(i => i.id === item.id ? { ...i, status: next } : i),
+    }));
+  };
+
+  const handleDeleteChecklistItem = async (itemId: string, courseId: string) => {
+    await (supabase as any).from("course_checklists").delete().eq("id", itemId);
+    setDbChecklists(prev => ({
+      ...prev,
+      [courseId]: (prev[courseId] ?? []).filter(i => i.id !== itemId),
+    }));
   };
 
   const selectedAgent = selectedAgentId
@@ -5914,7 +6006,7 @@ Regras:
                   })()}
 
                   <div className="flex flex-col gap-2.5 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:gap-3">
-                    {MARKETING_TEAM.filter(a => a.id !== "briefing" && (a.id !== "rico" || id === "gnx")).map((agent, i) => {
+                    {MARKETING_TEAM.filter(a => a.id !== "briefing" && (a.id !== "rico" || id === "gnx") && (a.id !== "apolo" || id === "grupo-licita")).map((agent, i) => {
                       const task = client.agentTasks[agent.id];
                       const isWorking = task?.status === "trabalhando";
                       const isDone = task?.status === "concluído";
@@ -6081,6 +6173,14 @@ Regras:
                                   className="px-2.5 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1 whitespace-nowrap"
                                   style={{ background: `${agent.color}18`, color: agent.color, border: `1px solid ${agent.color}40` }}>
                                   💰 Abrir
+                                </button>
+                              )}
+                              {agent.id === "apolo" && (
+                                <button
+                                  onClick={() => navigate("/apostila")}
+                                  className="px-2.5 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1 whitespace-nowrap"
+                                  style={{ background: `${agent.color}18`, color: agent.color, border: `1px solid ${agent.color}40` }}>
+                                  📚 Abrir
                                 </button>
                               )}
                             </div>
@@ -7438,6 +7538,146 @@ Regras:
                             </div>
                           </motion.div>
                         )}
+                      </AnimatePresence>
+
+                      {/* ── Checklist do Curso ──────────────────── */}
+                      <AnimatePresence>
+                        {isOpen && (() => {
+                          const items = dbChecklists[course.id] ?? [];
+                          const done = items.filter(i => i.status === "completed").length;
+                          const isGenerating = checklistGenerating === course.id;
+                          const isAddingItem = showAddChecklistItem === course.id;
+                          return (
+                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }} className="overflow-hidden"
+                              style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                              <div className="px-5 py-4 space-y-3">
+                                {/* Header checklist */}
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center gap-2">
+                                    <ListChecks className="w-3.5 h-3.5" style={{ color: client.color }} />
+                                    <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: client.color }}>Checklist do Curso</span>
+                                    {items.length > 0 && (
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded-full"
+                                        style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)" }}>
+                                        {done}/{items.length}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {items.length === 0 && (
+                                      <button onClick={() => handleGenerateChecklist(course)} disabled={isGenerating}
+                                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all disabled:opacity-50"
+                                        style={{ background: `${client.color}15`, color: client.color, border: `1px solid ${client.color}30` }}>
+                                        {isGenerating ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                        {isGenerating ? "Gerando…" : "Gerar com IA"}
+                                      </button>
+                                    )}
+                                    <button onClick={() => setShowAddChecklistItem(isAddingItem ? null : course.id)}
+                                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all"
+                                      style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.09)" }}>
+                                      <Plus className="w-3 h-3" /> Item
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* Barra de progresso */}
+                                {items.length > 0 && (
+                                  <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.07)" }}>
+                                    <div className="h-full rounded-full transition-all duration-500"
+                                      style={{ width: `${Math.round((done / items.length) * 100)}%`, background: client.color }} />
+                                  </div>
+                                )}
+
+                                {/* Form adicionar item */}
+                                <AnimatePresence>
+                                  {isAddingItem && (
+                                    <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                                      exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.15 }} className="overflow-hidden">
+                                      <div className="rounded-xl p-3 space-y-2" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                                        <input placeholder="Título do item *"
+                                          value={newChecklistItem.title}
+                                          onChange={e => setNewChecklistItem(p => ({ ...p, title: e.target.value }))}
+                                          className="w-full rounded-lg px-3 py-2 text-xs focus:outline-none"
+                                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#F0F0F0" }} />
+                                        <div className="grid grid-cols-2 gap-2">
+                                          <input placeholder="Descrição (opcional)"
+                                            value={newChecklistItem.description}
+                                            onChange={e => setNewChecklistItem(p => ({ ...p, description: e.target.value }))}
+                                            className="rounded-lg px-3 py-2 text-xs focus:outline-none"
+                                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#F0F0F0" }} />
+                                          <select value={newChecklistItem.responsible}
+                                            onChange={e => setNewChecklistItem(p => ({ ...p, responsible: e.target.value }))}
+                                            className="rounded-lg px-3 py-2 text-xs focus:outline-none"
+                                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#F0F0F0" }}>
+                                            <option value="student">Aluno</option>
+                                            <option value="agency">Agência</option>
+                                          </select>
+                                        </div>
+                                        <div className="flex gap-2">
+                                          <button onClick={() => handleAddChecklistItem(course.id)}
+                                            disabled={savingChecklistItem || !newChecklistItem.title.trim()}
+                                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold disabled:opacity-40"
+                                            style={{ background: client.color, color: "#07080A" }}>
+                                            {savingChecklistItem ? <RefreshCw className="w-2.5 h-2.5 animate-spin" /> : <Plus className="w-2.5 h-2.5" />} Salvar
+                                          </button>
+                                          <button onClick={() => setShowAddChecklistItem(null)} className="px-3 py-1.5 text-[11px] rounded-lg" style={{ color: "rgba(255,255,255,0.35)" }}>Cancelar</button>
+                                        </div>
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+
+                                {/* Lista de itens */}
+                                {items.length === 0 && !isAddingItem && (
+                                  <p className="text-[11px] text-center py-2" style={{ color: "rgba(255,255,255,0.2)" }}>
+                                    Nenhum item ainda — gere com IA ou adicione manualmente.
+                                  </p>
+                                )}
+                                {items.map((item: any) => (
+                                  <div key={item.id} className="flex items-start gap-3 rounded-xl px-3 py-2.5 group"
+                                    style={{ background: "rgba(255,255,255,0.025)", border: `1px solid ${item.status === "completed" ? `${client.color}20` : "rgba(255,255,255,0.06)"}` }}>
+                                    <button onClick={() => handleToggleChecklist(item, course.id)}
+                                      className="mt-0.5 flex-shrink-0 w-4 h-4 rounded-full border-2 flex items-center justify-center transition-all"
+                                      style={{ borderColor: item.status === "completed" ? client.color : "rgba(255,255,255,0.2)", background: item.status === "completed" ? client.color : "transparent" }}>
+                                      {item.status === "completed" && <CheckCircle2 className="w-2.5 h-2.5" style={{ color: "#07080A" }} />}
+                                    </button>
+                                    <div className="flex-1 min-w-0">
+                                      <span className="text-[11px] font-medium" style={{
+                                        color: item.status === "completed" ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.8)",
+                                        textDecoration: item.status === "completed" ? "line-through" : "none",
+                                      }}>{item.title}</span>
+                                      {item.description && (
+                                        <p className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.25)" }}>{item.description}</p>
+                                      )}
+                                    </div>
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0"
+                                      style={{
+                                        background: item.responsible === "agency" ? "rgba(96,165,250,0.12)" : `${client.color}12`,
+                                        color: item.responsible === "agency" ? "#60A5FA" : client.color,
+                                      }}>
+                                      {item.responsible === "agency" ? "Agência" : "Aluno"}
+                                    </span>
+                                    <button onClick={() => handleDeleteChecklistItem(item.id, course.id)}
+                                      className="opacity-0 group-hover:opacity-100 transition-opacity w-5 h-5 flex items-center justify-center rounded flex-shrink-0"
+                                      style={{ color: "rgba(248,113,113,0.5)" }}>
+                                      <X className="w-2.5 h-2.5" />
+                                    </button>
+                                  </div>
+                                ))}
+
+                                {items.length > 0 && (
+                                  <button onClick={() => handleGenerateChecklist(course)} disabled={isGenerating}
+                                    className="flex items-center gap-1.5 text-[10px] font-semibold transition-all disabled:opacity-40"
+                                    style={{ color: "rgba(255,255,255,0.2)" }}>
+                                    {isGenerating ? <RefreshCw className="w-2.5 h-2.5 animate-spin" /> : <Sparkles className="w-2.5 h-2.5" />}
+                                    {isGenerating ? "Gerando…" : "Regenerar com IA"}
+                                  </button>
+                                )}
+                              </div>
+                            </motion.div>
+                          );
+                        })()}
                       </AnimatePresence>
 
                       {/* Certificate panel */}

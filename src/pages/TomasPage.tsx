@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Send, Download, Eye, Code2, FileText, Palette,
   Loader2, CheckCircle2, AlertCircle, Layout, Sparkles,
-  RefreshCw, Copy, Monitor, Smartphone
+  RefreshCw, Copy, Monitor, Smartphone, Upload, Paperclip,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -51,12 +51,14 @@ function downloadHtml(html: string) {
 export default function TomasPage() {
   const [searchParams] = useSearchParams();
   const [briefing, setBriefing] = useState(() => searchParams.get("briefing") ?? "");
+  const [arquivos, setArquivos] = useState<File[]>([]);
   const [etapa, setEtapa] = useState<Etapa>("idle");
   const [statusMsg, setStatusMsg] = useState("");
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [abaAtiva, setAbaAtiva] = useState<"preview" | "copy" | "design" | "html">("preview");
   const [previewMobile, setPreviewMobile] = useState(false);
   const readerRef = useRef<ReadableStreamDefaultReader | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const gerandoAtivo = etapa !== "idle" && etapa !== "concluido" && etapa !== "erro";
 
@@ -79,10 +81,13 @@ export default function TomasPage() {
     const parcial: Resultado = { copy: "", design: "", html: "" };
 
     try {
+      const fd = new FormData();
+      fd.append("briefing", briefing);
+      arquivos.forEach((f) => fd.append("arquivos", f));
+
       const resp = await fetch(`${API}/gerar`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ briefing }),
+        body: fd,
       });
 
       if (!resp.ok) throw new Error(`Erro ${resp.status}`);
@@ -180,7 +185,7 @@ export default function TomasPage() {
           </div>
         </div>
 
-        {/* Briefing textarea */}
+        {/* Briefing textarea + upload */}
         <div className="flex-1 flex flex-col px-5 py-4 gap-3 overflow-hidden">
           <label className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: "#444466" }}>
             Briefing do cliente
@@ -207,6 +212,79 @@ export default function TomasPage() {
             onFocus={(e) => (e.currentTarget.style.borderColor = "#B9FF4B44")}
             onBlur={(e) => (e.currentTarget.style.borderColor = "#2A2A3A")}
           />
+
+          {/* Upload de arquivos */}
+          <div className="flex flex-col gap-2 flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <label className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: "#444466" }}>
+                Arquivos de referência
+              </label>
+              {arquivos.length > 0 && (
+                <button
+                  onClick={() => setArquivos([])}
+                  className="text-[10px]"
+                  style={{ color: "#444466" }}
+                  disabled={gerandoAtivo}
+                >
+                  Limpar
+                </button>
+              )}
+            </div>
+
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.docx,.doc,.txt,.md"
+              className="hidden"
+              disabled={gerandoAtivo}
+              onChange={(e) => {
+                const novos = Array.from(e.target.files ?? []);
+                setArquivos((prev) => [...prev, ...novos]);
+                e.target.value = "";
+              }}
+            />
+
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={gerandoAtivo}
+              className="flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs transition-all"
+              style={{
+                background: "#141420",
+                border: `1.5px dashed ${arquivos.length > 0 ? "#B9FF4B55" : "#2A2A3A"}`,
+                color: arquivos.length > 0 ? "#B9FF4B" : "#555577",
+                cursor: gerandoAtivo ? "not-allowed" : "pointer",
+              }}
+            >
+              <Paperclip className="w-3.5 h-3.5" />
+              {arquivos.length > 0
+                ? `${arquivos.length} arquivo(s) anexado(s)`
+                : "Anexar PDF, Word ou TXT"}
+            </button>
+
+            {arquivos.length > 0 && (
+              <div className="flex flex-col gap-1 max-h-24 overflow-y-auto">
+                {arquivos.map((f, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-2 px-2 py-1 rounded-lg"
+                    style={{ background: "#141420" }}
+                  >
+                    <FileText className="w-3 h-3 flex-shrink-0" style={{ color: "#B9FF4B" }} />
+                    <span className="text-[10px] truncate flex-1" style={{ color: "#888899" }}>{f.name}</span>
+                    <button
+                      onClick={() => setArquivos((prev) => prev.filter((_, j) => j !== i))}
+                      disabled={gerandoAtivo}
+                      className="text-[10px] flex-shrink-0"
+                      style={{ color: "#444466" }}
+                    >
+                      ✕
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Botão gerar / cancelar */}

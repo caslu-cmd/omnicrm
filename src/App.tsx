@@ -10,6 +10,8 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import AiAssistant from "@/components/AiAssistant";
+import AIFieldPanel from "@/components/AIFieldPanel";
+import { AIFieldProvider } from "@/contexts/AIFieldContext";
 import AuthPage from "@/pages/AuthPage";
 import Dashboard from "@/pages/Dashboard";
 import InboxPage from "@/pages/InboxPage";
@@ -48,6 +50,7 @@ import WhatsAppPage from "@/pages/WhatsAppPage";
 import BriefingPage from "@/pages/BriefingPage";
 import GroupsPage from "@/pages/GroupsPage";
 import NotebookPage from "@/pages/NotebookPage";
+import ApostilaPage from "@/pages/ApostilaPage";
 
 const queryClient = new QueryClient();
 
@@ -108,6 +111,7 @@ const ProtectedRoutes = () => {
           <Route path="/tomas" element={<TomasPage />} />
           <Route path="/ben" element={<BenPage />} />
           <Route path="/notebook" element={<NotebookPage />} />
+          <Route path="/apostila" element={<ApostilaPage />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
@@ -189,7 +193,10 @@ const App = () => (
           <ClientsProvider>
             <PageContextProvider>
               <SocialPostingProvider>
-                <AppRoutes />
+                <AIFieldProvider>
+                  <AppRoutes />
+                  <AIFieldPanel />
+                </AIFieldProvider>
               </SocialPostingProvider>
             </PageContextProvider>
           </ClientsProvider>
