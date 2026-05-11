@@ -29,6 +29,7 @@ import ContactActivityPanel from "@/components/ContactActivityPanel";
 import SiteEditorPanel from "@/components/SiteEditorPanel";
 import LiaBriefingPanel from "@/components/LiaBriefingPanel";
 import MetaAdsCampaignsSection from "@/components/MetaAdsCampaignsSection";
+import AdsSection from "@/components/AdsSection";
 
 const SOURCES: Record<string, { label: string; color: string; bg: string }> = {
   instagram: { label: "Instagram", color: "#E1306C", bg: "rgba(225,48,108,0.1)" },
@@ -4868,10 +4869,15 @@ Regras:
             )}
 
             {/* ══════════════════════════════════════════════════════
-                CAMPANHAS — META ADS
+                CAMPANHAS — ANÚNCIOS & GESTÃO
             ══════════════════════════════════════════════════════ */}
             {activeTab === "campaigns" && (
+              <div className="space-y-8">
                 <MetaAdsCampaignsSection clientId={client.id} clientColor={client.color} />
+                <div style={{ borderTop: "1px solid rgba(255,255,255,0.06)", paddingTop: "2rem" }}>
+                  <AdsSection clientId={client.id} clientColor={client.color} />
+                </div>
+              </div>
             )}
 
             {false && campList.map((camp) => {
