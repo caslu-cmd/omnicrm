@@ -13,7 +13,7 @@ import {
   UserCheck, PhoneCall, MessageSquare as MsgSq, BadgeCheck,
   Paperclip, X, Palette, PenLine, BarChart3, Layout, Table2, AtSign,
   Target, ArrowRight, Repeat2, MousePointerClick, Filter, Trash2, Mic, MicOff, StopCircle,
-  Save, Settings2, Award, Download, Loader2, Sparkles, ListChecks,
+  Save, Settings2, Award, Download, Loader2, Sparkles, ListChecks, Code2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
@@ -1230,7 +1230,7 @@ export default function ClientWorkspace() {
   const [editForm, setEditForm] = useState<{
     name: string; industry: string; status: "Ativo" | "Onboarding" | "Em pausa";
     revenue: string; nextAction: string; followersIg: string; followersFb: string; portalPin: string;
-    siteUrl: string; teamInstructions: string;
+    siteUrl: string; siteRepo: string; teamInstructions: string;
   } | null>(null);
   const { clients, updateClient, deleteClient, clearClientData } = useClients();
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -1251,6 +1251,23 @@ export default function ClientWorkspace() {
   // Helper: invoke whatsapp edge function with per-client credentials
   const wpInvoke = (body: object) =>
     supabase.functions.invoke("whatsapp", { body: { ...wpCreds, ...body } });
+
+  const openEditClient = () => {
+    setEditForm({
+      name: client.name,
+      industry: client.industry,
+      status: client.status,
+      revenue: client.revenue,
+      nextAction: client.nextAction,
+      followersIg: client.followers.instagram,
+      followersFb: client.followers.facebook,
+      portalPin: client.portalPin,
+      siteUrl: client.siteUrl ?? "",
+      siteRepo: client.siteRepo ?? "",
+      teamInstructions: client.teamInstructions ?? "",
+    });
+    setShowEditClient(true);
+  };
 
   const checkWpStatus = async () => {
     setWpStatus("loading");
@@ -1353,6 +1370,7 @@ export default function ClientWorkspace() {
       followers: { instagram: editForm.followersIg, facebook: editForm.followersFb },
       portalPin: editForm.portalPin.trim(),
       siteUrl: editForm.siteUrl.trim() || undefined,
+      siteRepo: editForm.siteRepo.trim() || undefined,
       teamInstructions: editForm.teamInstructions.trim() || undefined,
     });
     if (editForm.siteUrl.trim()) setSiteUrl(editForm.siteUrl.trim());
@@ -3713,21 +3731,7 @@ Regras:
             <Trash2 className="w-3 h-3" /> Excluir cliente
           </button>
           <button
-            onClick={() => {
-              setEditForm({
-                name: client.name,
-                industry: client.industry,
-                status: client.status,
-                revenue: client.revenue,
-                nextAction: client.nextAction,
-                followersIg: client.followers.instagram,
-                followersFb: client.followers.facebook,
-                portalPin: client.portalPin,
-                siteUrl: client.siteUrl ?? "",
-                teamInstructions: client.teamInstructions ?? "",
-              });
-              setShowEditClient(true);
-            }}
+            onClick={openEditClient}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
             style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.09)" }}
             onMouseEnter={(e) => { e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)"; }}
@@ -10364,7 +10368,7 @@ Regras:
                       </p>
                     </div>
                     <button
-                      onClick={() => setEditOpen(true)}
+                      onClick={openEditClient}
                       className="px-4 py-2 rounded-lg text-sm font-medium"
                       style={{ background: "rgba(185,255,75,0.12)", border: "1px solid rgba(185,255,75,0.25)", color: "#B9FF4B" }}>
                       Configurar repositório
@@ -10818,167 +10822,68 @@ Regras:
                           </div>
                         </div>
 
-                      </div>
-
-
-                      {/* Agente Autonomo */}
-                      <div className="mt-4 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                        <button onClick={() => setShowAgentPanel((v) => !v)} className="flex items-center gap-2 w-full text-left">
-                          <Bot className="w-4 h-4" style={{ color: "#B9FF4B" }} />
-                          <span className="text-xs font-semibold" style={{ color: "#B9FF4B" }}>Agente Autonomo</span>
-                          <span className="text-[10px] ml-1" style={{ color: "rgba(255,255,255,0.3)" }}>— gera e envia sem revisao</span>
-                          <ChevronDown className={showAgentPanel ? "w-3.5 h-3.5 ml-auto rotate-180" : "w-3.5 h-3.5 ml-auto"} />
-                        </button>
-                        <AnimatePresence>
-                          {showAgentPanel && (
-                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                              <div className="pt-4 space-y-3">
-                                {wpFavoriteGroupIds.length === 0 && (<p className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>Favorite grupos com ★ acima.</p>)}
-                                {wpFavoriteGroupIds.length > 0 && (<p className="text-[10px] font-medium" style={{ color: "#FBBF24" }}>★ {wpFavoriteGroupIds.length} grupo{wpFavoriteGroupIds.length !== 1 ? "s" : ""} alvo</p>)}
-                                <div className="flex gap-2">
-                                  <input value={agentSendPrompt} onChange={(e) => setAgentSendPrompt(e.target.value)} placeholder="Ex: confirmar presenca" className="flex-1 px-3 py-2 rounded-lg text-xs focus:outline-none" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(185,255,75,0.2)", color: "#F0F0F0" }} />
-                                  <button onClick={doAgentBroadcast} disabled={agentSending || !agentSendPrompt.trim() || wpFavoriteGroupIds.length === 0} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-semibold disabled:opacity-40 whitespace-nowrap" style={{ background: "rgba(185,255,75,0.15)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.3)" }}>
-                                    {agentSending ? <><RefreshCw className="w-3 h-3 animate-spin" /> Enviando...</> : <><Bot className="w-3 h-3" /> Enviar agora</>}
-                                  </button>
-                                </div>
-                                {agentSendResult && (<div className="rounded-xl p-3" style={{ background: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.2)" }}><div className="flex items-center gap-2 text-xs font-semibold" style={{ color: "#34D399" }}><CheckCircle2 className="w-3.5 h-3.5" /> Enviado {agentSendResult.ok}/{agentSendResult.total}</div><p className="text-[11px]" style={{ color: "rgba(255,255,255,0.6)" }}>{agentSendResult.message}</p></div>)}
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-                      {/* Agente Autonomo */}
-                      <div className="mt-4 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                        <button onClick={() => setShowAgentPanel((v) => !v)} className="flex items-center gap-2 w-full text-left">
-                          <Bot className="w-4 h-4" style={{ color: "#B9FF4B" }} />
-                          <span className="text-xs font-semibold" style={{ color: "#B9FF4B" }}>Agente Autônomo</span>
-                          <span className="text-[10px] ml-1" style={{ color: "rgba(255,255,255,0.3)" }}>— gera e envia sem revisão</span>
-                          <ChevronDown className={showAgentPanel ? "w-3.5 h-3.5 ml-auto rotate-180" : "w-3.5 h-3.5 ml-auto"} />
-                        </button>
-                        <AnimatePresence>
-                          {showAgentPanel && (
-                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="overflow-hidden">
-                              <div className="pt-4 space-y-3">
-                                {wpFavoriteGroupIds.length === 0 && (<p className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>Favorite grupos com ★ acima para o agente enviar.</p>)}
-                                {wpFavoriteGroupIds.length > 0 && (<p className="text-[10px] font-medium" style={{ color: "#FBBF24" }}>★ {wpFavoriteGroupIds.length} grupo{wpFavoriteGroupIds.length !== 1 ? "s" : ""} alvo</p>)}
-                                <div className="flex gap-2">
-                                  <input value={agentSendPrompt} onChange={(e) => setAgentSendPrompt(e.target.value)} placeholder="Ex: confirmar presença no evento" className="flex-1 px-3 py-2 rounded-lg text-xs focus:outline-none" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(185,255,75,0.2)", color: "#F0F0F0" }} />
-                                  <button onClick={doAgentBroadcast} disabled={agentSending || !agentSendPrompt.trim() || wpFavoriteGroupIds.length === 0} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-semibold disabled:opacity-40 whitespace-nowrap" style={{ background: "rgba(185,255,75,0.15)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.3)" }}>
-                                    {agentSending ? <><RefreshCw className="w-3 h-3 animate-spin" /> Enviando…</> : <><Bot className="w-3 h-3" /> Enviar agora</>}
-                                  </button>
-                                </div>
-                                {agentSendResult && (<div className="rounded-xl p-3 space-y-1" style={{ background: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.2)" }}><div className="flex items-center gap-2 text-xs font-semibold" style={{ color: "#34D399" }}><CheckCircle2 className="w-3.5 h-3.5" /> Enviado para {agentSendResult.ok}/{agentSendResult.total} grupos</div><p className="text-[11px] leading-relaxed" style={{ color: "rgba(255,255,255,0.6)", whiteSpace: "pre-wrap" }}>{agentSendResult.message}</p></div>)}
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
-                      </div>
-
-                      {/* Agente Autonomo */}
-                      <div className="mt-4 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                        <button
-                          onClick={() => setShowAgentPanel((v) => !v)}
-                          className="flex items-center gap-2 w-full text-left"
-                        >
-                          <Bot className="w-4 h-4" style={{ color: "#B9FF4B" }} />
-                          <span className="text-xs font-semibold" style={{ color: "#B9FF4B" }}>
-                            Agente Autonomo
-                          </span>
-                          <span className="text-[10px] ml-1" style={{ color: "rgba(255,255,255,0.3)" }}>
-                            — gera e envia sem revisao
-                          </span>
-                          <ChevronDown
-                            className={
-                              showAgentPanel
-                                ? "w-3.5 h-3.5 ml-auto rotate-180 transition-transform"
-                                : "w-3.5 h-3.5 ml-auto transition-transform"
-                            }
-                          />
-                        </button>
-                        <AnimatePresence>
-                          {showAgentPanel && (
-                            <motion.div
-                              initial={{ opacity: 0, height: 0 }}
-                              animate={{ opacity: 1, height: "auto" }}
-                              exit={{ opacity: 0, height: 0 }}
-                              className="overflow-hidden"
-                            >
-                              <div className="pt-4 space-y-3">
-                                {wpFavoriteGroupIds.length === 0 && (
-                                  <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>
-                                    Favorite grupos com ★ acima para o agente enviar.
-                                  </p>
-                                )}
-                                {wpFavoriteGroupIds.length > 0 && (
-                                  <p className="text-[10px] font-medium" style={{ color: "#FBBF24" }}>
-                                    ★ {wpFavoriteGroupIds.length} grupo
-                                    {wpFavoriteGroupIds.length !== 1 ? "s" : ""} alvo
-                                  </p>
-                                )}
-                                <div className="flex gap-2">
-                                  <input
-                                    value={agentSendPrompt}
-                                    onChange={(e) => setAgentSendPrompt(e.target.value)}
-                                    placeholder="Ex: confirmar presenca no evento"
-                                    className="flex-1 px-3 py-2 rounded-lg text-xs focus:outline-none"
-                                    style={{
-                                      background: "rgba(255,255,255,0.05)",
-                                      border: "1px solid rgba(185,255,75,0.2)",
-                                      color: "#F0F0F0",
-                                    }}
-                                  />
-                                  <button
-                                    onClick={doAgentBroadcast}
-                                    disabled={
-                                      agentSending ||
-                                      !agentSendPrompt.trim() ||
-                                      wpFavoriteGroupIds.length === 0
-                                    }
-                                    className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-semibold disabled:opacity-40 whitespace-nowrap"
-                                    style={{
-                                      background: "rgba(185,255,75,0.15)",
-                                      color: "#B9FF4B",
-                                      border: "1px solid rgba(185,255,75,0.3)",
-                                    }}
-                                  >
-                                    {agentSending ? (
-                                      <>
-                                        <RefreshCw className="w-3 h-3 animate-spin" /> Enviando...
-                                      </>
-                                    ) : (
-                                      <>
-                                        <Bot className="w-3 h-3" /> Enviar agora
-                                      </>
-                                    )}
-                                  </button>
-                                </div>
-                                {agentSendResult && (
-                                  <div
-                                    className="rounded-xl p-3 space-y-1"
-                                    style={{
-                                      background: "rgba(52,211,153,0.06)",
-                                      border: "1px solid rgba(52,211,153,0.2)",
-                                    }}
-                                  >
-                                    <div
-                                      className="flex items-center gap-2 text-xs font-semibold"
-                                      style={{ color: "#34D399" }}
-                                    >
-                                      <CheckCircle2 className="w-3.5 h-3.5" /> Enviado para{" "}
-                                      {agentSendResult.ok}/{agentSendResult.total} grupos
-                                    </div>
-                                    <p
-                                      className="text-[11px] leading-relaxed"
-                                      style={{ color: "rgba(255,255,255,0.6)", whiteSpace: "pre-wrap" }}
-                                    >
-                                      {agentSendResult.message}
+                        {/* Agente Autônomo */}
+                        <div className="mt-4 pt-4" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                          <button
+                            onClick={() => setShowAgentPanel((v) => !v)}
+                            className="flex items-center gap-2 w-full text-left"
+                          >
+                            <Bot className="w-4 h-4" style={{ color: "#B9FF4B" }} />
+                            <span className="text-xs font-semibold" style={{ color: "#B9FF4B" }}>Agente Autônomo</span>
+                            <span className="text-[10px] ml-1" style={{ color: "rgba(255,255,255,0.3)" }}>— gera e envia sem revisão</span>
+                            <ChevronDown className={`w-3.5 h-3.5 ml-auto transition-transform ${showAgentPanel ? "rotate-180" : ""}`} />
+                          </button>
+                          <AnimatePresence>
+                            {showAgentPanel && (
+                              <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: "auto" }}
+                                exit={{ opacity: 0, height: 0 }}
+                                className="overflow-hidden"
+                              >
+                                <div className="pt-4 space-y-3">
+                                  {wpFavoriteGroupIds.length === 0 && (
+                                    <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                                      Favorite grupos com ★ acima para o agente enviar.
                                     </p>
+                                  )}
+                                  {wpFavoriteGroupIds.length > 0 && (
+                                    <p className="text-[10px] font-medium" style={{ color: "#FBBF24" }}>
+                                      ★ {wpFavoriteGroupIds.length} grupo{wpFavoriteGroupIds.length !== 1 ? "s" : ""} alvo
+                                    </p>
+                                  )}
+                                  <div className="flex gap-2">
+                                    <input
+                                      value={agentSendPrompt}
+                                      onChange={(e) => setAgentSendPrompt(e.target.value)}
+                                      placeholder="Ex: confirmar presença no evento"
+                                      className="flex-1 min-w-0 px-3 py-2 rounded-lg text-xs focus:outline-none"
+                                      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(185,255,75,0.2)", color: "#F0F0F0" }}
+                                    />
+                                    <button
+                                      onClick={doAgentBroadcast}
+                                      disabled={agentSending || !agentSendPrompt.trim() || wpFavoriteGroupIds.length === 0}
+                                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-semibold disabled:opacity-40 whitespace-nowrap"
+                                      style={{ background: "rgba(185,255,75,0.15)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.3)" }}
+                                    >
+                                      {agentSending ? <><RefreshCw className="w-3 h-3 animate-spin" /> Enviando…</> : <><Bot className="w-3 h-3" /> Enviar agora</>}
+                                    </button>
                                   </div>
-                                )}
-                              </div>
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
+                                  {agentSendResult && (
+                                    <div className="rounded-xl p-3 space-y-1" style={{ background: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.2)" }}>
+                                      <div className="flex items-center gap-2 text-xs font-semibold" style={{ color: "#34D399" }}>
+                                        <CheckCircle2 className="w-3.5 h-3.5" /> Enviado para {agentSendResult.ok}/{agentSendResult.total} grupos
+                                      </div>
+                                      <p className="text-[11px] leading-relaxed" style={{ color: "rgba(255,255,255,0.6)", whiteSpace: "pre-wrap" }}>
+                                        {agentSendResult.message}
+                                      </p>
+                                    </div>
+                                  )}
+                                </div>
+                              </motion.div>
+                            )}
+                          </AnimatePresence>
+                        </div>
                       </div>
                     )}
 
