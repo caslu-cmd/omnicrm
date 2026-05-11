@@ -43,6 +43,7 @@ export default function TomasPage() {
   const [etapa, setEtapa]         = useState<Etapa>("idle");
   const [statusMsg, setStatusMsg] = useState("");
   const [resultado, setResultado] = useState<Resultado | null>(null);
+  const [parcial, setParcial]     = useState<Resultado>({ copy: "", design: "", html: "" });
   const [abaAtiva, setAbaAtiva]   = useState<"preview" | "copy" | "design" | "html" | "publicar">("preview");
   const [previewMobile, setPreviewMobile] = useState(false);
   const [htmlEditado, setHtmlEditado]     = useState("");
