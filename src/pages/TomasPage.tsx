@@ -261,8 +261,16 @@ export default function TomasPage() {
             onBlur={(e) => (e.currentTarget.style.borderColor = "#2A2A3A")}
           />
 
-          {/* Upload — input transparente sobre a zona (mais confiável) */}
+          {/* Upload */}
           <div className="flex flex-col gap-2 flex-shrink-0">
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept=".pdf,.docx,.doc,.txt,.md"
+              style={{ display: "none" }}
+              onChange={(e) => { setArquivos(prev => [...prev, ...Array.from(e.target.files ?? [])]); e.target.value = ""; }}
+            />
             <div
               onDragOver={(e) => { e.preventDefault(); if (!gerandoAtivo) setDragOver(true); }}
               onDragLeave={() => setDragOver(false)}
@@ -273,22 +281,14 @@ export default function TomasPage() {
                 const files = Array.from(e.dataTransfer.files).filter(f => /\.(pdf|docx|doc|txt|md)$/i.test(f.name));
                 if (files.length) setArquivos(prev => [...prev, ...files]);
               }}
-              className="relative flex flex-col items-center justify-center gap-1 py-3 rounded-xl text-xs transition-all overflow-hidden"
+              onClick={() => { if (!gerandoAtivo) fileInputRef.current?.click(); }}
+              className="flex flex-col items-center justify-center gap-1 py-3 rounded-xl text-xs transition-all"
               style={{
                 background: dragOver ? "#B9FF4B0D" : "#141420",
                 border: `1.5px dashed ${dragOver ? "#B9FF4B" : arquivos.length > 0 ? "#B9FF4B55" : "#2A2A3A"}`,
                 color: dragOver ? "#B9FF4B" : arquivos.length > 0 ? "#B9FF4B" : "#555577",
+                cursor: gerandoAtivo ? "default" : "pointer",
               }}>
-              {/* Input invisível cobre toda a zona — qualquer clique abre o picker */}
-              {!gerandoAtivo && (
-                <input
-                  type="file"
-                  multiple
-                  accept=".pdf,.docx,.doc,.txt,.md"
-                  onChange={(e) => { setArquivos(prev => [...prev, ...Array.from(e.target.files ?? [])]); e.target.value = ""; }}
-                  style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%", height: "100%", zIndex: 1 }}
-                />
-              )}
               <Paperclip className="w-3.5 h-3.5" />
               <span>{dragOver ? "Solte os arquivos aqui" : arquivos.length > 0 ? `${arquivos.length} arquivo(s) anexado(s)` : "Arraste ou clique para selecionar"}</span>
               {!dragOver && <span className="text-[10px]" style={{ color: "#333355" }}>PDF, Word, TXT ou MD</span>}
