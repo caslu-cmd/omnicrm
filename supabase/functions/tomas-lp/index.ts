@@ -166,9 +166,15 @@ serve(async (req) => {
 
           const html = await callClaude(apiKey, TOMAS_SYSTEM, tomasContent, 8000);
 
-          // Extrai somente o HTML caso venha com texto ao redor
-          const htmlMatch = html.match(/<!DOCTYPE[\s\S]*<\/html>/i);
-          const htmlFinal = htmlMatch ? htmlMatch[0] : html;
+          // Extrai HTML: primeiro tenta code fence, depois DOCTYPE/html tag
+          let htmlFinal = html;
+          const fenceMatch = html.match(/```(?:html?)?\n?([\s\S]*?)```/i);
+          if (fenceMatch) {
+            htmlFinal = fenceMatch[1].trim();
+          } else {
+            const tagMatch = html.match(/<!DOCTYPE[\s\S]*<\/html>/i) ?? html.match(/<html[\s\S]*<\/html>/i);
+            if (tagMatch) htmlFinal = tagMatch[0].trim();
+          }
 
           sse(ctrl, { etapa: "html", status: "HTML pronto ✓", conteudo: htmlFinal });
 
