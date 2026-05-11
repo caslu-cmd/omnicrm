@@ -160,16 +160,38 @@ const WordPressPage = () => {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const historyRef = useRef<{ role: string; content: string }[]>([]);
 
+  const GRUPO_LICITA: WPSite = {
+    id: "grupo-licita",
+    name: "Grupo Licita",
+    url: "https://grupolicita.com.br",
+    username: "licita",
+    password: "Glct@2025",
+  };
+
   useEffect(() => {
     fetch(`${API}/api/sites`)
       .then(r => r.json())
-      .then(data => {
-        setSites(data);
+      .then(async (data: WPSite[]) => {
+        let list = data;
+        if (list.length === 0) {
+          try {
+            await fetch(`${API}/api/sites`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(GRUPO_LICITA),
+            });
+            list = await fetch(`${API}/api/sites`).then(r => r.json());
+          } catch { list = [GRUPO_LICITA]; }
+        }
+        setSites(list);
         const paramSite = searchParams.get("site");
-        const target = paramSite ? data.find((s: WPSite) => s.id === paramSite) : data[0];
+        const target = paramSite ? list.find((s) => s.id === paramSite) : list[0];
         if (target) setSelectedSite(target);
       })
-      .catch(() => {});
+      .catch(() => {
+        setSites([GRUPO_LICITA]);
+        setSelectedSite(GRUPO_LICITA);
+      });
   }, []);
 
   // quando a URL muda (clique no sidebar), sincroniza o site selecionado
@@ -288,7 +310,7 @@ const WordPressPage = () => {
       <motion.div variants={item} className="flex items-start justify-between gap-3 flex-wrap">
         <div>
           <h1 className="text-xl md:text-2xl font-bold font-display flex items-center gap-2">
-            <Globe className="h-6 w-6 text-primary" /> WordPress IA
+            <Globe className="h-6 w-6 text-primary" /> Sites
           </h1>
           <p className="text-xs text-muted-foreground mt-0.5">
             {sites.length} site{sites.length !== 1 ? "s" : ""} conectado{sites.length !== 1 ? "s" : ""} · Pixel gerencia seu conteúdo
