@@ -4563,6 +4563,15 @@ Regras:
                 )}
 
                 {/* ── APROVAÇÕES ── */}
+                {crmView === "calendar" && id && (
+                  <EditorialCalendarPanel
+                    clientId={id}
+                    clientName={client.name}
+                    clientSegment={(client as any).segment}
+                    accentColor={client.color}
+                  />
+                )}
+
                 {crmView === "approvals" && (
                   <div className="space-y-5">
 
