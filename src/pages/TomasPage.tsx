@@ -102,22 +102,25 @@ export default function TomasPage() {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token ?? "";
 
-      // Lê texto de arquivos txt/md e injeta no briefing
-      const fileContents: string[] = [];
+      // Prepara arquivos: PDF → base64 para Claude ler nativamente; txt/md → texto no briefing
+      const arquivosPayload: { name: string; base64: string; media_type: string }[] = [];
+      const textoExtra: string[] = [];
       for (const f of arquivos) {
         if (/\.(txt|md)$/i.test(f.name)) {
-          const text = await new Promise<string>((resolve) => {
-            const fr = new FileReader();
-            fr.onload = () => resolve(fr.result as string);
-            fr.readAsText(f, "utf-8");
+          const texto = await new Promise<string>((res) => {
+            const fr = new FileReader(); fr.onload = () => res(fr.result as string); fr.readAsText(f, "utf-8");
           });
-          fileContents.push(`[${f.name}]\n${text.trim()}`);
+          textoExtra.push(`[${f.name}]\n${texto.trim()}`);
         } else {
-          fileContents.push(`[Arquivo de referência: ${f.name}]`);
+          // PDF, DOCX, DOC — envia como base64 para a edge function (Claude lê PDFs nativamente)
+          const buf = await f.arrayBuffer();
+          const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+          const media = f.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : "application/octet-stream";
+          arquivosPayload.push({ name: f.name, base64: b64, media_type: media });
         }
       }
-      const briefingFinal = fileContents.length > 0
-        ? `${briefing}\n\n--- Materiais de referência ---\n${fileContents.join("\n\n")}`
+      const briefingFinal = textoExtra.length > 0
+        ? `${briefing}\n\n--- Materiais de referência (texto) ---\n${textoExtra.join("\n\n")}`
         : briefing;
 
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/tomas-lp`, {
@@ -126,7 +129,7 @@ export default function TomasPage() {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${token}`,
         },
-        body: JSON.stringify({ briefing: briefingFinal, client_name: clientName }),
+        body: JSON.stringify({ briefing: briefingFinal, client_name: clientName, arquivos: arquivosPayload }),
       });
 
       if (!resp.ok) throw new Error(`Erro ${resp.status}`);
