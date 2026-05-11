@@ -66,7 +66,6 @@ const clientTools = [
   { tab: "",             icon: LayoutDashboard, label: "Visão Geral" },
   { tab: "crm",          icon: Users,           label: "CRM" },
   { tab: "campaigns",    icon: Megaphone,       label: "Campanhas" },
-  { tab: "sites",        icon: Globe,           label: "Sites" },
   { tab: "teo",          icon: Code2,           label: "Site — Teo" },
   { tab: "agents",       icon: Bot,             label: "Agentes IA" },
   { tab: "sales-agents", icon: Zap,             label: "Agentes Autônomos" },
