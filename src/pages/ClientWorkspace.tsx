@@ -766,6 +766,8 @@ export default function ClientWorkspace() {
   const { user } = useAuth();
   const { setPageContext, clearPageContext } = usePageContext();
   const [openingPortal, setOpeningPortal] = useState(false);
+  const [siteDbPages, setSiteDbPages] = useState<any[]>([]);
+  const [siteDbPagesLoading, setSiteDbPagesLoading] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [sharePortalToken, setSharePortalToken] = useState<string | null>(null);
   const [sharePasswordInput, setSharePasswordInput] = useState("");
