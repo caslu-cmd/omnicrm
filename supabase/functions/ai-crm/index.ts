@@ -173,14 +173,7 @@ Crie um post excelente e otimizado para as plataformas indicadas. Responda SOMEN
   "rationale": "Por que esse conteúdo vai funcionar — em 1 frase."
 }`;
 
-      const anthropic = new Anthropic({ apiKey: anthropicKey });
-      const message = await anthropic.messages.create({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 1024,
-        messages: [{ role: "user", content: prompt }],
-      });
-
-      const raw = (message.content[0] as { type: string; text: string }).text.trim();
+      const raw = (await callAI(aiKey, prompt, 1024)).trim();
       const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim();
       let draft: { caption: string; hashtags: string[]; best_time: string; rationale: string };
       try { draft = JSON.parse(cleaned); }
