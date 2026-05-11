@@ -261,19 +261,9 @@ export default function TomasPage() {
             onBlur={(e) => (e.currentTarget.style.borderColor = "#2A2A3A")}
           />
 
-          {/* Upload — drag-and-drop + clique via label */}
+          {/* Upload — input transparente sobre a zona (mais confiável) */}
           <div className="flex flex-col gap-2 flex-shrink-0">
-            <input
-              id="tomas-file-input"
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept=".pdf,.docx,.doc,.txt,.md"
-              className="hidden"
-              onChange={(e) => { setArquivos(prev => [...prev, ...Array.from(e.target.files ?? [])]); e.target.value = ""; }}
-            />
-            <label
-              htmlFor={gerandoAtivo ? undefined : "tomas-file-input"}
+            <div
               onDragOver={(e) => { e.preventDefault(); if (!gerandoAtivo) setDragOver(true); }}
               onDragLeave={() => setDragOver(false)}
               onDrop={(e) => {
@@ -283,26 +273,34 @@ export default function TomasPage() {
                 const files = Array.from(e.dataTransfer.files).filter(f => /\.(pdf|docx|doc|txt|md)$/i.test(f.name));
                 if (files.length) setArquivos(prev => [...prev, ...files]);
               }}
-              className="flex flex-col items-center justify-center gap-1 py-3 rounded-xl text-xs transition-all"
+              className="relative flex flex-col items-center justify-center gap-1 py-3 rounded-xl text-xs transition-all overflow-hidden"
               style={{
                 background: dragOver ? "#B9FF4B0D" : "#141420",
                 border: `1.5px dashed ${dragOver ? "#B9FF4B" : arquivos.length > 0 ? "#B9FF4B55" : "#2A2A3A"}`,
                 color: dragOver ? "#B9FF4B" : arquivos.length > 0 ? "#B9FF4B" : "#555577",
-                cursor: gerandoAtivo ? "default" : "pointer",
-                display: "flex",
               }}>
+              {/* Input invisível cobre toda a zona — qualquer clique abre o picker */}
+              {!gerandoAtivo && (
+                <input
+                  type="file"
+                  multiple
+                  accept=".pdf,.docx,.doc,.txt,.md"
+                  onChange={(e) => { setArquivos(prev => [...prev, ...Array.from(e.target.files ?? [])]); e.target.value = ""; }}
+                  style={{ position: "absolute", inset: 0, opacity: 0, cursor: "pointer", width: "100%", height: "100%", zIndex: 1 }}
+                />
+              )}
               <Paperclip className="w-3.5 h-3.5" />
               <span>{dragOver ? "Solte os arquivos aqui" : arquivos.length > 0 ? `${arquivos.length} arquivo(s) anexado(s)` : "Arraste ou clique para selecionar"}</span>
               {!dragOver && <span className="text-[10px]" style={{ color: "#333355" }}>PDF, Word, TXT ou MD</span>}
-            </label>
+            </div>
             {arquivos.length > 0 && (
               <div className="flex flex-col gap-1 max-h-20 overflow-y-auto">
                 {arquivos.map((f, i) => (
                   <div key={i} className="flex items-center gap-2 px-2 py-1 rounded-lg" style={{ background: "#141420" }}>
                     <FileText className="w-3 h-3 flex-shrink-0" style={{ color: "#B9FF4B" }} />
                     <span className="text-[10px] truncate flex-1" style={{ color: "#888899" }}>{f.name}</span>
-                    <button onClick={(ev) => { ev.stopPropagation(); setArquivos(prev => prev.filter((_, j) => j !== i)); }}
-                      disabled={gerandoAtivo} className="text-[10px]" style={{ color: "#444466" }}>✕</button>
+                    <button onClick={() => setArquivos(prev => prev.filter((_, j) => j !== i))}
+                      className="text-[10px]" style={{ color: "#444466" }}>✕</button>
                   </div>
                 ))}
               </div>
