@@ -312,6 +312,8 @@ export default function ClientPortal() {
       .order("event_date", { ascending: true }).limit(50)
       .then(({ data: rows }: any) => { if (rows) setCalendarEvents(rows); });
   }, [data?.client?.workspace_id]);
+
+  const [portalCourses, setPortalCourses] = useState<any[]>([]);
   const [portalChecklists, setPortalChecklists] = useState<Record<string, any[]>>({});
   const [expandedPortalCourse, setExpandedPortalCourse] = useState<string | null>(null);
   const [selectedPortalPhase, setSelectedPortalPhase] = useState<Record<string, string>>({});
