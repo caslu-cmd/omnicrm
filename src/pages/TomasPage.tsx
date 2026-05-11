@@ -434,8 +434,8 @@ export default function TomasPage() {
               </motion.div>
             )}
 
-            {/* Gerando */}
-            {gerandoAtivo && (
+            {/* Gerando — só ocupa toda a área enquanto não há nenhum conteúdo parcial */}
+            {gerandoAtivo && !temAlgumConteudo && (
               <motion.div key="gerando" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                 className="h-full flex flex-col items-center justify-center gap-8">
                 <div className="relative">
@@ -466,34 +466,47 @@ export default function TomasPage() {
               </motion.div>
             )}
 
-            {/* Preview */}
-            {resultado && abaAtiva === "preview" && (
+            {/* Preview — fica visível assim que houver HTML (parcial ou final) */}
+            {temAlgumConteudo && abaAtiva === "preview" && (
               <motion.div key="preview" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                className="h-full flex flex-col items-center overflow-auto py-4" style={{ background: "#0D0D16" }}>
-                <div className="rounded-xl overflow-hidden shadow-2xl transition-all duration-300"
-                  style={{ width: previewMobile ? 390 : "95%", maxWidth: previewMobile ? 390 : 1280, border: "1px solid #2A2A3A" }}>
-                  <iframe srcDoc={htmlParaExibir} className="w-full" style={{ height: "calc(100vh - 10rem)", border: "none" }}
-                    title="Preview" sandbox="allow-scripts allow-same-origin" />
-                </div>
+                className="h-full flex flex-col items-center overflow-auto py-4 relative" style={{ background: "#0D0D16" }}>
+                {gerandoAtivo && (
+                  <div className="absolute top-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-3 py-1.5 rounded-full text-[11px] font-medium z-10"
+                    style={{ background: "#0E1A08", border: "1px solid #B9FF4B55", color: "#B9FF4B" }}>
+                    <Loader2 className="w-3 h-3 animate-spin" /> {statusMsg || "Gerando..."}
+                  </div>
+                )}
+                {htmlParaExibir ? (
+                  <div className="rounded-xl overflow-hidden shadow-2xl transition-all duration-300"
+                    style={{ width: previewMobile ? 390 : "95%", maxWidth: previewMobile ? 390 : 1280, border: "1px solid #2A2A3A" }}>
+                    <iframe srcDoc={htmlParaExibir} className="w-full" style={{ height: "calc(100vh - 10rem)", border: "none" }}
+                      title="Preview" sandbox="allow-scripts allow-same-origin" />
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full gap-3" style={{ color: "#555577" }}>
+                    <Loader2 className="w-6 h-6 animate-spin" style={{ color: "#B9FF4B" }} />
+                    <p className="text-sm">Aguardando o Tomás finalizar o HTML...</p>
+                  </div>
+                )}
               </motion.div>
             )}
 
             {/* Copy */}
-            {resultado && abaAtiva === "copy" && (
+            {temAlgumConteudo && abaAtiva === "copy" && (
               <motion.div key="copy" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full overflow-auto p-6">
-                <pre className="whitespace-pre-wrap text-sm leading-relaxed" style={{ color: "#C0C0D0", fontFamily: "inherit", maxWidth: 760 }}>{resultado.copy}</pre>
+                <pre className="whitespace-pre-wrap text-sm leading-relaxed" style={{ color: "#C0C0D0", fontFamily: "inherit", maxWidth: 760 }}>{resultado?.copy || parcial.copy || "Aguardando Beatriz..."}</pre>
               </motion.div>
             )}
 
             {/* Design */}
-            {resultado && abaAtiva === "design" && (
+            {temAlgumConteudo && abaAtiva === "design" && (
               <motion.div key="design" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full overflow-auto p-6">
-                <pre className="whitespace-pre-wrap text-sm leading-relaxed" style={{ color: "#C0C0D0", fontFamily: "inherit", maxWidth: 760 }}>{resultado.design}</pre>
+                <pre className="whitespace-pre-wrap text-sm leading-relaxed" style={{ color: "#C0C0D0", fontFamily: "inherit", maxWidth: 760 }}>{resultado?.design || parcial.design || "Aguardando Designer..."}</pre>
               </motion.div>
             )}
 
             {/* HTML (com edição) */}
-            {resultado && abaAtiva === "html" && (
+            {temAlgumConteudo && abaAtiva === "html" && (
               <motion.div key="html" initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="h-full overflow-hidden">
                 {editandoHtml ? (
                   <textarea
