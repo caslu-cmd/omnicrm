@@ -114,7 +114,12 @@ export default function TomasPage() {
         } else {
           // PDF, DOCX, DOC — envia como base64 para a edge function (Claude lê PDFs nativamente)
           const buf = await f.arrayBuffer();
-          const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+          const bytes = new Uint8Array(buf);
+          let binary = "";
+          for (let i = 0; i < bytes.length; i += 8192) {
+            binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+          }
+          const b64 = btoa(binary);
           const media = f.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : "application/octet-stream";
           arquivosPayload.push({ name: f.name, base64: b64, media_type: media });
         }
