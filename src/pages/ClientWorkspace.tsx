@@ -779,7 +779,7 @@ export default function ClientWorkspace() {
   const [shareCopiedWithPwd, setShareCopiedWithPwd] = useState(false);
   const [openingShare, setOpeningShare] = useState(false);
   const [tasks, setTasks] = useState(MOCK_TASKS_TEMPLATE);
-  const [crmView, setCrmView] = useState<"contacts" | "pipeline" | "approvals" | "insights" | "whatsapp" | "deliverables">("contacts");
+  const [crmView, setCrmView] = useState<"contacts" | "pipeline" | "approvals" | "insights" | "whatsapp" | "deliverables" | "calendar">("contacts");
   const [deliverables, setDeliverables] = useState<any[]>([]);
   const [delivLoading, setDelivLoading] = useState(false);
   const [delivForm, setDelivForm] = useState({ title: "", category: "", description: "", done_at: new Date().toISOString().slice(0, 10), visible_to_client: true, status: "completed" as "completed" | "in_progress" });
