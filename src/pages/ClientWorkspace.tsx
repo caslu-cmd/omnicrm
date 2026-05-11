@@ -1212,6 +1212,7 @@ export default function ClientWorkspace() {
   const [agentChats, setAgentChats] = useState<Record<string, {role:"user"|"assistant"; content:string}[]>>(() => {
     try { const raw = localStorage.getItem(`agent-chats-${id}`); return raw ? JSON.parse(raw) : {}; } catch { return {}; }
   });
+  const [agentChatsLoaded, setAgentChatsLoaded] = useState(false);
   const [agentChatInput, setAgentChatInput] = useState("");
   const [agentChatLoading, setAgentChatLoading] = useState(false);
   const agentChatEndRef = useRef<HTMLDivElement>(null);
@@ -1486,6 +1487,7 @@ export default function ClientWorkspace() {
     setAgentChats((prev) => {
       const updated = { ...prev, [agentId]: msgs };
       localStorage.setItem(`agent-chats-${id}`, JSON.stringify(updated));
+      saveAgentChatsToDb(updated);
       return updated;
     });
   };
@@ -2161,6 +2163,29 @@ Contexto do cliente: ${client.name}${(client as any).segment ? ` — segmento ${
     setWpCredsSaving(false);
     setWpCredsOpen(false);
     toast.success("Credenciais ZApi salvas!");
+  };
+
+  const loadAgentChatsFromDb = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    const { data } = await (supabase as any).from("integrations")
+      .select("config").eq("user_id", session.user.id).eq("connector_name", `agent_chats_${id}`).maybeSingle();
+    if (data?.config?.chats) {
+      setAgentChats(data.config.chats);
+      localStorage.setItem(`agent-chats-${id}`, JSON.stringify(data.config.chats));
+    }
+    setAgentChatsLoaded(true);
+  };
+
+  const saveAgentChatsToDb = async (chats: Record<string, {role:"user"|"assistant"; content:string}[]>) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    await (supabase as any).from("integrations").upsert({
+      user_id: session.user.id,
+      connector_name: `agent_chats_${id}`,
+      config: { chats },
+      connected: true, status: "active",
+    }, { onConflict: "user_id,connector_name" });
   };
 
   const loadFavoriteGroups = async () => {
@@ -2839,6 +2864,7 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
   useEffect(() => { if (activeTab === "integrations" && id) fetchSocialIntegrations(); }, [activeTab, id]);
   useEffect(() => { if (activeTab === "courses" && id) loadDbCourses(); }, [activeTab, id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (activeTab === "sales-agents" && id) { fetchSalesAgents(); loadAgentChannelConfig(); loadAgentLogs(); loadSocialAccounts(); } }, [activeTab, id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (activeTab === "agents" && id && !agentChatsLoaded) loadAgentChatsFromDb(); }, [activeTab, id, agentChatsLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchOverviewData = async () => {
     if (!id) return;
@@ -6728,7 +6754,7 @@ Regras:
                               )}
                               {agent.id === "tomas" && (
                                 <button
-                                  onClick={() => navigate("/tomas")}
+                                  onClick={() => window.open('/tomas', '_blank')}
                                   className="px-2.5 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1 whitespace-nowrap"
                                   style={{ background: `${agent.color}12`, color: agent.color, border: `1px solid ${agent.color}25` }}>
                                   🖥️ Criar LP
@@ -6736,7 +6762,7 @@ Regras:
                               )}
                               {agent.id === "rico" && (
                                 <button
-                                  onClick={() => navigate("/conta-report")}
+                                  onClick={() => window.open('/conta-report', '_blank')}
                                   className="px-2.5 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1 whitespace-nowrap"
                                   style={{ background: `${agent.color}18`, color: agent.color, border: `1px solid ${agent.color}40` }}>
                                   💰 Abrir
@@ -6744,7 +6770,7 @@ Regras:
                               )}
                               {agent.id === "apolo" && (
                                 <button
-                                  onClick={() => navigate("/apostila")}
+                                  onClick={() => window.open('/apostila', '_blank')}
                                   className="px-2.5 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1 whitespace-nowrap"
                                   style={{ background: `${agent.color}18`, color: agent.color, border: `1px solid ${agent.color}40` }}>
                                   📚 Abrir
@@ -6934,8 +6960,7 @@ Regras:
                                     const params = new URLSearchParams();
                                     params.set("clientName", client.name);
                                     if (agentInstruction.trim()) params.set("briefing", agentInstruction.trim());
-                                    setSelectedAgentId(null);
-                                    navigate(`/tomas?${params.toString()}`);
+                                    window.open(`/tomas?${params.toString()}`, '_blank');
                                   }}
                                   className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all"
                                   style={{ background: "#34D399", color: "#07080A", boxShadow: "0 0 20px -4px #34D39960" }}
