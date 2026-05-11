@@ -5294,6 +5294,53 @@ Regras:
                           {wpTargetTab === "contatos" && (
                             <div>
                               <h3 className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "rgba(255,255,255,0.3)" }}>Leads do CRM</h3>
+
+                              {/* Quick-select por Grupo do CRM */}
+                              {dbCrmGroups.length > 0 && (
+                                <div className="mb-3 p-3 rounded-xl" style={{ background: "rgba(37,211,102,0.04)", border: "1px solid rgba(37,211,102,0.15)" }}>
+                                  <div className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: "#25D366" }}>
+                                    📋 Selecionar por grupo do CRM
+                                  </div>
+                                  <div className="flex flex-wrap gap-2">
+                                    {dbCrmGroups.map((g: any) => {
+                                      const members = dbGroupMembers[g.id] ?? [];
+                                      const phones = members.map((m: any) => (m.whatsapp ?? m.phone ?? "").toString().trim()).filter(Boolean);
+                                      if (phones.length === 0) return (
+                                        <span key={g.id} className="text-[10px] px-2 py-1 rounded-lg opacity-50"
+                                          style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                                          {g.name} (0)
+                                        </span>
+                                      );
+                                      const allSel = phones.every((p: string) => wpSelectedContacts.includes(p));
+                                      return (
+                                        <button key={g.id}
+                                          onClick={() => {
+                                            setWpSelectedContacts((prev: string[]) => {
+                                              const set = new Set(prev);
+                                              if (allSel) phones.forEach((p: string) => set.delete(p));
+                                              else phones.forEach((p: string) => set.add(p));
+                                              return Array.from(set);
+                                            });
+                                          }}
+                                          className="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-lg font-semibold transition-all"
+                                          style={allSel
+                                            ? { background: "#25D366", color: "#07080A" }
+                                            : { background: "rgba(37,211,102,0.1)", color: "#25D366", border: `1px solid ${g.color ?? "rgba(37,211,102,0.3)"}` }}>
+                                          {allSel ? "✓ " : ""}{g.name} ({phones.length})
+                                        </button>
+                                      );
+                                    })}
+                                    {wpSelectedContacts.length > 0 && (
+                                      <button onClick={() => setWpSelectedContacts([])}
+                                        className="text-[10px] px-2 py-1 rounded-lg"
+                                        style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.5)" }}>
+                                        Limpar seleção
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+                              )}
+
                               {(dbContacts.length === 0 && (!client.contacts || client.contacts.length === 0))
                                 ? <div className="py-6 text-center text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhum contato com telefone cadastrado.</div>
                                 : <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
@@ -10555,6 +10602,18 @@ Regras:
             ══════════════════════════════════════════════════════ */}
             {activeTab === "social" && (
               <SocialMediaTab clientId={client.id} clientName={client.name} clientColor={client.color} />
+            )}
+
+            {/* ══════════════════════════════════════════════════════
+                CALENDÁRIO EDITORIAL (sidebar)
+            ══════════════════════════════════════════════════════ */}
+            {activeTab === "calendario" && id && (
+              <EditorialCalendarPanel
+                clientId={id}
+                clientName={client.name}
+                clientSegment={(client as any).segment}
+                accentColor={client.color}
+              />
             )}
 
             {/* ══════════════════════════════════════════════════════
