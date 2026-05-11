@@ -166,14 +166,24 @@ serve(async (req) => {
 
           const html = await callClaude(apiKey, TOMAS_SYSTEM, tomasContent, 8000);
 
-          // Extrai HTML: primeiro tenta code fence, depois DOCTYPE/html tag
-          let htmlFinal = html;
-          const fenceMatch = html.match(/```(?:html?)?\n?([\s\S]*?)```/i);
-          if (fenceMatch) {
-            htmlFinal = fenceMatch[1].trim();
-          } else {
-            const tagMatch = html.match(/<!DOCTYPE[\s\S]*<\/html>/i) ?? html.match(/<html[\s\S]*<\/html>/i);
-            if (tagMatch) htmlFinal = tagMatch[0].trim();
+          // Extrai HTML puro da resposta do Claude (pode vir com ou sem code fence)
+          let htmlFinal = html.trim();
+          if (htmlFinal.startsWith("```")) {
+            // Remove linha da fence de abertura (```html ou ```)
+            const lines = htmlFinal.split("\n");
+            lines.shift();
+            // Remove linha da fence de fechamento se existir
+            if (lines.length > 0 && lines[lines.length - 1].trimEnd() === "```") {
+              lines.pop();
+            }
+            htmlFinal = lines.join("\n").trim();
+          }
+          // Garante que começa com < (descarta qualquer texto introdutório)
+          if (!htmlFinal.startsWith("<")) {
+            const docIdx = htmlFinal.indexOf("<!DOCTYPE");
+            const htmlIdx = htmlFinal.indexOf("<html");
+            const start = docIdx >= 0 ? docIdx : htmlIdx >= 0 ? htmlIdx : -1;
+            if (start >= 0) htmlFinal = htmlFinal.slice(start).trim();
           }
 
           sse(ctrl, { etapa: "html", status: "HTML pronto ✓", conteudo: htmlFinal });
