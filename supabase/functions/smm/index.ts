@@ -698,12 +698,12 @@ Deno.serve(async (req) => {
       return respond({ metrics });
     }
 
-    // ── Ads OAuth URL (Meta Ads with ads_read scope) ─────────────
+    // ── Ads OAuth URL (Meta Ads with ads_read + ads_management) ──
     if (action === "ads-oauth-url") {
       if (!metaAppId) return respond({ error: "META_APP_ID não configurado" }, 503);
       const { client_id } = body;
       const state = btoa(JSON.stringify({ userId, clientId: client_id, platform: "meta_ads", ts: Date.now() }));
-      const adsScope = META_SCOPE + ",ads_read";
+      const adsScope = META_SCOPE + ",ads_read,ads_management";
       const url =
         `https://www.facebook.com/v22.0/dialog/oauth` +
         `?client_id=${metaAppId}` +
@@ -821,6 +821,188 @@ Deno.serve(async (req) => {
       const result = await res.json();
       if (result.error) return respond({ error: result.error.message }, 400);
       return respond({ success: true });
+    }
+
+    // ── Parse Campaign Briefing with Claude ──────────────────────
+    if (action === "parse-campaign-briefing") {
+      const { briefing } = body;
+      if (!briefing) return respond({ error: "briefing obrigatório" }, 400);
+      const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
+      if (!anthropicKey) return respond({ parsed: null, error: "ANTHROPIC_API_KEY não configurado" });
+      const prompt = `Você é especialista em Meta Ads. Analise o briefing e extraia parâmetros para criar uma campanha. Retorne APENAS JSON válido, sem explicações.
+
+Briefing: ${briefing}
+
+JSON esperado:
+{
+  "name": "nome sugerido para a campanha",
+  "objective": "OUTCOME_TRAFFIC|OUTCOME_LEADS|OUTCOME_AWARENESS|OUTCOME_ENGAGEMENT|OUTCOME_SALES",
+  "optimization_goal": "LINK_CLICKS|LEAD_GENERATION|REACH|POST_ENGAGEMENT|CONVERSATIONS|OFFSITE_CONVERSIONS",
+  "daily_budget_brl": número (orçamento diário em reais, mínimo 6),
+  "age_min": número (18-65),
+  "age_max": número (18-65),
+  "genders": "all|male|female",
+  "headline": "título do anúncio (máx 40 chars)",
+  "body_text": "texto do anúncio (máx 125 chars)",
+  "call_to_action": "LEARN_MORE|SIGN_UP|CONTACT_US|GET_OFFER|BUY_NOW"
+}`;
+      const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: { "x-api-key": anthropicKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+        body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1024, messages: [{ role: "user", content: prompt }] }),
+      });
+      const aiData = await aiRes.json();
+      try {
+        const text = aiData.content?.[0]?.text ?? "{}";
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+        return respond({ parsed });
+      } catch {
+        return respond({ parsed: null, error: "Falha ao interpretar resposta da IA" });
+      }
+    }
+
+    // ── Create Meta Campaign (Campaign + Ad Set + optional Creative + Ad) ──
+    if (action === "create-meta-campaign") {
+      const { client_id, campaign: c } = body;
+      if (!client_id || !c) return respond({ error: "client_id e campaign obrigatórios" }, 400);
+
+      const { data: conn } = await supabase.from("social_connections")
+        .select("account_id,access_token")
+        .eq("user_id", userId).eq("client_id", client_id)
+        .eq("platform", "meta_ads").eq("connected", true).maybeSingle();
+      if (!conn) return respond({ error: "Meta Ads não conectado" }, 400);
+
+      const token = deobfuscate(conn.access_token, encKey);
+      const dailyBudget = Math.round((parseFloat(c.daily_budget_brl) || 30) * 100);
+
+      // 1. Campaign
+      const campRes = await fetch(`${GRAPH}/${conn.account_id}/campaigns`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: c.name || "Campanha criada pela IA",
+          objective: c.objective || "OUTCOME_TRAFFIC",
+          status: "PAUSED",
+          special_ad_categories: [],
+          access_token: token,
+        }),
+      });
+      const campData = await campRes.json();
+      if (campData.error) {
+        const needsReconnect = [200, 10, 190, 102].includes(campData.error?.code);
+        return respond({ error: campData.error.message, reconnect_required: needsReconnect }, 400);
+      }
+
+      // 2. Targeting
+      const targeting: Record<string, unknown> = {
+        age_min: c.age_min || 18, age_max: c.age_max || 65,
+        geo_locations: { countries: ["BR"] },
+      };
+      if (c.genders === "male") targeting.genders = [1];
+      else if (c.genders === "female") targeting.genders = [2];
+
+      // 3. Ad Set
+      const adsetBody: Record<string, unknown> = {
+        name: `${c.name || "Ad Set"} — Conjunto`,
+        campaign_id: campData.id,
+        daily_budget: dailyBudget,
+        billing_event: "IMPRESSIONS",
+        optimization_goal: c.optimization_goal || "LINK_CLICKS",
+        bid_strategy: "LOWEST_COST_WITHOUT_CAP",
+        targeting,
+        status: "PAUSED",
+        access_token: token,
+      };
+      if (c.start_time) adsetBody.start_time = c.start_time;
+      if (c.end_time) adsetBody.end_time = c.end_time;
+
+      const adsetRes = await fetch(`${GRAPH}/${conn.account_id}/adsets`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(adsetBody),
+      });
+      const adsetData = await adsetRes.json();
+      if (adsetData.error) return respond({ error: adsetData.error.message, campaign_id: campData.id }, 400);
+
+      // 4. Creative + Ad (optional — requires page_id)
+      let creativeId: string | null = null;
+      let adId: string | null = null;
+      if (c.page_id && (c.image_url || c.destination_url)) {
+        const linkData: Record<string, unknown> = {
+          link: c.destination_url || "https://facebook.com",
+          message: c.body_text || "",
+          name: c.headline || c.name,
+        };
+        if (c.image_url) linkData.image_url = c.image_url;
+        if (c.call_to_action) linkData.call_to_action = { type: c.call_to_action };
+
+        const creativeRes = await fetch(`${GRAPH}/${conn.account_id}/adcreatives`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: `${c.name} — Criativo`,
+            object_story_spec: { page_id: c.page_id, link_data: linkData },
+            access_token: token,
+          }),
+        });
+        const creativeData = await creativeRes.json();
+        if (!creativeData.error) {
+          creativeId = creativeData.id;
+          const adRes = await fetch(`${GRAPH}/${conn.account_id}/ads`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: `${c.name} — Anúncio`,
+              adset_id: adsetData.id,
+              creative: { creative_id: creativeId },
+              status: "PAUSED",
+              access_token: token,
+            }),
+          });
+          const adData = await adRes.json();
+          if (!adData.error) adId = adData.id;
+        }
+      }
+
+      return respond({
+        success: true,
+        campaign_id: campData.id,
+        adset_id: adsetData.id,
+        creative_id: creativeId,
+        ad_id: adId,
+        has_creative: !!creativeId,
+      });
+    }
+
+    // ── Ads Debug — raw Meta API responses for diagnosis ─────────
+    if (action === "ads-debug") {
+      const { client_id } = body;
+      if (!client_id) return respond({ error: "client_id obrigatório" }, 400);
+
+      const { data: conn } = await supabase.from("social_connections")
+        .select("account_id,access_token,account_name")
+        .eq("user_id", userId).eq("client_id", client_id)
+        .eq("platform", "meta_ads").eq("connected", true).maybeSingle();
+      if (!conn) return respond({ connected: false });
+
+      const token = deobfuscate(conn.access_token, encKey);
+
+      const [permRes, adAccRes, insRes, campRes] = await Promise.all([
+        fetch(`${GRAPH}/me/permissions?access_token=${token}`),
+        fetch(`${GRAPH}/me/adaccounts?fields=id,name,account_status,currency&access_token=${token}`),
+        fetch(`${GRAPH}/${conn.account_id}/insights?fields=spend,impressions,clicks,reach&date_preset=last_30d&access_token=${token}`),
+        fetch(`${GRAPH}/${conn.account_id}/campaigns?fields=id,name,status,objective&limit=10&access_token=${token}`),
+      ]);
+
+      const [permissions, adAccounts, insights, campaigns] = await Promise.all([
+        permRes.json(), adAccRes.json(), insRes.json(), campRes.json(),
+      ]);
+
+      return respond({
+        stored_account_id: conn.account_id,
+        stored_account_name: conn.account_name,
+        permissions,
+        ad_accounts: adAccounts,
+        insights_raw: insights,
+        campaigns_raw: campaigns,
+      });
     }
 
     // ── Google Ads OAuth URL ──────────────────────────────────────

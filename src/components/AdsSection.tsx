@@ -1,14 +1,12 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   TrendingUp, DollarSign, MousePointer, Eye, Target,
-  RefreshCw, Power, Pause, Play, AlertCircle, Loader2,
-  ChevronDown, ChevronUp, BarChart2,
+  RefreshCw, AlertCircle, Loader2, BarChart2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
-// ── Types ──────────────────────────────────────────────────────
 interface MetaAdsMetrics {
   connected: boolean;
   has_data?: boolean;
@@ -23,19 +21,6 @@ interface MetaAdsMetrics {
   reach?: number;
   roas?: number;
   error?: string;
-}
-
-interface AdCampaign {
-  id: string;
-  name: string;
-  status: "ACTIVE" | "PAUSED" | "ARCHIVED" | "DELETED";
-  objective: string;
-  spend: number;
-  impressions: number;
-  clicks: number;
-  ctr: number;
-  cpc: number;
-  reach: number;
 }
 
 async function callFn(body: Record<string, unknown>) {
@@ -65,7 +50,6 @@ const DATE_PRESETS = [
   { label: "90 dias", value: "last_90d" },
 ];
 
-// ── Component ──────────────────────────────────────────────────
 export default function AdsSection({
   clientId,
   clientColor = "#B9FF4B",
@@ -75,42 +59,25 @@ export default function AdsSection({
 }) {
   const [datePreset, setDatePreset] = useState("last_30d");
   const [metaMetrics, setMetaMetrics] = useState<MetaAdsMetrics | null>(null);
-  const [campaigns, setCampaigns] = useState<AdCampaign[]>([]);
   const [googleConn, setGoogleConn] = useState<boolean>(false);
   const [loadingMeta, setLoadingMeta] = useState(false);
-  const [loadingCampaigns, setLoadingCampaigns] = useState(false);
   const [connectingMeta, setConnectingMeta] = useState(false);
   const [connectingGoogle, setConnectingGoogle] = useState(false);
-  const [togglingId, setTogglingId] = useState<string | null>(null);
-  const [showCampaigns, setShowCampaigns] = useState(true);
-  const pendingStateRef = useRef("");
 
   const s = (o: number) => `rgba(255,255,255,${o})`;
 
-  // ── Load Meta Ads metrics ──────────────────────────────────
   const loadMetaMetrics = useCallback(async () => {
     setLoadingMeta(true);
     try {
       const data = await callFn({ action: "ads-metrics", client_id: clientId, date_preset: datePreset });
       setMetaMetrics(data);
-    } catch (e: any) {
+    } catch {
       setMetaMetrics({ connected: false });
     } finally {
       setLoadingMeta(false);
     }
   }, [clientId, datePreset]);
 
-  const loadCampaigns = useCallback(async () => {
-    setLoadingCampaigns(true);
-    try {
-      const data = await callFn({ action: "ads-campaigns", client_id: clientId, date_preset: datePreset });
-      setCampaigns(data.campaigns ?? []);
-    } catch (e: any) {
-      toast.error(e?.message ?? "Erro ao carregar campanhas");
-    } finally { setLoadingCampaigns(false); }
-  }, [clientId, datePreset]);
-
-  // ── Check Google Ads connection ───────────────────────────
   const checkGoogleConn = useCallback(async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
@@ -130,36 +97,27 @@ export default function AdsSection({
     checkGoogleConn();
   }, [loadMetaMetrics, checkGoogleConn]);
 
-  useEffect(() => {
-    if (metaMetrics?.connected) loadCampaigns();
-  }, [metaMetrics?.connected, loadCampaigns]);
-
-  // ── Meta Ads OAuth popup ───────────────────────────────────
   const connectMetaAds = async () => {
     setConnectingMeta(true);
     try {
       const data = await callFn({ action: "ads-oauth-url", client_id: clientId });
       const popup = window.open(data.url, "meta-ads-oauth", "width=600,height=700,popup=1");
 
-      const cleanup = (ti: ReturnType<typeof setTimeout>, si: ReturnType<typeof setInterval>) => {
+      let storageId: ReturnType<typeof setInterval>;
+      const cleanup = (ti: ReturnType<typeof setTimeout>) => {
         clearTimeout(ti);
-        clearInterval(si);
+        clearInterval(storageId);
         window.removeEventListener("message", handler);
       };
 
-      // Timeout: reset after 2 minutes if nothing arrives
       const timeoutId = setTimeout(() => {
-        cleanup(timeoutId, storageId);
+        cleanup(timeoutId);
         setConnectingMeta(false);
         toast.error("Tempo esgotado. Tente conectar novamente.");
       }, 120_000);
 
-      // storageId declared below; forward-referenced via closure — hoisted with let
-      let storageId: ReturnType<typeof setInterval>;
-
       const handler = async (e: MessageEvent) => {
         const isAds = e.data?.type === "meta-ads-oauth-exchange";
-        // fallback: OAuthCallbackPage may send "meta-oauth-exchange" if state decode fails
         const isFallback = e.data?.type === "meta-oauth-exchange" && (() => {
           try {
             const b64 = (e.data.state ?? "").replace(/-/g, "+").replace(/_/g, "/");
@@ -169,44 +127,31 @@ export default function AdsSection({
         })();
 
         if (isAds || isFallback) {
-          cleanup(timeoutId, storageId);
+          cleanup(timeoutId);
           const { code, state } = e.data;
           try {
-            const res = await callFn({
-              action: "oauth-callback",
-              code, state,
-              redirect_uri: "https://caluagencia.com.br/oauth/meta",
-            });
-            if (res.success) {
-              toast.success(`Meta Ads conectado: ${res.account_name}`);
-              loadMetaMetrics();
-            }
+            const res = await callFn({ action: "oauth-callback", code, state, redirect_uri: "https://caluagencia.com.br/oauth/meta" });
+            if (res.success) { toast.success(`Meta Ads conectado: ${res.account_name}`); loadMetaMetrics(); }
           } catch (err: any) {
             toast.error(err.message ?? "Erro ao conectar Meta Ads");
-          } finally {
-            setConnectingMeta(false);
-            popup?.close();
-          }
+          } finally { setConnectingMeta(false); popup?.close(); }
         }
         if (e.data?.type === "meta-ads-oauth-error") {
-          cleanup(timeoutId, storageId);
+          cleanup(timeoutId);
           toast.error(e.data.error ?? "Erro ao conectar");
           setConnectingMeta(false);
         }
       };
       window.addEventListener("message", handler);
 
-      // sessionStorage fallback (new-tab flow)
       storageId = setInterval(() => {
         const pending = sessionStorage.getItem("meta-ads-oauth-pending");
         if (pending) {
           sessionStorage.removeItem("meta-ads-oauth-pending");
-          cleanup(timeoutId, storageId);
+          cleanup(timeoutId);
           const { code, state, redirect_uri } = JSON.parse(pending);
           callFn({ action: "oauth-callback", code, state, redirect_uri })
-            .then((res) => {
-              if (res.success) { toast.success(`Meta Ads conectado: ${res.account_name}`); loadMetaMetrics(); }
-            })
+            .then((res) => { if (res.success) { toast.success(`Meta Ads conectado: ${res.account_name}`); loadMetaMetrics(); } })
             .catch((e) => toast.error(e.message))
             .finally(() => setConnectingMeta(false));
         }
@@ -217,13 +162,11 @@ export default function AdsSection({
     }
   };
 
-  // ── Google Ads OAuth popup ────────────────────────────────
   const connectGoogleAds = async () => {
     setConnectingGoogle(true);
     try {
       const data = await callFn({ action: "google-ads-oauth-url", client_id: clientId });
       const popup = window.open(data.url, "google-ads-oauth", "width=600,height=700,popup=1");
-
       const handler = async (e: MessageEvent) => {
         if (e.data?.type === "google-ads-oauth-exchange") {
           window.removeEventListener("message", handler);
@@ -233,10 +176,7 @@ export default function AdsSection({
             if (res.success) { toast.success("Google Ads conectado!"); setGoogleConn(true); }
           } catch (err: any) {
             toast.error(err.message ?? "Erro ao conectar Google Ads");
-          } finally {
-            setConnectingGoogle(false);
-            popup?.close();
-          }
+          } finally { setConnectingGoogle(false); popup?.close(); }
         }
         if (e.data?.type === "google-ads-oauth-error") {
           window.removeEventListener("message", handler);
@@ -248,21 +188,6 @@ export default function AdsSection({
     } catch (e: any) {
       toast.error(e.message ?? "Erro ao iniciar conexão");
       setConnectingGoogle(false);
-    }
-  };
-
-  // ── Toggle campaign ────────────────────────────────────────
-  const toggleCampaign = async (campaign: AdCampaign) => {
-    const newStatus = campaign.status === "ACTIVE" ? "PAUSED" : "ACTIVE";
-    setTogglingId(campaign.id);
-    try {
-      await callFn({ action: "toggle-campaign", campaign_id: campaign.id, status: newStatus, client_id: clientId });
-      setCampaigns((prev) => prev.map((c) => c.id === campaign.id ? { ...c, status: newStatus as any } : c));
-      toast.success(newStatus === "ACTIVE" ? "Campanha ativada" : "Campanha pausada");
-    } catch (e: any) {
-      toast.error(e.message ?? "Erro ao alterar status");
-    } finally {
-      setTogglingId(null);
     }
   };
 
@@ -284,18 +209,11 @@ export default function AdsSection({
           <h3 className="text-sm font-semibold" style={{ color: s(0.9) }}>Anúncios</h3>
           <p className="text-[11px] mt-0.5" style={{ color: s(0.35) }}>Meta Ads · Google Ads · LinkedIn Ads</p>
         </div>
-        {/* Date preset */}
         <div className="flex items-center gap-1 p-1 rounded-lg" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
           {DATE_PRESETS.map((p) => (
-            <button
-              key={p.value}
-              onClick={() => setDatePreset(p.value)}
+            <button key={p.value} onClick={() => setDatePreset(p.value)}
               className="px-2.5 py-1 rounded-md text-[10px] font-medium transition-all"
-              style={{
-                background: datePreset === p.value ? clientColor : "transparent",
-                color: datePreset === p.value ? "#000" : s(0.45),
-              }}
-            >
+              style={{ background: datePreset === p.value ? clientColor : "transparent", color: datePreset === p.value ? "#000" : s(0.45) }}>
               {p.label}
             </button>
           ))}
@@ -318,12 +236,9 @@ export default function AdsSection({
           </div>
           <div className="flex items-center gap-2">
             {metaMetrics?.connected && (
-              <button
-                onClick={loadMetaMetrics}
-                disabled={loadingMeta}
+              <button onClick={loadMetaMetrics} disabled={loadingMeta}
                 className="p-1.5 rounded-lg transition-colors"
-                style={{ background: "rgba(255,255,255,0.05)" }}
-              >
+                style={{ background: "rgba(255,255,255,0.05)" }}>
                 <RefreshCw className={cn("w-3.5 h-3.5", loadingMeta && "animate-spin")} style={{ color: s(0.4) }} />
               </button>
             )}
@@ -335,8 +250,7 @@ export default function AdsSection({
                 background: metaMetrics?.connected ? "rgba(255,255,255,0.06)" : clientColor,
                 color: metaMetrics?.connected ? s(0.6) : "#000",
                 border: metaMetrics?.connected ? "1px solid rgba(255,255,255,0.1)" : "none",
-              }}
-            >
+              }}>
               {connectingMeta ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
               {metaMetrics?.connected ? "Reconectar" : "Conectar"}
             </button>
@@ -351,17 +265,14 @@ export default function AdsSection({
 
         {!loadingMeta && metaMetrics?.connected && !metaMetrics.error && (
           <>
-            {/* No data state */}
             {metaMetrics.has_data === false && (
               <div className="flex items-center gap-2 py-3 px-4 rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                <AlertCircle className="w-4 h-4 shrink-0" style={{ color: "rgba(255,255,255,0.3)" }} />
-                <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-                  Sem dados de gasto no período selecionado. Verifique se há campanhas com atividade recente no Meta Business Manager.
+                <AlertCircle className="w-4 h-4 shrink-0" style={{ color: s(0.3) }} />
+                <p className="text-[11px]" style={{ color: s(0.4) }}>
+                  Sem dados de gasto no período selecionado. Verifique campanhas com atividade recente no Meta Business Manager.
                 </p>
               </div>
             )}
-
-            {/* Metrics grid — always show so user sees context even with zeros */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {metricCard("Gasto", fmtMoney(metaMetrics.spend ?? 0), <DollarSign className="w-3 h-3" />)}
               {metricCard("Impressões", fmtNum(metaMetrics.impressions ?? 0), <Eye className="w-3 h-3" />)}
@@ -373,74 +284,6 @@ export default function AdsSection({
               {metricCard("CPC", fmtMoney(metaMetrics.cpc ?? 0), <Target className="w-3 h-3" />)}
               {metricCard("Alcance", fmtNum(metaMetrics.reach ?? 0), <Eye className="w-3 h-3" />)}
               {metricCard("ROAS", `${(metaMetrics.roas ?? 0).toFixed(2)}x`, <TrendingUp className="w-3 h-3" />)}
-            </div>
-
-            {/* Campaigns */}
-            <div>
-              <button
-                onClick={() => { setShowCampaigns(!showCampaigns); if (!showCampaigns) loadCampaigns(); }}
-                className="flex items-center gap-2 w-full text-left mb-3"
-              >
-                <span className="text-xs font-semibold" style={{ color: s(0.7) }}>Campanhas</span>
-                {showCampaigns ? <ChevronUp className="w-3.5 h-3.5" style={{ color: s(0.4) }} /> : <ChevronDown className="w-3.5 h-3.5" style={{ color: s(0.4) }} />}
-                {loadingCampaigns && <Loader2 className="w-3 h-3 animate-spin ml-1" style={{ color: s(0.4) }} />}
-              </button>
-
-              {showCampaigns && !loadingCampaigns && campaigns.length === 0 && (
-                <p className="text-[11px]" style={{ color: s(0.3) }}>Nenhuma campanha encontrada no período.</p>
-              )}
-
-              {showCampaigns && campaigns.length > 0 && (
-                <div className="space-y-1.5">
-                  {/* Header */}
-                  <div className="grid grid-cols-[1fr,auto,auto,auto,auto,auto] gap-3 px-2 pb-1" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                    {["Campanha", "Gasto", "Impressões", "Cliques", "CTR", ""].map((h) => (
-                      <span key={h} className="text-[9px] font-semibold uppercase" style={{ color: s(0.3) }}>{h}</span>
-                    ))}
-                  </div>
-                  {campaigns.map((c) => (
-                    <div
-                      key={c.id}
-                      className="grid grid-cols-[1fr,auto,auto,auto,auto,auto] gap-3 items-center px-2 py-2 rounded-lg"
-                      style={{ background: "rgba(255,255,255,0.025)" }}
-                    >
-                      <div className="min-w-0">
-                        <div className="text-[11px] font-medium truncate" style={{ color: s(0.85) }}>{c.name}</div>
-                        <div className="text-[9px] mt-0.5" style={{ color: s(0.3) }}>{c.objective}</div>
-                      </div>
-                      <span className="text-[11px] font-medium tabular-nums" style={{ color: s(0.7) }}>{fmtMoney(c.spend)}</span>
-                      <span className="text-[11px] tabular-nums" style={{ color: s(0.6) }}>{fmtNum(c.impressions)}</span>
-                      <span className="text-[11px] tabular-nums" style={{ color: s(0.6) }}>{fmtNum(c.clicks)}</span>
-                      <span className="text-[11px] tabular-nums" style={{ color: s(0.6) }}>{c.ctr.toFixed(2)}%</span>
-                      <button
-                        onClick={() => toggleCampaign(c)}
-                        disabled={!!togglingId || c.status === "ARCHIVED" || c.status === "DELETED"}
-                        className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold transition-all"
-                        style={{
-                          background: c.status === "ACTIVE"
-                            ? "rgba(52,211,153,0.1)"
-                            : c.status === "PAUSED"
-                            ? "rgba(251,191,36,0.1)"
-                            : "rgba(255,255,255,0.05)",
-                          color: c.status === "ACTIVE" ? "#34D399"
-                               : c.status === "PAUSED" ? "#FBBF24"
-                               : s(0.3),
-                        }}
-                      >
-                        {togglingId === c.id ? (
-                          <Loader2 className="w-3 h-3 animate-spin" />
-                        ) : c.status === "ACTIVE" ? (
-                          <><Pause className="w-3 h-3" /> Pausar</>
-                        ) : c.status === "PAUSED" ? (
-                          <><Play className="w-3 h-3" /> Ativar</>
-                        ) : (
-                          <span>{c.status}</span>
-                        )}
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
             </div>
           </>
         )}
@@ -473,16 +316,13 @@ export default function AdsSection({
               </div>
             </div>
           </div>
-          <button
-            onClick={connectGoogleAds}
-            disabled={connectingGoogle}
+          <button onClick={connectGoogleAds} disabled={connectingGoogle}
             className="px-3 py-1.5 rounded-xl text-[11px] font-semibold flex items-center gap-1.5 transition-all"
             style={{
               background: googleConn ? "rgba(255,255,255,0.06)" : clientColor,
               color: googleConn ? s(0.6) : "#000",
               border: googleConn ? "1px solid rgba(255,255,255,0.1)" : "none",
-            }}
-          >
+            }}>
             {connectingGoogle ? <Loader2 className="w-3 h-3 animate-spin" /> : null}
             {googleConn ? "Reconectar" : "Conectar"}
           </button>
