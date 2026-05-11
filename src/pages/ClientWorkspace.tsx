@@ -2745,7 +2745,7 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
     if (!id || !client.siteRepo) return;
     setSiteDbPagesLoading(true);
     // Check Supabase first
-    const { data: existing } = await supabase.from('site_pages').select('*').eq('client_id', id).order('page_name');
+    const { data: existing } = await (supabase.from as any)('site_pages').select('*').eq('client_id', id).order('page_name');
     if (existing && existing.length > 0) {
       setSiteDbPages(existing);
       setSiteDbPagesLoading(false);
