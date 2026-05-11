@@ -164,10 +164,11 @@ serve(async (req) => {
               "Content-Type": "application/json",
               "x-api-key": apiKey,
               "anthropic-version": "2023-06-01",
+              "anthropic-beta": "output-128k-2025-02-19",
             },
             body: JSON.stringify({
               model: "claude-sonnet-4-6",
-              max_tokens: 6000,
+              max_tokens: 16000,
               stream: true,
               system: TOMAS_SYSTEM,
               messages: [{ role: "user", content: [{ type: "text", text: `Copy da Beatriz:\n${copy}\n\nEspecificação visual do Designer:\n${design}\n\nCrie o HTML completo da landing page agora.` }] }],
