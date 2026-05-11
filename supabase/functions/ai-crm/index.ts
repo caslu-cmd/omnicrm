@@ -140,14 +140,7 @@ Com base nesses dados, gere uma estratégia de vendas personalizada e objetiva. 
   "score_justificativa": "Por que este lead tem score ${score} e o que fazer para aumentá-lo."
 }`;
 
-      const anthropic = new Anthropic({ apiKey: anthropicKey });
-      const message = await anthropic.messages.create({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 1024,
-        messages: [{ role: "user", content: prompt }],
-      });
-
-      const raw = (message.content[0] as { type: string; text: string }).text.trim();
+      const raw = (await callAI(aiKey, prompt, 1024)).trim();
 
       // Parse JSON — strip any accidental markdown fences
       const cleaned = raw.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/\s*```$/i, "").trim();
