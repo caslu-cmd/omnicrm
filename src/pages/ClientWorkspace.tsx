@@ -2031,7 +2031,7 @@ ${priorBlock}`;
 
   const renderCertificate = (template: string, name: string, xPct: number, yPct: number, fontSize: number, color: string): Promise<string> =>
     new Promise((resolve) => {
-      const img = new Image();
+      const img = new (window as any).Image();
       img.onload = () => {
         const canvas = document.createElement("canvas");
         canvas.width = img.width;
