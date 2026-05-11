@@ -16,47 +16,59 @@ export type Database = {
     Tables: {
       agent_proposals: {
         Row: {
+          agent_color: string | null
+          agent_id: string | null
           agent_name: string | null
           client_id: string
           created_at: string
+          descricao: string | null
           id: string
-          kind: string
+          kind: string | null
           payload: Json
           reviewed_at: string | null
           reviewer_notes: string | null
           scheduled_for: string | null
           status: string
-          title: string
+          title: string | null
+          titulo: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          agent_color?: string | null
+          agent_id?: string | null
           agent_name?: string | null
           client_id: string
           created_at?: string
+          descricao?: string | null
           id?: string
-          kind: string
+          kind?: string | null
           payload?: Json
           reviewed_at?: string | null
           reviewer_notes?: string | null
           scheduled_for?: string | null
           status?: string
-          title: string
+          title?: string | null
+          titulo?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          agent_color?: string | null
+          agent_id?: string | null
           agent_name?: string | null
           client_id?: string
           created_at?: string
+          descricao?: string | null
           id?: string
-          kind?: string
+          kind?: string | null
           payload?: Json
           reviewed_at?: string | null
           reviewer_notes?: string | null
           scheduled_for?: string | null
           status?: string
-          title?: string
+          title?: string | null
+          titulo?: string | null
           updated_at?: string
           user_id?: string
         }
