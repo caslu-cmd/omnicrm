@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { AITextareaField } from "@/components/AITextareaField";
 
 interface Conversation {
   id: number;
@@ -169,7 +170,7 @@ const InboxPage = () => {
         <div className="border-t border-border bg-card p-3 md:p-4">
           <div className="flex items-end gap-3">
             <div className="flex-1 rounded-xl border border-input bg-background p-3">
-              <textarea value={messageInput} onChange={e => setMessageInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }} placeholder="Digite sua mensagem..." rows={1} className="w-full resize-none text-sm bg-transparent placeholder:text-muted-foreground focus:outline-none" />
+              <AITextareaField value={messageInput} onChange={e => setMessageInput(e.target.value)} onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }} placeholder="Digite sua mensagem..." rows={1} className="w-full resize-none text-sm bg-transparent placeholder:text-muted-foreground focus:outline-none" fieldLabel="Mensagem para o lead" fieldContext="Caixa de entrada CRM — resposta para conversa com lead" />
               <div className="flex items-center gap-2 mt-2">
                 <button onClick={() => toast.info("Selecione um arquivo para anexar")} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground"><Paperclip className="h-4 w-4" /></button>
                 <button onClick={() => toast.info("Emojis em breve")} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground"><Smile className="h-4 w-4" /></button>

@@ -7,6 +7,8 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { AIInputField } from "@/components/AIInputField";
+import { AITextareaField } from "@/components/AITextareaField";
 
 type WaGroup    = { id: string; name: string; participants: number };
 type CrmGroup   = { id: string; name: string; color: string; member_count: number };
@@ -436,10 +438,11 @@ const WhatsAppPage = () => {
           {tab === "individual" && (
             <div className="space-y-3">
               <label className="text-xs text-white/40 uppercase tracking-widest font-semibold">Número de destino</label>
-              <input value={indPhone} onChange={e => setIndPhone(e.target.value)}
+              <AIInputField value={indPhone} onChange={e => setIndPhone(e.target.value)}
                 placeholder="5511987654321 (com DDI)"
                 className="w-full px-4 py-3 rounded-xl text-sm font-mono outline-none"
-                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.85)" }} />
+                style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.85)" }}
+                fieldLabel="Número de WhatsApp" fieldContext="Envio individual de mensagem WhatsApp" />
               <p className="text-[11px] text-white/25">Formato: DDI + DDD + número. Ex: 5511999998888</p>
             </div>
           )}
@@ -447,9 +450,10 @@ const WhatsAppPage = () => {
           {/* Campo de mensagem */}
           <div className="space-y-2">
             <label className="text-xs text-white/40 uppercase tracking-widest font-semibold">Mensagem</label>
-            <textarea value={message} onChange={e => setMessage(e.target.value)}
+            <AITextareaField value={message} onChange={e => setMessage(e.target.value)}
               placeholder="Digite a mensagem aqui…" rows={4} className="w-full px-4 py-3 rounded-xl text-sm resize-none outline-none leading-relaxed"
-              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.85)" }} />
+              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.85)" }}
+              fieldLabel="Mensagem WhatsApp" fieldContext="Disparo de mensagem via Z-API para grupos ou contatos" />
             <p className="text-[11px] text-white/20 text-right">{message.length} caracteres</p>
           </div>
 

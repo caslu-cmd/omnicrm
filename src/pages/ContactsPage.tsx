@@ -11,6 +11,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import type { Tables } from "@/integrations/supabase/types";
 import ContactActivityPanel from "@/components/ContactActivityPanel";
+import { AIInputField } from "@/components/AIInputField";
+import { AITextareaField } from "@/components/AITextareaField";
 
 type Contact = Tables<"contacts">;
 
@@ -508,21 +510,25 @@ const ContactsPage = () => {
 
             {/* Caption for image/video */}
             {(waMediaType === "image" || waMediaType === "video") && (
-              <input value={waCaption} onChange={e => setWaCaption(e.target.value)}
+              <AIInputField value={waCaption} onChange={e => setWaCaption(e.target.value)}
                 placeholder="Legenda (opcional)..."
-                className="w-full rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" />
+                className="w-full rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20"
+                fieldLabel="Legenda da mídia"
+                fieldContext={`Mensagem WhatsApp para ${waContact.name}`} />
             )}
 
             <div>
               <label className="text-xs font-medium text-muted-foreground">
                 {waMediaType === "text" ? "Mensagem" : "Texto adicional (opcional)"}
               </label>
-              <textarea
+              <AITextareaField
                 value={waMessage}
                 onChange={e => setWaMessage(e.target.value)}
                 rows={waMediaType === "text" ? 4 : 2}
                 placeholder={waMediaType === "text" ? `Olá ${waContact.name.split(" ")[0]}, tudo bem? Aqui é da Calu Agência...` : "Texto extra..."}
                 className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20 resize-none"
+                fieldLabel="Mensagem WhatsApp"
+                fieldContext={`Mensagem para o contato ${waContact.name} da Calu Agência`}
               />
               {waMediaType === "text" && <p className="text-[11px] text-muted-foreground mt-1">{waMessage.length} caracteres</p>}
             </div>
@@ -548,10 +554,10 @@ const ContactsPage = () => {
       {/* New Contact Modal */}
       {showNew && (
         <Modal title="Novo Contato" onClose={() => setShowNew(false)}>
-          <Field label="Nome *"><input value={newForm.name} onChange={e => setNewForm(p => ({ ...p, name: e.target.value }))} className={inputCls} /></Field>
-          <Field label="E-mail"><input value={newForm.email} onChange={e => setNewForm(p => ({ ...p, email: e.target.value }))} className={inputCls} /></Field>
-          <Field label="Telefone"><input value={newForm.phone} onChange={e => setNewForm(p => ({ ...p, phone: e.target.value }))} className={inputCls} /></Field>
-          <Field label="Empresa"><input value={newForm.company} onChange={e => setNewForm(p => ({ ...p, company: e.target.value }))} className={inputCls} /></Field>
+          <Field label="Nome *"><AIInputField value={newForm.name} onChange={e => setNewForm(p => ({ ...p, name: e.target.value }))} className={inputCls} fieldLabel="Nome do contato" fieldContext="Formulário de novo contato no CRM" /></Field>
+          <Field label="E-mail"><AIInputField value={newForm.email} onChange={e => setNewForm(p => ({ ...p, email: e.target.value }))} className={inputCls} fieldLabel="E-mail" fieldContext="Formulário de novo contato no CRM" /></Field>
+          <Field label="Telefone"><AIInputField value={newForm.phone} onChange={e => setNewForm(p => ({ ...p, phone: e.target.value }))} className={inputCls} fieldLabel="Telefone" fieldContext="Formulário de novo contato no CRM" /></Field>
+          <Field label="Empresa"><AIInputField value={newForm.company} onChange={e => setNewForm(p => ({ ...p, company: e.target.value }))} className={inputCls} fieldLabel="Empresa" fieldContext="Formulário de novo contato no CRM" /></Field>
           <Field label="Origem do lead">
             <SourceSelect value={newForm.channel} onChange={v => setNewForm(p => ({ ...p, channel: v }))} />
           </Field>
@@ -570,10 +576,10 @@ const ContactsPage = () => {
       {/* Edit Contact Modal */}
       {editing && (
         <Modal title="Editar Contato" onClose={() => setEditing(null)}>
-          <Field label="Nome *"><input value={editForm.name} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} className={inputCls} /></Field>
-          <Field label="E-mail"><input value={editForm.email} onChange={e => setEditForm(p => ({ ...p, email: e.target.value }))} className={inputCls} /></Field>
-          <Field label="Telefone"><input value={editForm.phone} onChange={e => setEditForm(p => ({ ...p, phone: e.target.value }))} className={inputCls} /></Field>
-          <Field label="Empresa"><input value={editForm.company} onChange={e => setEditForm(p => ({ ...p, company: e.target.value }))} className={inputCls} /></Field>
+          <Field label="Nome *"><AIInputField value={editForm.name} onChange={e => setEditForm(p => ({ ...p, name: e.target.value }))} className={inputCls} fieldLabel="Nome do contato" fieldContext="Edição de contato no CRM" /></Field>
+          <Field label="E-mail"><AIInputField value={editForm.email} onChange={e => setEditForm(p => ({ ...p, email: e.target.value }))} className={inputCls} fieldLabel="E-mail" fieldContext="Edição de contato no CRM" /></Field>
+          <Field label="Telefone"><AIInputField value={editForm.phone} onChange={e => setEditForm(p => ({ ...p, phone: e.target.value }))} className={inputCls} fieldLabel="Telefone" fieldContext="Edição de contato no CRM" /></Field>
+          <Field label="Empresa"><AIInputField value={editForm.company} onChange={e => setEditForm(p => ({ ...p, company: e.target.value }))} className={inputCls} fieldLabel="Empresa" fieldContext="Edição de contato no CRM" /></Field>
           <Field label="Origem do lead">
             <SourceSelect value={editForm.channel} onChange={v => setEditForm(p => ({ ...p, channel: v }))} />
           </Field>

@@ -7,6 +7,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { AIInputField } from "@/components/AIInputField";
+import { AITextareaField } from "@/components/AITextareaField";
 
 interface Campaign {
   id: number; name: string; channel: "email" | "whatsapp"; status: "sent" | "scheduled" | "draft"; audience: number; delivered: number; opened: number; clicked: number; replied: number; sentAt: string;
@@ -138,11 +140,11 @@ const CampaignsPage = () => {
                   </button>
                 ))}
               </div>
-              <div><label className="text-xs font-medium text-muted-foreground">Nome da Campanha</label><input value={campaignName} onChange={e => setCampaignName(e.target.value)} placeholder="Ex: Newsletter Março 2026" className="w-full mt-1 rounded-lg border border-input bg-background py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
+              <div><label className="text-xs font-medium text-muted-foreground">Nome da Campanha</label><AIInputField value={campaignName} onChange={e => setCampaignName(e.target.value)} placeholder="Ex: Newsletter Março 2026" className="w-full mt-1 rounded-lg border border-input bg-background py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" fieldLabel="Nome da campanha" fieldContext="Criação de campanha de email/WhatsApp marketing" /></div>
               {composeChannel === "email" && (
                 <>
-                  <div><label className="text-xs font-medium text-muted-foreground">Assunto</label><input value={campaignSubject} onChange={e => setCampaignSubject(e.target.value)} placeholder="Linha de assunto do e-mail" className="w-full mt-1 rounded-lg border border-input bg-background py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
-                  <div><label className="text-xs font-medium text-muted-foreground">Conteúdo</label><textarea value={campaignContent} onChange={e => setCampaignContent(e.target.value)} rows={8} placeholder="Compose seu e-mail aqui..." className="w-full mt-1 rounded-xl border border-input bg-background py-3 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20 resize-none" /></div>
+                  <div><label className="text-xs font-medium text-muted-foreground">Assunto</label><AIInputField value={campaignSubject} onChange={e => setCampaignSubject(e.target.value)} placeholder="Linha de assunto do e-mail" className="w-full mt-1 rounded-lg border border-input bg-background py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" fieldLabel="Assunto do e-mail" fieldContext="Campanha de e-mail marketing" /></div>
+                  <div><label className="text-xs font-medium text-muted-foreground">Conteúdo</label><AITextareaField value={campaignContent} onChange={e => setCampaignContent(e.target.value)} rows={8} placeholder="Compose seu e-mail aqui..." className="w-full mt-1 rounded-xl border border-input bg-background py-3 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20 resize-none" fieldLabel="Conteúdo do e-mail" fieldContext={`Campanha de e-mail "${campaignName || "Nova campanha"}"`} /></div>
                 </>
               )}
               {composeChannel === "whatsapp" && (

@@ -1,4 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { AIInputField } from "@/components/AIInputField";
+import { AITextareaField } from "@/components/AITextareaField";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   BookOpen, Plus, Trash2, FileText, Send, Bot, User, Copy, RotateCcw,
@@ -219,24 +221,27 @@ const AddSourceModal = ({
             <label className="text-xs font-medium mb-1.5 block" style={{ color: "rgba(255,255,255,0.5)" }}>
               Título da fonte
             </label>
-            <input
+            <AIInputField
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Ex: Briefing do cliente GNX, Guidelines da marca..."
               className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#B9FF4B]/40 focus:ring-1 focus:ring-[#B9FF4B]/20 transition-all"
+              fieldLabel="Título da fonte"
+              fieldContext="Notebook da Calu Agência — adicionando fonte de conhecimento para o agente"
             />
           </div>
           <div>
             <label className="text-xs font-medium mb-1.5 block" style={{ color: "rgba(255,255,255,0.5)" }}>
               Conteúdo
             </label>
-            <textarea
-              ref={textareaRef}
+            <AITextareaField
               value={content}
               onChange={(e) => setContent(e.target.value)}
               placeholder="Cole aqui o texto, briefing, análise de concorrentes, guidelines da marca, pesquisa de mercado..."
               rows={10}
               className="w-full rounded-xl border border-white/10 bg-white/5 px-3.5 py-2.5 text-sm text-white placeholder:text-white/25 focus:outline-none focus:border-[#B9FF4B]/40 focus:ring-1 focus:ring-[#B9FF4B]/20 transition-all resize-none"
+              fieldLabel="Conteúdo da fonte"
+              fieldContext={`Notebook da Calu Agência — fonte: "${title || "nova fonte"}"`}
             />
             <p className="text-[10px] mt-1" style={{ color: "rgba(255,255,255,0.2)" }}>
               {content.length.toLocaleString()} caracteres

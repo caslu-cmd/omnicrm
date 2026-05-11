@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import type { Tables } from "@/integrations/supabase/types";
+import { AIInputField } from "@/components/AIInputField";
 
 type Deal = Tables<"deals">;
 
@@ -306,9 +307,9 @@ const PipelinesPage = () => {
               <h2 className="text-lg font-bold font-display text-foreground">Novo Deal</h2>
               <button onClick={() => setShowNewDeal(false)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"><X className="h-4 w-4" /></button>
             </div>
-            <div><label className="text-xs font-medium text-muted-foreground">Nome *</label><input value={newDealName} onChange={e => setNewDealName(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
-            <div><label className="text-xs font-medium text-muted-foreground">Empresa</label><input value={newDealCompany} onChange={e => setNewDealCompany(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
-            <div><label className="text-xs font-medium text-muted-foreground">Valor (R$)</label><input value={newDealValue} onChange={e => setNewDealValue(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
+            <div><label className="text-xs font-medium text-muted-foreground">Nome *</label><AIInputField value={newDealName} onChange={e => setNewDealName(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" fieldLabel="Nome do deal" fieldContext="Criação de novo negócio no pipeline de vendas" /></div>
+            <div><label className="text-xs font-medium text-muted-foreground">Empresa</label><AIInputField value={newDealCompany} onChange={e => setNewDealCompany(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" fieldLabel="Empresa do deal" fieldContext="Pipeline de vendas da Calu Agência" /></div>
+            <div><label className="text-xs font-medium text-muted-foreground">Valor (R$)</label><AIInputField value={newDealValue} onChange={e => setNewDealValue(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" fieldLabel="Valor do negócio em R$" fieldContext="Pipeline de vendas" /></div>
             <div><label className="text-xs font-medium text-muted-foreground">Etapa</label>
               <select value={newDealStage} onChange={e => setNewDealStage(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm">
                 {stageConfig.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
@@ -330,10 +331,10 @@ const PipelinesPage = () => {
               <h2 className="text-lg font-bold font-display text-foreground">Editar Deal</h2>
               <button onClick={() => setEditingDeal(null)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"><X className="h-4 w-4" /></button>
             </div>
-            <div><label className="text-xs font-medium text-muted-foreground">Nome *</label><input value={editDealName} onChange={e => setEditDealName(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
-            <div><label className="text-xs font-medium text-muted-foreground">Empresa</label><input value={editDealCompany} onChange={e => setEditDealCompany(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
-            <div><label className="text-xs font-medium text-muted-foreground">Valor (R$)</label><input value={editDealValue} onChange={e => setEditDealValue(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
-            <div><label className="text-xs font-medium text-muted-foreground">Contato</label><input value={editDealContact} onChange={e => setEditDealContact(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
+            <div><label className="text-xs font-medium text-muted-foreground">Nome *</label><AIInputField value={editDealName} onChange={e => setEditDealName(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" fieldLabel="Nome do deal" fieldContext="Edição de negócio no pipeline de vendas" /></div>
+            <div><label className="text-xs font-medium text-muted-foreground">Empresa</label><AIInputField value={editDealCompany} onChange={e => setEditDealCompany(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" fieldLabel="Empresa do deal" fieldContext="Pipeline de vendas da Calu Agência" /></div>
+            <div><label className="text-xs font-medium text-muted-foreground">Valor (R$)</label><AIInputField value={editDealValue} onChange={e => setEditDealValue(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" fieldLabel="Valor do negócio em R$" fieldContext="Pipeline de vendas" /></div>
+            <div><label className="text-xs font-medium text-muted-foreground">Contato</label><AIInputField value={editDealContact} onChange={e => setEditDealContact(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" fieldLabel="Nome do contato" fieldContext="Responsável pelo negócio no pipeline" /></div>
             <div className="flex gap-3 pt-2">
               <button onClick={() => setEditingDeal(null)} className="flex-1 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground">Cancelar</button>
               <button onClick={handleSaveEditDeal} className="flex-1 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium">Salvar</button>
@@ -350,7 +351,7 @@ const PipelinesPage = () => {
               <h2 className="text-lg font-bold font-display text-foreground">Novo Pipeline</h2>
               <button onClick={() => setShowNewPipeline(false)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"><X className="h-4 w-4" /></button>
             </div>
-            <div><label className="text-xs font-medium text-muted-foreground">Nome *</label><input value={newPipelineName} onChange={e => setNewPipelineName(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
+            <div><label className="text-xs font-medium text-muted-foreground">Nome *</label><AIInputField value={newPipelineName} onChange={e => setNewPipelineName(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" fieldLabel="Nome do pipeline" fieldContext="Criação de novo funil de vendas da Calu Agência" /></div>
             <div className="flex gap-3 pt-2">
               <button onClick={() => setShowNewPipeline(false)} className="flex-1 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground">Cancelar</button>
               <button onClick={handleCreatePipeline} className="flex-1 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium">Criar</button>
@@ -367,7 +368,7 @@ const PipelinesPage = () => {
               <h2 className="text-lg font-bold font-display text-foreground">Editar Pipeline</h2>
               <button onClick={() => setShowEditPipeline(false)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"><X className="h-4 w-4" /></button>
             </div>
-            <div><label className="text-xs font-medium text-muted-foreground">Nome do Pipeline</label><input value={editPipelineName} onChange={e => setEditPipelineName(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
+            <div><label className="text-xs font-medium text-muted-foreground">Nome do Pipeline</label><AIInputField value={editPipelineName} onChange={e => setEditPipelineName(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" fieldLabel="Nome do pipeline" fieldContext="Edição de funil de vendas da Calu Agência" /></div>
             <div>
               <label className="text-xs font-medium text-muted-foreground">Etapas</label>
               <div className="space-y-2 mt-2">
@@ -376,7 +377,7 @@ const PipelinesPage = () => {
                     <select value={stage.color} onChange={e => setEditPipelineStages(prev => prev.map((s, idx) => idx === i ? { ...s, color: e.target.value } : s))} className="rounded-lg border border-input bg-background py-2 px-2 text-sm w-20">
                       {stageColors.map(c => <option key={c} value={c}>{c.replace("bg-", "")}</option>)}
                     </select>
-                    <input value={stage.name} onChange={e => setEditPipelineStages(prev => prev.map((s, idx) => idx === i ? { ...s, name: e.target.value } : s))} className="flex-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" />
+                    <AIInputField value={stage.name} onChange={e => setEditPipelineStages(prev => prev.map((s, idx) => idx === i ? { ...s, name: e.target.value } : s))} className="flex-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" fieldLabel={`Nome da etapa ${i + 1}`} fieldContext="Etapa do funil de vendas da Calu Agência" />
                     <button onClick={() => removeStage(stage.id)} className="p-1.5 rounded-lg hover:bg-destructive/10 text-destructive"><Trash2 className="h-4 w-4" /></button>
                   </div>
                 ))}
