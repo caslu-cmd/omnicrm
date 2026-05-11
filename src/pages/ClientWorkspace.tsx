@@ -2088,10 +2088,73 @@ ${priorBlock}`;
     setWpQr(data?.qrcode ?? null);
   };
 
+  const wpManualKey = (cid?: string) => `wp-manual-groups-${cid ?? id ?? "default"}`;
+  const loadManualGroups = (): { id: string; name: string; participants: number }[] => {
+    try {
+      const raw = localStorage.getItem(wpManualKey());
+      return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+  };
+  const mergeManualGroups = (zapiGroups: any[]) => {
+    const manual = loadManualGroups();
+    const seen = new Set(zapiGroups.map(g => g.id));
+    return [...zapiGroups, ...manual.filter(g => !seen.has(g.id))];
+  };
   const refreshWpGroups = async () => {
     const { data } = await wpInvoke({ action: "groups" });
-    setWpGroups(Array.isArray(data) ? data : []);
+    const zapi = Array.isArray(data) ? data : [];
+    setWpGroups(mergeManualGroups(zapi));
     await loadFavoriteGroups();
+  };
+
+  const parseGroupsImport = (text: string): { id: string; name: string; participants: number }[] => {
+    const out: { id: string; name: string; participants: number }[] = [];
+    const lines = text.split("\n").map(l => l.trim()).filter(Boolean);
+    // ID detector: numeric, may end in -group or be "<num>-<num>" (community)
+    const idRe = /^[0-9]{6,}(?:-(?:group|[0-9]+))?$/;
+    let i = 0;
+    while (i < lines.length) {
+      const line = lines[i];
+      // Format "id|name" or "id\tname"
+      const split = line.split(/\s*[|\t]\s*/);
+      if (split.length >= 2 && idRe.test(split[0])) {
+        out.push({ id: split[0], name: split.slice(1).join(" "), participants: 0 });
+        i++; continue;
+      }
+      if (idRe.test(line)) {
+        // Skip junk lines like "ID do Usuário"
+        let j = i + 1;
+        while (j < lines.length && (idRe.test(lines[j]) || /^id do usuário$/i.test(lines[j]))) j++;
+        const name = lines[j] && !idRe.test(lines[j]) ? lines[j] : line;
+        if (name && name !== line) {
+          out.push({ id: line, name, participants: 0 });
+          i = j + 1; continue;
+        }
+      }
+      i++;
+    }
+    return out;
+  };
+  const importManualGroups = () => {
+    const parsed = parseGroupsImport(wpImportText);
+    if (parsed.length === 0) {
+      toast.error("Nenhum grupo reconhecido. Cole no formato: linha 1 = ID, linha 2 = nome.");
+      return;
+    }
+    const existing = loadManualGroups();
+    const merged = [...existing];
+    for (const g of parsed) {
+      const idx = merged.findIndex(x => x.id === g.id);
+      if (idx >= 0) merged[idx] = g; else merged.push(g);
+    }
+    try { localStorage.setItem(wpManualKey(), JSON.stringify(merged)); } catch {}
+    setWpGroups(prev => {
+      const seen = new Set(prev.map(g => g.id));
+      return [...prev, ...merged.filter(g => !seen.has(g.id))];
+    });
+    setWpImportText("");
+    setWpImportOpen(false);
+    toast.success(`${parsed.length} grupo${parsed.length !== 1 ? "s" : ""} importado${parsed.length !== 1 ? "s" : ""}.`);
   };
 
 
