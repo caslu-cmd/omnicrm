@@ -223,6 +223,14 @@ serve(async (req) => {
 
           if (!htmlFinal.startsWith("<")) throw new Error("HTML gerado inválido — tente novamente");
 
+          // Injeta override do IntersectionObserver para garantir que animações
+          // scroll-reveal (opacity:0 + IO) disparem imediatamente ao carregar.
+          // Garante preview correto no iframe E no arquivo HTML baixado.
+          const ioFix = `<script>(function(){var IO=window.IntersectionObserver;if(IO){window.IntersectionObserver=function(cb,opt){var io=new IO(cb,opt),orig=io.observe.bind(io);io.observe=function(t){orig(t);setTimeout(function(){try{cb([{isIntersecting:true,intersectionRatio:1,target:t,boundingClientRect:t.getBoundingClientRect(),intersectionRect:t.getBoundingClientRect(),rootBounds:null,time:0}],io);}catch(e){}},60);};return io;};window.IntersectionObserver.prototype=IO.prototype;}window.addEventListener('load',function(){setTimeout(function(){window.dispatchEvent(new Event('scroll'));},150);});})();<\/script>`;
+          htmlFinal = htmlFinal.includes("</head>")
+            ? htmlFinal.replace("</head>", ioFix + "</head>")
+            : ioFix + htmlFinal;
+
           sse(ctrl, { etapa: "html", status: "HTML pronto ✓", conteudo: htmlFinal });
           sse(ctrl, { etapa: "concluido" });
         } catch (err) {

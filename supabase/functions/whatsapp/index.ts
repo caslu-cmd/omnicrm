@@ -66,26 +66,34 @@ serve(async (req) => {
       return Response.json(grps, { headers: cors });
     }
 
-    // ── Metadata em lote (busca participantes de uma lista de IDs) ──
+    // ── Metadata em lote — busca /chats e filtra pelos IDs solicitados ──
     if (action === "groups-metadata") {
       const ids: string[] = Array.isArray(body.ids) ? body.ids : [];
-      const out: { id: string; name?: string; participants: number }[] = [];
-      // Z-API limita; fazemos sequencial com timeout curto pra evitar travar
-      for (const rawId of ids.slice(0, 200)) {
-        const gid = String(rawId).replace(/-group$/, "").includes("@g.us")
-          ? String(rawId)
-          : `${String(rawId).replace(/-group$/, "")}@g.us`;
-        try {
-          const rr = await fetch(`${BASE}/group-metadata/${encodeURIComponent(gid)}`, { headers: HEADERS });
-          const meta = await rr.json();
-          const count = Array.isArray(meta?.participants)
-            ? meta.participants.length
-            : (meta?.participantsCount ?? meta?.size ?? 0);
-          out.push({ id: rawId, name: meta?.subject ?? meta?.name, participants: Number(count) || 0 });
-        } catch {
-          out.push({ id: rawId, participants: 0 });
-        }
+      if (ids.length === 0) return Response.json([], { headers: cors });
+
+      const normalize = (s: string) => String(s).replace(/-group$/, "").replace(/^@g\.us$/, "");
+      const toJid     = (s: string) => normalize(s).includes("@g.us") ? normalize(s) : `${normalize(s)}@g.us`;
+
+      // Re-usa o /chats que já funciona para carregar a lista de grupos
+      const r = await fetch(`${BASE}/chats`, { headers: HEADERS });
+      const all: any[] = r.ok ? (await r.json().catch(() => [])) : [];
+
+      const chatMap = new Map<string, any>();
+      for (const c of (Array.isArray(all) ? all : [])) {
+        chatMap.set(String(c.id), c);
+        chatMap.set(normalize(String(c.id)), c);
       }
+
+      const out = ids.map(rawId => {
+        const jid = toJid(String(rawId));
+        const c = chatMap.get(jid) ?? chatMap.get(normalize(String(rawId)));
+        return {
+          id: rawId,
+          name: c?.name,
+          participants: Number(c?.participants ?? 0),
+        };
+      });
+
       return Response.json(out, { headers: cors });
     }
 
