@@ -5317,14 +5317,56 @@ Regras:
                                       {wpGroups.every(g => wpSelectedGroups.includes(g.id)) ? "✓ Todos" : "Selecionar todos"}
                                     </button>
                                   )}
+                                  <button onClick={() => setWpImportOpen(v => !v)} className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg"
+                                    style={{ color: "#B9FF4B", background: "rgba(185,255,75,0.08)", border: "1px solid rgba(185,255,75,0.25)" }}>
+                                    + Importar
+                                  </button>
                                   <button onClick={refreshWpGroups} className="flex items-center gap-1 text-[10px] px-2 py-1 rounded-lg"
                                     style={{ color: "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
                                     <RefreshCw className="w-3 h-3" /> Atualizar
                                   </button>
                                 </div>
                               </div>
+
+                              {/* Importação manual de grupos */}
+                              {wpImportOpen && (
+                                <div className="mb-3 p-3 rounded-xl space-y-2"
+                                  style={{ background: "rgba(185,255,75,0.04)", border: "1px solid rgba(185,255,75,0.18)" }}>
+                                  <div className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#B9FF4B" }}>
+                                    Cole os grupos (linha 1 = ID, linha 2 = nome)
+                                  </div>
+                                  <textarea
+                                    value={wpImportText}
+                                    onChange={(e) => setWpImportText(e.target.value)}
+                                    rows={6}
+                                    placeholder={"120363216293603952-group\nCurso Oratória Para Alta Performance\n\n558596182727-1627395596\nCurso Setor de Compras"}
+                                    className="w-full px-3 py-2 rounded-lg text-[11px] font-mono focus:outline-none"
+                                    style={{ background: "rgba(0,0,0,0.3)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0" }} />
+                                  <div className="flex gap-2">
+                                    <button onClick={importManualGroups}
+                                      className="px-3 py-1.5 rounded-lg text-[11px] font-semibold"
+                                      style={{ background: "#B9FF4B", color: "#07080A" }}>
+                                      Importar
+                                    </button>
+                                    <button onClick={() => { setWpImportOpen(false); setWpImportText(""); }}
+                                      className="px-3 py-1.5 rounded-lg text-[11px]" style={{ color: "rgba(255,255,255,0.5)" }}>
+                                      Cancelar
+                                    </button>
+                                    <button
+                                      onClick={() => {
+                                        try { localStorage.removeItem(wpManualKey()); } catch {}
+                                        toast.success("Grupos importados removidos. Clique em Atualizar.");
+                                      }}
+                                      className="ml-auto px-3 py-1.5 rounded-lg text-[11px]"
+                                      style={{ color: "#F87171", background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)" }}>
+                                      Limpar importados
+                                    </button>
+                                  </div>
+                                </div>
+                              )}
+
                               {wpGroups.length === 0
-                                ? <div className="py-6 text-center text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhum grupo. Clique em Atualizar.</div>
+                                ? <div className="py-6 text-center text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhum grupo. Clique em Atualizar ou Importar.</div>
                                 : <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto pr-1">
                                     {wpGroups.map((g) => {
                                       const sel = wpSelectedGroups.includes(g.id);
