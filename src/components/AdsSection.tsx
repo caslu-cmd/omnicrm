@@ -11,6 +11,7 @@ import { supabase } from "@/integrations/supabase/client";
 // ── Types ──────────────────────────────────────────────────────
 interface MetaAdsMetrics {
   connected: boolean;
+  has_data?: boolean;
   account_name?: string;
   account_id?: string;
   spend?: number;
@@ -349,7 +350,17 @@ export default function AdsSection({
 
         {!loadingMeta && metaMetrics?.connected && !metaMetrics.error && (
           <>
-            {/* Metrics grid */}
+            {/* No data state */}
+            {metaMetrics.has_data === false && (
+              <div className="flex items-center gap-2 py-3 px-4 rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                <AlertCircle className="w-4 h-4 shrink-0" style={{ color: "rgba(255,255,255,0.3)" }} />
+                <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
+                  Sem dados de gasto no período selecionado. Verifique se há campanhas com atividade recente no Meta Business Manager.
+                </p>
+              </div>
+            )}
+
+            {/* Metrics grid — always show so user sees context even with zeros */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {metricCard("Gasto", fmtMoney(metaMetrics.spend ?? 0), <DollarSign className="w-3 h-3" />)}
               {metricCard("Impressões", fmtNum(metaMetrics.impressions ?? 0), <Eye className="w-3 h-3" />)}
