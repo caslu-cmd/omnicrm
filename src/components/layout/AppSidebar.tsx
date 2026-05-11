@@ -283,62 +283,6 @@ export const AppSidebar = ({ collapsed, onToggle, hideToggle }: AppSidebarProps)
               );
             })}
 
-            {/* ── Site WordPress do cliente ── */}
-            {(() => {
-              const wpSite = wpSites.find(
-                s => s.client_name?.toLowerCase() === client.name.toLowerCase()
-              );
-              if (!wpSite) return null;
-              const isWpActive = location.pathname === "/wordpress" &&
-                new URLSearchParams(location.search).get("site") === wpSite.id;
-              return (
-                <>
-                  {!collapsed && (
-                    <div className="pt-3 pb-1 px-3">
-                      <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.2)" }}>
-                        Site
-                      </p>
-                    </div>
-                  )}
-                  {collapsed && <div className="my-1 mx-3 border-t border-sidebar-border opacity-30" />}
-                  <NavLink
-                    to={`/wordpress?site=${wpSite.id}`}
-                    className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors relative"
-                    style={{
-                      color: isWpActive ? client.color : "rgba(255,255,255,0.45)",
-                      background: isWpActive ? `${client.color}14` : "transparent",
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isWpActive) e.currentTarget.style.background = "rgba(255,255,255,0.05)";
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isWpActive) e.currentTarget.style.background = "transparent";
-                    }}
-                  >
-                    {isWpActive && (
-                      <motion.div
-                        layoutId="client-sidebar-indicator"
-                        className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full"
-                        style={{ background: client.color }}
-                        transition={{ type: "spring", stiffness: 300, damping: 30 }}
-                      />
-                    )}
-                    <Globe
-                      className="h-5 w-5 shrink-0"
-                      style={{ color: isWpActive ? client.color : "rgba(255,255,255,0.3)" }}
-                    />
-                    {!collapsed && (
-                      <div className="min-w-0 flex-1">
-                        <span className="truncate block text-sm">WordPress</span>
-                        <span className="truncate block text-[10px] opacity-40">
-                          {wpSite.url.replace(/https?:\/\//, "")}
-                        </span>
-                      </div>
-                    )}
-                  </NavLink>
-                </>
-              );
-            })()}
           </nav>
 
           {/* Portal link */}
