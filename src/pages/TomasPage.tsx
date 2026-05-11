@@ -150,7 +150,7 @@ export default function TomasPage() {
       setStatusMsg(err?.message ?? "Erro desconhecido");
       toast.error("Falha ao gerar a landing page.");
     }
-  }, [briefing]);
+  }, [briefing, arquivos]);
 
   const publicar = useCallback(async () => {
     if (!resultado?.html) return;
