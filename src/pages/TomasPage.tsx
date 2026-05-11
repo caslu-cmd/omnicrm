@@ -353,7 +353,6 @@ export default function TomasPage() {
                 );
               })}
               {gerandoAtivo && statusMsg && <span className="ml-2 text-[11px]" style={{ color: "#666688" }}>{statusMsg}</span>}
-              {etapa === "erro" && <span className="ml-2 text-[11px] flex items-center gap-1" style={{ color: "#F87171" }}><AlertCircle className="w-3.5 h-3.5" /> {statusMsg}</span>}
             </div>
           ) : (
             <div className="flex items-center gap-1 flex-1">
