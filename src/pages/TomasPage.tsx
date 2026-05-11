@@ -37,7 +37,13 @@ export default function TomasPage() {
   const clientId   = searchParams.get("clientId") ?? "";
   const clientName = searchParams.get("clientName") ?? "";
 
-  const [briefing, setBriefing]   = useState(() => searchParams.get("briefing") ?? "");
+  const [produto, setProduto]     = useState("");
+  const [publico, setPublico]     = useState("");
+  const [objetivo, setObjetivo]   = useState("Capturar leads");
+  const [tom, setTom]             = useState("Direto e persuasivo");
+  const [cores, setCores]         = useState("");
+  const [extras, setExtras]       = useState("");
+  const [previewEditMode, setPreviewEditMode] = useState(false);
   const [arquivos, setArquivos]   = useState<File[]>([]);
   const [dragOver, setDragOver]   = useState(false);
   const [etapa, setEtapa]         = useState<Etapa>("idle");
@@ -83,6 +89,14 @@ export default function TomasPage() {
     })();
   }, [clientId, wpCredsLoaded]);
 
+  useEffect(() => {
+    const handler = (e: MessageEvent) => {
+      if (e.data?.type === "calu-html-update") setHtmlEditado(e.data.html);
+    };
+    window.addEventListener("message", handler);
+    return () => window.removeEventListener("message", handler);
+  }, []);
+
   const gerandoAtivo = etapa !== "idle" && etapa !== "concluido" && etapa !== "erro";
 
   const cancelar = useCallback(() => {
@@ -92,10 +106,11 @@ export default function TomasPage() {
   }, []);
 
   const gerar = useCallback(async () => {
-    if (!briefing.trim()) { toast.error("Preencha o briefing antes de gerar."); return; }
+    if (!produto.trim() || !publico.trim()) { toast.error("Preencha o produto/serviço e o público-alvo."); return; }
     setEtapa("copy");
     setResultado(null);
     setParcial({ copy: "", design: "", html: "" });
+    setPreviewEditMode(false);
     setStatusMsg("Iniciando...");
 
     const parcial: Resultado = { copy: "", design: "", html: "" };
@@ -126,9 +141,17 @@ export default function TomasPage() {
           arquivosPayload.push({ name: f.name, base64: b64, media_type: media });
         }
       }
+      const briefingBase = [
+        `Produto/Serviço: ${produto}`,
+        `Público-alvo: ${publico}`,
+        `Objetivo da LP: ${objetivo}`,
+        `Tom de voz: ${tom}`,
+        cores.trim() ? `Cores da marca: ${cores}` : null,
+        extras.trim() ? `\nInformações adicionais:\n${extras}` : null,
+      ].filter(Boolean).join("\n");
       const briefingFinal = textoExtra.length > 0
-        ? `${briefing}\n\n--- Materiais de referência (texto) ---\n${textoExtra.join("\n\n")}`
-        : briefing;
+        ? `${briefingBase}\n\n--- Materiais de referência (texto) ---\n${textoExtra.join("\n\n")}`
+        : briefingBase;
 
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/tomas-lp`, {
         method: "POST",
@@ -181,7 +204,7 @@ export default function TomasPage() {
       setStatusMsg(err?.message ?? "Erro desconhecido");
       toast.error("Falha ao gerar a landing page.");
     }
-  }, [briefing, arquivos, clientName]);
+  }, [produto, publico, objetivo, tom, cores, extras, arquivos, clientName]);
 
   const publicar = useCallback(async () => {
     const htmlFinal = htmlEditado || resultado?.html;
@@ -219,6 +242,40 @@ export default function TomasPage() {
   const idxAtual = etapaIndex(etapa);
   const htmlParaExibir = htmlEditado || resultado?.html || parcial.html || "";
   const temAlgumConteudo = !!(resultado || parcial.copy || parcial.design || parcial.html);
+  const formValido = produto.trim() && publico.trim();
+
+  function addEditingToPreview(html: string): string {
+    if (!html || !previewEditMode) return html;
+    const script = `<script>(function(){
+  var banner=document.createElement('div');
+  banner.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#B9FF4B;color:#07080A;font-size:12px;font-weight:700;text-align:center;padding:7px;font-family:sans-serif;letter-spacing:0.02em;';
+  banner.textContent='\\u270F\\uFE0F Modo edi\\u00E7\\u00E3o — clique em qualquer texto para editar';
+  document.body && document.body.appendChild(banner);
+  document.addEventListener('click',function(e){
+    var TAGS=['P','H1','H2','H3','H4','H5','SPAN','LI','BUTTON','A','LABEL','TD','STRONG','EM','B','I'];
+    var el=e.target;
+    if(!el||el===banner)return;
+    if(TAGS.indexOf(el.tagName)>-1&&el.contentEditable!=='true'){
+      e.preventDefault();
+      el.contentEditable='true';
+      el.style.outline='2px dashed #B9FF4B';
+      el.style.outlineOffset='3px';
+      el.focus();
+      function finish(){
+        el.contentEditable='false';
+        el.style.outline='';
+        el.style.outlineOffset='';
+        window.parent.postMessage({type:'calu-html-update',html:document.documentElement.outerHTML},'*');
+      }
+      el.addEventListener('blur',finish,{once:true});
+      el.addEventListener('keydown',function(ev){if(ev.key==='Escape'){el.blur();}});
+    }
+  },true);
+})();<\/script>`;
+    return html.includes("</body>")
+      ? html.replace("</body>", script + "</body>")
+      : html + script;
+  }
 
   return (
     <div className="flex h-screen overflow-hidden" style={{ background: "#07080A" }}>
@@ -251,19 +308,111 @@ export default function TomasPage() {
           </div>
         </div>
 
-        {/* Briefing */}
-        <div className="flex-1 flex flex-col px-5 py-4 gap-3 overflow-hidden">
-          <label className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: "#444466" }}>Briefing do cliente</label>
-          <textarea
-            className="flex-1 resize-none rounded-xl p-4 text-sm outline-none"
-            style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0", lineHeight: 1.6, fontFamily: "inherit" }}
-            placeholder={"Produto, público-alvo, objetivo e tom de voz.\n\nEx:\nProduto: Curso de gestão para MEIs\nPúblico: Empreendedores 30-50 anos\nObjetivo: inscrições\nTom: direto e motivador\nCores: azul e laranja"}
-            value={briefing}
-            onChange={(e) => setBriefing(e.target.value)}
-            disabled={gerandoAtivo}
-            onFocus={(e) => (e.currentTarget.style.borderColor = "#B9FF4B44")}
-            onBlur={(e) => (e.currentTarget.style.borderColor = "#2A2A3A")}
-          />
+        {/* Briefing guiado */}
+        <div className="flex-1 flex flex-col px-5 py-4 gap-3 overflow-y-auto">
+          <label className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: "#444466" }}>Briefing</label>
+
+          {/* Produto */}
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] uppercase tracking-widest" style={{ color: "#555577" }}>Produto / Serviço <span style={{ color: "#B9FF4B" }}>*</span></label>
+            <input
+              type="text"
+              className="rounded-xl px-3 py-2.5 text-sm outline-none"
+              style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0" }}
+              placeholder="Ex: Curso de gestão financeira para MEIs"
+              value={produto}
+              onChange={(e) => setProduto(e.target.value)}
+              disabled={gerandoAtivo}
+              onFocus={(e) => (e.currentTarget.style.borderColor = "#B9FF4B44")}
+              onBlur={(e) => (e.currentTarget.style.borderColor = "#2A2A3A")}
+            />
+          </div>
+
+          {/* Público */}
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] uppercase tracking-widest" style={{ color: "#555577" }}>Público-alvo <span style={{ color: "#B9FF4B" }}>*</span></label>
+            <input
+              type="text"
+              className="rounded-xl px-3 py-2.5 text-sm outline-none"
+              style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0" }}
+              placeholder="Ex: Empreendedores 30-50 anos, iniciantes"
+              value={publico}
+              onChange={(e) => setPublico(e.target.value)}
+              disabled={gerandoAtivo}
+              onFocus={(e) => (e.currentTarget.style.borderColor = "#B9FF4B44")}
+              onBlur={(e) => (e.currentTarget.style.borderColor = "#2A2A3A")}
+            />
+          </div>
+
+          {/* Objetivo */}
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] uppercase tracking-widest" style={{ color: "#555577" }}>Objetivo</label>
+            <select
+              className="rounded-xl px-3 py-2.5 text-sm outline-none appearance-none"
+              style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0" }}
+              value={objetivo}
+              onChange={(e) => setObjetivo(e.target.value)}
+              disabled={gerandoAtivo}>
+              <option>Capturar leads</option>
+              <option>Vender direto</option>
+              <option>Divulgar evento</option>
+              <option>Apresentar empresa</option>
+              <option>Lançar produto</option>
+              <option>Agendar consulta</option>
+            </select>
+          </div>
+
+          {/* Tom */}
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[10px] uppercase tracking-widest" style={{ color: "#555577" }}>Tom de voz</label>
+            <div className="flex flex-wrap gap-1.5">
+              {["Direto e persuasivo", "Inspirador", "Profissional", "Amigável", "Luxo e exclusivo"].map((t) => (
+                <button key={t} type="button"
+                  onClick={() => { if (!gerandoAtivo) setTom(t); }}
+                  className="px-2.5 py-1 rounded-full text-[11px] font-medium transition-all"
+                  style={{
+                    background: tom === t ? "#B9FF4B22" : "#141420",
+                    border: `1px solid ${tom === t ? "#B9FF4B" : "#2A2A3A"}`,
+                    color: tom === t ? "#B9FF4B" : "#555577",
+                    cursor: gerandoAtivo ? "default" : "pointer",
+                  }}>
+                  {t}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Cores */}
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] uppercase tracking-widest" style={{ color: "#555577" }}>Cores da marca <span style={{ color: "#444466" }}>(opcional)</span></label>
+            <input
+              type="text"
+              className="rounded-xl px-3 py-2.5 text-sm outline-none"
+              style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0" }}
+              placeholder="Ex: azul marinho #003366 e dourado"
+              value={cores}
+              onChange={(e) => setCores(e.target.value)}
+              disabled={gerandoAtivo}
+              onFocus={(e) => (e.currentTarget.style.borderColor = "#B9FF4B44")}
+              onBlur={(e) => (e.currentTarget.style.borderColor = "#2A2A3A")}
+            />
+          </div>
+
+          {/* Extras */}
+          <div className="flex flex-col gap-1">
+            <label className="text-[10px] uppercase tracking-widest" style={{ color: "#555577" }}>Informações adicionais <span style={{ color: "#444466" }}>(opcional)</span></label>
+            <textarea
+              rows={3}
+              className="resize-none rounded-xl px-3 py-2.5 text-sm outline-none"
+              style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0", lineHeight: 1.6, fontFamily: "inherit" }}
+              placeholder="Diferenciais, garantias, preço, urgência, detalhes da oferta..."
+              value={extras}
+              onChange={(e) => setExtras(e.target.value)}
+              disabled={gerandoAtivo}
+              onFocus={(e) => (e.currentTarget.style.borderColor = "#B9FF4B44")}
+              onBlur={(e) => (e.currentTarget.style.borderColor = "#2A2A3A")}
+            />
+          </div>
 
           {/* Upload */}
           <div className="flex flex-col gap-2 flex-shrink-0">
@@ -320,9 +469,9 @@ export default function TomasPage() {
               <XIcon className="w-4 h-4" /> Cancelar
             </button>
           ) : (
-            <button onClick={gerar} disabled={!briefing.trim()}
+            <button onClick={gerar} disabled={!formValido}
               className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold"
-              style={{ background: briefing.trim() ? "#B9FF4B" : "#1E1E2E", color: briefing.trim() ? "#07080A" : "#444466", cursor: briefing.trim() ? "pointer" : "not-allowed" }}>
+              style={{ background: formValido ? "#B9FF4B" : "#1E1E2E", color: formValido ? "#07080A" : "#444466", cursor: formValido ? "pointer" : "not-allowed" }}>
               <Sparkles className="w-4 h-4" /> Gerar Landing Page
             </button>
           )}
@@ -371,11 +520,21 @@ export default function TomasPage() {
               ))}
               <div className="flex items-center gap-2 ml-auto">
                 {abaAtiva === "preview" && (
-                  <button onClick={() => setPreviewMobile(v => !v)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px]"
-                    style={{ background: "#1E1E2E", color: "#8888AA" }}>
-                    {previewMobile ? <Monitor className="w-3.5 h-3.5" /> : <Smartphone className="w-3.5 h-3.5" />}
-                  </button>
+                  <>
+                    <button onClick={() => setPreviewMobile(v => !v)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px]"
+                      style={{ background: "#1E1E2E", color: "#8888AA" }}>
+                      {previewMobile ? <Monitor className="w-3.5 h-3.5" /> : <Smartphone className="w-3.5 h-3.5" />}
+                    </button>
+                    {htmlParaExibir && (
+                      <button onClick={() => setPreviewEditMode(v => !v)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium"
+                        style={{ background: previewEditMode ? "#B9FF4B22" : "#1E1E2E", border: previewEditMode ? "1px solid #B9FF4B55" : "1px solid transparent", color: previewEditMode ? "#B9FF4B" : "#8888AA" }}
+                        title="Clique em qualquer texto no preview para editar">
+                        <Edit3 className="w-3.5 h-3.5" /> {previewEditMode ? "Editando" : "Editar"}
+                      </button>
+                    )}
+                  </>
                 )}
                 {abaAtiva === "html" && (
                   <button onClick={() => setEditandoHtml(v => !v)}
@@ -398,7 +557,7 @@ export default function TomasPage() {
                     <Download className="w-3.5 h-3.5" /> Baixar HTML
                   </button>
                 )}
-                <button onClick={() => { setEtapa("idle"); setResultado(null); setHtmlEditado(""); }}
+                <button onClick={() => { setEtapa("idle"); setResultado(null); setHtmlEditado(""); setParcial({ copy: "", design: "", html: "" }); setProduto(""); setPublico(""); setCores(""); setExtras(""); setPreviewEditMode(false); }}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px]"
                   style={{ background: "#1E1E2E", color: "#8888AA" }} title="Nova LP">
                   <RefreshCw className="w-3.5 h-3.5" />
@@ -478,7 +637,7 @@ export default function TomasPage() {
                 {htmlParaExibir ? (
                   <div className="rounded-xl overflow-hidden shadow-2xl transition-all duration-300"
                     style={{ width: previewMobile ? 390 : "95%", maxWidth: previewMobile ? 390 : 1280, border: "1px solid #2A2A3A" }}>
-                    <iframe srcDoc={htmlParaExibir} className="w-full" style={{ height: "calc(100vh - 10rem)", border: "none" }}
+                    <iframe srcDoc={addEditingToPreview(htmlParaExibir)} className="w-full" style={{ height: "calc(100vh - 10rem)", border: "none" }}
                       title="Preview" sandbox="allow-scripts allow-same-origin" />
                   </div>
                 ) : (
