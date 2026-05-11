@@ -301,7 +301,17 @@ export default function ClientPortal() {
       .then(({ data: rows }: any) => { if (rows) setDeliverables(rows); });
   }, [data?.client?.workspace_id]);
 
-  const [portalCourses, setPortalCourses] = useState<any[]>([]);
+  // Calendário aprovado pelo dono — visível ao cliente
+  const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
+  useEffect(() => {
+    const wid = data?.client?.workspace_id;
+    if (!wid) return;
+    (supabase as any).from("client_calendar_events").select("*")
+      .eq("client_id", wid).neq("status", "cancelled")
+      .gte("event_date", new Date(Date.now() - 1 * 86400000).toISOString().slice(0, 10))
+      .order("event_date", { ascending: true }).limit(50)
+      .then(({ data: rows }: any) => { if (rows) setCalendarEvents(rows); });
+  }, [data?.client?.workspace_id]);
   const [portalChecklists, setPortalChecklists] = useState<Record<string, any[]>>({});
   const [expandedPortalCourse, setExpandedPortalCourse] = useState<string | null>(null);
   const [selectedPortalPhase, setSelectedPortalPhase] = useState<Record<string, string>>({});
