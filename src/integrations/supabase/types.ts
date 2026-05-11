@@ -14,6 +14,66 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_proposals: {
+        Row: {
+          agent_color: string | null
+          agent_id: string | null
+          agent_name: string | null
+          client_id: string
+          created_at: string
+          descricao: string | null
+          id: string
+          kind: string | null
+          payload: Json
+          reviewed_at: string | null
+          reviewer_notes: string | null
+          scheduled_for: string | null
+          status: string
+          title: string | null
+          titulo: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          agent_color?: string | null
+          agent_id?: string | null
+          agent_name?: string | null
+          client_id: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          kind?: string | null
+          payload?: Json
+          reviewed_at?: string | null
+          reviewer_notes?: string | null
+          scheduled_for?: string | null
+          status?: string
+          title?: string | null
+          titulo?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          agent_color?: string | null
+          agent_id?: string | null
+          agent_name?: string | null
+          client_id?: string
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          kind?: string | null
+          payload?: Json
+          reviewed_at?: string | null
+          reviewer_notes?: string | null
+          scheduled_for?: string | null
+          status?: string
+          title?: string | null
+          titulo?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       automations: {
         Row: {
           created_at: string
@@ -52,6 +112,62 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      client_calendar_events: {
+        Row: {
+          client_id: string
+          created_at: string
+          description: string | null
+          event_date: string
+          event_time: string | null
+          id: string
+          kind: string
+          payload: Json
+          source_proposal_id: string | null
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          description?: string | null
+          event_date: string
+          event_time?: string | null
+          id?: string
+          kind: string
+          payload?: Json
+          source_proposal_id?: string | null
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          description?: string | null
+          event_date?: string
+          event_time?: string | null
+          id?: string
+          kind?: string
+          payload?: Json
+          source_proposal_id?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_calendar_events_source_proposal_id_fkey"
+            columns: ["source_proposal_id"]
+            isOneToOne: false
+            referencedRelation: "agent_proposals"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contacts: {
         Row: {

@@ -1,97 +1,63 @@
+## Escopo
 
-# Diagnóstico — Integração de Redes Sociais
+Implementar 3 frentes conectadas: (1) refinar envio de WhatsApp (grupos múltiplos, "todos", contatos individuais), (2) criar geração de **calendário editorial** pelos agentes com tarefas internas, (3) fluxo de **aprovação obrigatória** antes de qualquer item criado por agente aparecer no portal do cliente, com nova aba "Calendário" e resumo no dashboard do portal.
 
-Tela: `/agency/clients/[slug]?tab=social` → componente `src/components/SocialMediaTab.tsx`.
+## Estado atual (já existe)
 
-## 1) Edge Functions / handlers OAuth existentes
+A aba CRM → WhatsApp em `ClientWorkspace.tsx` já possui:
+- Tabs Grupos / Contatos
+- Botão "Selecionar todos" para grupos
+- Multi-seleção de contatos individuais
+- Edge function `agent-broadcast` que envia mensagens via Z-API
 
-Há **duas** edge functions de social media (redundantes):
+→ Vou **reorganizar** essa UI em vez de duplicá-la (3º modo "Individual" mais explícito + reuso do envio existente).
 
-- **`supabase/functions/smm/index.ts`** ← a que o frontend usa hoje (`supabase.functions.invoke("smm", …)`).
-  Actions: `oauth-url`, `oauth-callback` (Meta), `linkedin-oauth-url`, `linkedin-oauth-callback`, `connections`, `disconnect`, `create-post`, `approve-post`, `reject-post`, `posts`, `delete-post`, `metrics`.
-- **`supabase/functions/social-media/index.ts`** ← versão antiga, **não usada** pelo frontend. Pode ser removida.
+## 1. Banco de dados (migration)
 
-Rota de callback no frontend: `OAuthCallbackPage.tsx` registrada em `App.tsx` para:
-- `/oauth/meta` — Instagram + Facebook
-- `/oauth/linkedin` — LinkedIn
+Nova tabela `agent_proposals`:
+- `client_id`, `user_id` (dono/agência), `kind` (`post` | `whatsapp` | `email` | `task` | `campaign`), `title`, `payload` jsonb (conteúdo, plataforma, data agendada, destinatários etc.), `scheduled_for` timestamptz, `status` (`pending` | `approved` | `rejected`), `agent_name`, `created_at`, `reviewed_at`, `reviewer_notes`.
+- RLS: dono (agência) vê/edita tudo seu. Membros do cliente (`client_members.accepted=true`) com role `cliente` veem apenas onde `status='approved'` para o seu `client_id`.
 
-A página apenas captura `code`/`state` e faz `postMessage` para a janela mãe, que então chama o `smm` com `oauth-callback`.
+Tabela `client_calendar_events` (somente itens **aprovados** que viram calendário oficial):
+- `client_id`, `user_id`, `source_proposal_id`, `kind`, `title`, `description`, `event_date` date, `event_time` time, `payload` jsonb, `status` (`scheduled`|`done`|`cancelled`).
+- RLS: dono CRUD, cliente apenas SELECT do seu `client_id`.
 
-## 2) Secrets / credenciais
+## 2. WhatsApp – 3 modos
 
-Já configurados (vistos via fetch_secrets):
-- `META_APP_ID`, `META_APP_SECRET`, `META_REDIRECT_URI`
-- `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`, `LINKEDIN_REDIRECT_URI`
+Em `ClientWorkspace.tsx`, substituir o seletor de tabs Grupos/Contatos por **3 modos**:
+- **Grupos selecionados** (multi-check, como hoje)
+- **Todos os grupos** (botão único, marca todos automaticamente, aviso "vai enviar para N grupos")
+- **Individual** (lista de contatos do CRM com checkbox; envia 1 a 1 com pequeno delay)
 
-**Problema:** os redirect URIs no servidor têm fallback para `omnicrm.lovable.app`. O frontend já força `${window.location.origin}/oauth/meta` ao montar a URL OAuth, então o domínio efetivo é o que o usuário acessa (`www.caluagencia.com.br`, `caluagencia.lovable.app` ou o preview).
+Reuso do `agent-broadcast` (já aceita `groups[]`); para individual estender o body para aceitar `contacts: [{phone, name}]`. Atualizar a edge function correspondente.
 
-Para o OAuth funcionar, no painel **Meta Developers** (App `1480117656994046`) e no **LinkedIn Developers** os redirect URIs liberados devem incluir **todas** as origens em uso:
-```
-https://www.caluagencia.com.br/oauth/meta
-https://caluagencia.com.br/oauth/meta
-https://caluagencia.lovable.app/oauth/meta
-https://id-preview--ddccdec1-0f36-4159-b242-2521c9f54551.lovable.app/oauth/meta
-```
-(idem para `/oauth/linkedin`)
+## 3. Agentes geram calendário editorial
 
-E em **App Domains** (Meta) → adicionar os domínios sem o path.
+- Estender a edge function `aria-orchestrate` (ou criar `agent-editorial`) para receber prompt + período → produzir lista de propostas (posts, ads, broadcasts, tasks) com data sugerida.
+- Cada item gerado é gravado em `agent_proposals` com `status='pending'`.
+- Botão "Gerar calendário" na aba **Calendário Editorial** do workspace (componente `CalendarioEditorialTab.tsx`) chama essa função.
 
-## 3) Persistência de tokens
+## 4. Fila de aprovação no workspace
 
-Tabela: **`social_connections`** (existe).
-Colunas: `user_id`, `client_id`, `platform`, `account_id`, `account_name`, `account_username`, `followers_count`, `access_token` (ofuscado XOR+base64 com `INTEGRATION_ENCRYPTION_KEY` ou service role), `token_expires_at`, `connected`, `connected_at`.
+Nova sub-view dentro do CRM (já existe enum `crmView` que inclui `"approvals"`): listar `agent_proposals` pendentes com:
+- Card por proposta (tipo, data, título, preview do conteúdo).
+- Botões **Aprovar** / **Rejeitar** / **Editar antes de aprovar**.
+- Aprovar copia para `client_calendar_events` e (quando aplicável) cria registro em `scheduled_posts` ou dispara o envio.
 
-RLS ativo: SELECT/INSERT/UPDATE/DELETE restritos a `auth.uid() = user_id` (authenticated). OK.
+## 5. Portal do cliente (`ClientPortal.tsx`)
 
-Posts: tabela `scheduled_posts` com mesmas regras.
+- **Dashboard inicial**: card "Próximos do calendário" (próximos 5 eventos aprovados) + contadores por tipo.
+- **Nova aba "Calendário"**: visão mensal/lista de `client_calendar_events` filtrada por `client_id`, somente aprovados. Cliente apenas visualiza.
+- Garantir RLS impede o cliente de ver `pending`/`rejected`.
 
-## 4) O que falta para os botões "Conectar" funcionarem de fato
+## Detalhes técnicos
 
-| Item | Status |
-|------|--------|
-| Backend `smm` com handlers Meta + LinkedIn | ✅ pronto |
-| Tabela + RLS | ✅ pronto |
-| Página de callback `/oauth/meta` e `/oauth/linkedin` | ✅ pronto |
-| Secrets Meta e LinkedIn | ✅ presentes |
-| **Redirect URIs liberados no Meta Developers** para `www.caluagencia.com.br` | ⚠️ depende de você confirmar no painel Meta |
-| **Redirect URIs liberados no LinkedIn Developers** | ⚠️ idem |
-| App Meta em modo **Live** (necessário p/ contas que não são admin/tester) | ⚠️ provavelmente em Development |
-| Permissões `instagram_content_publish`, `pages_manage_posts` revisadas pela Meta | ⚠️ requer App Review p/ uso fora do círculo de testers |
-| Conta IG da cliente ser **Profissional** vinculada a uma Página FB | ⚠️ pré-requisito do usuário final |
-| LinkedIn: produto **Sign In with LinkedIn** + escopo `w_member_social` aprovado no app | ⚠️ verificar |
+- Tabelas com triggers `update_updated_at_column`.
+- `agent-broadcast` ganha branch `mode: 'individual'` que itera sobre `contacts[]` chamando `/send-text` com `phone` direto (sem ID de grupo).
+- O passo de aprovação da proposta cria automaticamente o `scheduled_posts` (para post) ou `client_calendar_events` (para tarefa/broadcast já enviado).
+- Itens enviados ao vivo (broadcast manual feito pelo dono) **não passam por aprovação** — só os criados por agentes.
 
-Resumo: **o código está completo**. O bloqueio atual é 100% de configuração nos painéis Meta/LinkedIn (redirect URIs + modo do app + scopes aprovados).
+## Fora de escopo
 
-## 5) TikTok / YouTube
-
-Atualmente **não existem** no projeto:
-- Sem entrada no `PLATFORM_CFG` do `SocialMediaTab.tsx`
-- Sem actions `tiktok-*` / `youtube-*` no `smm`
-- Sem rotas `/oauth/tiktok` ou `/oauth/youtube`
-- Tabela `social_connections.platform` é `text` livre — aceitaria os novos valores sem migração
-
-Para adicionar cada um:
-
-**TikTok (TikTok for Developers — Login Kit + Content Posting API):**
-1. Criar app em developers.tiktok.com, habilitar Login Kit + Content Posting API
-2. Secrets: `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `TIKTOK_REDIRECT_URI`
-3. Rota frontend `/oauth/tiktok` (reaproveita `OAuthCallbackPage` com novo tipo de mensagem)
-4. Actions no `smm`: `tiktok-oauth-url`, `tiktok-oauth-callback`, e branches em `create-post`/`metrics`
-5. Card no `PLATFORM_CFG`
-6. Aprovação de scopes (`video.publish`, `user.info.basic`) — requer App Review da TikTok
-
-**YouTube (Google Cloud — YouTube Data API v3):**
-1. Projeto no Google Cloud, habilitar YouTube Data API
-2. OAuth 2.0 Client → Secrets: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REDIRECT_URI`
-3. Rota `/oauth/youtube`
-4. Actions `youtube-oauth-url`, `youtube-oauth-callback`, upload via `videos.insert` (resumable upload — precisa hospedar o vídeo antes)
-5. Card no `PLATFORM_CFG`
-6. App Verification do Google (se for usar fora dos testers) para escopo `youtube.upload`
-
-Estimativa: ~1 sessão de build por plataforma (sem contar o tempo de aprovação no painel oficial de cada uma).
-
-## Recomendações imediatas
-
-1. Você confirmar/atualizar os Redirect URIs no Meta + LinkedIn para `www.caluagencia.com.br` (e demais domínios em uso).
-2. Decidir se quero **deletar** a função `social-media` (legacy) para evitar confusão.
-3. Se quiser, próximo passo é adicionar **TikTok** e **YouTube** (me diga qual primeiro).
+- Edição visual completa da grade do calendário no portal (vai começar como lista cronológica + filtro por mês).
+- Notificações push para o cliente (fica para depois).
