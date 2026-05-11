@@ -2487,7 +2487,7 @@ ${priorBlock}`;
       b.canaisAtivos?.length && `Canais ativos: ${b.canaisAtivos.join(", ")}`,
     ].filter(Boolean).join(" | ") : "";
     const ctx = [
-      `Página atual: Workspace do cliente "${client.name}" (${client.industry || client.segment || "—"}).`,
+      `Página atual: Workspace do cliente "${client.name}" (${client.industry || (client as any).segment || "—"}).`,
       `Aba ativa: ${TAB_NAMES[activeTab] ?? activeTab}.`,
       briefingLines && `Briefing resumido — ${briefingLines}.`,
     ].filter(Boolean).join(" ");
