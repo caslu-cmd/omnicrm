@@ -104,8 +104,8 @@ const MembersPage = () => {
       supabase.from("courses").select("*").order("created_at", { ascending: false }),
       supabase.from("course_enrollments").select("*").order("enrolled_at", { ascending: false }),
     ]);
-    setCourses((coursesRes.data as Course[]) || []);
-    setEnrollments((enrollRes.data as Enrollment[]) || []);
+    setCourses((coursesRes.data as unknown as Course[]) || []);
+    setEnrollments((enrollRes.data as unknown as Enrollment[]) || []);
     setLoading(false);
   };
 
