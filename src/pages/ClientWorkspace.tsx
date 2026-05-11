@@ -2727,7 +2727,7 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
 
   useEffect(() => { if (activeTab === "integrations" && id) fetchSocialIntegrations(); }, [activeTab, id]);
   useEffect(() => { if (activeTab === "courses" && id) loadDbCourses(); }, [activeTab, id]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { if (activeTab === "sales-agents" && id) fetchSalesAgents(); }, [activeTab, id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (activeTab === "sales-agents" && id) { fetchSalesAgents(); loadAgentChannelConfig(); loadAgentLogs(); loadSocialAccounts(); } }, [activeTab, id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchOverviewData = async () => {
     if (!id) return;
