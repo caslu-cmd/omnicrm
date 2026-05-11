@@ -6930,7 +6930,7 @@ Regras:
 
                 {/* ── Painel do Site (Teo) ── */}
                 {(() => {
-                  const pages = siteDbPages;
+                  const pages: any[] = [];
                   const siteTask = client.agentTasks["site"];
                   return (
                     <div>
