@@ -34,6 +34,16 @@ function deobfuscate(encoded: string, key: string): string {
 const GRAPH = "https://graph.facebook.com/v22.0";
 const LINKEDIN_API = "https://api.linkedin.com/v2";
 
+function normalizeMetaDatePreset(value: unknown): string {
+  const preset = typeof value === "string" ? value : "last_30d";
+  const aliases: Record<string, string> = {
+    last_7_days: "last_7d",
+    last_30_days: "last_30d",
+    last_90_days: "last_90d",
+  };
+  return aliases[preset] ?? preset;
+}
+
 const META_SCOPE = [
   "pages_manage_posts",
   "pages_read_engagement",
@@ -706,7 +716,8 @@ Deno.serve(async (req) => {
 
     // ── Ads Metrics (Meta Ads account-level insights) ─────────────
     if (action === "ads-metrics") {
-      const { client_id, date_preset = "last_30d" } = body;
+      const { client_id } = body;
+      const date_preset = normalizeMetaDatePreset(body.date_preset);
       if (!client_id) return respond({ error: "client_id obrigatório" }, 400);
 
       const { data: conn } = await supabase.from("social_connections")
@@ -747,7 +758,8 @@ Deno.serve(async (req) => {
 
     // ── Ads Campaigns ─────────────────────────────────────────────
     if (action === "ads-campaigns") {
-      const { client_id, date_preset = "last_30d" } = body;
+      const { client_id } = body;
+      const date_preset = normalizeMetaDatePreset(body.date_preset);
       if (!client_id) return respond({ error: "client_id obrigatório" }, 400);
 
       const { data: conn } = await supabase.from("social_connections")

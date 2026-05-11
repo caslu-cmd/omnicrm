@@ -59,9 +59,9 @@ function fmtNum(n: number) {
 }
 
 const DATE_PRESETS = [
-  { label: "7 dias",  value: "last_7_days" },
-  { label: "30 dias", value: "last_30_days" },
-  { label: "90 dias", value: "last_90_days" },
+  { label: "7 dias",  value: "last_7d" },
+  { label: "30 dias", value: "last_30d" },
+  { label: "90 dias", value: "last_90d" },
 ];
 
 // ── Component ──────────────────────────────────────────────────
@@ -72,7 +72,7 @@ export default function AdsSection({
   clientId: string;
   clientColor?: string;
 }) {
-  const [datePreset, setDatePreset] = useState("last_30_days");
+  const [datePreset, setDatePreset] = useState("last_30d");
   const [metaMetrics, setMetaMetrics] = useState<MetaAdsMetrics | null>(null);
   const [campaigns, setCampaigns] = useState<AdCampaign[]>([]);
   const [googleConn, setGoogleConn] = useState<boolean>(false);
