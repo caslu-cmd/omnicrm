@@ -10558,6 +10558,18 @@ Regras:
             )}
 
             {/* ══════════════════════════════════════════════════════
+                CALENDÁRIO EDITORIAL (sidebar)
+            ══════════════════════════════════════════════════════ */}
+            {activeTab === "calendario" && id && (
+              <EditorialCalendarPanel
+                clientId={id}
+                clientName={client.name}
+                clientSegment={(client as any).segment}
+                accentColor={client.color}
+              />
+            )}
+
+            {/* ══════════════════════════════════════════════════════
                 WEBHOOKS
             ══════════════════════════════════════════════════════ */}
             {activeTab === "webhooks" && (
