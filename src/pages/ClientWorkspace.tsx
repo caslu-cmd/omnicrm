@@ -11174,7 +11174,7 @@ Regras:
 
               <div>
                 <label className="block text-[10px] uppercase tracking-widest font-semibold mb-1.5" style={{ color: "rgba(255,255,255,0.3)" }}>Repositório GitHub</label>
-                <input value={editForm.siteRepo} onChange={(e) => setEditForm(f => f && { ...f, siteRepo: e.target.value })}
+                <input value={(editForm as any).siteRepo ?? ""} onChange={(e) => setEditForm(f => f && ({ ...f, siteRepo: e.target.value } as any))}
                   placeholder="ex: caslu-cmd/nome-do-site"
                   className="w-full rounded-xl px-3 py-2 text-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }} />
                 <p className="text-[10px] mt-1" style={{ color: "rgba(255,255,255,0.2)" }}>Formato: usuario/repositorio — necessário para o Teo editar o site</p>
