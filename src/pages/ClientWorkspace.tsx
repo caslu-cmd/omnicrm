@@ -10418,15 +10418,17 @@ Regras:
                 SITE — TEO
             ══════════════════════════════════════════════════════ */}
             {activeTab === "teo" && (
-              <div className="h-[calc(100vh-8rem)] flex flex-col">
+              <div className="flex flex-col gap-4 overflow-y-auto" style={{ height: "calc(100vh - 8rem)" }}>
                 {client.siteRepo ? (
-                  <SiteEditorPanel
-                    clientId={client.id}
-                    siteUrl={client.siteUrl ?? ""}
-                    siteRepo={client.siteRepo}
-                  />
+                  <div style={{ height: "60vh", flexShrink: 0 }}>
+                    <SiteEditorPanel
+                      clientId={client.id}
+                      siteUrl={client.siteUrl ?? ""}
+                      siteRepo={client.siteRepo}
+                    />
+                  </div>
                 ) : (
-                  <div className="flex-1 flex flex-col items-center justify-center gap-6">
+                  <div className="flex flex-col items-center justify-center gap-6 py-12 flex-shrink-0">
                     <div className="w-16 h-16 rounded-2xl flex items-center justify-center"
                       style={{ background: "rgba(185,255,75,0.08)", border: "1px solid rgba(185,255,75,0.2)" }}>
                       <Code2 className="w-8 h-8" style={{ color: "#B9FF4B" }} />
@@ -10448,17 +10450,14 @@ Regras:
                     </button>
                   </div>
                 )}
-              </div>
-            )}
 
-            {/* ── WordPress do cliente (credenciais para Tomás) ── */}
-            {activeTab === "teo" && (
-                <div className="mt-4 rounded-2xl p-5 space-y-4" style={{ background: "rgba(185,255,75,0.03)", border: "1px solid rgba(185,255,75,0.1)" }}>
+                {/* ── WordPress do cliente ── */}
+                <div className="rounded-2xl p-5 space-y-4 flex-shrink-0" style={{ background: "rgba(185,255,75,0.03)", border: "1px solid rgba(185,255,75,0.1)" }}>
                   <div className="flex items-center gap-3">
                     <Globe className="w-4 h-4" style={{ color: "#B9FF4B" }} />
                     <div>
                       <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>WordPress do cliente</p>
-                      <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.35)" }}>Credenciais usadas pelo Tomás para publicar landing pages no site do cliente</p>
+                      <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.35)" }}>Credenciais para o Tomás publicar landing pages no site do cliente</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-3 gap-3">
@@ -10499,7 +10498,8 @@ Regras:
                     )}
                   </div>
                 </div>
-              )}
+              </div>
+            )}
 
             {/* ══════════════════════════════════════════════════════
                 REDES SOCIAIS
