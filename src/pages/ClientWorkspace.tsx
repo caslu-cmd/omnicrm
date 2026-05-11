@@ -954,6 +954,10 @@ export default function ClientWorkspace() {
   const airaRecorderRef = useRef<MediaRecorder | null>(null);
   const airaChunksRef = useRef<Blob[]>([]);
   const airaStreamRef = useRef<MediaStream | null>(null);
+  // ── Visão Geral — dados reais ──────────────────────────────
+  const [overviewPosts, setOverviewPosts] = useState<any[]>([]);
+  const [overviewConnections, setOverviewConnections] = useState<any[]>([]);
+  const [overviewLoading, setOverviewLoading] = useState(false);
 
   const airaSaveParticipants = (p: AiraPerson[]) => { setAiraParticipants(p); localStorage.setItem(`aira-participants-${id}`, JSON.stringify(p)); };
   const airaSaveGroups = (g: string[]) => { setAiraSelectedGroups(g); localStorage.setItem(`aira-groups-${id}`, JSON.stringify(g)); };
@@ -2595,6 +2599,20 @@ Contexto do cliente: ${client.name}${client.segment ? ` — segmento ${client.se
   useEffect(() => { if (activeTab === "courses" && id) loadDbCourses(); }, [activeTab, id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (activeTab === "sales-agents" && id) fetchSalesAgents(); }, [activeTab, id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const fetchOverviewData = async () => {
+    if (!id) return;
+    setOverviewLoading(true);
+    const [postsRes, connRes] = await Promise.all([
+      supabase.from("scheduled_posts").select("id,caption,platforms,status,scheduled_at,created_at")
+        .eq("client_id", id).order("created_at", { ascending: false }).limit(50),
+      supabase.from("social_connections").select("*").eq("client_id", id),
+    ]);
+    if (postsRes.data) setOverviewPosts(postsRes.data);
+    if (connRes.data) setOverviewConnections(connRes.data);
+    setOverviewLoading(false);
+  };
+  useEffect(() => { if (activeTab === "" && id) fetchOverviewData(); }, [activeTab, id]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Injeta contexto do cliente na Calu IA
   useEffect(() => {
     if (!client) return;
@@ -3768,135 +3786,152 @@ Regras:
             {/* ══════════════════════════════════════════════════════
                 VISÃO GERAL
             ══════════════════════════════════════════════════════ */}
-            {activeTab === "" && (
-              <div className="grid grid-cols-3 gap-6">
-                <div className="col-span-2 space-y-5">
-                  <div className="grid grid-cols-4 gap-3">
-                    {client.metrics.map((m) => (
-                      <div key={m.label} className="rounded-xl p-4"
-                        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                        <div className="text-[10px] mb-2 uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.35)" }}>{m.label}</div>
-                        <div className="text-2xl mb-1 font-bold tracking-tight">{m.value}</div>
-                        <div className="text-[11px] font-medium" style={{ color: m.positive ? "#34D399" : "#F87171" }}>{m.change}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="rounded-2xl p-5" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                    <div className="flex items-center justify-between mb-5">
-                      <h3 className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.7)" }}>Atividade do Time</h3>
-                      {client.agentActive && (
-                        <div className="flex items-center gap-1.5">
-                          <span className="relative flex h-1.5 w-1.5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
-                          </span>
-                          <span className="text-[11px]" style={{ color: "#34D399" }}>Time trabalhando</span>
+            {activeTab === "" && (() => {
+              const ovCounts = {
+                total:     overviewPosts.length,
+                pending:   overviewPosts.filter(p => p.status === "pending_approval" || p.status === "draft").length,
+                scheduled: overviewPosts.filter(p => p.status === "scheduled" || p.status === "publishing").length,
+                published: overviewPosts.filter(p => p.status === "published").length,
+              };
+              const todayOv = new Date();
+              const mondayOv = new Date(todayOv);
+              mondayOv.setDate(todayOv.getDate() - ((todayOv.getDay() + 6) % 7));
+              const OV_DAY_LABELS = ["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"];
+              const weekDaysData = OV_DAY_LABELS.map((dayLabel, i) => {
+                const d = new Date(mondayOv);
+                d.setDate(mondayOv.getDate() + i);
+                const dateStr = `${String(d.getDate()).padStart(2,"0")}/${String(d.getMonth()+1).padStart(2,"0")}`;
+                const dayPosts = overviewPosts.filter(p => {
+                  if (!p.scheduled_at) return false;
+                  const pd = new Date(p.scheduled_at);
+                  return pd.getFullYear() === d.getFullYear() && pd.getMonth() === d.getMonth() && pd.getDate() === d.getDate();
+                });
+                return { day: dayLabel, date: dateStr, posts: dayPosts.map(p => ({ type: (p.platforms?.[0] ?? "Post") })) };
+              });
+              const OV_STATUS: Record<string, { label: string; color: string; bg: string }> = {
+                pending_approval: { label: "Aguardando", color: "#F5C842", bg: "rgba(245,200,66,0.12)" },
+                draft:            { label: "Rascunho",   color: "#94A3B8", bg: "rgba(148,163,184,0.12)" },
+                scheduled:        { label: "Agendado",   color: "#34D399", bg: "rgba(52,211,153,0.12)" },
+                publishing:       { label: "Publicando", color: "#60A5FA", bg: "rgba(96,165,250,0.12)" },
+                published:        { label: "Publicado",  color: "#34D399", bg: "rgba(52,211,153,0.12)" },
+                failed:           { label: "Falhou",     color: "#F87171", bg: "rgba(248,113,113,0.12)" },
+              };
+              const ovMetrics = [
+                { label: "Total de Posts",       value: ovCounts.total },
+                { label: "Aguardando Aprovação", value: ovCounts.pending },
+                { label: "Agendados",            value: ovCounts.scheduled },
+                { label: "Publicados",           value: ovCounts.published },
+              ];
+              return (
+                <div className="grid grid-cols-3 gap-6">
+                  <div className="col-span-2 space-y-5">
+                    {overviewLoading
+                      ? <div className="flex items-center justify-center py-16"><Loader2 className="w-5 h-5 animate-spin" style={{ color: "rgba(255,255,255,0.3)" }} /></div>
+                      : <>
+                        <div className="grid grid-cols-4 gap-3">
+                          {ovMetrics.map((m) => (
+                            <div key={m.label} className="rounded-xl p-4"
+                              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                              <div className="text-[10px] mb-2 uppercase tracking-wide" style={{ color: "rgba(255,255,255,0.35)" }}>{m.label}</div>
+                              <div className="text-2xl mb-1 font-bold tracking-tight">{m.value}</div>
+                            </div>
+                          ))}
                         </div>
-                      )}
-                    </div>
-                    <div className="space-y-1">
-                      {client.agentFeed.slice(0, 5).map((item) => {
-                        const Icon = ACTIVITY_ICONS[item.type] ?? Zap;
-                        const color = ACTIVITY_COLORS[item.type];
-                        return (
-                          <div key={item.id} className="flex gap-3 p-3 rounded-xl transition-colors"
-                            onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.04)")}
-                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}>
-                            <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
-                              style={{ background: `${color}15`, border: `1px solid ${color}25` }}>
-                              <Icon className="w-3.5 h-3.5" style={{ color }} />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center justify-between gap-2">
-                                <span className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.8)" }}>{item.action}</span>
-                                <span className="text-[11px] flex-shrink-0" style={{ color: "rgba(255,255,255,0.25)" }}>{item.time}</span>
-                              </div>
-                              <p className="text-[11px] mt-0.5 truncate" style={{ color: "rgba(255,255,255,0.35)" }}>{item.detail}</p>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
 
-                  <div className="rounded-2xl p-5" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                    <h3 className="text-sm font-medium mb-4" style={{ color: "rgba(255,255,255,0.7)" }}>Posts Recentes</h3>
-                    <div className="space-y-3">
-                      {client.recentPosts.map((post) => {
-                        const Icon = POST_TYPE_ICONS[post.type] ?? Image;
-                        return (
-                          <div key={post.id} className="flex items-start gap-3 p-3 rounded-xl"
-                            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
-                            <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
-                              style={{ background: `${client.color}15`, border: `1px solid ${client.color}25` }}>
-                              <Icon className="w-4 h-4" style={{ color: client.color }} />
+                        <div className="rounded-2xl p-5" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                          <h3 className="text-sm font-medium mb-4" style={{ color: "rgba(255,255,255,0.7)" }}>Posts Recentes</h3>
+                          {overviewPosts.length === 0
+                            ? <p className="text-xs text-center py-6" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhum post criado ainda.</p>
+                            : <div className="space-y-3">
+                              {overviewPosts.slice(0, 5).map((post) => {
+                                const st = OV_STATUS[post.status] ?? { label: post.status, color: "#94A3B8", bg: "rgba(148,163,184,0.12)" };
+                                return (
+                                  <div key={post.id} className="flex items-start gap-3 p-3 rounded-xl"
+                                    style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                                    <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+                                      style={{ background: `${client.color}15`, border: `1px solid ${client.color}25` }}>
+                                      <Image className="w-4 h-4" style={{ color: client.color }} />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2 mb-0.5">
+                                        <span className="text-[11px] font-medium" style={{ color: client.color }}>
+                                          {(post.platforms ?? []).join(", ") || "—"}
+                                        </span>
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded-full"
+                                          style={{ background: st.bg, color: st.color }}>{st.label}</span>
+                                      </div>
+                                      <p className="text-xs truncate" style={{ color: "rgba(255,255,255,0.5)" }}>{post.caption}</p>
+                                      <div className="flex items-center gap-3 mt-1.5">
+                                        <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>
+                                          <Clock className="w-2.5 h-2.5 inline mr-1" />
+                                          {post.scheduled_at
+                                            ? new Date(post.scheduled_at).toLocaleDateString("pt-BR")
+                                            : new Date(post.created_at).toLocaleDateString("pt-BR")}
+                                        </span>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2 mb-0.5">
-                                <span className="text-[11px] font-medium" style={{ color: client.color }}>{post.type} · {post.platform}</span>
-                                <span className="text-[10px] px-1.5 py-0.5 rounded-full"
-                                  style={{ background: post.status === "Publicado" ? "rgba(16,185,129,0.12)" : "rgba(245,200,66,0.12)", color: post.status === "Publicado" ? "#34D399" : "#F5C842" }}>
-                                  {post.status}
-                                </span>
-                              </div>
-                              <p className="text-xs truncate" style={{ color: "rgba(255,255,255,0.5)" }}>{post.caption}</p>
-                              <div className="flex items-center gap-3 mt-1.5">
-                                <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}><Clock className="w-2.5 h-2.5 inline mr-1" />{post.scheduledFor}</span>
-                                {post.likes !== undefined && <>
-                                  <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}><Heart className="w-2.5 h-2.5 inline mr-1" />{post.likes.toLocaleString("pt-BR")}</span>
-                                  <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}><Eye className="w-2.5 h-2.5 inline mr-1" />{post.reach?.toLocaleString("pt-BR")}</span>
-                                </>}
-                              </div>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-5">
-                  <div className="rounded-2xl p-5" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                    <h3 className="text-sm font-medium mb-4" style={{ color: "rgba(255,255,255,0.7)" }}>Esta Semana</h3>
-                    <div className="space-y-1.5">
-                      {client.weeklyContent.map((day) => (
-                        <div key={day.day} className="flex items-center gap-3 p-2.5 rounded-lg"
-                          style={{ background: day.posts.length > 0 ? "rgba(255,255,255,0.04)" : "transparent" }}>
-                          <div className="w-8 text-center flex-shrink-0">
-                            <div className="text-[10px] font-medium" style={{ color: "rgba(255,255,255,0.3)" }}>{day.day}</div>
-                            <div className="text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>{day.date.split("/")[0]}</div>
-                          </div>
-                          {day.posts.length === 0
-                            ? <div className="text-[11px]" style={{ color: "rgba(255,255,255,0.15)" }}>Sem publicações</div>
-                            : <div className="flex gap-1 flex-wrap">{day.posts.map((p, i) => (
-                              <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-md"
-                                style={{ background: `${client.color}15`, color: client.color, border: `1px solid ${client.color}25` }}>
-                                {p.type}
-                              </span>
-                            ))}</div>
                           }
                         </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl p-5" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                    <h3 className="text-sm font-medium mb-4" style={{ color: "rgba(255,255,255,0.7)" }}>Campanhas Ativas</h3>
-                    {client.activeCampaigns.length === 0
-                      ? <p className="text-xs text-center py-3" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhuma campanha ativa.</p>
-                      : <div className="space-y-2">{client.activeCampaigns.map((camp) => (
-                        <div key={camp.id} className="p-3 rounded-xl"
-                          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
-                          <div className="text-xs font-medium mb-1" style={{ color: "rgba(255,255,255,0.75)" }}>{camp.name}</div>
-                          <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>{camp.platform} · {camp.results} · CPA {camp.cpa}</div>
-                        </div>
-                      ))}</div>
+                      </>
                     }
                   </div>
+
+                  <div className="space-y-5">
+                    <div className="rounded-2xl p-5" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                      <h3 className="text-sm font-medium mb-4" style={{ color: "rgba(255,255,255,0.7)" }}>Esta Semana</h3>
+                      <div className="space-y-1.5">
+                        {weekDaysData.map((day) => (
+                          <div key={day.day} className="flex items-center gap-3 p-2.5 rounded-lg"
+                            style={{ background: day.posts.length > 0 ? "rgba(255,255,255,0.04)" : "transparent" }}>
+                            <div className="w-8 text-center flex-shrink-0">
+                              <div className="text-[10px] font-medium" style={{ color: "rgba(255,255,255,0.3)" }}>{day.day}</div>
+                              <div className="text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>{day.date.split("/")[0]}</div>
+                            </div>
+                            {day.posts.length === 0
+                              ? <div className="text-[11px]" style={{ color: "rgba(255,255,255,0.15)" }}>Sem publicações</div>
+                              : <div className="flex gap-1 flex-wrap">{day.posts.map((p, i) => (
+                                <span key={i} className="text-[10px] px-1.5 py-0.5 rounded-md"
+                                  style={{ background: `${client.color}15`, color: client.color, border: `1px solid ${client.color}25` }}>
+                                  {p.type}
+                                </span>
+                              ))}</div>
+                            }
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl p-5" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                      <h3 className="text-sm font-medium mb-4" style={{ color: "rgba(255,255,255,0.7)" }}>Redes Conectadas</h3>
+                      {overviewConnections.length === 0
+                        ? <p className="text-xs text-center py-3" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhuma rede social conectada.</p>
+                        : <div className="space-y-2">{overviewConnections.map((conn) => (
+                          <div key={conn.id} className="p-3 rounded-xl"
+                            style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                            <div className="flex items-center justify-between">
+                              <div className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.75)" }}>
+                                {conn.account_name || conn.platform}
+                              </div>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full"
+                                style={{ background: conn.connected ? "rgba(52,211,153,0.12)" : "rgba(248,113,113,0.12)", color: conn.connected ? "#34D399" : "#F87171" }}>
+                                {conn.connected ? "Conectado" : "Desconectado"}
+                              </span>
+                            </div>
+                            <div className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>
+                              {conn.platform}{conn.followers_count ? ` · ${Number(conn.followers_count).toLocaleString("pt-BR")} seguidores` : ""}
+                            </div>
+                          </div>
+                        ))}</div>
+                      }
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {/* ══════════════════════════════════════════════════════
                 CRM
