@@ -83,14 +83,14 @@ const WhatsAppPage = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const { data: grps } = await supabase
+      const { data: grps } = await (supabase as any)
         .from("contact_groups")
         .select("id, name, color")
         .eq("user_id", user.id)
         .order("name");
       if (!grps) { setCrmGroups([]); return; }
       const withCounts = await Promise.all(grps.map(async (g) => {
-        const { count } = await supabase
+        const { count } = await (supabase as any)
           .from("contact_group_members")
           .select("*", { count: "exact", head: true })
           .eq("group_id", g.id);
@@ -158,7 +158,7 @@ const WhatsAppPage = () => {
     setSending(true);
     try {
       // Busca os membros com telefone
-      const { data: members } = await supabase
+      const { data: members } = await (supabase as any)
         .from("contact_group_members")
         .select("contacts(phone, name)")
         .eq("group_id", selectedCrm);

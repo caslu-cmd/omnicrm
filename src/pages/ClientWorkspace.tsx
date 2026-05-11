@@ -3215,7 +3215,7 @@ Regras:
     }
 
     // No row with workspace_id — create one
-    const { data: created } = await supabase
+    const { data: created } = await (supabase as any)
       .from("clients")
       .insert({ user_id: user!.id, name: client.name, segment: client.industry ?? null, status: "active", workspace_id: id } as any)
       .select("id, portal_token, portal_password, workspace_id")

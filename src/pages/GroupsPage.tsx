@@ -94,7 +94,7 @@ export default function GroupsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: grps } = await supabase
+      const { data: grps } = await (supabase as any)
         .from("contact_groups")
         .select("*")
         .eq("user_id", user.id)
@@ -104,7 +104,7 @@ export default function GroupsPage() {
 
       // Count members per group
       const withCounts = await Promise.all(grps.map(async (g) => {
-        const { count } = await supabase
+        const { count } = await (supabase as any)
           .from("contact_group_members")
           .select("*", { count: "exact", head: true })
           .eq("group_id", g.id);
@@ -173,7 +173,7 @@ export default function GroupsPage() {
     setExpandedCourses(new Set());
     setMembersLoading(true);
     try {
-      const { data } = await supabase
+      const { data } = await (supabase as any)
         .from("contact_group_members")
         .select("contact_id, contacts(id, name, phone, email, status, company)")
         .eq("group_id", group.id);
@@ -217,7 +217,7 @@ export default function GroupsPage() {
     if (!selected || !editForm.name.trim()) return;
     setSaving(true);
     try {
-      const { error } = await supabase
+      const { error } = await (supabase as any)
         .from("contact_groups")
         .update({ name: editForm.name, description: editForm.description || null, color: editForm.color, updated_at: new Date().toISOString() })
         .eq("id", selected.id);
