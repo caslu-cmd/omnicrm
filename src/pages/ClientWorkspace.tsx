@@ -2788,6 +2788,7 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
       social:       "Redes Sociais",
       portal:       "Portal do Cliente",
       crm:          "CRM",
+      sites:        "Sites",
       agents:          "Agentes IA",
       "sales-agents":  "Agentes Autônomos",
       content:         "Conteúdo",
@@ -8280,13 +8281,23 @@ Regras:
                                     )}
 
                                     {certTemplate && (
-                                      <button onClick={() => generateAllCerts(course.id)} disabled={certGenerating || (students.length + certManualList.length === 0)}
-                                        className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40"
-                                        style={{ background: "#FBBF24", color: "#07080A", boxShadow: "0 0 20px -4px rgba(250,204,21,0.35)" }}>
-                                        {certGenerating
-                                          ? <><RefreshCw className="w-4 h-4 animate-spin" /> Gerando…</>
-                                          : <><Award className="w-4 h-4" /> Gerar {students.length + certManualList.length} certificado{(students.length + certManualList.length) !== 1 ? "s" : ""}</>}
-                                      </button>
+                                      <>
+                                        {attending.length > 0 && (
+                                          <p className="text-[10px] text-center mb-2" style={{ color: "rgba(52,211,153,0.7)" }}>
+                                            Usando lista de presença ({attending.length} aluno{attending.length !== 1 ? "s" : ""})
+                                          </p>
+                                        )}
+                                        <button onClick={() => generateAllCerts(course.id)} disabled={certGenerating || (attending.length + students.length + certManualList.length === 0)}
+                                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40"
+                                          style={{ background: "#FBBF24", color: "#07080A", boxShadow: "0 0 20px -4px rgba(250,204,21,0.35)" }}>
+                                          {certGenerating
+                                            ? <><RefreshCw className="w-4 h-4 animate-spin" /> Gerando…</>
+                                            : (() => {
+                                                const n = attending.length > 0 ? attending.length + certManualList.length : students.length + certManualList.length;
+                                                return <><Award className="w-4 h-4" /> Gerar {n} certificado{n !== 1 ? "s" : ""}</>;
+                                              })()}
+                                        </button>
+                                      </>
                                     )}
                                     {!certTemplate && (
                                       <p className="text-[11px] text-center py-2" style={{ color: "rgba(255,255,255,0.3)" }}>← Envie o template primeiro</p>
@@ -8332,6 +8343,95 @@ Regras:
                                         style={{ background: "rgba(250,204,21,0.08)", color: "#FBBF24", border: "1px solid rgba(250,204,21,0.2)" }}>
                                         <Download className="w-3.5 h-3.5" /> Baixar todos
                                       </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {/* Attendance panel */}
+                      <AnimatePresence>
+                        {isAttendOpen && (
+                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }} className="overflow-hidden"
+                            style={{ borderTop: "1px solid rgba(52,211,153,0.2)" }}>
+                            <div className="px-5 py-5 space-y-5">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <CheckCircle2 className="w-4 h-4" style={{ color: "#34D399" }} />
+                                  <p className="text-sm font-semibold" style={{ color: "#34D399" }}>Lista de Presença</p>
+                                  <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>— {attending.length} confirmado{attending.length !== 1 ? "s" : ""}</span>
+                                </div>
+                                <button
+                                  onClick={async () => {
+                                    const { data } = await (supabase as any).from("course_attendance").select("*")
+                                      .eq("course_id", course.id).order("attended_at", { ascending: true });
+                                    setDbAttendance(prev => ({ ...prev, [course.id]: data ?? [] }));
+                                    toast.success("Lista atualizada");
+                                  }}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold"
+                                  style={{ background: "rgba(52,211,153,0.08)", color: "#34D399", border: "1px solid rgba(52,211,153,0.2)" }}>
+                                  <RefreshCw className="w-3 h-3" /> Atualizar
+                                </button>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-6">
+                                {/* QR Code */}
+                                <div className="space-y-3">
+                                  <label className="text-[10px] uppercase tracking-widest font-semibold block" style={{ color: "rgba(255,255,255,0.3)" }}>
+                                    QR Code para alunos
+                                  </label>
+                                  <div className="flex flex-col items-center gap-3 p-4 rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                                    <div className="p-3 rounded-xl" style={{ background: "white" }}>
+                                      <QRCodeSVG value={presencaUrl} size={140} />
+                                    </div>
+                                    <p className="text-[10px] text-center leading-snug" style={{ color: "rgba(255,255,255,0.35)" }}>
+                                      Aluno escaneia e confirma presença com o e-mail da matrícula
+                                    </p>
+                                    <button
+                                      onClick={() => { navigator.clipboard.writeText(presencaUrl); toast.success("Link copiado!"); }}
+                                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-semibold w-full justify-center"
+                                      style={{ background: "rgba(52,211,153,0.1)", color: "#34D399", border: "1px solid rgba(52,211,153,0.2)" }}>
+                                      <Link2 className="w-3 h-3" /> Copiar link
+                                    </button>
+                                  </div>
+                                  {attending.length > 0 && (
+                                    <p className="text-[10px] text-center" style={{ color: "rgba(52,211,153,0.7)" }}>
+                                      ✓ Certificados serão gerados para esses {attending.length} aluno{attending.length !== 1 ? "s" : ""}
+                                    </p>
+                                  )}
+                                </div>
+
+                                {/* List */}
+                                <div className="space-y-3">
+                                  <label className="text-[10px] uppercase tracking-widest font-semibold block" style={{ color: "rgba(255,255,255,0.3)" }}>
+                                    Presenças confirmadas
+                                  </label>
+                                  {attending.length === 0 ? (
+                                    <div className="py-8 text-center rounded-xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.07)" }}>
+                                      <CheckCircle2 className="w-8 h-8 mx-auto mb-2" style={{ color: "rgba(255,255,255,0.08)" }} />
+                                      <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.25)" }}>Nenhuma presença registrada.</p>
+                                      <p className="text-[10px] mt-1" style={{ color: "rgba(255,255,255,0.18)" }}>Compartilhe o QR code com os alunos.</p>
+                                    </div>
+                                  ) : (
+                                    <div className="space-y-1.5 max-h-52 overflow-y-auto">
+                                      {attending.map((a: any, i: number) => (
+                                        <div key={a.id ?? i} className="flex items-center gap-2.5 px-3 py-2 rounded-lg"
+                                          style={{ background: "rgba(52,211,153,0.04)", border: "1px solid rgba(52,211,153,0.12)" }}>
+                                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                                            style={{ background: "rgba(52,211,153,0.15)", color: "#34D399" }}>
+                                            {a.student_name?.charAt(0)?.toUpperCase() ?? "?"}
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                            <p className="text-[11px] font-medium truncate" style={{ color: "rgba(255,255,255,0.8)" }}>{a.student_name}</p>
+                                            <p className="text-[9px] truncate" style={{ color: "rgba(255,255,255,0.3)" }}>{a.student_email}</p>
+                                          </div>
+                                          <CheckCircle2 className="w-3 h-3 flex-shrink-0" style={{ color: "#34D399" }} />
+                                        </div>
+                                      ))}
                                     </div>
                                   )}
                                 </div>
@@ -10529,6 +10629,133 @@ Regras:
                       })}
                   </div>
                 </div>
+
+              </div>
+            )}
+
+            {/* ══════════════════════════════════════════════════════
+                SITES
+            ══════════════════════════════════════════════════════ */}
+            {activeTab === "sites" && (
+              <div className="space-y-6">
+                <div>
+                  <h2 className="text-base font-semibold mb-0.5" style={{ color: "rgba(255,255,255,0.85)" }}>Sites do Cliente</h2>
+                  <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>Edite e gerencie o site e landing pages de {client.name}</p>
+                </div>
+
+                {/* ── Teo (Lovable / GitHub) ── */}
+                {client.siteRepo ? (
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                    className="rounded-2xl overflow-hidden"
+                    style={{ border: "1px solid rgba(6,182,212,0.25)" }}>
+
+                    <div className="flex items-center justify-between px-6 py-4"
+                      style={{ background: "rgba(6,182,212,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl flex items-center justify-center"
+                          style={{ background: "rgba(6,182,212,0.12)", border: "1px solid rgba(6,182,212,0.25)" }}>
+                          <Globe className="w-5 h-5" style={{ color: "#06B6D4" }} />
+                        </div>
+                        <div>
+                          <div className="text-sm font-semibold flex items-center gap-2" style={{ color: "rgba(255,255,255,0.9)" }}>
+                            Site
+                            <span className="text-[10px] font-normal px-1.5 py-0.5 rounded"
+                              style={{ background: "rgba(6,182,212,0.12)", color: "#06B6D4" }}>
+                              via Teo · Lovable
+                            </span>
+                          </div>
+                          <div className="text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                            {client.siteUrl ?? client.siteRepo} · edição e deploy automático
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1.5">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ background: "#06B6D4" }} />
+                            <span className="relative inline-flex rounded-full h-2 w-2" style={{ background: "#06B6D4" }} />
+                          </span>
+                          <span className="text-xs font-medium" style={{ color: "#06B6D4" }}>Conectado</span>
+                        </div>
+                        {client.siteUrl && (
+                          <a href={client.siteUrl} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all"
+                            style={{ background: "rgba(6,182,212,0.1)", color: "#06B6D4", border: "1px solid rgba(6,182,212,0.2)" }}>
+                            <ExternalLink className="w-3 h-3" /> Ver site
+                          </a>
+                        )}
+                      </div>
+                    </div>
+
+                    <div style={{ height: "600px" }}>
+                      <SiteEditorPanel
+                        clientId={client.id}
+                        siteUrl={client.siteUrl ?? ""}
+                        siteRepo={client.siteRepo}
+                      />
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+                    className="rounded-2xl p-10 flex flex-col items-center text-center"
+                    style={{ border: "1px dashed rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.02)" }}>
+                    <Globe className="w-12 h-12 mb-4" style={{ color: "rgba(255,255,255,0.12)" }} />
+                    <h3 className="text-sm font-semibold mb-2" style={{ color: "rgba(255,255,255,0.45)" }}>Nenhum site Lovable conectado</h3>
+                    <p className="text-xs mb-5 max-w-xs" style={{ color: "rgba(255,255,255,0.25)" }}>
+                      Conecte o repositório GitHub do site Lovable do cliente para editar e publicar com o Teo
+                    </p>
+                    <button onClick={() => setShowEditClient(true)}
+                      className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all"
+                      style={{ background: "#B9FF4B", color: "#07080A" }}>
+                      <Plus className="w-3.5 h-3.5" /> Conectar site
+                    </button>
+                  </motion.div>
+                )}
+
+                {/* ── WordPress · Pixel ── */}
+                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.08 }}
+                  className="rounded-2xl overflow-hidden"
+                  style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <div className="flex items-center justify-between px-6 py-4"
+                    style={{ background: "rgba(255,255,255,0.025)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
+                        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                        🗂️
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>WordPress · Pixel</div>
+                        <div className="text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>Posts, páginas, SEO e mídias do site WordPress</div>
+                      </div>
+                    </div>
+                    <a href="/wordpress" target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all"
+                      style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.08)" }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.08)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.8)"; }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.5)"; }}>
+                      Abrir Pixel <ExternalLink className="w-3 h-3 ml-1" />
+                    </a>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4 p-6">
+                    {[
+                      { emoji: "📝", label: "Posts", desc: "Criar e editar artigos" },
+                      { emoji: "📄", label: "Páginas", desc: "Gerenciar páginas estáticas" },
+                      { emoji: "🔍", label: "SEO", desc: "Otimizar meta tags e títulos" },
+                    ].map(item => (
+                      <a key={item.label} href="/wordpress" target="_blank" rel="noopener noreferrer"
+                        className="flex flex-col items-center gap-2.5 p-5 rounded-xl transition-all cursor-pointer"
+                        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)", textDecoration: "none" }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.06)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.12)"; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.03)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.07)"; }}>
+                        <span className="text-2xl">{item.emoji}</span>
+                        <div className="text-center">
+                          <div className="text-[12px] font-semibold" style={{ color: "rgba(255,255,255,0.7)" }}>{item.label}</div>
+                          <div className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>{item.desc}</div>
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                </motion.div>
 
               </div>
             )}
