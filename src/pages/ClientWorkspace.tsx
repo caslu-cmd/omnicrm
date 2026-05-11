@@ -1370,6 +1370,7 @@ export default function ClientWorkspace() {
       followers: { instagram: editForm.followersIg, facebook: editForm.followersFb },
       portalPin: editForm.portalPin.trim(),
       siteUrl: editForm.siteUrl.trim() || undefined,
+      siteRepo: editForm.siteRepo.trim() || undefined,
       teamInstructions: editForm.teamInstructions.trim() || undefined,
     });
     if (editForm.siteUrl.trim()) setSiteUrl(editForm.siteUrl.trim());
@@ -3730,21 +3731,7 @@ Regras:
             <Trash2 className="w-3 h-3" /> Excluir cliente
           </button>
           <button
-            onClick={() => {
-              setEditForm({
-                name: client.name,
-                industry: client.industry,
-                status: client.status,
-                revenue: client.revenue,
-                nextAction: client.nextAction,
-                followersIg: client.followers.instagram,
-                followersFb: client.followers.facebook,
-                portalPin: client.portalPin,
-                siteUrl: client.siteUrl ?? "",
-                teamInstructions: client.teamInstructions ?? "",
-              });
-              setShowEditClient(true);
-            }}
+            onClick={openEditClient}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
             style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.09)" }}
             onMouseEnter={(e) => { e.currentTarget.style.color = "#fff"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.2)"; }}
@@ -10381,7 +10368,7 @@ Regras:
                       </p>
                     </div>
                     <button
-                      onClick={() => setEditOpen(true)}
+                      onClick={openEditClient}
                       className="px-4 py-2 rounded-lg text-sm font-medium"
                       style={{ background: "rgba(185,255,75,0.12)", border: "1px solid rgba(185,255,75,0.25)", color: "#B9FF4B" }}>
                       Configurar repositório
