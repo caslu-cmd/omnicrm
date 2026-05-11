@@ -581,7 +581,7 @@ export default function SocialMediaTab({
 
       // Immediate publish — call edge function to hit the platform APIs
       try {
-        const pub = await callFn({ action: "approve-post", post_id: post.id });
+        const pub = await callFn({ action: "approve-post", post_id: (post as any).id });
         if (pub.error_message) toast.warning(`Publicado com aviso: ${pub.error_message}`);
         else toast.success("Carrossel publicado!");
       } catch { toast.warning("Carrossel salvo, mas falhou ao publicar nas redes. Tente novamente."); }
