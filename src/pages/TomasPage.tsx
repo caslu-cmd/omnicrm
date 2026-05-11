@@ -336,7 +336,7 @@ export default function TomasPage() {
         <div className="flex items-center gap-0 border-b px-4"
           style={{ borderColor: "#1E1E2E", background: "#0A0A10", minHeight: 52 }}>
 
-          {((etapa === "idle" || gerandoAtivo || etapa === "erro") && !temAlgumConteudo) ? (
+          {(etapa === "idle" && !temAlgumConteudo) ? (
             <div className="flex items-center gap-3 flex-1">
               {ETAPAS.map((e, i) => {
                 const done   = idxAtual > i;
@@ -353,7 +353,6 @@ export default function TomasPage() {
                 );
               })}
               {gerandoAtivo && statusMsg && <span className="ml-2 text-[11px]" style={{ color: "#666688" }}>{statusMsg}</span>}
-              {etapa === "erro" && <span className="ml-2 text-[11px] flex items-center gap-1" style={{ color: "#F87171" }}><AlertCircle className="w-3.5 h-3.5" /> {statusMsg}</span>}
             </div>
           ) : (
             <div className="flex items-center gap-1 flex-1">
