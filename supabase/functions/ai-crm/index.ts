@@ -1,5 +1,23 @@
-import Anthropic from "https://esm.sh/@anthropic-ai/sdk@0.39.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+
+// Lovable AI Gateway (OpenAI-compatible). Returns text content.
+async function callAI(apiKey: string, prompt: string, maxTokens = 1024): Promise<string> {
+  const r = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      max_tokens: maxTokens,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+  if (!r.ok) throw new Error(`AI Gateway ${r.status}: ${await r.text()}`);
+  const data = await r.json();
+  return data.choices?.[0]?.message?.content ?? "";
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
