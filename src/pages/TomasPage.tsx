@@ -4,7 +4,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Send, Download, Eye, Code2, FileText, Palette,
   Loader2, CheckCircle2, AlertCircle, Layout, Sparkles,
-  RefreshCw, Copy, Monitor, Smartphone, Upload, Paperclip,
+  RefreshCw, Copy, Monitor, Smartphone, Paperclip,
+  Globe, ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -55,10 +56,21 @@ export default function TomasPage() {
   const [etapa, setEtapa] = useState<Etapa>("idle");
   const [statusMsg, setStatusMsg] = useState("");
   const [resultado, setResultado] = useState<Resultado | null>(null);
-  const [abaAtiva, setAbaAtiva] = useState<"preview" | "copy" | "design" | "html">("preview");
+  const [abaAtiva, setAbaAtiva] = useState<"preview" | "copy" | "design" | "html" | "publicar">("preview");
   const [previewMobile, setPreviewMobile] = useState(false);
   const readerRef = useRef<ReadableStreamDefaultReader | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Publicação WordPress ──────────────────────────────────────────────────
+  const [wpUrl, setWpUrl] = useState("");
+  const [wpUser, setWpUser] = useState("");
+  const [wpPassword, setWpPassword] = useState("");
+  const [wpSlug, setWpSlug] = useState("");
+  const [wpTitulo, setWpTitulo] = useState("");
+  const [forminatorId, setForminatorId] = useState("");
+  const [wpTemplate, setWpTemplate] = useState("elementor_canvas");
+  const [publicando, setPublicando] = useState(false);
+  const [paginaPublicada, setPaginaPublicada] = useState<{ url: string; action: string } | null>(null);
 
   const gerandoAtivo = etapa !== "idle" && etapa !== "concluido" && etapa !== "erro";
 
@@ -139,6 +151,38 @@ export default function TomasPage() {
       toast.error("Falha ao gerar a landing page.");
     }
   }, [briefing]);
+
+  const publicar = useCallback(async () => {
+    if (!resultado?.html) return;
+    if (!wpUrl || !wpUser || !wpPassword || !wpSlug || !wpTitulo) {
+      toast.error("Preencha todos os campos obrigatórios do WordPress.");
+      return;
+    }
+    setPublicando(true);
+    setPaginaPublicada(null);
+    try {
+      const fd = new FormData();
+      fd.append("html", resultado.html);
+      fd.append("wp_url", wpUrl);
+      fd.append("wp_user", wpUser);
+      fd.append("wp_password", wpPassword);
+      fd.append("titulo", wpTitulo);
+      fd.append("slug", wpSlug);
+      fd.append("wp_template", wpTemplate);
+      if (forminatorId.trim()) fd.append("forminator_id", forminatorId.trim());
+
+      const resp = await fetch(`${API}/publicar`, { method: "POST", body: fd });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.detail ?? `Erro ${resp.status}`);
+
+      setPaginaPublicada({ url: data.url, action: data.action });
+      toast.success(`Página ${data.action} com sucesso!`);
+    } catch (e: any) {
+      toast.error(e.message ?? "Erro ao publicar");
+    } finally {
+      setPublicando(false);
+    }
+  }, [resultado, wpUrl, wpUser, wpPassword, wpSlug, wpTitulo, wpTemplate, forminatorId]);
 
   const idxAtual = etapaIndex(etapa);
 
@@ -369,10 +413,11 @@ export default function TomasPage() {
             /* Abas de resultado */
             <div className="flex items-center gap-1 flex-1">
               {([
-                { id: "preview", label: "Preview",     icon: Eye },
-                { id: "copy",    label: "Copy",         icon: FileText },
-                { id: "design",  label: "Design Spec",  icon: Palette },
-                { id: "html",    label: "HTML",          icon: Code2 },
+                { id: "preview",  label: "Preview",     icon: Eye },
+                { id: "copy",     label: "Copy",        icon: FileText },
+                { id: "design",   label: "Design Spec", icon: Palette },
+                { id: "html",     label: "HTML",        icon: Code2 },
+                { id: "publicar", label: "Publicar",    icon: Globe },
               ] as const).map((aba) => (
                 <button
                   key={aba.id}
@@ -614,6 +659,169 @@ export default function TomasPage() {
                 >
                   {resultado.html}
                 </pre>
+              </motion.div>
+            )}
+
+            {/* Resultado — Publicar no WordPress */}
+            {resultado && abaAtiva === "publicar" && (
+              <motion.div
+                key="publicar"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="h-full overflow-auto p-6"
+              >
+                <div className="max-w-lg mx-auto flex flex-col gap-6">
+
+                  {/* Cabeçalho */}
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "#B9FF4B22", border: "1px solid #B9FF4B44" }}>
+                      <Globe className="w-5 h-5" style={{ color: "#B9FF4B" }} />
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm" style={{ color: "#F0F0F0" }}>Publicar no WordPress</p>
+                      <p className="text-[11px]" style={{ color: "#555577" }}>Use a Senha de Aplicação do WP (Usuários → Senhas de Aplicação)</p>
+                    </div>
+                  </div>
+
+                  {/* Sucesso */}
+                  {paginaPublicada && (
+                    <div className="flex items-center gap-3 px-4 py-3 rounded-xl" style={{ background: "#0E1A08", border: "1px solid #B9FF4B33" }}>
+                      <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: "#B9FF4B" }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold" style={{ color: "#B9FF4B" }}>
+                          Página {paginaPublicada.action}!
+                        </p>
+                        <a
+                          href={paginaPublicada.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[11px] truncate block"
+                          style={{ color: "#888899" }}
+                        >
+                          {paginaPublicada.url}
+                        </a>
+                      </div>
+                      <a href={paginaPublicada.url} target="_blank" rel="noreferrer">
+                        <ExternalLink className="w-4 h-4" style={{ color: "#B9FF4B" }} />
+                      </a>
+                    </div>
+                  )}
+
+                  {/* Credenciais WP */}
+                  <div className="flex flex-col gap-1">
+                    <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#444466" }}>WordPress</p>
+                  </div>
+
+                  {[
+                    { label: "URL do site *", val: wpUrl, set: setWpUrl, ph: "https://clientesite.com.br", type: "url" },
+                    { label: "Usuário WP *", val: wpUser, set: setWpUser, ph: "admin", type: "text" },
+                    { label: "Senha de Aplicação *", val: wpPassword, set: setWpPassword, ph: "xxxx xxxx xxxx xxxx", type: "password" },
+                  ].map((f) => (
+                    <div key={f.label} className="flex flex-col gap-1">
+                      <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#444466" }}>{f.label}</label>
+                      <input
+                        type={f.type}
+                        value={f.val}
+                        onChange={(e) => f.set(e.target.value)}
+                        placeholder={f.ph}
+                        className="rounded-xl px-3 py-2.5 text-sm outline-none"
+                        style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0", fontFamily: "inherit" }}
+                        onFocus={(e) => (e.currentTarget.style.borderColor = "#B9FF4B44")}
+                        onBlur={(e) => (e.currentTarget.style.borderColor = "#2A2A3A")}
+                      />
+                    </div>
+                  ))}
+
+                  {/* Dados da página */}
+                  <div className="flex flex-col gap-1">
+                    <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#444466" }}>Página</p>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <div className="flex flex-col gap-1 flex-1">
+                      <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#444466" }}>Título *</label>
+                      <input
+                        type="text"
+                        value={wpTitulo}
+                        onChange={(e) => setWpTitulo(e.target.value)}
+                        placeholder="Curso de Marketing Digital"
+                        className="rounded-xl px-3 py-2.5 text-sm outline-none"
+                        style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0", fontFamily: "inherit" }}
+                        onFocus={(e) => (e.currentTarget.style.borderColor = "#B9FF4B44")}
+                        onBlur={(e) => (e.currentTarget.style.borderColor = "#2A2A3A")}
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1 flex-1">
+                      <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#444466" }}>Slug (URL) *</label>
+                      <input
+                        type="text"
+                        value={wpSlug}
+                        onChange={(e) => setWpSlug(e.target.value.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, ""))}
+                        placeholder="curso-marketing"
+                        className="rounded-xl px-3 py-2.5 text-sm outline-none"
+                        style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0", fontFamily: "inherit" }}
+                        onFocus={(e) => (e.currentTarget.style.borderColor = "#B9FF4B44")}
+                        onBlur={(e) => (e.currentTarget.style.borderColor = "#2A2A3A")}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Template WP */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#444466" }}>Template da página</label>
+                    <select
+                      value={wpTemplate}
+                      onChange={(e) => setWpTemplate(e.target.value)}
+                      className="rounded-xl px-3 py-2.5 text-sm outline-none appearance-none"
+                      style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0", fontFamily: "inherit" }}
+                    >
+                      <option value="elementor_canvas">Elementor Canvas (sem header/footer)</option>
+                      <option value="elementor_header_footer">Elementor Header & Footer</option>
+                      <option value="">Padrão do tema</option>
+                      <option value="astra-blank">Astra Blank</option>
+                      <option value="no-header-footer">GeneratePress sem header/footer</option>
+                    </select>
+                  </div>
+
+                  {/* Forminator */}
+                  <div className="flex flex-col gap-1">
+                    <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#444466" }}>
+                      ID do formulário Forminator <span style={{ color: "#333355", fontWeight: 400 }}>(opcional)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={forminatorId}
+                      onChange={(e) => setForminatorId(e.target.value)}
+                      placeholder="Ex: 42"
+                      className="rounded-xl px-3 py-2.5 text-sm outline-none"
+                      style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0", fontFamily: "inherit" }}
+                      onFocus={(e) => (e.currentTarget.style.borderColor = "#B9FF4B44")}
+                      onBlur={(e) => (e.currentTarget.style.borderColor = "#2A2A3A")}
+                    />
+                    {forminatorId && (
+                      <p className="text-[10px]" style={{ color: "#555577" }}>
+                        O shortcode <code style={{ color: "#B9FF4B" }}>[forminator_form id="{forminatorId}"]</code> será inserido no lugar do formulário da LP.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Botão publicar */}
+                  <button
+                    onClick={publicar}
+                    disabled={publicando || !wpUrl || !wpUser || !wpPassword || !wpSlug || !wpTitulo}
+                    className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold transition-all"
+                    style={{
+                      background: publicando || !wpUrl || !wpUser || !wpPassword || !wpSlug || !wpTitulo
+                        ? "#1E1E2E" : "#B9FF4B",
+                      color: publicando || !wpUrl || !wpUser || !wpPassword || !wpSlug || !wpTitulo
+                        ? "#444466" : "#07080A",
+                      cursor: publicando ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {publicando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Globe className="w-4 h-4" />}
+                    {publicando ? "Publicando..." : paginaPublicada ? "Atualizar página" : "Publicar no site"}
+                  </button>
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
