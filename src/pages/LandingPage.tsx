@@ -114,9 +114,9 @@ const CSS = `
     .cl-hero-grid { grid-template-columns: 1fr !important; gap: 40px !important; text-align: center !important; }
     .cl-hero-title { font-size: clamp(34px, 10vw, 56px) !important; margin: 0 auto 24px !important; }
     .cl-hero-text { margin: 0 auto 32px !important; word-break: break-word !important; }
-    .cl-hero-buttons { justify-content: center !important; flex-wrap: wrap !important; }
-    .cl-hero-stats { justify-content: center !important; flex-direction: column !important; align-items: center !important; flex-wrap: nowrap !important; gap: 24px !important; }
-    .cl-hero-stats > div { border-right: none !important; padding: 0 !important; margin-bottom: 0 !important; text-align: center !important; }
+    .cl-hero-buttons { justify-content: center !important; flex-wrap: wrap !important; gap: 16px !important; }
+    .cl-hero-stats { justify-content: center !important; flex-wrap: wrap !important; gap: 24px !important; }
+    .cl-hero-stats > div { border-right: none !important; padding: 0 !important; margin-bottom: 0 !important; text-align: center !important; min-width: 140px; }
     .cl-section { padding: 80px 24px !important; }
     .cl-grid-2 { grid-template-columns: 1fr !important; }
     .cl-grid-3 { grid-template-columns: 1fr !important; }
