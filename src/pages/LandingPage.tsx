@@ -286,7 +286,7 @@ function HeroAgentCard() {
           boxShadow: `inset 0 1px 0 ${agent.color}10`,
         }}>
           <div style={{ fontFamily: mono, fontSize: 9, color: MUTED, marginBottom: 10, letterSpacing: "0.08em", textTransform: "uppercase" as const }}>Executando agora</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "7px 12px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "7px 12px" }}>
             {agent.tasks.map((task, j) => (
               <div key={j} style={{ display: "flex", alignItems: "center", gap: 7 }}>
                 <div style={{ width: 4, height: 4, borderRadius: "50%", background: j === 0 ? agent.color : "rgba(255,255,255,.15)", flexShrink: 0, boxShadow: j === 0 ? `0 0 6px ${agent.color}` : "none" }} />
@@ -423,7 +423,7 @@ function ProcessTimeline() {
                   <div style={{ marginTop: 26, position: "relative" }}>
                     <div style={{ height: 1, background: `linear-gradient(to right, ${step.color}35, transparent)`, marginBottom: 22 }} />
                     <div style={{ fontFamily: mono, fontSize: 11, color: step.color, marginBottom: 16, letterSpacing: "0.1em", textTransform: "uppercase" as const }}>Entregáveis</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 28px", marginBottom: 22 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "12px 28px", marginBottom: 22 }}>
                       {step.details.map((d, j) => (
                         <div key={j} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
                           <div style={{ width: 6, height: 6, borderRadius: "50%", background: step.color, flexShrink: 0, marginTop: 9, boxShadow: `0 0 8px ${step.color}` }} />
@@ -676,7 +676,7 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="cl" style={{ fontFamily: syne, background: BLACK, color: OFF, minHeight: "100vh" }}>
+    <div className="cl" style={{ fontFamily: syne, background: BLACK, color: OFF, minHeight: "100vh", overflowX: "hidden" }}>
       <style>{CSS}</style>
 
       {/* NAV */}
@@ -723,7 +723,7 @@ export default function LandingPage() {
               Criatividade<br />que vende.<br /><span style={{ color: LIME }}>IA que escala.</span>
             </h1>
 
-            <p className="cl-a3 cl-hero-text" style={{ fontSize: 17, color: DIM, lineHeight: 1.65, maxWidth: 500, marginBottom: 36 }}>
+            <p className="cl-a3 cl-hero-text" style={{ fontSize: 17, color: DIM, lineHeight: 1.65, maxWidth: 500, marginBottom: 36, wordBreak: "break-word" }}>
               A Calu Agência une estratégia criativa de alta performance com tecnologia de IA proprietária — para sua marca crescer sem limite de equipe ou orçamento.
             </p>
 
@@ -931,7 +931,7 @@ export default function LandingPage() {
 
       {/* SAVINGS */}
       <section style={{ padding: "100px 64px", borderTop: "1px solid rgba(255,255,255,.05)" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 72, alignItems: "center" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 72, alignItems: "center" }}>
           <div>
             <span style={{ fontFamily: mono, fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" }}>Por que faz sentido</span>
             <h2 style={{ fontSize: "clamp(20px, 3vw, 38px)", fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.04em", marginTop: 10, marginBottom: 16 }}>
