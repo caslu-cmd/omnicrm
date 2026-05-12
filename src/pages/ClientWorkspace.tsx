@@ -6763,7 +6763,7 @@ Regras:
                               {/* Imagem da Carolina */}
                               {msg.imageUrl && (
                                 <div className="mt-3">
-                                  <img src={msg.imageUrl} alt="gerado" className="rounded-lg max-h-56 object-cover w-full" style={{ border: "1px solid rgba(255,255,255,0.1)" }} />
+                                  <img src={msg.imageUrl} alt="gerado" className="rounded-lg object-contain w-full" style={{ border: "1px solid rgba(255,255,255,0.1)", maxHeight: 500 }} />
                                   <div className="flex items-center gap-2 mt-2">
                                     <button
                                       onClick={() => {
