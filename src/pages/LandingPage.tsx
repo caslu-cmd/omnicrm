@@ -47,14 +47,14 @@ const PRODUCTS = [
 ];
 
 const TEAM = [
-  { i: "Lu", name: "Luna",    role: "Orquestradora Geral",      color: LIME,      desc: "Coordena todo o time em tempo real, define prioridades e garante que cada entrega saia no prazo e com qualidade. É o cérebro que conecta todos os agentes.", tasks: ["Orquestração do time", "Controle de prazos", "Briefing automatizado", "Relatório executivo"] },
+  { i: "L1", name: "Luna",    role: "Orquestradora Geral",      color: LIME,      desc: "Coordena todo o time em tempo real, define prioridades e garante que cada entrega saia no prazo e com qualidade. É o cérebro que conecta todos os agentes.", tasks: ["Orquestração do time", "Controle de prazos", "Briefing automatizado", "Relatório executivo"] },
   { i: "Q", name: "Queila",  role: "Estrategista de Marca",    color: "#FBBF24", desc: "Define o posicionamento, a pauta editorial e a direção criativa da marca. Cria o mapa de conteúdo mensal e garante consistência de mensagem em todos os canais.", tasks: ["Pauta editorial mensal", "Posicionamento de marca", "Análise de concorrência", "Direção criativa"] },
   { i: "B", name: "Beatriz",  role: "Copywriter & Redatora",    color: "#A78BFA", desc: "Escreve cada legenda, artigo, e-mail e anúncio com foco em conversão. Seu copy tem personalidade, clareza e intenção — porque cada palavra tem um objetivo.", tasks: ["Legendas e posts", "Artigos e blog", "Roteiros de vídeo", "Copy de anúncios"] },
-  { i: "M", name: "Marcela",  role: "Designer Visual",          color: "#D946EF", desc: "Cria todos os visuais da marca — posts, stories, banners, apresentações e peças de campanha. Cada pixel alinhado ao manual de identidade da empresa.", tasks: ["Posts e stories", "Banners e anúncios", "Apresentações", "Identidade visual"] },
+  { i: "M1", name: "Marcela",  role: "Designer Visual",          color: "#D946EF", desc: "Cria todos os visuais da marca — posts, stories, banners, apresentações e peças de campanha. Cada pixel alinhado ao manual de identidade da empresa.", tasks: ["Posts e stories", "Banners e anúncios", "Apresentações", "Identidade visual"] },
   { i: "R", name: "Rafaela",  role: "Gestora de Tráfego Pago",  color: "#F97316", desc: "Gerencia campanhas no Meta Ads e Google Ads com foco em ROAS alto e CPA que faz sentido. Testa, otimiza e escala o que funciona — todos os dias.", tasks: ["Meta Ads (FB/IG)", "Google Ads", "Remarketing", "Otimização de verba"] },
-  { i: "M", name: "Marina",   role: "Social Media Manager",     color: "#60A5FA", desc: "Agenda, publica e monitora todo o conteúdo orgânico. Responde comentários, monitora menções e mantém sua marca ativa e presente em todos os momentos.", tasks: ["Agendamento de posts", "Engajamento", "Monitoramento", "Relatório semanal"] },
+  { i: "M2", name: "Marina",   role: "Social Media Manager",     color: "#60A5FA", desc: "Agenda, publica e monitora todo o conteúdo orgânico. Responde comentários, monitora menções e mantém sua marca ativa e presente em todos os momentos.", tasks: ["Agendamento de posts", "Engajamento", "Monitoramento", "Relatório semanal"] },
   { i: "P", name: "Pedro",    role: "Calendário Editorial",     color: "#2DD4BF", desc: "Planeja e organiza todo o calendário editorial — semanas, meses e campanhas sazonais. Cada post no lugar certo, na hora certa, com o pilar de conteúdo adequado.", tasks: ["Calendário mensal", "Pilares de conteúdo", "Datas estratégicas", "Cronograma de campanhas"] },
-  { i: "L", name: "Lucas",    role: "Analista de Dados",        color: "#34D399", desc: "Transforma números em decisões. Monitora métricas de tráfego, engajamento e vendas, e entrega relatórios com insights claros e ações recomendadas.", tasks: ["Dashboards de resultado", "Google Analytics", "Relatórios semanais", "Insights estratégicos"] },
+  { i: "L2", name: "Lucas",    role: "Analista de Dados",        color: "#34D399", desc: "Transforma números em decisões. Monitora métricas de tráfego, engajamento e vendas, e entrega relatórios com insights claros e ações recomendadas.", tasks: ["Dashboards de resultado", "Google Analytics", "Relatórios semanais", "Insights estratégicos"] },
   { i: "E", name: "Eduardo",  role: "Agente de Vendas & CRM",   color: "#F59E0B", desc: "Qualifica leads via WhatsApp, alimenta o CRM e garante que nenhum contato seja perdido. Do primeiro 'oi' até o fechamento do contrato.", tasks: ["Qualificação de leads", "Follow-up automatizado", "Gestão do CRM", "Relatório de pipeline"] },
   { i: "T", name: "Teo",      role: "Web Designer & SEO",       color: "#06B6D4", desc: "Mantém seu site atualizado, publica no blog e otimiza cada página para os buscadores. Mais visibilidade orgânica, mais clientes chegando até você.", tasks: ["Atualização de site", "SEO on-page", "Blog e artigos", "Landing pages"] },
   { i: "V", name: "Vitória",  role: "Revisora de Conteúdo",     color: "#EC4899", desc: "Revisa e corrige 100% do conteúdo antes de publicar. Gramática, tom de voz, consistência de marca — zero erros, zero vergonha.", tasks: ["Revisão gramatical", "Tom de voz", "Checagem de fatos", "Aprovação final"] },
@@ -106,6 +106,33 @@ const CSS = `
   .cl-tl-node{transition:background .35s,border-color .35s,box-shadow .35s}
   .cl-agent-btn{transition:all .2s;cursor:pointer}
   .cl-agent-btn:hover{transform:scale(1.12)}
+
+  @media (max-width: 1024px) {
+    .cl-nav { padding: 0 24px !important; }
+    .cl-nav-links { display: none !important; }
+    .cl-hero-section { padding: 100px 24px 60px !important; min-height: auto !important; }
+    .cl-hero-grid { grid-template-columns: 1fr !important; gap: 40px !important; text-align: center !important; }
+    .cl-hero-title { font-size: clamp(34px, 10vw, 56px) !important; margin: 0 auto 24px !important; }
+    .cl-hero-text { margin: 0 auto 32px !important; word-break: break-word !important; }
+    .cl-hero-buttons { justify-content: center !important; flex-wrap: wrap !important; }
+    .cl-hero-stats { justify-content: center !important; flex-wrap: wrap !important; }
+    .cl-hero-stats > div { border-right: none !important; padding: 0 16px !important; margin-bottom: 24px !important; }
+    .cl-section { padding: 80px 24px !important; }
+    .cl-grid-2 { grid-template-columns: 1fr !important; }
+    .cl-grid-3 { grid-template-columns: 1fr !important; }
+    .cl-grid-4 { grid-template-columns: 1fr 1fr !important; }
+    .cl-product-grid { grid-template-columns: 1fr !important; }
+    .cl-timeline { padding: 0 24px !important; }
+    .cl-footer { padding: 60px 24px 30px !important; }
+    .cl-track { padding: 4px 24px 36px !important; }
+    .cl-hero-agent { margin: 0 auto !important; max-width: 400px !important; }
+    .cl-hero-a1 { justify-content: center !important; margin: 0 auto 28px !important; }
+    
+    @media (max-width: 640px) {
+      .cl-grid-4 { grid-template-columns: 1fr !important; }
+      .cl-footer-grid { grid-template-columns: 1fr !important; }
+    }
+  }
 `;
 
 function fmt(n: number) { return n.toLocaleString("pt-BR"); }
@@ -269,7 +296,7 @@ function HeroAgentCard() {
           boxShadow: `inset 0 1px 0 ${agent.color}10`,
         }}>
           <div style={{ fontFamily: mono, fontSize: 9, color: MUTED, marginBottom: 10, letterSpacing: "0.08em", textTransform: "uppercase" as const }}>Executando agora</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "7px 12px" }}>
+          <div className="cl-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "7px 12px" }}>
             {agent.tasks.map((task, j) => (
               <div key={j} style={{ display: "flex", alignItems: "center", gap: 7 }}>
                 <div style={{ width: 4, height: 4, borderRadius: "50%", background: j === 0 ? agent.color : "rgba(255,255,255,.15)", flexShrink: 0, boxShadow: j === 0 ? `0 0 6px ${agent.color}` : "none" }} />
@@ -313,7 +340,7 @@ function ProcessTimeline() {
   const [hovStep, setHovStep] = useState<number | null>(null);
 
   return (
-    <section id="processo" style={{ padding: "120px 64px", borderBottom: "1px solid rgba(255,255,255,.06)", position: "relative", overflow: "hidden" }}>
+    <section id="processo" className="cl-section" style={{ padding: "120px 64px", borderBottom: "1px solid rgba(255,255,255,.06)", position: "relative", overflow: "hidden" }}>
       {/* background ambient */}
       <div style={{ position: "absolute", top: "30%", left: "50%", transform: "translateX(-50%)", width: 1000, height: 700, borderRadius: "50%", background: "radial-gradient(circle, rgba(185,255,75,.035) 0%, transparent 62%)", filter: "blur(72px)", pointerEvents: "none" }} />
 
@@ -406,7 +433,7 @@ function ProcessTimeline() {
                   <div style={{ marginTop: 26, position: "relative" }}>
                     <div style={{ height: 1, background: `linear-gradient(to right, ${step.color}35, transparent)`, marginBottom: 22 }} />
                     <div style={{ fontFamily: mono, fontSize: 11, color: step.color, marginBottom: 16, letterSpacing: "0.1em", textTransform: "uppercase" as const }}>Entregáveis</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 28px", marginBottom: 22 }}>
+                    <div className="cl-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 28px", marginBottom: 22 }}>
                       {step.details.map((d, j) => (
                         <div key={j} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
                           <div style={{ width: 6, height: 6, borderRadius: "50%", background: step.color, flexShrink: 0, marginTop: 9, boxShadow: `0 0 8px ${step.color}` }} />
@@ -659,11 +686,11 @@ export default function LandingPage() {
   }, []);
 
   return (
-    <div className="cl" style={{ fontFamily: syne, background: BLACK, color: OFF, minHeight: "100vh" }}>
+    <div className="cl" style={{ fontFamily: syne, background: BLACK, color: OFF, minHeight: "100vh", overflowX: "hidden" }}>
       <style>{CSS}</style>
 
       {/* NAV */}
-      <nav style={{
+      <nav className="cl-nav" style={{
         position: "fixed", top: 0, left: 0, right: 0, zIndex: 200,
         height: 58, padding: "0 48px",
         display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -676,7 +703,7 @@ export default function LandingPage() {
           <img src={caluLogo} alt="Calu Agência" style={{ width: 28, height: 28, borderRadius: 7, objectFit: "cover" }} />
           <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-0.02em" }}>Calu Agência</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
+        <div className="cl-nav-links" style={{ display: "flex", alignItems: "center", gap: 28 }}>
           {[["Serviços","#servicos"],["Processo","#processo"],["Soluções IA","#solucoes"],["Time","#time"],["Contato","#contato"]].map(([l,h]) => (
             <a key={l} href={h} className="cl-link" style={{ fontSize: 13, color: DIM, fontWeight: 500 }}>{l}</a>
           ))}
@@ -692,12 +719,12 @@ export default function LandingPage() {
       </nav>
 
       {/* HERO */}
-      <section style={{ minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center", padding: "120px 64px 80px", position: "relative", overflow: "hidden" }}>
+      <section className="cl-hero-section" style={{ minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center", padding: "120px 64px 80px", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: "28%", right: "8%", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(185,255,75,.07) 0%, transparent 65%)", filter: "blur(40px)", pointerEvents: "none" }} />
 
-        <div style={{ maxWidth: 1200, margin: "0 auto", width: "100%", display: "grid", gridTemplateColumns: "1fr 400px", gap: 56, alignItems: "center" }}>
+        <div className="cl-hero-grid" style={{ maxWidth: 1200, margin: "0 auto", width: "100%", display: "grid", gridTemplateColumns: "1fr 400px", gap: 56, alignItems: "center" }}>
           <div>
-            <div className="cl-a1" style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 28 }}>
+            <div className="cl-a1 cl-hero-a1" style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 28 }}>
               <div className="cl-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: LIME }} />
               <span style={{ fontFamily: mono, fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" }}>Publicidade · Tecnologia · IA</span>
             </div>
@@ -710,7 +737,7 @@ export default function LandingPage() {
               A Calu Agência une estratégia criativa de alta performance com tecnologia de IA proprietária — para sua marca crescer sem limite de equipe ou orçamento.
             </p>
 
-            <div className="cl-a4" style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 52 }}>
+            <div className="cl-a4 cl-hero-buttons" style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 52 }}>
               <a href="https://wa.me/5585986408404" target="_blank" rel="noreferrer" className="cl-pill"
                 style={{ display: "inline-flex", alignItems: "center", gap: 8, background: LIME, color: BLACK, fontWeight: 700, fontSize: 14, padding: "13px 26px", borderRadius: 100, boxShadow: "0 0 28px rgba(185,255,75,.2)" }}>
                 <MessageCircle size={15} /> Fale conosco
@@ -732,7 +759,7 @@ export default function LandingPage() {
           </div>
 
           {/* Agent card */}
-          <div className="cl-a3">
+          <div className="cl-a3 cl-hero-agent">
             <HeroAgentCard />
           </div>
         </div>
@@ -816,7 +843,7 @@ export default function LandingPage() {
       </section>
 
       {/* SERVICES */}
-      <section id="servicos" style={{ padding: "100px 64px" }}>
+      <section id="servicos" className="cl-section" style={{ padding: "100px 64px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 56 }}>
             <div>
@@ -843,7 +870,7 @@ export default function LandingPage() {
       </section>
 
       {/* AI SOLUTIONS */}
-      <section id="solucoes" style={{ padding: "100px 64px", background: "#0C0C0C", borderTop: "1px solid rgba(255,255,255,.05)", borderBottom: "1px solid rgba(255,255,255,.05)" }}>
+      <section id="solucoes" className="cl-section" style={{ padding: "100px 64px", background: "#0C0C0C", borderTop: "1px solid rgba(255,255,255,.05)", borderBottom: "1px solid rgba(255,255,255,.05)" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <div style={{ marginBottom: 60 }}>
             <span style={{ fontFamily: mono, fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" }}>Soluções com IA</span>
