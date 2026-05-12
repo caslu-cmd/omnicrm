@@ -146,7 +146,7 @@ export default function SocialMediaTab({
   const [uploading, setUploading] = useState(false);
   const [localMediaFile, setLocalMediaFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("calendar");
   const [calendarDate, setCalendarDate] = useState(() => { const n = new Date(); return { year: n.getFullYear(), month: n.getMonth() }; });
   const [previewType, setPreviewType] = useState<"feed" | "story">("feed");
   const [dragOver, setDragOver] = useState(false);
