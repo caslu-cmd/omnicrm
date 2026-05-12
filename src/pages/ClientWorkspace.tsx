@@ -226,22 +226,23 @@ const AGENT_OUTPUT_TYPE: Record<string, GeneratedOutput["type"]> = {
 
 // ── Prompts individuais por agente (orquestração sequencial) ─────────────
 // Configuração de cada agente: tokens e se usa extended thinking
+// thinkingBudget mantido em ≤3000 para não ultrapassar o limite de 150s da edge function
 const AGENT_CONFIG: Record<string, { maxTokens: number; thinking: boolean; thinkingBudget?: number }> = {
-  strategist:  { maxTokens: 12000, thinking: true,  thinkingBudget: 8000  },
-  copywriter:  { maxTokens: 6000,  thinking: false },
-  traffic:     { maxTokens: 10000, thinking: true,  thinkingBudget: 6000  },
-  analyst:     { maxTokens: 10000, thinking: true,  thinkingBudget: 6000  },
-  social:      { maxTokens: 6000,  thinking: false },
-  site:        { maxTokens: 8000,  thinking: true,  thinkingBudget: 5000  },
-  designer:    { maxTokens: 5000,  thinking: false },
-  sales:       { maxTokens: 6000,  thinking: false },
-  briefing:    { maxTokens: 8000,  thinking: true,  thinkingBudget: 5000  },
-  revisor:     { maxTokens: 5000,  thinking: false },
-  video:       { maxTokens: 6000,  thinking: false },
-  calendario:  { maxTokens: 10000, thinking: true,  thinkingBudget: 6000  },
-  tomas:       { maxTokens: 8000,  thinking: true,  thinkingBudget: 5000  },
-  laura:       { maxTokens: 10000, thinking: true,  thinkingBudget: 6000  },
-  ben:         { maxTokens: 0,     thinking: false }, // não usa chat-ai — chama FastAPI porta 8800
+  strategist:  { maxTokens: 6000, thinking: true,  thinkingBudget: 3000 },
+  copywriter:  { maxTokens: 5000, thinking: false },
+  traffic:     { maxTokens: 6000, thinking: true,  thinkingBudget: 3000 },
+  analyst:     { maxTokens: 6000, thinking: true,  thinkingBudget: 3000 },
+  social:      { maxTokens: 5000, thinking: false },
+  site:        { maxTokens: 6000, thinking: true,  thinkingBudget: 3000 },
+  designer:    { maxTokens: 5000, thinking: false },
+  sales:       { maxTokens: 5000, thinking: false },
+  briefing:    { maxTokens: 6000, thinking: true,  thinkingBudget: 3000 },
+  revisor:     { maxTokens: 5000, thinking: false },
+  video:       { maxTokens: 5000, thinking: false },
+  calendario:  { maxTokens: 6000, thinking: true,  thinkingBudget: 3000 },
+  tomas:       { maxTokens: 6000, thinking: true,  thinkingBudget: 3000 },
+  laura:       { maxTokens: 6000, thinking: true,  thinkingBudget: 3000 },
+  ben:         { maxTokens: 0,    thinking: false }, // usa ben-trends edge function, não chat-ai
 };
 
 const AGENT_PROMPTS: Record<string, string> = {
@@ -1752,7 +1753,12 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
           } else {
             const agCfg = AGENT_CONFIG[agentId] ?? { maxTokens: 5000, thinking: false };
             const isPostAgent = ["social", "copywriter"].includes(agentId);
-            const { data: agData, error: agErr } = await supabase.functions.invoke("chat-ai", {
+
+            // 120s timeout guard — rejeita antes do edge function atingir 150s
+            const timeoutPromise = new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error("Tempo limite do agente excedido (120s)")), 120_000)
+            );
+            const invokePromise = supabase.functions.invoke("chat-ai", {
               body: {
                 systemPrompt: AGENT_PROMPTS[agentId],
                 maxTokens: agCfg.maxTokens,
@@ -1767,6 +1773,7 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
                 }],
               },
             });
+            const { data: agData, error: agErr } = await Promise.race([invokePromise, timeoutPromise]);
             if (agErr) throw agErr;
             outputText = (agData?.content ?? "").trim();
 
@@ -1782,7 +1789,7 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
             }
           }
         } catch (e) {
-          outputText = `*Erro ao executar este agente: ${e instanceof Error ? e.message : String(e)}*`;
+          outputText = `*${agentId} não respondeu a tempo — tente novamente ou reduza a demanda: ${e instanceof Error ? e.message : String(e)}*`;
         }
 
         // (c) salva output completo
@@ -1953,7 +1960,11 @@ ${priorBlock}`;
           try {
             const agCfg2 = AGENT_CONFIG[agentId] ?? { maxTokens: 5000, thinking: false };
             const isPostAgent2 = ["social", "copywriter"].includes(agentId);
-            const { data: agData, error: agErr } = await supabase.functions.invoke("chat-ai", {
+
+            const timeout2 = new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error("Tempo limite excedido (120s)")), 120_000)
+            );
+            const invoke2 = supabase.functions.invoke("chat-ai", {
               body: {
                 systemPrompt: AGENT_PROMPTS[agentId],
                 maxTokens: agCfg2.maxTokens,
@@ -1968,6 +1979,7 @@ ${priorBlock}`;
                 }],
               },
             });
+            const { data: agData, error: agErr } = await Promise.race([invoke2, timeout2]);
             if (agErr) throw agErr;
             outText = (agData?.content ?? "").trim();
 
@@ -1982,7 +1994,7 @@ ${priorBlock}`;
               }]);
             }
           } catch (e) {
-            outText = `*Erro: ${e instanceof Error ? e.message : String(e)}*`;
+            outText = `*${agentId} não respondeu a tempo: ${e instanceof Error ? e.message : String(e)}*`;
           }
 
           accumulated[agentId] = outText;
