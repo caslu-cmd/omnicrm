@@ -106,6 +106,23 @@ const CSS = `
   .cl-tl-node{transition:background .35s,border-color .35s,box-shadow .35s}
   .cl-agent-btn{transition:all .2s;cursor:pointer}
   .cl-agent-btn:hover{transform:scale(1.12)}
+
+  @media (max-width: 1024px) {
+    .cl-nav { padding: 0 24px !important; }
+    .cl-nav-links { display: none !important; }
+    .cl-hero-section { padding: 100px 24px 60px !important; }
+    .cl-hero-grid { grid-template-columns: 1fr !important; gap: 40px !important; text-align: center !important; }
+    .cl-hero-title { font-size: clamp(34px, 10vw, 56px) !important; margin: 0 auto 24px !important; }
+    .cl-hero-text { margin: 0 auto 32px !important; }
+    .cl-hero-buttons { justify-content: center !important; flex-wrap: wrap !important; }
+    .cl-hero-stats { justify-content: center !important; flex-wrap: wrap !important; }
+    .cl-section { padding: 80px 24px !important; }
+    .cl-grid-2, .cl-grid-3, .cl-grid-4 { grid-template-columns: 1fr !important; }
+    .cl-product-grid { grid-template-columns: 1fr !important; }
+    .cl-timeline { padding: 0 24px !important; }
+    .cl-footer { padding: 60px 24px 30px !important; }
+    .cl-track { padding: 4px 24px 36px !important; }
+  }
 `;
 
 function fmt(n: number) { return n.toLocaleString("pt-BR"); }
@@ -269,7 +286,7 @@ function HeroAgentCard() {
           boxShadow: `inset 0 1px 0 ${agent.color}10`,
         }}>
           <div style={{ fontFamily: mono, fontSize: 9, color: MUTED, marginBottom: 10, letterSpacing: "0.08em", textTransform: "uppercase" as const }}>Executando agora</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "7px 12px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" className="cl-grid-2", gap: "7px 12px" }}>
             {agent.tasks.map((task, j) => (
               <div key={j} style={{ display: "flex", alignItems: "center", gap: 7 }}>
                 <div style={{ width: 4, height: 4, borderRadius: "50%", background: j === 0 ? agent.color : "rgba(255,255,255,.15)", flexShrink: 0, boxShadow: j === 0 ? `0 0 6px ${agent.color}` : "none" }} />
@@ -313,7 +330,7 @@ function ProcessTimeline() {
   const [hovStep, setHovStep] = useState<number | null>(null);
 
   return (
-    <section id="processo" style={{ padding: "120px 64px", borderBottom: "1px solid rgba(255,255,255,.06)", position: "relative", overflow: "hidden" }}>
+    <section id="processo" className="cl-section" style={{ padding: "120px 64px" }}>
       {/* background ambient */}
       <div style={{ position: "absolute", top: "30%", left: "50%", transform: "translateX(-50%)", width: 1000, height: 700, borderRadius: "50%", background: "radial-gradient(circle, rgba(185,255,75,.035) 0%, transparent 62%)", filter: "blur(72px)", pointerEvents: "none" }} />
 
@@ -406,7 +423,7 @@ function ProcessTimeline() {
                   <div style={{ marginTop: 26, position: "relative" }}>
                     <div style={{ height: 1, background: `linear-gradient(to right, ${step.color}35, transparent)`, marginBottom: 22 }} />
                     <div style={{ fontFamily: mono, fontSize: 11, color: step.color, marginBottom: 16, letterSpacing: "0.1em", textTransform: "uppercase" as const }}>Entregáveis</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 28px", marginBottom: 22 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" className="cl-grid-2", gap: "12px 28px", marginBottom: 22 }}>
                       {step.details.map((d, j) => (
                         <div key={j} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
                           <div style={{ width: 6, height: 6, borderRadius: "50%", background: step.color, flexShrink: 0, marginTop: 9, boxShadow: `0 0 8px ${step.color}` }} />
@@ -663,7 +680,7 @@ export default function LandingPage() {
       <style>{CSS}</style>
 
       {/* NAV */}
-      <nav style={{
+      <nav className="cl-nav" style={{
         position: "fixed", top: 0, left: 0, right: 0, zIndex: 200,
         height: 58, padding: "0 48px",
         display: "flex", alignItems: "center", justifyContent: "space-between",
@@ -676,7 +693,7 @@ export default function LandingPage() {
           <img src={caluLogo} alt="Calu Agência" style={{ width: 28, height: 28, borderRadius: 7, objectFit: "cover" }} />
           <span style={{ fontSize: 14, fontWeight: 700, letterSpacing: "-0.02em" }}>Calu Agência</span>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 28 }}>
+        <div className="cl-nav-links" style={{ display: "flex", alignItems: "center", gap: 28 }}>
           {[["Serviços","#servicos"],["Processo","#processo"],["Soluções IA","#solucoes"],["Time","#time"],["Contato","#contato"]].map(([l,h]) => (
             <a key={l} href={h} className="cl-link" style={{ fontSize: 13, color: DIM, fontWeight: 500 }}>{l}</a>
           ))}
@@ -692,25 +709,25 @@ export default function LandingPage() {
       </nav>
 
       {/* HERO */}
-      <section style={{ minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center", padding: "120px 64px 80px", position: "relative", overflow: "hidden" }}>
+      <section className="cl-hero-section" style={{ minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center", padding: "120px 64px 80px", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: "28%", right: "8%", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(185,255,75,.07) 0%, transparent 65%)", filter: "blur(40px)", pointerEvents: "none" }} />
 
-        <div style={{ maxWidth: 1200, margin: "0 auto", width: "100%", display: "grid", gridTemplateColumns: "1fr 400px", gap: 56, alignItems: "center" }}>
+        <div className="cl-hero-grid" style={{ maxWidth: 1200, margin: "0 auto", width: "100%", display: "grid", gridTemplateColumns: "1fr 400px" className="cl-product-grid", gap: 56, alignItems: "center" }}>
           <div>
             <div className="cl-a1" style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 28 }}>
               <div className="cl-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: LIME }} />
               <span style={{ fontFamily: mono, fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" }}>Publicidade · Tecnologia · IA</span>
             </div>
 
-            <h1 className="cl-a2" style={{ fontSize: "clamp(34px, 5.2vw, 68px)", fontWeight: 800, lineHeight: 1.0, letterSpacing: "-0.045em", marginBottom: 24 }}>
+            <h1 className="cl-a2 cl-hero-title" style={{ fontSize: "clamp(34px, 5.2vw, 68px)", fontWeight: 800, lineHeight: 1.0, letterSpacing: "-0.045em", marginBottom: 24 }}>
               Criatividade<br />que vende.<br /><span style={{ color: LIME }}>IA que escala.</span>
             </h1>
 
-            <p className="cl-a3" style={{ fontSize: 17, color: DIM, lineHeight: 1.65, maxWidth: 500, marginBottom: 36 }}>
+            <p className="cl-a3 cl-hero-text" style={{ fontSize: 17, color: DIM, lineHeight: 1.65, maxWidth: 500, marginBottom: 36 }}>
               A Calu Agência une estratégia criativa de alta performance com tecnologia de IA proprietária — para sua marca crescer sem limite de equipe ou orçamento.
             </p>
 
-            <div className="cl-a4" style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 52 }}>
+            <div className="cl-a4 cl-hero-buttons" style={{ display: "flex", gap: 12, alignItems: "center", marginBottom: 52 }}>
               <a href="https://wa.me/5585986408404" target="_blank" rel="noreferrer" className="cl-pill"
                 style={{ display: "inline-flex", alignItems: "center", gap: 8, background: LIME, color: BLACK, fontWeight: 700, fontSize: 14, padding: "13px 26px", borderRadius: 100, boxShadow: "0 0 28px rgba(185,255,75,.2)" }}>
                 <MessageCircle size={15} /> Fale conosco
@@ -721,7 +738,7 @@ export default function LandingPage() {
               </a>
             </div>
 
-            <div className="cl-a5" style={{ display: "flex", gap: 0, paddingTop: 28, borderTop: "1px solid rgba(255,255,255,.06)" }}>
+            <div className="cl-a5 cl-hero-stats" style={{ display: "flex", gap: 0, paddingTop: 28, borderTop: "1px solid rgba(255,255,255,.06)" }}>
               {[{ n:"14", l:"clientes ativos" },{ n:"3.8×", l:"ROAS médio" },{ n:"R$ 2.4M", l:"em vendas geradas" }].map((s, i) => (
                 <div key={s.n} style={{ paddingRight: i < 2 ? 32 : 0, paddingLeft: i > 0 ? 32 : 0, borderRight: i < 2 ? "1px solid rgba(255,255,255,.06)" : "none" }}>
                   <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1 }}>{s.n}</div>
@@ -797,7 +814,7 @@ export default function LandingPage() {
           </div>
 
           {/* Result bar */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" className="cl-grid-3", gap: 16 }}>
             {[
               { label: "Estratégia → Publicação",  value: "em até 48h",         color: LIME      },
               { label: "Ciclo de aprovação",        value: "via portal do cliente", color: "#A78BFA" },
@@ -816,7 +833,7 @@ export default function LandingPage() {
       </section>
 
       {/* SERVICES */}
-      <section id="servicos" style={{ padding: "100px 64px" }}>
+      <section id="servicos" className="cl-section" style={{ padding: "100px 64px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 56 }}>
             <div>
@@ -829,7 +846,7 @@ export default function LandingPage() {
               Serviços integrados que trabalham juntos para crescer seu negócio.
             </p>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", border: "1px solid rgba(255,255,255,.07)", borderRadius: 18, overflow: "hidden" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" className="cl-grid-3", border: "1px solid rgba(255,255,255,.07)", borderRadius: 18, overflow: "hidden" }}>
             {SERVICES.map((s, i) => (
               <div key={s.n} className="cl-card"
                 style={{ padding: "34px 28px", background: BLACK, borderRight: i%3!==2?"1px solid rgba(255,255,255,.07)":"none", borderBottom: i<3?"1px solid rgba(255,255,255,.07)":"none" }}>
@@ -843,7 +860,7 @@ export default function LandingPage() {
       </section>
 
       {/* AI SOLUTIONS */}
-      <section id="solucoes" style={{ padding: "100px 64px", background: "#0C0C0C", borderTop: "1px solid rgba(255,255,255,.05)", borderBottom: "1px solid rgba(255,255,255,.05)" }}>
+      <section id="solucoes" className="cl-section" style={{ padding: "100px 64px" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <div style={{ marginBottom: 60 }}>
             <span style={{ fontFamily: mono, fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" }}>Soluções com IA</span>
@@ -855,7 +872,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" className="cl-grid-3", gap: 16 }}>
             {PRODUCTS.map(p => (
               <div key={p.name} className="cl-prod" style={{ borderRadius: 20, background: "rgba(255,255,255,.025)", border: `1px solid ${p.color}20`, padding: "34px 28px", position: "relative", overflow: "hidden" }}>
                 <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: p.color }} />
@@ -914,7 +931,7 @@ export default function LandingPage() {
 
       {/* SAVINGS */}
       <section style={{ padding: "100px 64px", borderTop: "1px solid rgba(255,255,255,.05)" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 72, alignItems: "center" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr" className="cl-grid-2", gap: 72, alignItems: "center" }}>
           <div>
             <span style={{ fontFamily: mono, fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" }}>Por que faz sentido</span>
             <h2 style={{ fontSize: "clamp(20px, 3vw, 38px)", fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.04em", marginTop: 10, marginBottom: 16 }}>
