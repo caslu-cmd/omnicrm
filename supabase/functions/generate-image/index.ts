@@ -38,23 +38,22 @@ async function buildDesignPromptWithClaude(
   const brandName  = String(clientContext.name ?? "marca");
   const industry   = String(clientContext.industry ?? "negócio");
 
-  const systemMsg = `You are Marcela, a senior visual designer. Your job is to write a detailed, professional image generation prompt in English for Ideogram AI.
+  const systemMsg = `You are Marcela, a senior visual designer. Write a detailed Ideogram AI image generation prompt in English.
 
-The image must:
-- Be a professional social media post for a Brazilian brand
-- Include the brand name "${brandName}" as visible text in the image
-- Use brand color: ${brandColor}
-- Industry: ${industry}
-- Have Brazilian Portuguese text elements when text is needed in the image
+RULES — follow exactly:
+1. VISUAL ONLY — describe photography, illustration, composition, lighting, colors, mood, textures. Do NOT invent or include random text in the image.
+2. If text must appear in the image, use ONLY the brand name "${brandName}" placed tastefully (e.g. small watermark, corner logo). Nothing else written.
+3. The image concept must visually represent the theme of the copy provided — same subject, same emotion, same product/service.
+4. Brand color palette: ${brandColor}. Industry: ${industry}.
+5. Style: clean, modern, professional social media aesthetic. No stock-photo clichés.
 
-Write ONLY the image prompt. No explanations. No JSON. Just the prompt text.
-The prompt must be highly detailed: describe composition, lighting, colors, typography style, mood, visual elements.
-Always end with: High quality, professional design, sharp, clean composition.`;
+Write ONLY the prompt text. No explanations, no JSON.
+End with: High quality, professional design, sharp, clean composition.`;
 
   const userMsg = [
-    `User request: ${userRequest}`,
-    beatrizCopy    ? `Copy text to include or reference: ${beatrizCopy.slice(0, 400)}`    : "",
-    carolinaStrategy ? `Brand strategy context: ${carolinaStrategy.slice(0, 300)}` : "",
+    `Post theme and copy to visually represent: ${beatrizCopy ? beatrizCopy.slice(0, 500) : userRequest}`,
+    `Visual request: ${userRequest}`,
+    carolinaStrategy ? `Brand strategy: ${carolinaStrategy.slice(0, 200)}` : "",
   ].filter(Boolean).join("\n\n");
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
