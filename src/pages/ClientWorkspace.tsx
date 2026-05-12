@@ -1669,10 +1669,11 @@ Agentes disponíveis (use exatamente esses IDs):
 - video (Bobby — Edição de vídeo: cortes, efeitos, legendas, color grade)
 - ben (Ben — Pesquisa de tendências em tempo real: Google Trends Brasil, Instagram, TikTok, Twitter)
 
-Escolha SOMENTE os agentes que realmente fazem sentido para a demanda. Mínimo 1, máximo 5.
-REGRAS OBRIGATÓRIAS:
-- Para posts/conteúdo/campanhas: sempre inclua ben + copywriter + designer (nessa ordem)
-- ben alimenta Beatriz (copy) e Marcela (imagem) com dados reais de tendências
+Escolha SOMENTE os agentes que realmente fazem sentido. Máximo 3 agentes por vez.
+REGRAS:
+- Para posts/conteúdo/imagens/campanhas: use EXATAMENTE ["ben","copywriter","designer"] — nada mais
+- Para estratégia/planejamento sem imagem: use até 3 agentes relevantes
+- Não adicione agentes desnecessários — menos é mais rápido e eficiente
 
 Contexto: cliente "${clientContext.name}", segmento "${clientContext.industry}".
 ${clientContext.teamInstructions ? `Instruções permanentes: ${clientContext.teamInstructions}` : ""}
