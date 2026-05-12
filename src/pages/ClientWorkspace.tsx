@@ -3942,7 +3942,7 @@ Regras:
                 style={{ background: "#111318", border: "1px solid rgba(255,255,255,0.09)" }}>
 
                 {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                <div className="flex items-center justify-between flex-wrap gap-4">
                   <div>
                     <div className="font-bold text-white text-sm">Compartilhar Portal</div>
                     <div className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>{client.name}</div>
@@ -4086,7 +4086,7 @@ Regras:
               <motion.div initial={{ opacity: 0, scale: 0.95, y: 8 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
                 className="w-full max-w-lg rounded-2xl overflow-hidden"
                 style={{ background: "#0D0D14", border: "1px solid rgba(185,255,75,0.2)" }}>
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 px-6 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                <div className="flex items-center justify-between flex-wrap gap-4 px-6 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                   <div>
                     <p className="text-sm font-bold text-white">Registrar entrega no portal</p>
                     <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
@@ -4354,7 +4354,7 @@ Regras:
                         : <div className="space-y-2">{overviewConnections.map((conn) => (
                           <div key={conn.id} className="p-3 rounded-xl"
                             style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                            <div className="flex items-center justify-between flex-wrap gap-4">
                               <div className="text-xs font-medium" style={{ color: "rgba(255,255,255,0.75)" }}>
                                 {conn.account_name || conn.platform}
                               </div>
@@ -4606,7 +4606,7 @@ Regras:
                             className="w-full max-w-lg rounded-2xl p-6 space-y-4"
                             style={{ background: "#12141A", border: "1px solid rgba(96,165,250,0.3)" }}
                             onClick={e => e.stopPropagation()}>
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                            <div className="flex items-center justify-between flex-wrap gap-4">
                               <div className="flex items-center gap-2">
                                 <Mail className="w-4 h-4" style={{ color: "#60A5FA" }} />
                                 <span className="text-sm font-semibold" style={{ color: "#F0F0F0" }}>
@@ -4686,7 +4686,7 @@ Regras:
                       };
                       return (
                         <div className="space-y-3">
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                          <div className="flex items-center justify-between flex-wrap gap-4">
                             <div>
                               <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>Propostas & Ações</p>
                               <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>
@@ -4797,7 +4797,7 @@ Regras:
 
                     {/* Posts para aprovação */}
                     <div className="space-y-3">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                    <div className="flex items-center justify-between flex-wrap gap-4">
                       <div>
                         <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>Fila de Aprovação</p>
                         <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>Posts criados pelos agentes aguardando sua aprovação</p>
@@ -4827,7 +4827,7 @@ Regras:
                     {!pendingLoading && pendingPosts.map((post) => (
                       <div key={post.id} className="rounded-2xl p-4 space-y-3"
                         style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${client.color}25` }}>
-                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 gap-3">
+                        <div className="flex items-start justify-between flex-wrap gap-4 gap-3">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2 flex-wrap">
                               {(post.platforms as string[]).map((p: string) => (
@@ -4916,7 +4916,7 @@ Regras:
                   return (
                   <div className="space-y-5">
                     {/* Header */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                    <div className="flex items-center justify-between flex-wrap gap-4">
                       <div>
                         <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>Registro de Entregas</p>
                         <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>
@@ -5017,7 +5017,7 @@ Regras:
                 {/* ── INSIGHTS IA ── */}
                 {crmView === "insights" && (
                   <div className="space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                    <div className="flex items-center justify-between flex-wrap gap-4">
                       <div>
                         <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>Insights de Performance</p>
                         <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>Claude analisa os posts publicados e sugere melhorias</p>
@@ -5086,7 +5086,7 @@ Regras:
                         return (
                           <div key={stage.id} className="flex-1 min-w-[160px]">
                             {/* Stage header */}
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-3 px-1">
+                            <div className="flex items-center justify-between flex-wrap gap-4 mb-3 px-1">
                               <div className="flex items-center gap-2">
                                 <div className="w-2 h-2 rounded-full" style={{ background: stage.color }} />
                                 <span className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.7)" }}>{stage.label}</span>
@@ -5117,7 +5117,7 @@ Regras:
                                     {deal.title}
                                   </div>
                                   <div className="text-[10px] mb-2.5" style={{ color: "rgba(255,255,255,0.35)" }}>{deal.contact}</div>
-                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                                  <div className="flex items-center justify-between flex-wrap gap-4">
                                     <span className="text-xs font-bold" style={{ color: stage.color }}>{deal.value}</span>
                                     <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>{deal.probability}%</span>
                                   </div>
@@ -5151,7 +5151,7 @@ Regras:
                     style={{ border: wpStatus === "connected" ? "1px solid rgba(37,211,102,0.25)" : "1px solid rgba(255,255,255,0.08)" }}>
 
                     {/* Header */}
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 px-6 py-4"
+                    <div className="flex items-center justify-between flex-wrap gap-4 px-6 py-4"
                       style={{ background: "rgba(37,211,102,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl flex items-center justify-center"
@@ -5325,7 +5325,7 @@ Regras:
                           {/* Lista de Grupos */}
                           {wpTargetTab === "grupos" && (
                             <div>
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-3">
+                              <div className="flex items-center justify-between flex-wrap gap-4 mb-3">
                                 <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>
                                   Grupos ({wpGroups.length})
                                 </h3>
@@ -5710,7 +5710,7 @@ Regras:
                         {/* Campaign header */}
                         <div className="px-6 py-5"
                           style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: `${client.color}06` }}>
-                          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 gap-4 mb-3">
+                          <div className="flex items-start justify-between flex-wrap gap-4 gap-4 mb-3">
                             <div className="flex-1">
                               <div className="flex items-center gap-2.5 mb-1">
                                 <h3 className="text-base font-bold" style={{ color: "#F0F0F0" }}>{camp.name}</h3>
@@ -6228,7 +6228,7 @@ Regras:
                   }}>
 
                   {/* Header */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 gap-3 px-4 sm:px-6 py-4 flex-wrap"
+                  <div className="flex items-center justify-between flex-wrap gap-4 gap-3 px-4 sm:px-6 py-4 flex-wrap"
                     style={{ borderBottom: `1px solid ${airaStatus === "recording" ? "rgba(239,68,68,0.1)" : "rgba(185,255,75,0.08)"}` }}>
                     <div className="flex items-center gap-2 sm:gap-3 flex-wrap min-w-0">
                       <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -6392,7 +6392,7 @@ Regras:
                   {/* Resumo pós-reunião */}
                   {airaStatus === "done" && airaSummary && (
                     <div className="px-6 py-5 space-y-3">
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                      <div className="flex items-center justify-between flex-wrap gap-4">
                         <div className="flex items-center gap-2">
                           <CheckCircle2 className="w-4 h-4" style={{ color: "#B9FF4B" }} />
                           <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#B9FF4B" }}>
@@ -6451,7 +6451,7 @@ Regras:
                       </div>
                       <div className="px-6 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
                         {/* Toggle: Somente para Luna */}
-                        <label className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 p-3 rounded-xl cursor-pointer" style={{ background: airaOnlyLuana ? "rgba(185,255,75,0.08)" : "rgba(255,255,255,0.03)", border: `1px solid ${airaOnlyLuana ? "rgba(185,255,75,0.3)" : "rgba(255,255,255,0.08)"}` }}>
+                        <label className="flex items-center justify-between flex-wrap gap-4 p-3 rounded-xl cursor-pointer" style={{ background: airaOnlyLuana ? "rgba(185,255,75,0.08)" : "rgba(255,255,255,0.03)", border: `1px solid ${airaOnlyLuana ? "rgba(185,255,75,0.3)" : "rgba(255,255,255,0.08)"}` }}>
                           <div>
                             <p className="text-sm font-semibold" style={{ color: airaOnlyLuana ? "#B9FF4B" : "#F0F0F0" }}>Somente para Luna</p>
                             <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>O resumo fica só na plataforma, sem envio por WhatsApp</p>
@@ -6494,7 +6494,7 @@ Regras:
                           )}
                         </div>
                         {!airaOnlyLuana && <div className="rounded-xl p-3" style={{ background: "rgba(185,255,75,0.04)", border: "1px solid rgba(185,255,75,0.15)" }}>
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-2">
+                          <div className="flex items-center justify-between flex-wrap gap-4 mb-2">
                             <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#B9FF4B" }}>Grupos do WhatsApp</label>
                             <button
                               onClick={async () => {
@@ -6531,7 +6531,7 @@ Regras:
                           )}
                         </div>}
                         {!airaOnlyLuana && <div>
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-2">
+                          <div className="flex items-center justify-between flex-wrap gap-4 mb-2">
                             <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.4)" }}>Participantes individuais (opcional)</label>
                             <button onClick={() => airaSaveParticipants([...airaParticipants, { name: "", phone: "" }])}
                               className="text-[11px] px-2 py-1 rounded-lg" style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B" }}>+ Adicionar</button>
@@ -6574,7 +6574,7 @@ Regras:
                     background: isDiagnosticMode ? "rgba(185,255,75,0.02)" : "rgba(255,255,255,0.02)",
                     border: isDiagnosticMode ? "1px solid rgba(185,255,75,0.15)" : "1px solid rgba(255,255,255,0.07)",
                   }}>
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 px-5 py-3" style={{ borderBottom: isDiagnosticMode ? "1px solid rgba(185,255,75,0.12)" : "1px solid rgba(255,255,255,0.06)" }}>
+                    <div className="flex items-center justify-between flex-wrap gap-4 px-5 py-3" style={{ borderBottom: isDiagnosticMode ? "1px solid rgba(185,255,75,0.12)" : "1px solid rgba(255,255,255,0.06)" }}>
                       <div className="flex items-center gap-2">
                         {isDiagnosticMode
                           ? <span className="text-base">🔍</span>
@@ -6854,7 +6854,7 @@ Regras:
                     const pct = Math.round((done / MARKETING_TEAM.length) * 100);
                     return (
                       <div className="mb-4 rounded-xl px-3 py-2.5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-2">
+                        <div className="flex items-center justify-between flex-wrap gap-4 mb-2">
                           <div className="flex items-center gap-3 text-[10px]">
                             <span className="font-bold" style={{ color: "#B9FF4B" }}>{done} concluídos</span>
                             {working > 0 && (
@@ -7585,7 +7585,7 @@ Regras:
                                         return (
                                           <div key={i} className="rounded-xl overflow-hidden"
                                             style={{ border: "1px solid rgba(255,255,255,0.06)" }}>
-                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 px-3 py-1.5"
+                                            <div className="flex items-center justify-between flex-wrap gap-4 px-3 py-1.5"
                                               style={{ background: "rgba(255,255,255,0.03)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                                               <span className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: dt.color }}>
                                                 {dt.label}
@@ -7653,7 +7653,7 @@ Regras:
                             <Icon className="w-3.5 h-3.5" style={{ color }} />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 gap-2 flex-wrap">
+                            <div className="flex items-center justify-between flex-wrap gap-4 gap-2 flex-wrap">
                               <span className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.8)" }}>{item.action}</span>
                               <span className="text-[11px] flex-shrink-0" style={{ color: "rgba(255,255,255,0.25)" }}>{item.time}</span>
                             </div>
@@ -7696,7 +7696,7 @@ Regras:
                               <Icon className="w-4 h-4" style={{ color }} />
                             </div>
                             <div className="flex-1 min-w-0">
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 gap-2 mb-0.5 flex-wrap">
+                              <div className="flex items-center justify-between flex-wrap gap-4 gap-2 mb-0.5 flex-wrap">
                                 <span className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.85)" }}>{item.action}</span>
                                 <span className="text-[11px] flex-shrink-0" style={{ color: "rgba(255,255,255,0.25)" }}>{item.time}</span>
                               </div>
@@ -7717,7 +7717,7 @@ Regras:
             {activeTab === "tasks" && (
               <div className="max-w-2xl space-y-4">
                 {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                <div className="flex items-center justify-between flex-wrap gap-4">
                   <div>
                     <h2 className="text-base font-semibold mb-0.5" style={{ color: "rgba(255,255,255,0.85)" }}>O que precisa ser feito</h2>
                     <p className="text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>
@@ -7840,7 +7840,7 @@ Regras:
 
                 {/* Configuração de Canais IA */}
                 <div className="rounded-2xl p-5 space-y-4" style={{ background: "rgba(185,255,75,0.03)", border: "1px solid rgba(185,255,75,0.12)" }}>
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                  <div className="flex items-center justify-between flex-wrap gap-4">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#B9FF4B" }}>Configuração de Canais IA</p>
                       <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>Configure qual canal o agente monitora e responde automaticamente para este cliente</p>
@@ -7864,7 +7864,7 @@ Regras:
                       const socialAcc = socialAccountsMap[ch];
                       return (
                         <div key={ch} className="rounded-xl p-4 space-y-3" style={{ background: "rgba(255,255,255,0.03)", border: cfg.active ? "1px solid rgba(185,255,75,0.2)" : "1px solid rgba(255,255,255,0.06)" }}>
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                          <div className="flex items-center justify-between flex-wrap gap-4">
                             <div className="flex items-center gap-2">
                               <span className="text-base">{icons[ch]}</span>
                               <span className="text-sm font-semibold" style={{ color: cfg.active ? "#F0F0F0" : "rgba(255,255,255,0.4)" }}>{labels[ch]}</span>
@@ -7936,7 +7936,7 @@ Regras:
                 )}
 
                 {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                <div className="flex items-center justify-between flex-wrap gap-4">
                   <div>
                     <h2 className="text-base font-bold" style={{ color: "#F0F0F0" }}>Agentes Autônomos</h2>
                     <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
@@ -8293,7 +8293,7 @@ Regras:
               <div className="space-y-5">
 
                 {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                <div className="flex items-center justify-between flex-wrap gap-4">
                   <div>
                     <h2 className="text-base font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>Cursos</h2>
                     <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>
@@ -8560,7 +8560,7 @@ Regras:
                               <div className="px-5 py-4 space-y-3">
 
                                 {/* Header */}
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                                <div className="flex items-center justify-between flex-wrap gap-4">
                                   <div className="flex items-center gap-2">
                                     <ListChecks className="w-3.5 h-3.5" style={{ color: client.color }} />
                                     <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: client.color }}>Checklist Operacional</span>
@@ -8605,7 +8605,7 @@ Regras:
                                 )}
 
                                 {/* Ações da fase ativa */}
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                                <div className="flex items-center justify-between flex-wrap gap-4">
                                   <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>
                                     {phaseItems.length === 0 ? "Sem itens nesta fase" : `${phaseDone} de ${phaseItems.length} concluído${phaseDone !== 1 ? "s" : ""}`}
                                   </span>
@@ -8838,7 +8838,7 @@ Regras:
                                     {certManualList.length > 0 && (
                                       <div className="space-y-1 mb-3 max-h-24 overflow-y-auto">
                                         {certManualList.map((name, i) => (
-                                          <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 px-3 py-1.5 rounded-lg"
+                                          <div key={i} className="flex items-center justify-between flex-wrap gap-4 px-3 py-1.5 rounded-lg"
                                             style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
                                             <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.7)" }}>{name}</span>
                                             <button onClick={() => setCertManualList(p => p.filter((_, j) => j !== i))} style={{ color: "rgba(255,255,255,0.3)" }}>
@@ -8928,7 +8928,7 @@ Regras:
                             exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }} className="overflow-hidden"
                             style={{ borderTop: "1px solid rgba(52,211,153,0.2)" }}>
                             <div className="px-5 py-5 space-y-5">
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                              <div className="flex items-center justify-between flex-wrap gap-4">
                                 <div className="flex items-center gap-3">
                                   <CheckCircle2 className="w-4 h-4" style={{ color: "#34D399" }} />
                                   <p className="text-sm font-semibold" style={{ color: "#34D399" }}>Lista de Presença</p>
@@ -9242,7 +9242,7 @@ Regras:
                                         {certManualList.length > 0 && (
                                           <div className="space-y-1 mb-3 max-h-24 overflow-y-auto">
                                             {certManualList.map((name, i) => (
-                                              <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 px-3 py-1.5 rounded-lg"
+                                              <div key={i} className="flex items-center justify-between flex-wrap gap-4 px-3 py-1.5 rounded-lg"
                                                 style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
                                                 <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.7)" }}>{name}</span>
                                                 <button onClick={() => setCertManualList(p => p.filter((_, j) => j !== i))} style={{ color: "rgba(255,255,255,0.3)" }}>
@@ -9343,7 +9343,7 @@ Regras:
             {false && (
               <div className="space-y-5">
                 {/* Header */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                <div className="flex items-center justify-between flex-wrap gap-4">
                   <div>
                     <h2 className="text-base font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>Cursos</h2>
                     <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>
@@ -9719,7 +9719,7 @@ Regras:
                                               {certManualList.length > 0 && (
                                                 <div className="space-y-1 mb-3 max-h-28 overflow-y-auto">
                                                   {certManualList.map((name, i) => (
-                                                    <div key={i} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 px-3 py-1.5 rounded-lg"
+                                                    <div key={i} className="flex items-center justify-between flex-wrap gap-4 px-3 py-1.5 rounded-lg"
                                                       style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
                                                       <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.7)" }}>{name}</span>
                                                       <button onClick={() => setCertManualList(p => p.filter((_, j) => j !== i))}
@@ -9833,7 +9833,7 @@ Regras:
                             initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                             className="rounded-xl p-4"
                             style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 mb-2">
+                            <div className="flex items-start justify-between flex-wrap gap-4 mb-2">
                               <div className="flex items-center gap-2">
                                 <div className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
                                   style={{ background: "rgba(37,211,102,0.12)", color: "#25D366" }}>
@@ -9862,7 +9862,7 @@ Regras:
                               "{lead.message}"
                             </p>
 
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+                            <div className="flex items-center justify-between flex-wrap gap-4">
                               <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.2)" }}>{lead.time}</span>
                               <div className="flex gap-1.5">
                                 {!lead.addedToCrm && (
@@ -10010,7 +10010,7 @@ Regras:
                   return (
                     <div style={{ background: "#0D0D0D", borderBottom: "1px solid rgba(185,255,75,0.12)" }}>
                       <div className="max-w-3xl mx-auto px-5 py-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-3">
+                        <div className="flex items-center justify-between flex-wrap gap-4 mb-3">
                           <div className="flex items-center gap-2">
                             <span style={{ fontSize: 14 }}>✨</span>
                             <p className="text-xs font-semibold" style={{ color: "#B9FF4B" }}>Sugestões da Calu IA</p>
@@ -10022,7 +10022,7 @@ Regras:
                         <div className="grid grid-cols-2 gap-3">
                           {sections.map(({ key, label, items, addFn }) => (
                             <div key={key} className="rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                              <div className="px-3 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                              <div className="px-3 py-2 flex items-center justify-between flex-wrap gap-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                                 <p className="text-[11px] font-semibold" style={{ color: "rgba(255,255,255,0.7)" }}>{label}</p>
                                 <button
                                   onClick={async () => { for (const item of items) await addFn(item); toast.success(`Todos os itens de ${label} adicionados!`); }}
@@ -10064,7 +10064,7 @@ Regras:
 
                   {/* ── ONBOARDING ── */}
                   <div className="rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.08)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-                    <div className="px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                    <div className="px-5 py-4 flex items-center justify-between flex-wrap gap-4" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
                       <div>
                         <p className="text-sm font-bold" style={{ color: "#111" }}>✅ Onboarding</p>
                         <p className="text-xs mt-0.5" style={{ color: "#999" }}>
@@ -10180,7 +10180,7 @@ Regras:
 
                   {/* ── ENTREGAS ── */}
                   <div className="rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.08)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-                    <div className="px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                    <div className="px-5 py-4 flex items-center justify-between flex-wrap gap-4" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
                       <div>
                         <p className="text-sm font-bold" style={{ color: "#111" }}>O que fizemos por você</p>
                         <p className="text-xs mt-0.5" style={{ color: "#999" }}>
@@ -10303,7 +10303,7 @@ Regras:
 
                   {/* ── PROPOSTAS & AGENTES ── */}
                   <div className="rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.08)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-                    <div className="px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                    <div className="px-5 py-4 flex items-center justify-between flex-wrap gap-4" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
                       <div>
                         <p className="text-sm font-bold" style={{ color: "#111" }}>Propostas & Agentes</p>
                         <p className="text-xs mt-0.5" style={{ color: "#999" }}>
@@ -10376,7 +10376,7 @@ Regras:
 
                   {/* ── DEMANDAS ── */}
                   <div className="rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.08)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
-                    <div className="px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                    <div className="px-5 py-4 flex items-center justify-between flex-wrap gap-4" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
                       <div>
                         <p className="text-sm font-bold" style={{ color: "#111" }}>📋 Demandas & Pendências</p>
                         <p className="text-xs mt-0.5" style={{ color: "#999" }}>
@@ -10794,7 +10794,7 @@ Regras:
                       <motion.div key={integ.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                         className="rounded-2xl p-5"
                         style={{ background: "rgba(255,255,255,0.025)", border: `1px solid ${isConn ? integ.border : "rgba(255,255,255,0.07)"}` }}>
-                        <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 mb-4">
+                        <div className="flex items-start justify-between flex-wrap gap-4 mb-4">
                           <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl flex items-center justify-center"
                               style={{ background: integ.bg, border: `1px solid ${integ.border}` }}>
@@ -10854,7 +10854,7 @@ Regras:
                       style={{ border: siteConnected ? "1px solid rgba(6,182,212,0.25)" : "1px solid rgba(255,255,255,0.08)" }}>
 
                       {/* Header */}
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 px-6 py-4"
+                      <div className="flex items-center justify-between flex-wrap gap-4 px-6 py-4"
                         style={{ background: "rgba(6,182,212,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-xl flex items-center justify-center"
@@ -10908,7 +10908,7 @@ Regras:
                   style={{ border: wpStatus === "connected" ? "1px solid rgba(37,211,102,0.25)" : "1px solid rgba(255,255,255,0.08)" }}>
 
                   {/* Panel header */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 px-6 py-4"
+                  <div className="flex items-center justify-between flex-wrap gap-4 px-6 py-4"
                     style={{ background: "rgba(37,211,102,0.06)", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-xl flex items-center justify-center"
@@ -11000,7 +11000,7 @@ Regras:
                         {/* Lista de Grupos */}
                         {wpTargetTab === "grupos" && (
                           <div>
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-3">
+                            <div className="flex items-center justify-between flex-wrap gap-4 mb-3">
                               <h3 className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>
                                 Grupos ({wpGroups.length})
                               </h3>
@@ -11280,7 +11280,7 @@ Regras:
 
                 {/* ── Todas as plataformas ─────────────────────────────── */}
                 <div>
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4">
+                  <div className="flex items-center justify-between flex-wrap gap-4 mb-4">
                     <div>
                       <h3 className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>Todas as plataformas</h3>
                       <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>
@@ -11326,7 +11326,7 @@ Regras:
                             whileHover={{ y: -2 }}
                             className="rounded-xl p-4 transition-all"
                             style={{ background: "rgba(255,255,255,0.025)", border: `1px solid ${isConn ? "rgba(185,255,75,0.25)" : "rgba(255,255,255,0.07)"}` }}>
-                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 mb-2">
+                            <div className="flex items-start justify-between flex-wrap gap-4 mb-2">
                               <div className="flex items-center gap-2">
                                 <span className="text-xl">{c.icon}</span>
                                 <div>
@@ -11573,7 +11573,7 @@ Regras:
                               className="w-full object-cover rounded-t-xl"
                               style={{ maxHeight: 280 }}
                             />
-                            <div className="px-3 py-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 gap-2 flex-wrap">
+                            <div className="px-3 py-2 flex items-center justify-between flex-wrap gap-4 gap-2 flex-wrap">
                               <p className="text-[10px] truncate flex-1" style={{ color: "rgba(255,255,255,0.4)" }}>{img.prompt}</p>
                               <span className="text-[10px] flex-shrink-0" style={{ color: "rgba(255,255,255,0.25)" }}>{img.createdAt}</span>
                               <a
@@ -11799,7 +11799,7 @@ Regras:
       {showEditClient && editForm && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(6px)" }}>
           <div className="w-full max-w-lg rounded-2xl p-6" style={{ background: "#0F0F1A", border: "1px solid rgba(255,255,255,0.1)", boxShadow: "0 24px 64px rgba(0,0,0,0.6)" }}>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-5">
+            <div className="flex items-center justify-between flex-wrap gap-4 mb-5">
               <div>
                 <h2 className="text-base font-bold" style={{ color: "#F0F0F0" }}>Editar cliente</h2>
                 <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>As alterações são salvas localmente</p>
@@ -11926,7 +11926,7 @@ Regras:
       {showDraftModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(4px)" }}>
           <div className="w-full max-w-md rounded-2xl overflow-hidden" style={{ background: "#0D0D1A", border: "1px solid rgba(255,255,255,0.1)" }}>
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+            <div className="flex items-center justify-between flex-wrap gap-4 px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
               <div>
                 <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.9)" }}>
                   {draftAgent ? `${draftAgent.name} vai criar um post` : "Solicitar post com IA"}
@@ -12025,7 +12025,7 @@ Regras:
             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}
               className="w-full max-w-md rounded-2xl p-6 space-y-4"
               style={{ background: "#13131A", border: "1px solid rgba(255,255,255,0.1)" }}>
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
+              <div className="flex items-center justify-between flex-wrap gap-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl"
                     style={{ background: bg, border: `1px solid ${border}` }}>
