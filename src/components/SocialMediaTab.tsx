@@ -734,8 +734,9 @@ export default function SocialMediaTab({
 
   // Calendar helpers
   const postsByDate = posts.reduce((acc, p) => {
-    if (!p.scheduled_at) return acc;
-    const d = new Date(p.scheduled_at);
+    const dateStr = p.published_at || p.scheduled_at;
+    if (!dateStr) return acc;
+    const d = new Date(dateStr);
     const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     if (!acc[key]) acc[key] = [];
     acc[key].push(p);
@@ -1088,7 +1089,7 @@ export default function SocialMediaTab({
           </div>
         )}
 
-        {filteredPosts.length === 0 ? (
+        {viewMode !== "calendar" && filteredPosts.length === 0 ? (
           <div
             className="rounded-xl py-10 flex flex-col items-center gap-2"
             style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.07)" }}
@@ -1107,7 +1108,7 @@ export default function SocialMediaTab({
               </button>
             )}
           </div>
-        ) : (
+        ) : viewMode !== "calendar" ? (
           <div className="space-y-2">
             {filteredPosts.map((post) => {
               const style = STATUS_STYLE[post.status] ?? STATUS_STYLE.draft;
@@ -1211,7 +1212,7 @@ export default function SocialMediaTab({
               );
             })}
           </div>
-        )}
+        ) : null}
       </div>
 
       {/* ── Composer Modal ──────────────────────────────────── */}
