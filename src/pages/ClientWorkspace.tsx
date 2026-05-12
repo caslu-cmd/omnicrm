@@ -2853,10 +2853,12 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
       setDesignerTask((prev) => prev ? { ...prev, progress: 100 } : null);
       setDesignerRecentWork((prev) => [displayLabel, ...prev.slice(0, 4)]);
       setTimeout(() => setDesignerTask(null), 2500);
-      const blob = new Blob(
-        [Uint8Array.from(atob(data.imageData), (c) => c.charCodeAt(0))],
-        { type: data.mimeType ?? "image/png" }
-      );
+      const byteCharacters = atob(data.imageData);
+      const byteNumbers = new Uint8Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const blob = new Blob([byteNumbers], { type: data.mimeType ?? "image/png" });
       const blobUrl = URL.createObjectURL(blob);
       setGeneratedImages((prev) => [
         { id: Date.now().toString(), imageData: blobUrl, mimeType: data.mimeType ?? "image/png", prompt: displayLabel, createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) },
