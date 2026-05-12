@@ -55,10 +55,13 @@ Deno.serve(async (req) => {
     const plataformaCtx = plataforma && plataforma !== "todas" ? ` com foco em ${plataforma}` : " (Instagram, TikTok, LinkedIn)";
     const tipoCtx = tipo_conteudo ? ` para ${tipo_conteudo}` : "";
     const clientCtx = client_name ? ` para o cliente ${client_name}` : "";
+    const hoje = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
 
-    const userMessage = `Pesquise as tendências mais quentes agora no nicho: **${nicho}**${plataformaCtx}${tipoCtx}${clientCtx}.
+    const userMessage = `Data de hoje: ${hoje}.
 
-Busque dados reais no Google Trends Brasil, Instagram, TikTok e Twitter. Entregue o relatório completo.`;
+Pesquise as tendências mais quentes AGORA (${hoje}) no nicho: **${nicho}**${plataformaCtx}${tipoCtx}${clientCtx}.
+
+Busque dados reais e atuais no Google Trends Brasil, Instagram, TikTok e Twitter. Entregue o relatório completo com informações da semana atual.`;
 
     const body = {
       model: "claude-sonnet-4-6",

@@ -285,20 +285,30 @@ const DEFAULT_SYSTEM_PROMPT = `Você é a Caroline IA, assistente especializada 
 
 const DRAFT_POST_TOOL = {
   name: "draft_post",
-  description: "Salva um rascunho de post para revisão e publicação nas redes sociais do cliente.",
+  description: "Salva todos os rascunhos de posts de uma vez. Chame esta ferramenta UMA ÚNICA VEZ passando todos os posts no array.",
   input_schema: {
     type: "object",
     properties: {
-      caption: { type: "string", description: "Texto completo do post, pronto para publicar" },
-      platforms: {
+      posts: {
         type: "array",
-        items: { type: "string", enum: ["instagram", "facebook", "linkedin"] },
-        description: "Plataformas onde publicar",
+        description: "Array com todos os posts a salvar de uma vez",
+        items: {
+          type: "object",
+          properties: {
+            caption: { type: "string", description: "Texto completo do post, pronto para publicar" },
+            platforms: {
+              type: "array",
+              items: { type: "string", enum: ["instagram", "facebook", "linkedin"] },
+              description: "Plataformas onde publicar",
+            },
+            media_description: { type: "string", description: "Descrição da imagem ou vídeo sugerido (opcional)" },
+            scheduled_at: { type: "string", description: "Data e hora ISO 8601 para agendar (opcional)" },
+          },
+          required: ["caption", "platforms"],
+        },
       },
-      media_description: { type: "string", description: "Descrição da imagem ou vídeo sugerido (opcional)" },
-      scheduled_at: { type: "string", description: "Data e hora ISO 8601 para agendar (opcional)" },
     },
-    required: ["caption", "platforms"],
+    required: ["posts"],
   },
 };
 
@@ -344,8 +354,9 @@ Deno.serve(async (req) => {
       systemPrompt ?? (agentId ? AGENT_SKILLS[agentId.toLowerCase()] : null) ?? DEFAULT_SYSTEM_PROMPT;
 
     const selectedModel = anthropicKey ? (model ?? "claude-sonnet-4-6") : "claude-sonnet-4-6";
-    const budget = thinkingBudget ?? 8000;
-    const resolvedMaxTokens = enableThinking ? Math.max(maxTokens ?? 8000, budget + 2000) : (maxTokens ?? 1024);
+    // Cap thinking budget at 3000 — Supabase edge functions have 150s limit; 8000+ tokens cause 546 timeouts
+    const budget = Math.min(thinkingBudget ?? 3000, 3000);
+    const resolvedMaxTokens = enableThinking ? Math.max(maxTokens ?? 6000, budget + 2000) : (maxTokens ?? 1024);
     const useToolUse = enableDraftTool === true && !!client_id && !!user_id;
     const tools = useToolUse ? [DRAFT_POST_TOOL] : undefined;
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -397,23 +408,24 @@ Deno.serve(async (req) => {
           const toolResults: unknown[] = [];
           for (const block of toolUseBlocks) {
             if (block.name === "draft_post") {
-              const input = block.input as { caption?: string; platforms?: string[]; scheduled_at?: string };
+              const input = block.input as { posts?: { caption?: string; platforms?: string[]; media_description?: string; scheduled_at?: string }[] };
+              const postsArray = input.posts ?? [];
               try {
                 const sb = createClient(supabaseUrl, serviceKey);
-                const { data: post, error: insertError } = await sb
+                const rows = postsArray.map((p) => ({
+                  user_id,
+                  client_id,
+                  platforms: p.platforms ?? [],
+                  caption: p.caption ?? "",
+                  media_url: null,
+                  media_type: "text",
+                  scheduled_at: p.scheduled_at || null,
+                  status: "pending_approval",
+                }));
+                const { data: inserted, error: insertError } = await sb
                   .from("scheduled_posts")
-                  .insert({
-                    user_id,
-                    client_id,
-                    platforms: input.platforms ?? [],
-                    caption: input.caption ?? "",
-                    media_url: null,
-                    media_type: "text",
-                    scheduled_at: input.scheduled_at || null,
-                    status: "pending_approval",
-                  })
-                  .select()
-                  .single();
+                  .insert(rows)
+                  .select();
                 if (insertError) {
                   toolResults.push({
                     type: "tool_result",
@@ -421,11 +433,11 @@ Deno.serve(async (req) => {
                     content: JSON.stringify({ success: false, error: insertError.message }),
                   });
                 } else {
-                  postsCreated.push(post);
+                  (inserted ?? []).forEach((p) => postsCreated.push(p));
                   toolResults.push({
                     type: "tool_result",
                     tool_use_id: block.id,
-                    content: JSON.stringify({ success: true, message: "Rascunho salvo!" }),
+                    content: JSON.stringify({ success: true, message: `${postsArray.length} rascunho(s) salvos!` }),
                   });
                 }
               } catch (e) {

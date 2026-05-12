@@ -276,7 +276,7 @@ SUAS SKILLS — detecte automaticamente qual aplicar:
 
 Referencie a estratégia da Queila quando disponível no contexto. NUNCA esboço. Português brasileiro.
 
-IMPORTANTE: Sempre que criar legendas ou copies completos prontos para publicar em redes sociais, use a ferramenta draft_post para salvar cada post individualmente (um por chamada). Informe caption completo e as platforms correspondentes.`,
+IMPORTANTE: Sempre que criar legendas ou copies completos prontos para publicar em redes sociais, use a ferramenta draft_post UMA ÚNICA VEZ passando TODOS os posts juntos no array posts — nunca chame a ferramenta mais de uma vez. Informe caption completo e as platforms de cada post.`,
 
   traffic: `Você é RAFAELA, Especialista em Tráfego Pago da Calu Agência.
 Domina Meta Ads, Google Ads, LinkedIn Ads, TikTok Ads. Foco em ROI, CPA e ROAS.
@@ -325,7 +325,7 @@ SUAS SKILLS — detecte automaticamente qual aplicar:
 
 Pronto para executar. Português brasileiro.
 
-IMPORTANTE: Quando a demanda envolver criação de posts prontos para publicar (não apenas planejamento), use a ferramenta draft_post para salvar cada post individualmente (um por chamada), com caption completo, hashtags incluídas, e as platforms corretas. Crie posts reais, não apenas resumos.`,
+IMPORTANTE: Quando a demanda envolver criação de posts prontos para publicar (não apenas planejamento), use a ferramenta draft_post UMA ÚNICA VEZ passando TODOS os posts juntos no array posts — nunca chame mais de uma vez. Caption completo com hashtags, platforms corretas para cada post.`,
 
   site: `Você é TEO, Especialista em SEO e Sites da Calu Agência.
 Domina SEO on-page, off-page, semântico e para buscas por IA.
@@ -444,6 +444,23 @@ SUAS SKILLS — detecte automaticamente qual aplicar:
 • CALENDÁRIO EDITORIAL COMPLETO → entregue: pilares + arco narrativo de 3 meses + cronograma com marcos + diretrizes de tom e linguagem
 
 Analise profundamente o nicho e objetivos antes de criar. Entrega completa e pronta para executar. Português brasileiro.`,
+
+  marcela: `Você é MARCELA, Art Director e Designer da Calu Agência.
+Domina composição visual, identidade de marca e direção de arte para redes sociais.
+
+SUAS SKILLS — detecte automaticamente qual aplicar:
+
+• BRIEFING VISUAL DE POST → entregue: conceito criativo + formato e dimensões exatos + composição (layout, hierarquia, regra de terços) + paleta de cores com HEX + tipografia (família, peso, tamanho) + elementos gráficos + mood/referências + prompt otimizado para geração de imagem IA (Ideogram/DALL-E) + orientações de texto sobreposto
+
+• IDENTIDADE VISUAL → entregue: conceito visual + paleta completa com HEX + tipografia por uso + estilo fotográfico + elementos gráficos recorrentes + grid de feed + 3 templates base descritos
+
+• DIREÇÃO DE ARTE PARA CAMPANHA → entregue: conceito da campanha + paleta + referências visuais por peça + briefing de cada formato necessário
+
+Referencie tendências do Ben e copy da Beatriz quando disponíveis no contexto. Para cada post pedido, entregue um briefing visual completo e distinto. Português brasileiro.`,
+
+  ben: `Você é BEN, Especialista em Tendências da Calu Agência.
+Pesquisa tendências em tempo real: Google Trends Brasil, Instagram, TikTok, Twitter/X.
+Entregue: top tendências do nicho + formatos virais + hashtags em alta + insights de conteúdo aplicáveis. Português brasileiro.`,
 
   laura: `Você é LAURA, Diretora Estratégica e Orquestradora da Calu Agência.
 Você recebe as entregas de todos os especialistas do time e sintetiza em um diagnóstico executivo final.
@@ -1210,6 +1227,7 @@ export default function ClientWorkspace() {
   const designerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [benTrends, setBenTrends] = useState<string | null>(null);
   const [ariaLoading, setAriaLoading] = useState(false);
+  const cancelAriaRef = useRef(false);
   const [showManualOutput, setShowManualOutput] = useState(false);
   const [manualForm, setManualForm] = useState<{
     name: string; type: GeneratedOutput["type"]; preview: string;
@@ -1475,6 +1493,19 @@ export default function ClientWorkspace() {
     addConvMsgs([{ id: typingId, from: agentId, to: "user", content: "", action: "typing", timestamp: ts(), status: "processing" }]);
     setAriaLoading(true);
     try {
+      // Ben usa ben-trends (web search real) — não chat-ai
+      if (agentId === "ben") {
+        const segmentoBen = clientBriefing?.segmento || client.industry;
+        const { data: benData, error: benErr } = await supabase.functions.invoke("ben-trends", {
+          body: { nicho: instruction || segmentoBen, plataforma: "todas", client_name: client.name },
+        });
+        if (benErr) throw benErr;
+        const reply = (benData?.content ?? "").trim() || "Sem resposta.";
+        updateConvMsg(typingId, { content: reply, action: "respond", status: "done" });
+        setAgentOutputs((prev) => ({ ...prev, ben: reply }));
+        setBenTrends(reply);
+        return;
+      }
       const agCfg = AGENT_CONFIG[agentId] ?? { maxTokens: 5000, thinking: false };
       const isPostAgent = ["social", "copywriter"].includes(agentId);
       const { data: { session } } = await supabase.auth.getSession();
@@ -1527,6 +1558,19 @@ export default function ClientWorkspace() {
     updateAgentChat(agentId, newHistory);
     setAgentChatLoading(true);
     try {
+      // Ben usa ben-trends (web search real) — não chat-ai
+      if (agentId === "ben") {
+        const segmentoBen = clientBriefing?.segmento || client.industry;
+        const { data: benData, error: benErr } = await supabase.functions.invoke("ben-trends", {
+          body: { nicho: msg || segmentoBen, plataforma: "todas", client_name: client.name },
+        });
+        if (benErr) throw benErr;
+        const reply = (benData?.content ?? "").trim() || "Sem resposta.";
+        updateAgentChat(agentId, [...newHistory, { role: "assistant", content: reply }]);
+        setAgentOutputs((prev) => ({ ...prev, ben: reply }));
+        setBenTrends(reply);
+        return;
+      }
       const agCfg = AGENT_CONFIG[agentId] ?? { maxTokens: 6000, thinking: false };
       const isPostAgent = ["social", "copywriter"].includes(agentId);
       const { data: { session } } = await supabase.auth.getSession();
@@ -1558,9 +1602,14 @@ Cliente: ${client.name} | Segmento: ${segmento}${client.teamInstructions ? `\nIn
     }
   };
 
+  const handleCancelAria = () => {
+    cancelAriaRef.current = true;
+  };
+
   const handleSendToAria = async () => {
     const demand = agentCommand.trim();
     if (!demand && !attachedFile) return;
+    cancelAriaRef.current = false;
     setAgentCommand("");
     clearAriaFile();
     setAriaLoading(true);
@@ -1728,7 +1777,9 @@ Responda APENAS JSON válido, sem markdown, sem texto extra:
         }]);
 
         // (c) chama o agente individualmente
-        const ctxBlock = `Cliente: ${clientContext.name} | Segmento: ${clientContext.industry} | Cor: ${clientContext.brandColor}
+        const dataHoje = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
+        const ctxBlock = `Data atual: ${dataHoje}.
+Cliente: ${clientContext.name} | Segmento: ${clientContext.industry} | Cor: ${clientContext.brandColor}
 ${clientContext.teamInstructions ? `Instruções permanentes: ${clientContext.teamInstructions}` : ""}${buildBriefingBlock()}
 ${accumulated.ben ? `\nTENDÊNCIAS DO BEN — use como munição para copy e visual:\n${accumulated.ben.slice(0, 1500)}` : ""}
 ${accumulated.strategist ? `\nESTRATÉGIA DA QUEILA (referencie):\n${accumulated.strategist.slice(0, 1500)}` : ""}
@@ -1801,10 +1852,18 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
         // (d) marca como concluído
         const doneTasks = { ...client.agentTasks, ...baseTasks };
         Object.keys(accumulated).forEach((aId) => {
+          const rawSnippet = accumulated[aId]
+            ?.replace(/^#+\s*/gm, "")
+            .split(/\n/)
+            .filter((l) => l.trim().length > 10)
+            .slice(0, 2)
+            .join(" · ")
+            .slice(0, 130);
+          const snippet = rawSnippet || "Entrega pronta para revisão";
           doneTasks[aId] = {
             current: "Entrega concluída",
             status: "concluído",
-            recent: ["Entrega pronta para revisão", ...(doneTasks[aId]?.recent ?? [])].slice(0, 3),
+            recent: [snippet, ...(doneTasks[aId]?.recent ?? [])].slice(0, 3),
             progress: 100,
           };
         });
@@ -1825,6 +1884,11 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
           content: firstPara.slice(0, 300) + (firstPara.length > 300 ? "…" : ""),
           action: "respond", status: "done",
         });
+
+        if (cancelAriaRef.current) {
+          addConvMsgs([{ id: `aria-cancel-${Date.now()}`, from: "aria", to: "user", content: "⏹️ Orquestração interrompida.", action: "respond", timestamp: nowTs(), status: "done" }]);
+          return;
+        }
       }
 
       // ━━━━━━━━━━ PASSO 4 — Handoff iterativo (até 2 ondas extras) ━━━━━━━━━━
@@ -2016,6 +2080,11 @@ ${priorBlock}`;
             content: fp.slice(0, 300) + (fp.length > 300 ? "…" : ""),
             action: "respond", status: "done",
           });
+
+          if (cancelAriaRef.current) {
+            addConvMsgs([{ id: `aria-cancel-${Date.now()}`, from: "aria", to: "user", content: "⏹️ Orquestração interrompida.", action: "respond", timestamp: nowTs(), status: "done" }]);
+            return;
+          }
         }
 
         waveIndex++;
@@ -6235,6 +6304,14 @@ Regras:
                           </button>
                         </>
                       )}
+                      {ariaLoading && (
+                        <button
+                          onClick={handleCancelAria}
+                          className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all w-full sm:w-auto"
+                          style={{ background: "rgba(255,80,80,0.12)", border: "1px solid rgba(255,80,80,0.35)", color: "#FF6060" }}>
+                          <X className="w-3.5 h-3.5" /> Interromper
+                        </button>
+                      )}
                       <button
                         onClick={handleSendToAria}
                         disabled={(!agentCommand.trim() && !attachedFile) || ariaLoading}
@@ -7101,18 +7178,6 @@ Regras:
                                     border: `1px solid ${isSelected ? `${agent.color}45` : `${agent.color}20`}`,
                                   }}>
                                   {isSelected ? "▲ Fechar" : agent.id === "briefing" ? "Briefing" : "Instruir"}
-                                </button>
-                              )}
-                              {agent.id !== "briefing" && agent.id !== "tomas" && agent.id !== "rico" && (
-                                <button
-                                  onClick={() => {
-                                    setDraftAgent(agent);
-                                    setDraftForm({ platforms: [], tone: "profissional e envolvente", topic: "" });
-                                    setShowDraftModal(true);
-                                  }}
-                                  className="px-2.5 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1 whitespace-nowrap"
-                                  style={{ background: `${agent.color}12`, color: agent.color, border: `1px solid ${agent.color}25` }}>
-                                  <Send className="w-3 h-3" /> Gerar post
                                 </button>
                               )}
                               {agent.id === "tomas" && (
