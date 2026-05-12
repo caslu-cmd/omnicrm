@@ -972,7 +972,7 @@ export default function ClientWorkspace() {
   const [newChecklistItem, setNewChecklistItem] = useState({ title: "", description: "", responsible: "agency" });
   const [savingChecklistItem, setSavingChecklistItem] = useState(false);
   const [selectedChecklistPhase, setSelectedChecklistPhase] = useState<Record<string, string>>({});
-  const [generatedImages, setGeneratedImages] = useState<Array<{id: string, imageData: string, mimeType: string, prompt: string, createdAt: string}>>([]);
+  const [generatedImages, setGeneratedImages] = useState<Array<{id: string, imageData: string, mimeType: string, imageUrl?: string, prompt: string, createdAt: string}>>([]);
   const [marcelaLoading, setMarcelaLoading] = useState(false);
   const [marcelaError, setMarcelaError] = useState<string | null>(null);
   const [designAspectRatio, setDesignAspectRatio] = useState<"1:1" | "9:16" | "16:9" | "4:3" | "3:4">("1:1");
@@ -1831,6 +1831,7 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
                   id: Date.now().toString(),
                   imageData: imgData.imageData ?? "",
                   mimeType: imgData.mimeType ?? "image/jpeg",
+                  imageUrl: imgData.imageUrl,
                   prompt: imgData.promptUsed ?? demand,
                   createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
                 },
@@ -11752,7 +11753,7 @@ Regras:
                           <div key={img.id} className="rounded-xl overflow-hidden"
                             style={{ border: `1px solid ${viewedAgent.color}25`, background: "rgba(255,255,255,0.02)" }}>
                             <img
-                              src={img.imageData}
+                              src={img.imageUrl ?? (img.imageData ? `data:${img.mimeType};base64,${img.imageData}` : undefined)}
                               alt={img.prompt}
                               className="w-full object-contain rounded-t-xl"
                             />
@@ -11760,7 +11761,7 @@ Regras:
                               <p className="text-[10px] truncate flex-1" style={{ color: "rgba(255,255,255,0.4)" }}>{img.prompt}</p>
                               <span className="text-[10px] flex-shrink-0" style={{ color: "rgba(255,255,255,0.25)" }}>{img.createdAt}</span>
                               <a
-                                href={img.imageData}
+                                href={img.imageUrl ?? (img.imageData ? `data:${img.mimeType};base64,${img.imageData}` : "#")}
                                 download={`marcela-${img.id}.png`}
                                 className="text-[10px] font-bold px-2 py-0.5 rounded-lg flex-shrink-0"
                                 style={{ background: `${viewedAgent.color}20`, color: viewedAgent.color }}>
