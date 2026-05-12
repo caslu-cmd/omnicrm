@@ -58,7 +58,7 @@ export const AppLayout = () => {
           onOpenMobileSidebar={() => setMobileSidebarOpen(true)}
         />
         {/* Main content — extra bottom padding on mobile so bottom nav doesn't obscure content */}
-        <main className="flex-1 overflow-auto scrollbar-thin pb-16 md:pb-0">
+        <main className="flex-1 overflow-auto overflow-x-hidden scrollbar-thin pb-16 md:pb-0 min-w-0 break-words">
           <AnimatePresence mode="wait">
             <motion.div
               key={location.pathname}
