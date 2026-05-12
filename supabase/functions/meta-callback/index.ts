@@ -1,127 +1,174 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
-const GRAPH   = "https://graph.facebook.com/v22.0";
-const APP_URL = "https://caluagencia.com.br";
-const SELF_URL = "https://proldgiyterqhthludlp.supabase.co/functions/v1/meta-callback";
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
 
-function obfuscate(text: string, key: string): string {
-  const result: number[] = [];
-  for (let i = 0; i < text.length; i++)
-    result.push(text.charCodeAt(i) ^ key.charCodeAt(i % key.length));
-  return btoa(String.fromCharCode(...result));
+const ASPECT_RATIO_MAP: Record<string, string> = {
+  "1:1": "ASPECT_1_1",
+  "3:4": "ASPECT_3_4",
+  "4:3": "ASPECT_4_3",
+  "9:16": "ASPECT_9_16",
+  "16:9": "ASPECT_16_9",
+};
+
+function normalizeAspectRatio(ratio: string, prompt: string): string {
+  const v = String(ratio || "").trim();
+  if (!v || v === "auto") {
+    const d = prompt.toLowerCase();
+    if (d.includes("stories") || d.includes("reels") || d.includes("tiktok")) return "9:16";
+    if (d.includes("banner") || d.includes("youtube")) return "16:9";
+    if (d.includes("slide")) return "4:3";
+    if (d.includes("quadrado") || d.includes("square")) return "1:1";
+    return "3:4";
+  }
+  if (v === "4:5") return "3:4";
+  return Object.keys(ASPECT_RATIO_MAP).includes(v) ? v : "3:4";
 }
 
-function redirect(to: string) {
-  return new Response(null, { status: 302, headers: { Location: to } });
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunkSize = 8192;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
 }
 
-Deno.serve(async (req) => {
-  // Allow CORS preflight
-  if (req.method === "OPTIONS")
-    return new Response(null, { headers: { "Access-Control-Allow-Origin": "*" } });
+async function buildDesignPromptWithClaude(
+  userDirection: string,
+  clientContext: Record<string, unknown>,
+  beatrizCopy: string,
+  carolinaStrategy: string,
+  anthropicKey: string,
+): Promise<string> {
+  const ctx = clientContext ?? {};
 
-  const url      = new URL(req.url);
-  const code     = url.searchParams.get("code");
-  const state    = url.searchParams.get("state");
-  const errCode  = url.searchParams.get("error_code") ?? url.searchParams.get("error");
-  const errMsg   = url.searchParams.get("error_message") ?? url.searchParams.get("error_description");
+  const systemPrompt = `You are Marcela, a senior visual designer specialized in social media marketing for Brazilian
+  brands.
 
-  // Meta returned an error
-  if (errCode || errMsg) {
-    const msg = encodeURIComponent(errMsg ?? errCode ?? "Autorização negada");
-    return redirect(`${APP_URL}/agency?meta_error=${msg}`);
+  Your mission: create detailed, professional image generation prompts for Ideogram AI.
+
+  Strict rules:
+  - Write the prompt in English (Ideogram performs best in English)
+  - BUT any text that appears INSIDE the image must be specified in Brazilian Portuguese
+  - Create modern, clean, high-impact social media posts
+  - Include specific details: composition, typography style, color palette, lighting, mood
+  - Specify text placement and hierarchy in the image
+  - Use exact hex colors when provided
+  - Output ONLY the prompt, no explanations`;
+
+  const parts = [
+    userDirection ? `User request: ${userDirection}` : "",
+    (ctx.name as string) ? `Brand name: ${ctx.name}` : "",
+    (ctx.industry as string) ? `Industry: ${ctx.industry}` : "",
+    (ctx.brandColor as string) ? `Brand color: ${ctx.brandColor}` : "",
+    beatrizCopy ? `Copywriter text to include: ${beatrizCopy.slice(0, 400)}` : "",
+    carolinaStrategy ? `Strategy context: ${carolinaStrategy.slice(0, 200)}` : "",
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  const userMessage = `Create a professional Ideogram prompt for a Brazilian social media
+  post:\n\n${parts}\n\nRemember: prompt in English, but text visible inside the image must be in Brazilian Portuguese.`;
+
+  const response = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": anthropicKey,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 600,
+      system: systemPrompt,
+      messages: [{ role: "user", content: userMessage }],
+    }),
+  });
+
+  if (!response.ok) throw new Error(`Claude error: ${await response.text()}`);
+  const result = await response.json();
+  return result.content?.[0]?.text ?? userDirection;
+}
+
+Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
-  if (!code || !state) {
-    return redirect(`${APP_URL}/agency?meta_error=${encodeURIComponent("Parâmetros ausentes")}`);
-  }
-
-  // Decode state
-  let clientId: string;
-  let platform: string;
-  let userId: string;
   try {
-    const b64    = state.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = b64 + "=".repeat((4 - b64.length % 4) % 4);
-    const sd     = JSON.parse(atob(padded)) as { userId: string; clientId: string; platform: string };
-    userId   = sd.userId;
-    clientId = sd.clientId;
-    platform = sd.platform ?? "facebook";
-  } catch {
-    return redirect(`${APP_URL}/agency?meta_error=${encodeURIComponent("State inválido")}`);
-  }
+    const body = await req.json();
+    const { prompt, aspectRatio = "3:4", clientContext, beatrizCopy = "", carolinaStrategy = "" } = body;
 
-  const metaAppId     = Deno.env.get("META_APP_ID")     ?? "";
-  const metaAppSecret = Deno.env.get("META_APP_SECRET") ?? "";
-  const encKey        = Deno.env.get("INTEGRATION_ENCRYPTION_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const supabaseUrl   = Deno.env.get("SUPABASE_URL")!;
-  const serviceKey    = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-
-  if (!metaAppId || !metaAppSecret)
-    return redirect(`${APP_URL}/agency/clients/${clientId}?meta_error=${encodeURIComponent("Credenciais Meta não configuradas no servidor")}`);
-
-  const fail = (msg: string) =>
-    redirect(`${APP_URL}/agency/clients/${clientId}?meta_error=${encodeURIComponent(msg)}`);
-
-  try {
-    // 1. Exchange code → short-lived token
-    const tokenRes  = await fetch(`${GRAPH}/oauth/access_token?client_id=${metaAppId}&redirect_uri=${encodeURIComponent(SELF_URL)}&client_secret=${metaAppSecret}&code=${code}`);
-    const tokenData = await tokenRes.json();
-    if (tokenData.error) return fail(tokenData.error.message);
-
-    // 2. Exchange → long-lived token (~60 days)
-    const longRes  = await fetch(`${GRAPH}/oauth/access_token?grant_type=fb_exchange_token&client_id=${metaAppId}&client_secret=${metaAppSecret}&fb_exchange_token=${tokenData.access_token}`);
-    const longData = await longRes.json();
-    if (longData.error) return fail(longData.error.message);
-
-    const longToken = longData.access_token;
-    const expiresIn = longData.expires_in ?? 5184000;
-
-    // 3. Get Facebook Pages
-    const pagesRes  = await fetch(`${GRAPH}/me/accounts?access_token=${longToken}`);
-    const pagesData = await pagesRes.json();
-    if (pagesData.error) return fail(pagesData.error.message);
-    if (!pagesData.data?.length) return fail("Nenhuma Página do Facebook encontrada. Crie uma Página primeiro.");
-
-    const page      = pagesData.data[0];
-    const pageToken = page.access_token;
-    let accountId       = page.id;
-    let accountName     = page.name;
-    let accountUsername: string | null = null;
-    let followersCount  = 0;
-
-    if (platform === "instagram") {
-      const igRes  = await fetch(`${GRAPH}/${page.id}?fields=instagram_business_account&access_token=${pageToken}`);
-      const igData = await igRes.json();
-      const igId   = igData.instagram_business_account?.id;
-      if (!igId) return fail("Nenhuma conta Instagram Profissional vinculada a esta Página.");
-      const igDet  = await (await fetch(`${GRAPH}/${igId}?fields=id,name,username,followers_count&access_token=${pageToken}`)).json();
-      accountId       = igId;
-      accountName     = igDet.name ?? page.name;
-      accountUsername = igDet.username ? `@${igDet.username}` : null;
-      followersCount  = igDet.followers_count ?? 0;
-    } else {
-      const det = await (await fetch(`${GRAPH}/${page.id}?fields=fan_count,followers_count&access_token=${pageToken}`)).json();
-      followersCount = det.followers_count ?? det.fan_count ?? 0;
+    if (!prompt) {
+      return new Response(JSON.stringify({ error: "prompt obrigatório" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
-    // 4. Store connection (service role bypasses RLS)
-    const db = createClient(supabaseUrl, serviceKey);
-    const { error: upsertErr } = await db.from("social_connections").upsert({
-      user_id: userId, client_id: clientId, platform,
-      account_id: accountId, account_name: accountName,
-      account_username: accountUsername, followers_count: followersCount,
-      access_token: obfuscate(pageToken, encKey),
-      token_expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
-      connected: true, connected_at: new Date().toISOString(),
-    }, { onConflict: "user_id,client_id,platform" });
+    const ideogramApiKey = Deno.env.get("IDEOGRAM_API_KEY");
+    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
 
-    if (upsertErr) return fail(upsertErr.message);
+    if (!ideogramApiKey) {
+      return new Response(JSON.stringify({ error: "IDEOGRAM_API_KEY not configured" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
 
-    // 5. Redirect back to workspace with success flag
-    return redirect(`${APP_URL}/agency/clients/${clientId}?meta_connected=1`);
+    const ratio = normalizeAspectRatio(aspectRatio, prompt);
+    const ideogramRatio = ASPECT_RATIO_MAP[ratio] ?? "ASPECT_3_4";
 
-  } catch (e) {
-    return fail(e instanceof Error ? e.message : "Erro inesperado");
+    let finalPrompt = prompt;
+    if (anthropicKey) {
+      finalPrompt = await buildDesignPromptWithClaude(
+        prompt,
+        clientContext ?? {},
+        beatrizCopy,
+        carolinaStrategy,
+        anthropicKey,
+      );
+    }
+
+    const response = await fetch("https://api.ideogram.ai/generate", {
+      method: "POST",
+      headers: {
+        "Api-Key": ideogramApiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        image_request: {
+          prompt: finalPrompt,
+          aspect_ratio: ideogramRatio,
+          model: "V_2",
+          magic_prompt_option: "OFF",
+        },
+      }),
+    });
+
+    if (!response.ok) throw new Error(`Ideogram error: ${await response.text()}`);
+
+    const result = await response.json();
+    const imageUrl = result.data?.[0]?.url;
+    if (!imageUrl) throw new Error("Ideogram did not return an image URL");
+
+    const imageResponse = await fetch(imageUrl);
+    const imageBuffer = await imageResponse.arrayBuffer();
+    const imageData = arrayBufferToBase64(imageBuffer);
+    const mimeType = imageResponse.headers.get("content-type") ?? "image/jpeg";
+
+    return new Response(
+      JSON.stringify({ imageData, mimeType, imageUrl, enhancedPrompt: finalPrompt, aspectRatio: ratio }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  } catch (error) {
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 500,
+    });
   }
 });
