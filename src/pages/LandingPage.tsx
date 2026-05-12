@@ -110,18 +110,28 @@ const CSS = `
   @media (max-width: 1024px) {
     .cl-nav { padding: 0 24px !important; }
     .cl-nav-links { display: none !important; }
-    .cl-hero-section { padding: 100px 24px 60px !important; }
+    .cl-hero-section { padding: 100px 24px 60px !important; min-height: auto !important; }
     .cl-hero-grid { grid-template-columns: 1fr !important; gap: 40px !important; text-align: center !important; }
     .cl-hero-title { font-size: clamp(34px, 10vw, 56px) !important; margin: 0 auto 24px !important; }
-    .cl-hero-text { margin: 0 auto 32px !important; }
+    .cl-hero-text { margin: 0 auto 32px !important; word-break: break-word !important; }
     .cl-hero-buttons { justify-content: center !important; flex-wrap: wrap !important; }
-    .cl-hero-stats { justify-content: center !important; flex-wrap: wrap !important; }
+    .cl-hero-stats { justify-content: center !important; flex-direction: column !important; align-items: center !important; flex-wrap: nowrap !important; gap: 24px !important; }
+    .cl-hero-stats > div { border-right: none !important; padding: 0 !important; margin-bottom: 0 !important; text-align: center !important; }
     .cl-section { padding: 80px 24px !important; }
-    .cl-grid-2, .cl-grid-3, .cl-grid-4 { grid-template-columns: 1fr !important; }
+    .cl-grid-2 { grid-template-columns: 1fr !important; }
+    .cl-grid-3 { grid-template-columns: 1fr !important; }
+    .cl-grid-4 { grid-template-columns: 1fr 1fr !important; }
     .cl-product-grid { grid-template-columns: 1fr !important; }
     .cl-timeline { padding: 0 24px !important; }
     .cl-footer { padding: 60px 24px 30px !important; }
     .cl-track { padding: 4px 24px 36px !important; }
+    .cl-hero-agent { margin: 0 auto !important; max-width: 400px !important; }
+    .cl-hero-a1 { justify-content: center !important; margin: 0 auto 28px !important; }
+    
+    @media (max-width: 640px) {
+      .cl-grid-4 { grid-template-columns: 1fr !important; }
+      .cl-footer-grid { grid-template-columns: 1fr !important; }
+    }
   }
 `;
 
@@ -286,7 +296,7 @@ function HeroAgentCard() {
           boxShadow: `inset 0 1px 0 ${agent.color}10`,
         }}>
           <div style={{ fontFamily: mono, fontSize: 9, color: MUTED, marginBottom: 10, letterSpacing: "0.08em", textTransform: "uppercase" as const }}>Executando agora</div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "7px 12px" }}>
+          <div className="cl-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "7px 12px" }}>
             {agent.tasks.map((task, j) => (
               <div key={j} style={{ display: "flex", alignItems: "center", gap: 7 }}>
                 <div style={{ width: 4, height: 4, borderRadius: "50%", background: j === 0 ? agent.color : "rgba(255,255,255,.15)", flexShrink: 0, boxShadow: j === 0 ? `0 0 6px ${agent.color}` : "none" }} />
@@ -330,7 +340,7 @@ function ProcessTimeline() {
   const [hovStep, setHovStep] = useState<number | null>(null);
 
   return (
-    <section id="processo" className="cl-section" style={{ padding: "120px 64px" }}>
+    <section id="processo" className="cl-section" style={{ padding: "120px 64px", borderBottom: "1px solid rgba(255,255,255,.06)", position: "relative", overflow: "hidden" }}>
       {/* background ambient */}
       <div style={{ position: "absolute", top: "30%", left: "50%", transform: "translateX(-50%)", width: 1000, height: 700, borderRadius: "50%", background: "radial-gradient(circle, rgba(185,255,75,.035) 0%, transparent 62%)", filter: "blur(72px)", pointerEvents: "none" }} />
 
@@ -423,7 +433,7 @@ function ProcessTimeline() {
                   <div style={{ marginTop: 26, position: "relative" }}>
                     <div style={{ height: 1, background: `linear-gradient(to right, ${step.color}35, transparent)`, marginBottom: 22 }} />
                     <div style={{ fontFamily: mono, fontSize: 11, color: step.color, marginBottom: 16, letterSpacing: "0.1em", textTransform: "uppercase" as const }}>Entregáveis</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "12px 28px", marginBottom: 22 }}>
+                    <div className="cl-grid-2" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 28px", marginBottom: 22 }}>
                       {step.details.map((d, j) => (
                         <div key={j} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
                           <div style={{ width: 6, height: 6, borderRadius: "50%", background: step.color, flexShrink: 0, marginTop: 9, boxShadow: `0 0 8px ${step.color}` }} />
@@ -714,16 +724,16 @@ export default function LandingPage() {
 
         <div className="cl-hero-grid" style={{ maxWidth: 1200, margin: "0 auto", width: "100%", display: "grid", gridTemplateColumns: "1fr 400px", gap: 56, alignItems: "center" }}>
           <div>
-            <div className="cl-a1" style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 28 }}>
+            <div className="cl-a1 cl-hero-a1" style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 28 }}>
               <div className="cl-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: LIME }} />
               <span style={{ fontFamily: mono, fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" }}>Publicidade · Tecnologia · IA</span>
             </div>
 
-            <h1 className="cl-a2 cl-hero-title" style={{ fontSize: "clamp(34px, 5.2vw, 68px)", fontWeight: 800, lineHeight: 1.0, letterSpacing: "-0.045em", marginBottom: 24 }}>
+            <h1 className="cl-a2" style={{ fontSize: "clamp(34px, 5.2vw, 68px)", fontWeight: 800, lineHeight: 1.0, letterSpacing: "-0.045em", marginBottom: 24 }}>
               Criatividade<br />que vende.<br /><span style={{ color: LIME }}>IA que escala.</span>
             </h1>
 
-            <p className="cl-a3 cl-hero-text" style={{ fontSize: 17, color: DIM, lineHeight: 1.65, maxWidth: 500, marginBottom: 36, wordBreak: "break-word" }}>
+            <p className="cl-a3" style={{ fontSize: 17, color: DIM, lineHeight: 1.65, maxWidth: 500, marginBottom: 36 }}>
               A Calu Agência une estratégia criativa de alta performance com tecnologia de IA proprietária — para sua marca crescer sem limite de equipe ou orçamento.
             </p>
 
@@ -738,7 +748,7 @@ export default function LandingPage() {
               </a>
             </div>
 
-            <div className="cl-a5 cl-hero-stats" style={{ display: "flex", gap: 0, paddingTop: 28, borderTop: "1px solid rgba(255,255,255,.06)" }}>
+            <div className="cl-a5" style={{ display: "flex", gap: 0, paddingTop: 28, borderTop: "1px solid rgba(255,255,255,.06)" }}>
               {[{ n:"14", l:"clientes ativos" },{ n:"3.8×", l:"ROAS médio" },{ n:"R$ 2.4M", l:"em vendas geradas" }].map((s, i) => (
                 <div key={s.n} style={{ paddingRight: i < 2 ? 32 : 0, paddingLeft: i > 0 ? 32 : 0, borderRight: i < 2 ? "1px solid rgba(255,255,255,.06)" : "none" }}>
                   <div style={{ fontSize: 26, fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1 }}>{s.n}</div>
@@ -749,7 +759,7 @@ export default function LandingPage() {
           </div>
 
           {/* Agent card */}
-          <div className="cl-a3">
+          <div className="cl-a3 cl-hero-agent">
             <HeroAgentCard />
           </div>
         </div>
@@ -860,7 +870,7 @@ export default function LandingPage() {
       </section>
 
       {/* AI SOLUTIONS */}
-      <section id="solucoes" className="cl-section" style={{ padding: "100px 64px" }}>
+      <section id="solucoes" className="cl-section" style={{ padding: "100px 64px", background: "#0C0C0C", borderTop: "1px solid rgba(255,255,255,.05)", borderBottom: "1px solid rgba(255,255,255,.05)" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <div style={{ marginBottom: 60 }}>
             <span style={{ fontFamily: mono, fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" }}>Soluções com IA</span>
@@ -931,7 +941,7 @@ export default function LandingPage() {
 
       {/* SAVINGS */}
       <section style={{ padding: "100px 64px", borderTop: "1px solid rgba(255,255,255,.05)" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 72, alignItems: "center" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 72, alignItems: "center" }}>
           <div>
             <span style={{ fontFamily: mono, fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" }}>Por que faz sentido</span>
             <h2 style={{ fontSize: "clamp(20px, 3vw, 38px)", fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.04em", marginTop: 10, marginBottom: 16 }}>

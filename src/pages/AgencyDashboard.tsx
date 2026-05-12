@@ -190,7 +190,7 @@ export default function AgencyDashboard() {
                 (e.currentTarget as HTMLDivElement).style.boxShadow = "none";
               }}
             >
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-4">
                 <span className="text-[11px] font-medium tracking-wide uppercase"
                   style={{ color: "rgba(255,255,255,0.3)" }}>{stat.label}</span>
                 <stat.icon className="w-3.5 h-3.5 transition-all duration-300 group-hover:drop-shadow-[0_0_6px_rgba(185,255,75,0.6)]"
@@ -205,7 +205,7 @@ export default function AgencyDashboard() {
         </motion.div>
 
         {/* ── Section header ── */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 mb-6">
           <div className="flex items-center gap-4">
             <h2 className="text-[11px] font-medium tracking-[0.2em] uppercase"
               style={{ color: "rgba(255,255,255,0.35)" }}>Seus Clientes</h2>
@@ -252,7 +252,7 @@ export default function AgencyDashboard() {
 
                 <div className="p-5">
                   {/* Header row */}
-                  <div className="flex items-start justify-between mb-5">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3 sm:gap-4 mb-5">
                     <div className="flex items-center gap-3">
                       <div
                         className="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
@@ -451,7 +451,7 @@ export default function AgencyDashboard() {
               className="w-full max-w-md rounded-2xl overflow-hidden"
               style={{ background: "#0D0D1A", border: "1px solid rgba(255,255,255,0.1)" }}
             >
-              <div className="flex items-center justify-between px-6 py-4"
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4 px-6 py-4"
                 style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
                 <h2 className="text-sm font-semibold text-white">Novo Cliente</h2>
                 <button onClick={() => setShowNewClient(false)} className="p-1 rounded-lg text-white/40 hover:text-white/70">
