@@ -170,7 +170,7 @@ const ImportExportPage = () => {
   };
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6">
+    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6 min-w-0 break-words">
       <motion.div variants={item}>
         <h1 className="text-2xl font-bold font-display text-foreground">Importar & Exportar</h1>
         <p className="text-sm text-muted-foreground mt-1">Migre dados de outros CRMs ou exporte seus dados</p>

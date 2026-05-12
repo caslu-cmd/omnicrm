@@ -58,7 +58,7 @@ const HelpPage = () => {
   const [tab, setTab] = useState("templates");
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6">
+    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6 min-w-0 break-words">
       <motion.div variants={item}>
         <h1 className="text-2xl font-bold font-display text-foreground">Ajuda, SDK & Marketplace</h1>
         <p className="text-sm text-muted-foreground mt-1">Templates validados, marketplace de plugins, SDK público e programa de parceiros</p>
@@ -89,7 +89,7 @@ const HelpPage = () => {
                 </div>
                 <h3 className="text-sm font-semibold text-foreground">{t.name}</h3>
                 <p className="text-xs text-muted-foreground mt-0.5">por {t.author} · {t.nodes} nodes</p>
-                <div className="flex items-center justify-between mt-3">
+                <div className="flex items-center justify-between mt-3 flex-wrap gap-4">
                   <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary">{t.category}</span>
                   <span className="text-[11px] text-muted-foreground flex items-center gap-1"><Download className="h-3 w-3" />{t.downloads.toLocaleString()}</span>
                 </div>
@@ -110,7 +110,7 @@ const HelpPage = () => {
               </div>
               <h3 className="text-sm font-semibold text-foreground">{m.name}</h3>
               <p className="text-xs text-muted-foreground mt-0.5">por {m.author}</p>
-              <div className="flex items-center justify-between mt-3">
+              <div className="flex items-center justify-between mt-3 flex-wrap gap-4">
                 <span className="text-sm font-semibold text-foreground">{m.price}</span>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span className="flex items-center gap-0.5"><Star className="h-3 w-3 text-accent-foreground fill-accent" />{m.rating}</span>
@@ -159,7 +159,7 @@ const HelpPage = () => {
             <p className="text-xs text-muted-foreground mb-3">Receba notificações em tempo real sobre eventos no CRM</p>
             <div className="space-y-2">
               {["contact.created", "conversation.new_message", "deal.stage_changed", "campaign.sent", "payment.received"].map(e => (
-                <div key={e} className="flex items-center justify-between p-2.5 rounded-lg border border-border">
+                <div key={e} className="flex items-center justify-between p-2.5 rounded-lg border border-border flex-wrap gap-4">
                   <code className="text-xs font-mono text-foreground">{e}</code>
                   <button className="relative h-5 w-9 rounded-full bg-primary"><span className="absolute top-0.5 left-4 h-4 w-4 rounded-full bg-primary-foreground shadow-sm" /></button>
                 </div>

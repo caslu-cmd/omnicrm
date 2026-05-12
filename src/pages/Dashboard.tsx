@@ -66,7 +66,7 @@ const Dashboard = () => {
   };
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6">
+    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6 min-w-0 break-words">
       {/* Header */}
       <motion.div variants={item}>
         <h1 className="text-2xl font-bold font-display text-foreground">Dashboard</h1>
@@ -82,7 +82,7 @@ const Dashboard = () => {
             else if (s.label === "Deals no Pipeline") navigate("/pipelines");
             else navigate("/reports");
           }} className="rounded-xl bg-card border border-border p-5 shadow-card hover:shadow-elevated transition-shadow cursor-pointer">
-            <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-4">
               <div className={`flex h-10 w-10 items-center justify-center rounded-lg ${colorMap[s.color]}`}>
                 <s.icon className="h-5 w-5" />
               </div>
@@ -124,7 +124,7 @@ const Dashboard = () => {
             <h2 className="text-base font-semibold font-display text-foreground mb-4">Top Deals</h2>
             <div className="space-y-3">
               {topDeals.map((d) => (
-                <div key={d.name} onClick={() => navigate("/pipelines")} className="flex items-center justify-between p-3 rounded-lg bg-muted/40 cursor-pointer hover:bg-muted/60 transition-colors">
+                <div key={d.name} onClick={() => navigate("/pipelines")} className="flex items-center justify-between p-3 rounded-lg bg-muted/40 cursor-pointer hover:bg-muted/60 transition-colors flex-wrap gap-4">
                   <div>
                     <p className="text-sm font-medium text-foreground">{d.name}</p>
                     <p className="text-xs text-muted-foreground">{d.company} · {d.stage}</p>
@@ -149,7 +149,7 @@ const Dashboard = () => {
             </h2>
             <div className="space-y-2.5">
               {upcomingMeetings.map((m) => (
-                <div key={m.title} onClick={() => navigate("/scheduling")} className="flex items-center justify-between p-2.5 rounded-lg border border-border cursor-pointer hover:bg-muted/30 transition-colors">
+                <div key={m.title} onClick={() => navigate("/scheduling")} className="flex items-center justify-between p-2.5 rounded-lg border border-border cursor-pointer hover:bg-muted/30 transition-colors flex-wrap gap-4">
                   <div>
                     <p className="text-sm font-medium text-foreground">{m.title}</p>
                     <p className="text-xs text-muted-foreground">{m.time}</p>

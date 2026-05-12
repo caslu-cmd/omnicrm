@@ -279,7 +279,7 @@ export default function ApostilaPage() {
               { label: "Autor / Professor", key: "autor", val: autor, set: setAutor, ph: "Ex: Prof. Ana Lima" },
             ].map((f) => (
               <div key={f.key} className="flex flex-col gap-1">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-4">
                   <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#444466" }}>
                     {f.label}
                   </label>

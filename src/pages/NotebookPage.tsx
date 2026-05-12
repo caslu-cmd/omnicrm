@@ -199,7 +199,7 @@ const AddSourceModal = ({
         onClick={(e) => e.stopPropagation()}
       >
         <div
-          className="flex items-center justify-between px-5 py-4"
+          className="flex items-center justify-between px-5 py-4 flex-wrap gap-4"
           style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
         >
           <div className="flex items-center gap-2.5">
@@ -395,7 +395,7 @@ const GeneratorPanel = ({
                 style={{ border: "1px solid rgba(185,255,75,0.12)", background: "rgba(185,255,75,0.02)" }}
               >
                 <div
-                  className="flex items-center justify-between px-4 py-3"
+                  className="flex items-center justify-between px-4 py-3 flex-wrap gap-4"
                   style={{ borderBottom: "1px solid rgba(185,255,75,0.08)" }}
                 >
                   <div className="flex items-center gap-2">
@@ -520,7 +520,7 @@ const ChatPanel = ({ sources }: { sources: Source[] }) => {
     <div className="flex flex-col h-full">
       {/* Chat header */}
       <div
-        className="flex items-center justify-between px-5 py-3.5 shrink-0"
+        className="flex items-center justify-between px-5 py-3.5 shrink-0 flex-wrap gap-4"
         style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
       >
         <div className="flex items-center gap-2.5">
@@ -780,7 +780,7 @@ const NotebookPage = () => {
     <div className="flex flex-col h-full" style={{ background: "#07080A" }}>
       {/* Page Header */}
       <div
-        className="flex items-center justify-between px-6 py-4 shrink-0"
+        className="flex items-center justify-between px-6 py-4 shrink-0 flex-wrap gap-4"
         style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}
       >
         <div className="flex items-center gap-3">
@@ -835,7 +835,7 @@ const NotebookPage = () => {
           style={{ borderRight: "1px solid rgba(255,255,255,0.06)" }}
         >
           {/* Sources header */}
-          <div className="flex items-center justify-between px-4 py-3 shrink-0">
+          <div className="flex items-center justify-between px-4 py-3 shrink-0 flex-wrap gap-4">
             <div className="flex items-center gap-2">
               <FileText className="h-4 w-4" style={{ color: "#B9FF4B" }} />
               <span className="text-sm font-semibold" style={{ color: "#F0F0F0" }}>Fontes</span>
@@ -907,7 +907,7 @@ const NotebookPage = () => {
               className="px-4 py-3 shrink-0"
               style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
             >
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-4">
                 <button
                   onClick={() => setSources((prev) => prev.map((s) => ({ ...s, active: true })))}
                   className="text-[11px] font-medium transition-colors"

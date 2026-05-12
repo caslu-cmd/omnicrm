@@ -317,7 +317,7 @@ export default function GroupsPage() {
       <div className="w-72 flex-shrink-0 flex flex-col border-r overflow-hidden"
         style={{ borderColor: "rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.01)" }}>
 
-        <div className="flex items-center justify-between px-4 py-4 border-b flex-shrink-0"
+        <div className="flex items-center justify-between px-4 py-4 border-b flex-shrink-0 flex-wrap gap-4"
           style={{ borderColor: "rgba(255,255,255,0.07)" }}>
           <div>
             <h1 className="text-sm font-bold text-white">Grupos</h1>
@@ -656,7 +656,7 @@ export default function GroupsPage() {
             <motion.div initial={{ scale: 0.95, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95 }}
               className="w-full max-w-md rounded-3xl p-6 space-y-5"
               style={{ background: "#0E0F11", border: "1px solid rgba(255,255,255,0.1)" }}>
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-4">
                 <h3 className="text-base font-bold text-white">Novo grupo</h3>
                 <button onClick={() => setShowCreate(false)} className="text-white/40 hover:text-white/70">
                   <X className="w-5 h-5" />
@@ -710,7 +710,7 @@ export default function GroupsPage() {
             <motion.div initial={{ scale: 0.95, y: 12 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95 }}
               className="w-full max-w-lg rounded-3xl flex flex-col overflow-hidden"
               style={{ background: "#0E0F11", border: "1px solid rgba(255,255,255,0.1)", maxHeight: "80vh" }}>
-              <div className="flex items-center justify-between px-6 py-4 border-b flex-shrink-0"
+              <div className="flex items-center justify-between px-6 py-4 border-b flex-shrink-0 flex-wrap gap-4"
                 style={{ borderColor: "rgba(255,255,255,0.08)" }}>
                 <div>
                   <h3 className="text-base font-bold text-white">Adicionar contatos</h3>

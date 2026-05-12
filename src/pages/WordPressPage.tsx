@@ -304,7 +304,7 @@ const WordPressPage = () => {
 
   return (
     <motion.div variants={container} initial="hidden" animate="show"
-      className="p-3 md:p-6 space-y-5 h-full flex flex-col min-w-0">
+      className="p-3 md:p-6 space-y-5 h-full flex flex-col min-w-0 break-words">
 
       {/* Header */}
       <motion.div variants={item} className="flex items-start justify-between gap-3 flex-wrap">
