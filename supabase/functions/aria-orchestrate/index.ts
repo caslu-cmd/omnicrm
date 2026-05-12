@@ -5,7 +5,7 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const BASE_URL = "https://gipfxjsjtnsnixuliizm.supabase.co/functions/v1";
+const BASE_URL = "https://proldgiyterqhthludlp.supabase.co/functions/v1";
 
 interface AgentResult {
   agent: string;
