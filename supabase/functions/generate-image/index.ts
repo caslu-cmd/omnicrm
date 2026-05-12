@@ -30,12 +30,14 @@ async function generateImage(
   beatrizCopy = "",
   carolinaStrategy = "",
 ) {
-  const modelsRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${googleKey}`);
-  const models = await modelsRes.json();
-  const imagenModels = models.models?.filter((m: any) => m.name.includes("imagen")) || [];
-  throw new Error("IMAGEN MODELS: " + JSON.stringify(imagenModels));
-
   const ratio = normalizeRatio(aspectRatio, prompt);
+  const hint: Record<string, string> = {
+    "3:4": "vertical portrait 3:4 (1080x1440)",
+    "1:1": "square 1:1 (1080x1080)",
+    "9:16": "vertical 9:16 (1080x1920)",
+    "16:9": "horizontal 16:9 (1920x1080)",
+    "4:3": "horizontal 4:3 (1080x810)",
+  };
 
   const extras = [
     beatrizCopy ? `Copy: ${beatrizCopy.slice(0, 300)}` : "",
@@ -45,7 +47,7 @@ async function generateImage(
   const finalPrompt = `${prompt}. Brand: ${ctx.name ?? ""} in ${ctx.industry ?? ""}, brand color ${ctx.brandColor ?? "neutral"}. Format: ${hint[ratio]}. ${extras} Editorial photography, ultra high quality, 4K, sharp focus, no text, no logos, no watermarks.`;
 
   const imgRes = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-001:predict?key=${googleKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-fast-generate-001:predict?key=${googleKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
