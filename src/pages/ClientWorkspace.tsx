@@ -1205,6 +1205,9 @@ export default function ClientWorkspace() {
   const [designerTask, setDesignerTask] = useState<{prompt: string; progress: number; startedAt: number; estimatedSeconds: number} | null>(null);
   const [designerRecentWork, setDesignerRecentWork] = useState<string[]>([]);
   const designerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const benReaderRef = useRef<ReadableStreamDefaultReader | null>(null);
+  const [benLoading, setBenLoading] = useState(false);
+  const [benTrends, setBenTrends] = useState<string | null>(null);
   const [ariaLoading, setAriaLoading] = useState(false);
   const [showManualOutput, setShowManualOutput] = useState(false);
   const [manualForm, setManualForm] = useState<{
@@ -2812,6 +2815,54 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
     if (agentFileUrl) URL.revokeObjectURL(agentFileUrl);
     setAgentFile(null); setAgentFileUrl(null); setAgentFileText(null);
     if (agentFileRef.current) agentFileRef.current.value = "";
+  };
+
+  const handleBuscarTendenciasBen = async () => {
+    const nicho = clientBriefing?.segmento || client.industry || client.name;
+    setBenLoading(true);
+    setBenTrends(null);
+    try {
+      const resp = await fetch("http://localhost:8800/pesquisar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nicho, plataforma: "Instagram", tipo_conteudo: "post" }),
+      });
+      if (!resp.ok) throw new Error(`Erro ${resp.status}`);
+      if (!resp.body) throw new Error("Stream indisponível.");
+      const reader = resp.body.getReader();
+      benReaderRef.current = reader;
+      const decoder = new TextDecoder();
+      let buffer = "";
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n\n");
+        buffer = lines.pop() ?? "";
+        for (const line of lines) {
+          if (!line.startsWith("data: ")) continue;
+          const payload = JSON.parse(line.slice(6));
+          if (payload.etapa === "erro") throw new Error(payload.mensagem ?? "Erro no Ben");
+          if (payload.etapa === "concluido" && payload.resultado) {
+            const trends = payload.resultado.tendencias || payload.resultado.completo || "";
+            setBenTrends(trends);
+            // Injeta no comando da ARIA como contexto rico
+            const prompt = `Crie um post completo para Instagram para o cliente ${client.name} (${client.industry}).
+Beatriz: escreva a legenda com gancho, desenvolvimento, CTA e hashtags.
+Marcela: crie o briefing visual da peça.
+
+TENDÊNCIAS ATUAIS (pesquisadas pelo Ben):\n${trends.slice(0, 1200)}`;
+            setAgentCommand(prompt);
+            toast.success("Ben encontrou as tendências! Revise o prompt e envie para a ARIA.");
+            return;
+          }
+        }
+      }
+    } catch {
+      toast.error("Ben não disponível — certifique que está rodando na porta 8800.");
+    } finally {
+      setBenLoading(false);
+    }
   };
 
   const handleSendToDesigner = async () => {
@@ -6178,6 +6229,26 @@ Regras:
                             onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(185,255,75,0.35)"; e.currentTarget.style.color = "rgba(185,255,75,0.75)"; }}
                             onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)"; e.currentTarget.style.color = "rgba(255,255,255,0.35)"; }}>
                             <Paperclip className="w-3 h-3" /> Anexar
+                          </button>
+                          {/* Ben — Post com Tendências */}
+                          <button
+                            onClick={handleBuscarTendenciasBen}
+                            disabled={benLoading}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all flex-shrink-0"
+                            style={{
+                              background: benTrends ? "rgba(185,255,75,0.12)" : "rgba(255,255,255,0.04)",
+                              color: benTrends ? "#B9FF4B" : "rgba(255,255,255,0.5)",
+                              border: benTrends ? "1px solid rgba(185,255,75,0.35)" : "1px dashed rgba(255,255,255,0.2)",
+                              opacity: benLoading ? 0.7 : 1,
+                            }}
+                            title="Ben pesquisa tendências do nicho e injeta no prompt da ARIA"
+                            onMouseEnter={(e) => { if (!benLoading) { e.currentTarget.style.borderColor = "rgba(185,255,75,0.5)"; e.currentTarget.style.color = "#B9FF4B"; } }}
+                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = benTrends ? "rgba(185,255,75,0.35)" : "rgba(255,255,255,0.2)"; e.currentTarget.style.color = benTrends ? "#B9FF4B" : "rgba(255,255,255,0.5)"; }}>
+                            {benLoading
+                              ? <><RefreshCw className="w-3 h-3 animate-spin" /> Ben buscando...</>
+                              : benTrends
+                              ? <><TrendingUp className="w-3 h-3" /> Tendências ✓</>
+                              : <><TrendingUp className="w-3 h-3" /> Post c/ Tendências</>}
                           </button>
                           <button
                             onClick={() => setShowSiteInput(true)}
@@ -11660,24 +11731,58 @@ Regras:
                       accept=".pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg,.csv,.xlsx"
                       className="hidden" onChange={handleAgentFileChange} />
                     {viewedAgent.id === "designer" && (
-                      <div className="mb-3">
-                        <div className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>Formato</div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {DESIGN_FORMATS.map(({ ratio, label, hint }) => (
-                            <button key={ratio} onClick={() => setDesignAspectRatio(ratio as any)}
-                              className="flex flex-col items-start px-3 py-1.5 rounded-xl text-left transition-all"
-                              style={{
-                                background: designAspectRatio === ratio ? `${viewedAgent.color}18` : "rgba(255,255,255,0.04)",
-                                border: `1px solid ${designAspectRatio === ratio ? `${viewedAgent.color}50` : "rgba(255,255,255,0.08)"}`,
-                              }}>
-                              <span className="text-[11px] font-bold" style={{ color: designAspectRatio === ratio ? viewedAgent.color : "rgba(255,255,255,0.6)" }}>
-                                {label} <span style={{ color: "rgba(255,255,255,0.3)", fontWeight: 400 }}>{ratio}</span>
-                              </span>
-                              <span className="text-[9px]" style={{ color: "rgba(255,255,255,0.25)" }}>{hint}</span>
-                            </button>
-                          ))}
+                      <>
+                        {/* Ben context — aparece quando há tendências carregadas */}
+                        {benTrends && (
+                          <div className="mb-3 rounded-xl overflow-hidden"
+                            style={{ border: "1px solid rgba(185,255,75,0.25)", background: "rgba(185,255,75,0.04)" }}>
+                            <div className="flex items-center justify-between px-3 py-2"
+                              style={{ borderBottom: "1px solid rgba(185,255,75,0.12)" }}>
+                              <div className="flex items-center gap-2">
+                                <TrendingUp className="w-3 h-3" style={{ color: "#B9FF4B" }} />
+                                <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#B9FF4B" }}>
+                                  Tendências (Ben)
+                                </span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => setAgentInstruction((prev) => prev ? prev + "\n\nCONTEXTO DE TENDÊNCIAS:\n" + benTrends.slice(0, 600) : "CONTEXTO DE TENDÊNCIAS:\n" + benTrends.slice(0, 600))}
+                                  className="text-[10px] px-2 py-0.5 rounded-lg font-medium"
+                                  style={{ background: "rgba(185,255,75,0.15)", color: "#B9FF4B" }}>
+                                  Injetar no prompt
+                                </button>
+                                <button onClick={() => setBenTrends(null)} style={{ color: "rgba(255,255,255,0.2)" }}>
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                            <p className="px-3 py-2 text-[11px] leading-relaxed line-clamp-4"
+                              style={{ color: "rgba(255,255,255,0.5)" }}>
+                              {benTrends.slice(0, 320)}…
+                            </p>
+                          </div>
+                        )}
+
+                        {/* Formato */}
+                        <div className="mb-3">
+                          <div className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>Formato</div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {DESIGN_FORMATS.map(({ ratio, label, hint }) => (
+                              <button key={ratio} onClick={() => setDesignAspectRatio(ratio as any)}
+                                className="flex flex-col items-start px-3 py-1.5 rounded-xl text-left transition-all"
+                                style={{
+                                  background: designAspectRatio === ratio ? `${viewedAgent.color}18` : "rgba(255,255,255,0.04)",
+                                  border: `1px solid ${designAspectRatio === ratio ? `${viewedAgent.color}50` : "rgba(255,255,255,0.08)"}`,
+                                }}>
+                                <span className="text-[11px] font-bold" style={{ color: designAspectRatio === ratio ? viewedAgent.color : "rgba(255,255,255,0.6)" }}>
+                                  {label} <span style={{ color: "rgba(255,255,255,0.3)", fontWeight: 400 }}>{ratio}</span>
+                                </span>
+                                <span className="text-[9px]" style={{ color: "rgba(255,255,255,0.25)" }}>{hint}</span>
+                              </button>
+                            ))}
+                          </div>
                         </div>
-                      </div>
+                      </>
                     )}
                     <textarea
                       value={agentInstruction}
