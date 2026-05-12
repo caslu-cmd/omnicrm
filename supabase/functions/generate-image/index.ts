@@ -30,14 +30,12 @@ async function generateImage(
   beatrizCopy = "",
   carolinaStrategy = "",
 ) {
+  // Let's debug the available models:
+  const modelsRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${googleKey}`);
+  const models = await modelsRes.json();
+  throw new Error("MODELS: " + JSON.stringify(models));
+
   const ratio = normalizeRatio(aspectRatio, prompt);
-  const hint: Record<string, string> = {
-    "3:4": "vertical portrait 3:4 (1080x1440)",
-    "1:1": "square 1:1 (1080x1080)",
-    "9:16": "vertical 9:16 (1080x1920)",
-    "16:9": "horizontal 16:9 (1920x1080)",
-    "4:3": "horizontal 4:3 (1080x810)",
-  };
 
   const extras = [
     beatrizCopy ? `Copy: ${beatrizCopy.slice(0, 300)}` : "",
