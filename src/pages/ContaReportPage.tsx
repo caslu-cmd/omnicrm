@@ -837,7 +837,7 @@ function DistribCalcModal({ onClose }: { onClose: () => void }) {
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
       <div className="w-full max-w-sm bg-gray-900 rounded-2xl border border-gray-800 shadow-2xl shadow-black/60 overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800 flex-wrap gap-4">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
               <Calculator className="w-4 h-4 text-emerald-400" />
@@ -884,7 +884,7 @@ function DistribCalcModal({ onClose }: { onClose: () => void }) {
           {/* Resultado */}
           <div className="bg-gray-800/50 rounded-xl overflow-hidden divide-y divide-gray-800/80">
             {rows.map(({ label, pct, color }) => (
-              <div key={label} className="flex items-center justify-between px-4 py-3">
+              <div key={label} className="flex items-center justify-between px-4 py-3 flex-wrap gap-4">
                 <div className="flex items-center gap-2">
                   <span className={cn("text-xs font-bold tabular-nums w-10", color)}>
                     {(pct * 100).toFixed(0)}%
@@ -896,7 +896,7 @@ function DistribCalcModal({ onClose }: { onClose: () => void }) {
                 </span>
               </div>
             ))}
-            <div className="flex items-center justify-between px-4 py-3 bg-gray-800/60">
+            <div className="flex items-center justify-between px-4 py-3 bg-gray-800/60 flex-wrap gap-4">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total</span>
               <span className="text-sm font-bold text-white tabular-nums">{fmt(v)}</span>
             </div>
@@ -1168,7 +1168,7 @@ function ContaReportContent() {
 
             {/* Membros */}
             <div className="bg-gray-900 rounded-2xl border border-gray-800 p-5">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-4">
                 <h3 className="text-sm font-semibold text-gray-300 flex items-center gap-2">
                   <Users className="w-4 h-4 text-gray-500" /> Membros da Equipe
                 </h3>
@@ -1209,7 +1209,7 @@ function ContaReportContent() {
             ) : <EmptyPeriod />}
             {selectedPeriod && (
               <div>
-                <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center justify-between mb-3 flex-wrap gap-4">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Lançamentos</p>
                   <Btn onClick={refetchReceitas} variant="ghost"><RefreshCw className="w-3.5 h-3.5" /></Btn>
                 </div>
@@ -1315,7 +1315,7 @@ function ContaReportContent() {
         {/* ── RELATÓRIO ── */}
         {tab === "relatorio" && (
           <div className="space-y-5">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Relatório Consolidado</p>
               <Btn onClick={loadRelatorio} variant="ghost"><RefreshCw className="w-3.5 h-3.5" /> Recalcular</Btn>
             </div>
@@ -1339,7 +1339,7 @@ function ContaReportContent() {
                 </div>
 
                 <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
-                  <div className="px-5 py-4 border-b border-gray-800 flex items-center justify-between">
+                  <div className="px-5 py-4 border-b border-gray-800 flex items-center justify-between flex-wrap gap-4">
                     <h3 className="font-semibold text-sm text-white">Demonstrativo dos Sócios</h3>
                     <button onClick={() => window.print()}
                       className="text-xs text-gray-500 hover:text-gray-300 transition-colors">Imprimir PDF</button>

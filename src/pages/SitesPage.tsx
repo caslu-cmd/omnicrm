@@ -73,7 +73,7 @@ const SitesPage = () => {
   };
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6 h-full flex flex-col min-w-0">
+    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6 h-full flex flex-col min-w-0 break-words">
       <motion.div variants={item} className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0">
           <h1 className="text-xl md:text-2xl font-bold font-display text-foreground break-words">Sites & Landing Pages</h1>
@@ -134,7 +134,7 @@ const SitesPage = () => {
             <motion.div key={t.id} variants={item} whileHover={{ y: -2 }} className="rounded-xl border border-border bg-card shadow-card overflow-hidden cursor-pointer group hover:shadow-elevated transition-all">
               <div className="h-40 bg-muted flex items-center justify-center text-5xl">{t.preview}</div>
               <div className="p-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between flex-wrap gap-4">
                   <h3 className="text-sm font-semibold text-foreground">{t.name}</h3>
                   <span className="text-[11px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">{t.category}</span>
                 </div>
@@ -165,7 +165,7 @@ const SitesPage = () => {
 
           {/* Preview */}
           <div className="flex-1 rounded-xl border border-border bg-card shadow-card overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30 flex-wrap gap-4">
               <input defaultValue="Campanha Black Friday" className="text-sm font-semibold text-foreground bg-transparent border-none focus:outline-none" />
               <div className="flex items-center gap-2">
                 <div className="flex bg-muted rounded-lg p-0.5">

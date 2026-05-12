@@ -327,7 +327,7 @@ const WhatsAppPage = () => {
                 <p className="text-center text-sm text-white/30 py-6">Conecte o WhatsApp acima para ver os grupos.</p>
               ) : (
                 <>
-                  <div className="flex items-center justify-between">
+                  <div className="flex items-center justify-between flex-wrap gap-4">
                     <label className="text-xs text-white/40 uppercase tracking-widest font-semibold">Selecionar grupos</label>
                     <button onClick={toggleAllWa}
                       className="flex items-center gap-1.5 text-xs font-semibold transition-colors"
@@ -381,7 +381,7 @@ const WhatsAppPage = () => {
           {/* ── Aba: Grupos CRM ── */}
           {tab === "crm" && (
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-4">
                 <label className="text-xs text-white/40 uppercase tracking-widest font-semibold">Selecionar grupo CRM</label>
                 <a href="/groups" className="text-xs font-semibold transition-colors"
                   style={{ color: "rgba(185,255,75,0.7)" }}>
@@ -481,7 +481,7 @@ const WhatsAppPage = () => {
       {log.length > 0 && (
         <div className="rounded-2xl overflow-hidden" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)" }}>
           <button onClick={() => setLogExpanded(p => !p)}
-            className="w-full flex items-center justify-between px-5 py-3.5"
+            className="w-full flex items-center justify-between px-5 py-3.5 flex-wrap gap-4"
             style={{ borderBottom: logExpanded ? "1px solid rgba(255,255,255,0.06)" : "none" }}>
             <div className="flex items-center gap-2">
               <Clock className="w-3.5 h-3.5 text-white/30" />

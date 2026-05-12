@@ -459,7 +459,7 @@ export default function ClientPortal() {
                   transition={{ type: "spring", damping: 30, stiffness: 300 }}
                   className="fixed bottom-0 left-0 right-0 z-50 rounded-t-3xl overflow-hidden"
                   style={{ background: "#fff", boxShadow: "0 -8px 40px rgba(0,0,0,0.15)", maxHeight: "70vh" }}>
-                  <div className="px-5 pt-4 pb-3 flex items-center justify-between" style={{ borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
+                  <div className="px-5 pt-4 pb-3 flex items-center justify-between flex-wrap gap-4" style={{ borderBottom: "1px solid rgba(0,0,0,0.07)" }}>
                     <div>
                       <p className="text-sm font-bold" style={{ color: "#111" }}>Clientes</p>
                       <p className="text-xs mt-0.5" style={{ color: "#aaa" }}>{agencyClients.length} portais ativos</p>
@@ -500,7 +500,7 @@ export default function ClientPortal() {
       )}
 
       {/* ── Header ──────────────────────────────────────────── */}
-      <div className="sticky top-0 z-40 px-6 py-3.5 flex items-center justify-between"
+      <div className="sticky top-0 z-40 px-6 py-3.5 flex items-center justify-between flex-wrap gap-4"
         style={{ background: "rgba(255,255,255,0.97)", backdropFilter: "blur(16px)", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-lg flex items-center justify-center" style={{ background: "#B9FF4B" }}>
@@ -555,7 +555,7 @@ export default function ClientPortal() {
 
               {/* Onboarding progress bar */}
               <div className="rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-2 flex-wrap gap-4">
                   <span className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.7)" }}>
                     Progresso do onboarding
                   </span>
@@ -585,7 +585,7 @@ export default function ClientPortal() {
 
             {/* Header */}
             <div className="px-6 py-5" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-              <div className="flex items-center justify-between mb-1">
+              <div className="flex items-center justify-between mb-1 flex-wrap gap-4">
                 <h2 className="text-base font-bold" style={{ color: "#111" }}>Sobre sua marca</h2>
                 <span className="text-xs font-bold px-2.5 py-1 rounded-full"
                   style={{
@@ -897,7 +897,7 @@ export default function ClientPortal() {
           <div className="rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.07)" }}>
             {/* Header */}
             <div className="px-6 py-5" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div>
                   <h2 className="text-base font-bold mb-0.5" style={{ color: "#111" }}>Demandas em andamento</h2>
                   <p className="text-xs" style={{ color: "#888" }}>
@@ -1329,7 +1329,7 @@ export default function ClientPortal() {
 
         {/* ── Fale com Caroline ───────────────────────────── */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
-          <div className="rounded-2xl p-6 flex items-center justify-between bg-white"
+          <div className="rounded-2xl p-6 flex items-center justify-between bg-white flex-wrap gap-4"
             style={{ border: "1px solid rgba(0,0,0,0.07)" }}>
             <div className="flex items-center gap-4">
               <div className="w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0"

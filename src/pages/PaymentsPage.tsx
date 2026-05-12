@@ -44,7 +44,7 @@ const PaymentsPage = () => {
   ];
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6">
+    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6 min-w-0 break-words">
       <motion.div variants={item}>
         <h1 className="text-2xl font-bold font-display text-foreground">Minha Assinatura</h1>
         <p className="text-sm text-muted-foreground mt-1">Gerencie seu plano, faturas e método de pagamento</p>
@@ -81,7 +81,7 @@ const PaymentsPage = () => {
       {/* Plan tab */}
       {tab === "plan" && (
         <motion.div variants={item} className="rounded-xl border border-border bg-card p-6 shadow-card space-y-5 max-w-lg">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-4">
             <h3 className="text-lg font-bold font-display text-foreground">{currentPlan}</h3>
             <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-secondary/10 text-secondary">Ativo</span>
           </div>
@@ -102,7 +102,7 @@ const PaymentsPage = () => {
       {/* Invoices tab */}
       {tab === "invoices" && (
         <motion.div variants={item} className="rounded-xl border border-border bg-card shadow-card overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-muted/30">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-muted/30 flex-wrap gap-4">
             <h3 className="text-sm font-semibold text-foreground">Minhas Faturas</h3>
             <button onClick={() => toast.success("Exportando faturas...")} className="flex items-center gap-1 text-xs text-primary font-medium hover:underline"><Download className="h-3 w-3" /> Exportar</button>
           </div>

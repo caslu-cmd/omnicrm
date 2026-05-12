@@ -354,7 +354,7 @@ const MembersPage = () => {
   );
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6">
+    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6 min-w-0 break-words">
       {/* Header */}
       <motion.div variants={item} className="flex flex-wrap items-center justify-between gap-3 min-w-0">
         <div className="min-w-0">
@@ -445,14 +445,14 @@ const MembersPage = () => {
                 {/* ── Alunos ──────────────────────────────────── */}
                 {courseDetailTab === "alunos" && (
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between flex-wrap gap-4">
                       <span className="text-xs text-muted-foreground">{courseEnrollments.length} inscritos</span>
                       <button onClick={() => setShowNewEnrollment(true)} className="text-xs text-primary hover:underline flex items-center gap-1">
                         <UserPlus className="h-3.5 w-3.5" /> Inscrever
                       </button>
                     </div>
                     {courseEnrollments.map(e => (
-                      <div key={e.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/30">
+                      <div key={e.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/30 flex-wrap gap-4">
                         <div>
                           <p className="text-xs font-medium text-foreground">{e.student_name}</p>
                           <p className="text-[10px] text-muted-foreground">
@@ -474,7 +474,7 @@ const MembersPage = () => {
                   <div className="space-y-3">
                     {/* Group / number */}
                     <div>
-                      <div className="flex items-center justify-between mb-1.5">
+                      <div className="flex items-center justify-between mb-1.5 flex-wrap gap-4">
                         <label className="text-xs font-medium text-muted-foreground">Grupo ou número</label>
                         <button onClick={loadCourseGroups} disabled={courseWpLoading}
                           className="flex items-center gap-1 text-[10px] text-primary hover:underline disabled:opacity-50">
@@ -588,7 +588,7 @@ const MembersPage = () => {
 
                         <div className="space-y-2">
                           {courseEnrollments.map(e => (
-                            <div key={e.id} className="flex items-center justify-between p-3 rounded-lg border border-border">
+                            <div key={e.id} className="flex items-center justify-between p-3 rounded-lg border border-border flex-wrap gap-4">
                               <div className="min-w-0 flex-1">
                                 <p className="text-xs font-medium text-foreground truncate">{e.student_name}</p>
                                 <p className="text-[10px] text-muted-foreground">{e.student_phone || "⚠️ sem telefone"}</p>
@@ -628,7 +628,7 @@ const MembersPage = () => {
       {showNewCourse && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-elevated space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <h2 className="text-lg font-bold font-display text-foreground">Novo Curso</h2>
               <button onClick={() => setShowNewCourse(false)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"><X className="h-4 w-4" /></button>
             </div>
@@ -647,7 +647,7 @@ const MembersPage = () => {
       {showEditCourse && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-elevated space-y-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <h2 className="text-lg font-bold font-display text-foreground">Editar Curso</h2>
               <button onClick={() => { setShowEditCourse(false); resetCourseForm(); }} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"><X className="h-4 w-4" /></button>
             </div>
@@ -666,7 +666,7 @@ const MembersPage = () => {
       {showNewEnrollment && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-elevated space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <h2 className="text-lg font-bold font-display text-foreground">Inscrever Aluno</h2>
               <button onClick={() => setShowNewEnrollment(false)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"><X className="h-4 w-4" /></button>
             </div>

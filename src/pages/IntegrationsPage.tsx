@@ -202,7 +202,7 @@ const IntegrationsPage = () => {
   }
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6">
+    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6 min-w-0 break-words">
       <motion.div variants={item} className="flex flex-wrap items-center justify-between gap-3 min-w-0">
         <div className="min-w-0">
           <h1 className="text-xl md:text-2xl font-bold font-display text-foreground break-words">Integrações</h1>
@@ -368,7 +368,7 @@ const IntegrationsPage = () => {
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
             <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-elevated space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-4">
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">{def.icon}</span>
                   <div>

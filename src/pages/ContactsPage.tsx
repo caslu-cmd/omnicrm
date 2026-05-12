@@ -202,10 +202,10 @@ const ContactsPage = () => {
   );
 
   return (
-    <motion.div variants={anim} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6">
+    <motion.div variants={anim} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6 min-w-0 break-words">
 
       {/* Header */}
-      <motion.div variants={row} className="flex items-center justify-between gap-2">
+      <motion.div variants={row} className="flex items-center justify-between gap-2 flex-wrap">
         <div className="min-w-0">
           <h1 className="text-xl md:text-2xl font-bold font-display text-foreground">Contatos</h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -458,7 +458,7 @@ const ContactsPage = () => {
       {waContact && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-elevated space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-full flex items-center justify-center" style={{ background: "rgba(37,211,102,0.12)" }}>
                   <MessageCircle className="h-5 w-5" style={{ color: "#25D366" }} />
@@ -599,7 +599,7 @@ const ContactsPage = () => {
 const Modal = ({ title, onClose, children }: { title: string; onClose: () => void; children: React.ReactNode }) => (
   <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
     <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-elevated space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-4">
         <h2 className="text-lg font-bold font-display text-foreground">{title}</h2>
         <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"><X className="h-4 w-4" /></button>
       </div>

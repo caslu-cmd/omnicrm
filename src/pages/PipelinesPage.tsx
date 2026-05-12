@@ -217,7 +217,7 @@ const PipelinesPage = () => {
   }
 
   return (
-    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6 h-full flex flex-col">
+    <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6 h-full flex flex-col min-w-0 break-words">
       <motion.div variants={item} className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
         <div className="min-w-0">
           <h1 className="text-xl md:text-2xl font-bold font-display text-foreground">Pipelines</h1>
@@ -251,7 +251,7 @@ const PipelinesPage = () => {
           const stageDeals = deals.filter(d => d.stage === stage.id);
           return (
             <div key={stage.id} className="flex flex-col w-72 shrink-0">
-              <div className="flex items-center justify-between mb-3 px-1">
+              <div className="flex items-center justify-between mb-3 px-1 flex-wrap gap-4">
                 <div className="flex items-center gap-2">
                   <div className={cn("h-2.5 w-2.5 rounded-full", stage.color)} />
                   <span className="text-sm font-semibold text-foreground">{stage.name}</span>
@@ -277,7 +277,7 @@ const PipelinesPage = () => {
                       </div>
                     </div>
                     <p className="text-xs text-muted-foreground mb-3">{deal.company || "—"}</p>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between flex-wrap gap-4">
                       <div className="flex items-center gap-1.5 text-sm font-semibold text-foreground">
                         <DollarSign className="h-3.5 w-3.5 text-secondary" /> R$ {(deal.value ?? 0).toLocaleString("pt-BR")}
                       </div>
@@ -303,7 +303,7 @@ const PipelinesPage = () => {
       {showNewDeal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-elevated space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <h2 className="text-lg font-bold font-display text-foreground">Novo Deal</h2>
               <button onClick={() => setShowNewDeal(false)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"><X className="h-4 w-4" /></button>
             </div>
@@ -327,7 +327,7 @@ const PipelinesPage = () => {
       {editingDeal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-elevated space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <h2 className="text-lg font-bold font-display text-foreground">Editar Deal</h2>
               <button onClick={() => setEditingDeal(null)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"><X className="h-4 w-4" /></button>
             </div>
@@ -347,7 +347,7 @@ const PipelinesPage = () => {
       {showNewPipeline && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-elevated space-y-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <h2 className="text-lg font-bold font-display text-foreground">Novo Pipeline</h2>
               <button onClick={() => setShowNewPipeline(false)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"><X className="h-4 w-4" /></button>
             </div>
@@ -364,7 +364,7 @@ const PipelinesPage = () => {
       {showEditPipeline && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-elevated space-y-4 max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <h2 className="text-lg font-bold font-display text-foreground">Editar Pipeline</h2>
               <button onClick={() => setShowEditPipeline(false)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"><X className="h-4 w-4" /></button>
             </div>
