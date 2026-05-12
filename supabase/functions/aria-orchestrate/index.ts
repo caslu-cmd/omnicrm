@@ -1,3 +1,4 @@
+// aria-orchestrate v16 — multi-post support with Ben (trends) + Beatriz + Marcela
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 
 const cors = {
