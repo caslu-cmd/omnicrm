@@ -6763,7 +6763,7 @@ Regras:
                               {/* Imagem da Carolina */}
                               {msg.imageUrl && (
                                 <div className="mt-3">
-                                  <img src={msg.imageUrl} alt="gerado" className="rounded-lg max-h-56 object-cover w-full" style={{ border: "1px solid rgba(255,255,255,0.1)" }} />
+                                  <img src={msg.imageUrl} alt="gerado" className="rounded-lg object-contain w-full" style={{ border: "1px solid rgba(255,255,255,0.1)", maxHeight: 500 }} />
                                   <div className="flex items-center gap-2 mt-2">
                                     <button
                                       onClick={() => {
@@ -11572,8 +11572,7 @@ Regras:
                             <img
                               src={img.imageData}
                               alt={img.prompt}
-                              className="w-full object-cover rounded-t-xl"
-                              style={{ maxHeight: 280 }}
+                              className="w-full object-contain rounded-t-xl"
                             />
                             <div className="px-3 py-2 flex items-center justify-between flex-wrap gap-4 gap-2 flex-wrap">
                               <p className="text-[10px] truncate flex-1" style={{ color: "rgba(255,255,255,0.4)" }}>{img.prompt}</p>
