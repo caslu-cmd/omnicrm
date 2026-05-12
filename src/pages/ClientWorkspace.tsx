@@ -1629,16 +1629,18 @@ ${clientContext.teamInstructions ? `Instruções permanentes: ${clientContext.te
 Responda APENAS JSON válido, sem markdown, sem texto extra:
 {"plan":"2 frases curtas explicando a abordagem","agents":["strategist","copywriter"]}`;
 
-      const { data: planData, error: planError } = await supabase.functions.invoke("chat-ai", {
-        body: {
-          systemPrompt: planSystem,
-          maxTokens: 300,
-          messages: [{ role: "user", content: `Demanda: "${demand}"` }],
-        },
-      });
-      if (planError) throw planError;
+      let planRaw = "{}";
+      try {
+        const { data: planData, error: planError } = await supabase.functions.invoke("chat-ai", {
+          body: {
+            systemPrompt: planSystem,
+            maxTokens: 300,
+            messages: [{ role: "user", content: `Demanda: "${demand}"` }],
+          },
+        });
+        if (!planError) planRaw = planData?.content ?? "{}";
+      } catch { /* usa fallback abaixo */ }
 
-      const planRaw: string = planData?.content ?? "{}";
       let plan: { plan: string; agents: string[] } = { plan: "", agents: [] };
       try {
         const fromBlock = planRaw.match(/```(?:json)?\s*([\s\S]*?)```/)?.[1]?.trim();
@@ -2049,9 +2051,9 @@ ${priorBlock}`;
           const { data: lauraData } = await supabase.functions.invoke("chat-ai", {
             body: {
               systemPrompt: AGENT_PROMPTS.laura,
-              maxTokens: 10000,
+              maxTokens: 6000,
               enableThinking: true,
-              thinkingBudget: 6000,
+              thinkingBudget: 3000,
               messages: [{
                 role: "user",
                 content: `Demanda original: "${demand}"\nCliente: ${clientContext.name} | ${clientContext.industry}\n\nEntregas do time:\n${allOutputs}\n\nProduza a síntese executiva completa do diagnóstico.`,
