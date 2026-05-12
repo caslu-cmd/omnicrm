@@ -112,7 +112,7 @@ const InboxPage = () => {
                   <Icon className={cn("absolute -bottom-0.5 -right-0.5 h-4 w-4 rounded-full bg-card p-[1px]", channelColor[c.channel])} />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between flex-wrap gap-4">
+                  <div className="flex items-center justify-between">
                     <span className="text-sm font-semibold text-foreground truncate">{c.name}</span>
                     <span className="text-[11px] text-muted-foreground shrink-0">{c.time}</span>
                   </div>
@@ -134,7 +134,7 @@ const InboxPage = () => {
         "flex-1",
         mobileView === "list" ? "hidden md:flex" : "flex"
       )}>
-        <div className="flex items-center justify-between px-4 md:px-6 py-4 border-b border-border bg-card flex-wrap gap-4">
+        <div className="flex items-center justify-between px-4 md:px-6 py-4 border-b border-border bg-card">
           <div className="flex items-center gap-3">
             {/* Back button — mobile only */}
             <button

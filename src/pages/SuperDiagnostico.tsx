@@ -34,7 +34,7 @@ function DiagnosisScreen({ diagnosis, nome, empresa }: { diagnosis: string; nome
   return (
     <div className="min-h-screen" style={{ background: "linear-gradient(135deg,#07080A 0%,#0D1018 100%)" }}>
       {/* Sticky CTA bar */}
-      <div className="sticky top-0 z-10 px-4 py-3 flex items-center justify-between flex-wrap gap-4"
+      <div className="sticky top-0 z-10 px-4 py-3 flex items-center justify-between"
         style={{ background: "rgba(7,8,10,0.92)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(185,255,75,0.1)" }}>
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black" style={{ background: GREEN, color: DARK }}>C</div>

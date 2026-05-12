@@ -65,7 +65,7 @@ const VoicePage = () => {
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6 min-w-0 break-words">
-      <motion.div variants={item} className="flex items-center justify-between flex-wrap gap-4">
+      <motion.div variants={item} className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold font-display text-foreground">Voz & Chamadas IA</h1>
           <p className="text-sm text-muted-foreground mt-1">NLU avançada · Transcrição automática · Chamadas com IA</p>
@@ -229,7 +229,7 @@ const VoicePage = () => {
                 { name: "pt-BR Masculino", provider: "Google TTS", quality: "Média", active: false },
                 { name: "en-US Feminino", provider: "ElevenLabs", quality: "Alta", active: true },
               ].map(v => (
-                <div key={v.name} className="flex items-center justify-between p-3 rounded-lg border border-border flex-wrap gap-4">
+                <div key={v.name} className="flex items-center justify-between p-3 rounded-lg border border-border">
                   <div className="flex items-center gap-3">
                     <Volume2 className="h-4 w-4 text-primary" />
                     <div>
@@ -251,7 +251,7 @@ const VoicePage = () => {
                 { name: "Qualificação de Lead", calls: 89, resolution: "91%" },
                 { name: "Agendamento Automático", calls: 234, resolution: "96%" },
               ].map(f => (
-                <div key={f.name} className="flex items-center justify-between p-3 rounded-lg border border-border flex-wrap gap-4">
+                <div key={f.name} className="flex items-center justify-between p-3 rounded-lg border border-border">
                   <div>
                     <p className="text-sm font-medium text-foreground">{f.name}</p>
                     <p className="text-[10px] text-muted-foreground">{f.calls} chamadas · {f.resolution} resolução</p>
@@ -269,7 +269,7 @@ const VoicePage = () => {
           <div className="rounded-xl border border-border bg-card p-5 shadow-card space-y-4">
             <h3 className="text-sm font-semibold text-foreground">Provedor de Telefonia</h3>
             {["Twilio", "Plivo", "Vonage"].map((p, i) => (
-              <div key={p} className="flex items-center justify-between p-3 rounded-lg border border-border flex-wrap gap-4">
+              <div key={p} className="flex items-center justify-between p-3 rounded-lg border border-border">
                 <span className="text-sm font-medium text-foreground">{p}</span>
                 <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-medium", i === 0 ? "bg-secondary/10 text-secondary" : "bg-muted text-muted-foreground")}>
                   {i === 0 ? "Conectado" : "Desconectado"}

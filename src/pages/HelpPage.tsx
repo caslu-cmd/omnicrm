@@ -89,7 +89,7 @@ const HelpPage = () => {
                 </div>
                 <h3 className="text-sm font-semibold text-foreground">{t.name}</h3>
                 <p className="text-xs text-muted-foreground mt-0.5">por {t.author} · {t.nodes} nodes</p>
-                <div className="flex items-center justify-between mt-3 flex-wrap gap-4">
+                <div className="flex items-center justify-between mt-3">
                   <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-primary/10 text-primary">{t.category}</span>
                   <span className="text-[11px] text-muted-foreground flex items-center gap-1"><Download className="h-3 w-3" />{t.downloads.toLocaleString()}</span>
                 </div>
@@ -110,7 +110,7 @@ const HelpPage = () => {
               </div>
               <h3 className="text-sm font-semibold text-foreground">{m.name}</h3>
               <p className="text-xs text-muted-foreground mt-0.5">por {m.author}</p>
-              <div className="flex items-center justify-between mt-3 flex-wrap gap-4">
+              <div className="flex items-center justify-between mt-3">
                 <span className="text-sm font-semibold text-foreground">{m.price}</span>
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span className="flex items-center gap-0.5"><Star className="h-3 w-3 text-accent-foreground fill-accent" />{m.rating}</span>
@@ -159,7 +159,7 @@ const HelpPage = () => {
             <p className="text-xs text-muted-foreground mb-3">Receba notificações em tempo real sobre eventos no CRM</p>
             <div className="space-y-2">
               {["contact.created", "conversation.new_message", "deal.stage_changed", "campaign.sent", "payment.received"].map(e => (
-                <div key={e} className="flex items-center justify-between p-2.5 rounded-lg border border-border flex-wrap gap-4">
+                <div key={e} className="flex items-center justify-between p-2.5 rounded-lg border border-border">
                   <code className="text-xs font-mono text-foreground">{e}</code>
                   <button className="relative h-5 w-9 rounded-full bg-primary"><span className="absolute top-0.5 left-4 h-4 w-4 rounded-full bg-primary-foreground shadow-sm" /></button>
                 </div>
