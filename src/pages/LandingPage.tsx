@@ -286,7 +286,7 @@ function HeroAgentCard() {
           boxShadow: `inset 0 1px 0 ${agent.color}10`,
         }}>
           <div style={{ fontFamily: mono, fontSize: 9, color: MUTED, marginBottom: 10, letterSpacing: "0.08em", textTransform: "uppercase" as const }}>Executando agora</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" className="cl-grid-2", gap: "7px 12px" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "7px 12px" }}>
             {agent.tasks.map((task, j) => (
               <div key={j} style={{ display: "flex", alignItems: "center", gap: 7 }}>
                 <div style={{ width: 4, height: 4, borderRadius: "50%", background: j === 0 ? agent.color : "rgba(255,255,255,.15)", flexShrink: 0, boxShadow: j === 0 ? `0 0 6px ${agent.color}` : "none" }} />
@@ -423,7 +423,7 @@ function ProcessTimeline() {
                   <div style={{ marginTop: 26, position: "relative" }}>
                     <div style={{ height: 1, background: `linear-gradient(to right, ${step.color}35, transparent)`, marginBottom: 22 }} />
                     <div style={{ fontFamily: mono, fontSize: 11, color: step.color, marginBottom: 16, letterSpacing: "0.1em", textTransform: "uppercase" as const }}>Entregáveis</div>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr" className="cl-grid-2", gap: "12px 28px", marginBottom: 22 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px 28px", marginBottom: 22 }}>
                       {step.details.map((d, j) => (
                         <div key={j} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
                           <div style={{ width: 6, height: 6, borderRadius: "50%", background: step.color, flexShrink: 0, marginTop: 9, boxShadow: `0 0 8px ${step.color}` }} />
@@ -712,7 +712,7 @@ export default function LandingPage() {
       <section className="cl-hero-section" style={{ minHeight: "100vh", display: "flex", flexDirection: "column", justifyContent: "center", padding: "120px 64px 80px", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: "28%", right: "8%", width: 500, height: 500, borderRadius: "50%", background: "radial-gradient(circle, rgba(185,255,75,.07) 0%, transparent 65%)", filter: "blur(40px)", pointerEvents: "none" }} />
 
-        <div className="cl-hero-grid" style={{ maxWidth: 1200, margin: "0 auto", width: "100%", display: "grid", gridTemplateColumns: "1fr 400px" className="cl-product-grid", gap: 56, alignItems: "center" }}>
+        <div className="cl-hero-grid" style={{ maxWidth: 1200, margin: "0 auto", width: "100%", display: "grid", gridTemplateColumns: "1fr 400px", gap: 56, alignItems: "center" }}>
           <div>
             <div className="cl-a1" style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 28 }}>
               <div className="cl-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: LIME }} />
@@ -814,7 +814,7 @@ export default function LandingPage() {
           </div>
 
           {/* Result bar */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" className="cl-grid-3", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
             {[
               { label: "Estratégia → Publicação",  value: "em até 48h",         color: LIME      },
               { label: "Ciclo de aprovação",        value: "via portal do cliente", color: "#A78BFA" },
@@ -846,7 +846,7 @@ export default function LandingPage() {
               Serviços integrados que trabalham juntos para crescer seu negócio.
             </p>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" className="cl-grid-3", border: "1px solid rgba(255,255,255,.07)", borderRadius: 18, overflow: "hidden" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", border: "1px solid rgba(255,255,255,.07)", borderRadius: 18, overflow: "hidden" }}>
             {SERVICES.map((s, i) => (
               <div key={s.n} className="cl-card"
                 style={{ padding: "34px 28px", background: BLACK, borderRight: i%3!==2?"1px solid rgba(255,255,255,.07)":"none", borderBottom: i<3?"1px solid rgba(255,255,255,.07)":"none" }}>
@@ -872,7 +872,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)" className="cl-grid-3", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
             {PRODUCTS.map(p => (
               <div key={p.name} className="cl-prod" style={{ borderRadius: 20, background: "rgba(255,255,255,.025)", border: `1px solid ${p.color}20`, padding: "34px 28px", position: "relative", overflow: "hidden" }}>
                 <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: p.color }} />
@@ -931,7 +931,7 @@ export default function LandingPage() {
 
       {/* SAVINGS */}
       <section style={{ padding: "100px 64px", borderTop: "1px solid rgba(255,255,255,.05)" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr" className="cl-grid-2", gap: 72, alignItems: "center" }}>
+        <div style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 72, alignItems: "center" }}>
           <div>
             <span style={{ fontFamily: mono, fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" }}>Por que faz sentido</span>
             <h2 style={{ fontSize: "clamp(20px, 3vw, 38px)", fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.04em", marginTop: 10, marginBottom: 16 }}>
