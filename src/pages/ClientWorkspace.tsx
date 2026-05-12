@@ -241,6 +241,7 @@ const AGENT_CONFIG: Record<string, { maxTokens: number; thinking: boolean; think
   calendario:  { maxTokens: 10000, thinking: true,  thinkingBudget: 6000  },
   tomas:       { maxTokens: 8000,  thinking: true,  thinkingBudget: 5000  },
   laura:       { maxTokens: 10000, thinking: true,  thinkingBudget: 6000  },
+  ben:         { maxTokens: 0,     thinking: false }, // não usa chat-ai — chama FastAPI porta 8800
 };
 
 const AGENT_PROMPTS: Record<string, string> = {
@@ -701,6 +702,7 @@ const AGENT_META: Record<string, { initial: string; color: string; name: string 
   pedro:      { initial: "P", color: "#2DD4BF", name: "Pedro" },
   calendario: { initial: "P", color: "#2DD4BF", name: "Pedro" },
   laura:      { initial: "La", color: "#B9FF4B", name: "Laura" },
+  ben:        { initial: "🔍", color: "#B9FF4B", name: "Ben" },
 };
 
 const normalizeImageAspectRatio = (ratio?: string) => {
@@ -1205,8 +1207,6 @@ export default function ClientWorkspace() {
   const [designerTask, setDesignerTask] = useState<{prompt: string; progress: number; startedAt: number; estimatedSeconds: number} | null>(null);
   const [designerRecentWork, setDesignerRecentWork] = useState<string[]>([]);
   const designerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const benReaderRef = useRef<ReadableStreamDefaultReader | null>(null);
-  const [benLoading, setBenLoading] = useState(false);
   const [benTrends, setBenTrends] = useState<string | null>(null);
   const [ariaLoading, setAriaLoading] = useState(false);
   const [showManualOutput, setShowManualOutput] = useState(false);
@@ -1597,6 +1597,7 @@ Cliente: ${client.name} | Segmento: ${segmento}${client.teamInstructions ? `\nIn
       briefing:   "Lia, faça o diagnóstico inicial e monte o briefing de onboarding.",
       revisor:    "Vitória, revise os textos do contexto e entregue a versão final corrigida.",
       video:      "Bobby, monte o briefing de edição do vídeo (cortes, efeitos, legendas, color).",
+      ben:        "Ben, pesquise agora as tendências mais quentes do nicho no Google Trends Brasil, Instagram e TikTok.",
     };
 
     try {
@@ -1615,8 +1616,10 @@ Agentes disponíveis (use exatamente esses IDs):
 - briefing (Lia — Diagnóstico, onboarding, briefing inicial de novos clientes)
 - revisor (Vitória — Revisão ortográfica e gramatical de textos prontos)
 - video (Bobby — Edição de vídeo: cortes, efeitos, legendas, color grade)
+- ben (Ben — Pesquisa de tendências em tempo real: Google Trends Brasil, Instagram, TikTok, Twitter — use SEMPRE que a demanda envolver criação de conteúdo, posts ou campanhas)
 
 Escolha SOMENTE os agentes que realmente fazem sentido para a demanda. Mínimo 1, máximo 5.
+IMPORTANTE: para demandas de conteúdo/posts, acione ben PRIMEIRO (ele alimenta Beatriz e Marcela com dados reais).
 
 Contexto: cliente "${clientContext.name}", segmento "${clientContext.industry}".
 ${clientContext.teamInstructions ? `Instruções permanentes: ${clientContext.teamInstructions}` : ""}
@@ -1723,6 +1726,7 @@ Responda APENAS JSON válido, sem markdown, sem texto extra:
         // (c) chama o agente individualmente
         const ctxBlock = `Cliente: ${clientContext.name} | Segmento: ${clientContext.industry} | Cor: ${clientContext.brandColor}
 ${clientContext.teamInstructions ? `Instruções permanentes: ${clientContext.teamInstructions}` : ""}${buildBriefingBlock()}
+${accumulated.ben ? `\nTENDÊNCIAS DO BEN — use como munição para copy e visual:\n${accumulated.ben.slice(0, 1500)}` : ""}
 ${accumulated.strategist ? `\nESTRATÉGIA DA QUEILA (referencie):\n${accumulated.strategist.slice(0, 1500)}` : ""}
 ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copywriter.slice(0, 1000)}` : ""}
 
@@ -1730,35 +1734,51 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
 
         let outputText = "";
         try {
-          const agCfg = AGENT_CONFIG[agentId] ?? { maxTokens: 5000, thinking: false };
-          const isPostAgent = ["social", "copywriter"].includes(agentId);
-          const { data: agData, error: agErr } = await supabase.functions.invoke("chat-ai", {
-            body: {
-              systemPrompt: AGENT_PROMPTS[agentId],
-              maxTokens: agCfg.maxTokens,
-              enableThinking: agCfg.thinking,
-              thinkingBudget: agCfg.thinkingBudget,
-              ...(isPostAgent && agentUserId && id
-                ? { enableDraftTool: true, client_id: id, user_id: agentUserId }
-                : {}),
-              messages: [{
-                role: "user",
-                content: `Demanda do cliente: "${demand}"\n\n${ctxBlock}`,
-              }],
-            },
-          });
-          if (agErr) throw agErr;
-          outputText = (agData?.content ?? "").trim();
+          // Ben usa a edge function dedicada com web_search real
+          if (agentId === "ben") {
+            const { data: benData, error: benErr } = await supabase.functions.invoke("ben-trends", {
+              body: {
+                nicho: clientBriefing?.segmento || clientContext.industry,
+                plataforma: "Instagram",
+                tipo_conteudo: demand.slice(0, 200),
+                client_name: clientContext.name,
+              },
+            });
+            if (benErr) throw benErr;
+            outputText = (benData?.content ?? "").trim();
+            // disponibiliza tendências no painel da Marcela
+            if (outputText) setBenTrends(outputText);
+          } else {
+            const agCfg = AGENT_CONFIG[agentId] ?? { maxTokens: 5000, thinking: false };
+            const isPostAgent = ["social", "copywriter"].includes(agentId);
+            const { data: agData, error: agErr } = await supabase.functions.invoke("chat-ai", {
+              body: {
+                systemPrompt: AGENT_PROMPTS[agentId],
+                maxTokens: agCfg.maxTokens,
+                enableThinking: agCfg.thinking,
+                thinkingBudget: agCfg.thinkingBudget,
+                ...(isPostAgent && agentUserId && id
+                  ? { enableDraftTool: true, client_id: id, user_id: agentUserId }
+                  : {}),
+                messages: [{
+                  role: "user",
+                  content: `Demanda do cliente: "${demand}"\n\n${ctxBlock}`,
+                }],
+              },
+            });
+            if (agErr) throw agErr;
+            outputText = (agData?.content ?? "").trim();
 
-          const agentPosts: unknown[] = agData?.posts_created ?? [];
-          if (agentPosts.length > 0) {
-            loadPendingPosts();
-            addConvMsgs([{
-              id: `${agentId}-drafted-${Date.now()}`,
-              from: agentId, to: "aria",
-              content: `📝 Criei ${agentPosts.length} post${agentPosts.length > 1 ? "s" : ""} e salvei para aprovação — veja na aba Social.`,
-              action: "respond", timestamp: nowTs(), status: "done",
-            }]);
+            const agentPosts: unknown[] = agData?.posts_created ?? [];
+            if (agentPosts.length > 0) {
+              loadPendingPosts();
+              addConvMsgs([{
+                id: `${agentId}-drafted-${Date.now()}`,
+                from: agentId, to: "aria",
+                content: `📝 Criei ${agentPosts.length} post${agentPosts.length > 1 ? "s" : ""} e salvei para aprovação — veja na aba Social.`,
+                action: "respond", timestamp: nowTs(), status: "done",
+              }]);
+            }
           }
         } catch (e) {
           outputText = `*Erro ao executar este agente: ${e instanceof Error ? e.message : String(e)}*`;
@@ -2817,53 +2837,6 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
     if (agentFileRef.current) agentFileRef.current.value = "";
   };
 
-  const handleBuscarTendenciasBen = async () => {
-    const nicho = clientBriefing?.segmento || client.industry || client.name;
-    setBenLoading(true);
-    setBenTrends(null);
-    try {
-      const resp = await fetch("http://localhost:8800/pesquisar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nicho, plataforma: "Instagram", tipo_conteudo: "post" }),
-      });
-      if (!resp.ok) throw new Error(`Erro ${resp.status}`);
-      if (!resp.body) throw new Error("Stream indisponível.");
-      const reader = resp.body.getReader();
-      benReaderRef.current = reader;
-      const decoder = new TextDecoder();
-      let buffer = "";
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n\n");
-        buffer = lines.pop() ?? "";
-        for (const line of lines) {
-          if (!line.startsWith("data: ")) continue;
-          const payload = JSON.parse(line.slice(6));
-          if (payload.etapa === "erro") throw new Error(payload.mensagem ?? "Erro no Ben");
-          if (payload.etapa === "concluido" && payload.resultado) {
-            const trends = payload.resultado.tendencias || payload.resultado.completo || "";
-            setBenTrends(trends);
-            // Injeta no comando da ARIA como contexto rico
-            const prompt = `Crie um post completo para Instagram para o cliente ${client.name} (${client.industry}).
-Beatriz: escreva a legenda com gancho, desenvolvimento, CTA e hashtags.
-Marcela: crie o briefing visual da peça.
-
-TENDÊNCIAS ATUAIS (pesquisadas pelo Ben):\n${trends.slice(0, 1200)}`;
-            setAgentCommand(prompt);
-            toast.success("Ben encontrou as tendências! Revise o prompt e envie para a ARIA.");
-            return;
-          }
-        }
-      }
-    } catch {
-      toast.error("Ben não disponível — certifique que está rodando na porta 8800.");
-    } finally {
-      setBenLoading(false);
-    }
-  };
 
   const handleSendToDesigner = async () => {
     const direction = agentInstruction.trim();
@@ -6229,26 +6202,6 @@ Regras:
                             onMouseEnter={(e) => { e.currentTarget.style.borderColor = "rgba(185,255,75,0.35)"; e.currentTarget.style.color = "rgba(185,255,75,0.75)"; }}
                             onMouseLeave={(e) => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.14)"; e.currentTarget.style.color = "rgba(255,255,255,0.35)"; }}>
                             <Paperclip className="w-3 h-3" /> Anexar
-                          </button>
-                          {/* Ben — Post com Tendências */}
-                          <button
-                            onClick={handleBuscarTendenciasBen}
-                            disabled={benLoading}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all flex-shrink-0"
-                            style={{
-                              background: benTrends ? "rgba(185,255,75,0.12)" : "rgba(255,255,255,0.04)",
-                              color: benTrends ? "#B9FF4B" : "rgba(255,255,255,0.5)",
-                              border: benTrends ? "1px solid rgba(185,255,75,0.35)" : "1px dashed rgba(255,255,255,0.2)",
-                              opacity: benLoading ? 0.7 : 1,
-                            }}
-                            title="Ben pesquisa tendências do nicho e injeta no prompt da ARIA"
-                            onMouseEnter={(e) => { if (!benLoading) { e.currentTarget.style.borderColor = "rgba(185,255,75,0.5)"; e.currentTarget.style.color = "#B9FF4B"; } }}
-                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = benTrends ? "rgba(185,255,75,0.35)" : "rgba(255,255,255,0.2)"; e.currentTarget.style.color = benTrends ? "#B9FF4B" : "rgba(255,255,255,0.5)"; }}>
-                            {benLoading
-                              ? <><RefreshCw className="w-3 h-3 animate-spin" /> Ben buscando...</>
-                              : benTrends
-                              ? <><TrendingUp className="w-3 h-3" /> Tendências ✓</>
-                              : <><TrendingUp className="w-3 h-3" /> Post c/ Tendências</>}
                           </button>
                           <button
                             onClick={() => setShowSiteInput(true)}
