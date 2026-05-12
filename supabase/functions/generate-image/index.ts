@@ -47,7 +47,7 @@ async function generateImage(
   const finalPrompt = `${prompt}. Brand: ${ctx.name ?? ""} in ${ctx.industry ?? ""}, brand color ${ctx.brandColor ?? "neutral"}. Format: ${hint[ratio]}. ${extras} Editorial photography, ultra high quality, 4K, sharp focus, no text, no logos, no watermarks.`;
 
   const imgRes = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${googleKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/imagen-4.0-fast-generate-001:predict?key=${googleKey}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
