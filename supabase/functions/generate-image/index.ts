@@ -30,10 +30,10 @@ async function generateImage(
   beatrizCopy = "",
   carolinaStrategy = "",
 ) {
-  // Let's debug the available models:
   const modelsRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${googleKey}`);
   const models = await modelsRes.json();
-  throw new Error("MODELS: " + JSON.stringify(models));
+  const imagenModels = models.models?.filter((m: any) => m.name.includes("imagen")) || [];
+  throw new Error("IMAGEN MODELS: " + JSON.stringify(imagenModels));
 
   const ratio = normalizeRatio(aspectRatio, prompt);
 
