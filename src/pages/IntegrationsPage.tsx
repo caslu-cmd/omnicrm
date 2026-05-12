@@ -368,7 +368,7 @@ const IntegrationsPage = () => {
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
             <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-elevated space-y-4">
-              <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">{def.icon}</span>
                   <div>

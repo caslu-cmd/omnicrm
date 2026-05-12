@@ -70,7 +70,7 @@ function CalcModal({
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
       <div className="w-full max-w-sm bg-gray-900 rounded-2xl border border-gray-800 shadow-2xl shadow-black/60 overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800 flex-wrap gap-4">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-gray-800">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
               <Calculator className="w-4 h-4 text-emerald-400" />
@@ -94,7 +94,7 @@ function CalcModal({
 
           {/* Divisor */}
           <div className="border-t border-gray-800 pt-3">
-            <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Total a receber</span>
               <span className={cn(
                 "text-2xl font-bold tabular-nums",
@@ -192,7 +192,7 @@ function ColaboradorView({ member, periods }: { member: Member; periods: Period[
 
       <div className="max-w-lg mx-auto space-y-5">
         {/* Header */}
-        <div className="flex items-center justify-between pt-2 flex-wrap gap-4">
+        <div className="flex items-center justify-between pt-2">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
               <User className="w-5 h-5 text-emerald-400" />
@@ -278,7 +278,7 @@ function ColaboradorView({ member, periods }: { member: Member; periods: Period[
                 { label: "Reembolsos", value: meusDados.reembolso, icon: Wallet, color: "text-blue-400", signal: "+" },
               ].map(({ label, value, icon: Icon, color, signal }) => (
                 value !== 0 && (
-                  <div key={label} className="flex items-center justify-between px-4 py-3.5 flex-wrap gap-4">
+                  <div key={label} className="flex items-center justify-between px-4 py-3.5">
                     <div className="flex items-center gap-2.5">
                       <Icon className={cn("w-4 h-4", color)} />
                       <span className="text-sm text-gray-300">{label}</span>
@@ -345,7 +345,7 @@ function PeriodoHistorico({ member, periods, currentPeriodId }: {
           {outros.map(p => {
             const v = data[p.id];
             return (
-              <div key={p.id} className="flex items-center justify-between flex-wrap gap-4">
+              <div key={p.id} className="flex items-center justify-between">
                 <span className="text-sm text-gray-400">{p.descricao}</span>
                 <span className={cn("text-sm font-semibold tabular-nums",
                   v === undefined ? "text-gray-600" : v >= 0 ? "text-emerald-400" : "text-red-400")}>

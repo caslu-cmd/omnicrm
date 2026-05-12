@@ -768,7 +768,7 @@ export default function VideoEditorPage() {
 
           {/* Timeline */}
           <div className="rounded-xl border border-[#111] bg-[#0d0d0d] p-3 space-y-3">
-            <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center justify-between">
               <span className="text-[10px] uppercase tracking-widest text-[#333]">Timeline</span>
               {cutPoints.length > 0 && (
                 <button

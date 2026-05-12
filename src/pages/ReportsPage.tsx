@@ -87,7 +87,7 @@ const ReportsPage = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {kpis.map(k => (
           <motion.div key={k.label} variants={item} className="rounded-xl border border-border bg-card p-5 shadow-card">
-            <div className="flex items-center justify-between mb-3 flex-wrap gap-4">
+            <div className="flex items-center justify-between mb-3">
               <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary"><k.icon className="h-5 w-5" /></div>
               <span className={cn("flex items-center gap-1 text-xs font-semibold", k.up ? "text-secondary" : "text-destructive")}>
                 {k.up ? <ArrowUpRight className="h-3.5 w-3.5" /> : <ArrowDownRight className="h-3.5 w-3.5" />} {k.change}
@@ -219,7 +219,7 @@ const ReportsPage = () => {
                     <p className="text-xs text-muted-foreground">{seg.size.toLocaleString()} contatos</p>
                   </div>
                 </div>
-                <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">Taxa conversão: <span className="font-semibold text-foreground">{seg.conversion}</span></span>
                   <button className="text-xs text-primary font-medium hover:underline flex items-center gap-1"><Zap className="h-3 w-3" /> Ativar</button>
                 </div>
@@ -229,7 +229,7 @@ const ReportsPage = () => {
 
           {/* Audience Builder */}
           <motion.div variants={item} className="rounded-xl border border-border bg-card p-6 shadow-card space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center justify-between">
               <h3 className="text-base font-semibold font-display text-foreground flex items-center gap-2"><Layers className="h-5 w-5 text-primary" /> Construtor de Audiência (CDP)</h3>
               <button className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium"><Plus className="h-3.5 w-3.5" /> Nova Audiência</button>
             </div>
@@ -257,7 +257,7 @@ const ReportsPage = () => {
                 <button className="text-xs text-primary font-medium hover:underline flex items-center gap-1"><Plus className="h-3 w-3" /> Adicionar regra</button>
               </div>
 
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 flex-wrap gap-4">
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50">
                 <span className="text-sm text-foreground">Resultado: <span className="font-bold text-primary">1.847 contatos</span> correspondem</span>
                 <div className="flex gap-2">
                   <button className="px-3 py-1.5 rounded-lg border border-border text-xs font-medium text-muted-foreground hover:text-foreground">Salvar Segmento</button>
@@ -276,7 +276,7 @@ const ReportsPage = () => {
               { name: "Inativos 30d+", size: 1560, lastSync: "2h", campaigns: 2 },
               { name: "Alto Valor (>R$10k)", size: 89, lastSync: "30 min", campaigns: 4 },
             ].map(a => (
-              <div key={a.name} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/30 transition-colors flex-wrap gap-4">
+              <div key={a.name} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/30 transition-colors">
                 <div className="flex items-center gap-3">
                   <CheckCircle2 className="h-4 w-4 text-secondary" />
                   <div>

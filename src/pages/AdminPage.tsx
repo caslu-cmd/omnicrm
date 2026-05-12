@@ -212,7 +212,7 @@ const AdminPage = () => {
                   { label: "Usuários na Plataforma", value: totalUsers, icon: Users, color: "text-primary", sub: "total registrados" },
                 ].map(s => (
                   <div key={s.label} className="rounded-xl border border-border bg-card p-5 shadow-card">
-                    <div className="flex items-center justify-between mb-3 flex-wrap gap-4">
+                    <div className="flex items-center justify-between mb-3">
                       <s.icon className={cn("h-5 w-5", s.color)} />
                       <TrendingUp className="h-3.5 w-3.5 text-secondary" />
                     </div>
@@ -248,7 +248,7 @@ const AdminPage = () => {
               </div>
 
               <div className="rounded-xl border border-border bg-card p-6 shadow-card space-y-4">
-                <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center justify-between">
                   <h3 className="text-base font-semibold text-foreground">Últimos Clientes White-Label</h3>
                   <button onClick={() => setTab("clients")} className="text-xs text-primary font-medium hover:underline">Ver todos →</button>
                 </div>
@@ -260,7 +260,7 @@ const AdminPage = () => {
                 ) : (
                   <div className="space-y-3">
                     {allWhiteLabel.slice(0, 5).map(wl => (
-                      <div key={wl.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:border-primary/20 transition-colors flex-wrap gap-4">
+                      <div key={wl.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:border-primary/20 transition-colors">
                         <div className="flex items-center gap-3">
                           {wl.logo_url ? (
                             <img src={wl.logo_url} alt="Logo" className="h-9 w-9 rounded-lg object-cover" />
@@ -291,7 +291,7 @@ const AdminPage = () => {
           {/* ===== CLIENTS WHITE LABEL ===== */}
           {tab === "clients" && (
             <motion.div variants={item} className="space-y-4">
-              <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center justify-between">
                 <h3 className="text-base font-semibold font-display text-foreground flex items-center gap-2">
                   <Palette className="h-5 w-5 text-primary" /> {allWhiteLabel.length} Clientes White-Label
                 </h3>
@@ -305,7 +305,7 @@ const AdminPage = () => {
                 <div className="space-y-4">
                   {allWhiteLabel.map(wl => (
                     <div key={wl.id} className="rounded-xl border border-border bg-card p-5 shadow-card space-y-4 hover:border-primary/20 transition-colors">
-                      <div className="flex items-center justify-between flex-wrap gap-4">
+                      <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
                           {wl.logo_url ? (
                             <img src={wl.logo_url} alt="Logo" className="h-12 w-12 rounded-xl object-cover" />
@@ -384,7 +384,7 @@ const AdminPage = () => {
           {/* ===== ALL USERS ===== */}
           {tab === "users" && (
             <motion.div variants={item} className="space-y-4">
-              <div className="flex items-center justify-between flex-wrap gap-4">
+              <div className="flex items-center justify-between">
                 <h3 className="text-base font-semibold font-display text-foreground">{allProfiles.length} Usuários Registrados</h3>
                 <button onClick={() => toast.info("Convites por e-mail em breve")} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium">
                   <Plus className="h-4 w-4" /> Convidar
@@ -490,7 +490,7 @@ const AdminPage = () => {
                   <div className="space-y-2 max-h-96 overflow-y-auto scrollbar-thin">
                     {notifications.map(n => (
                       <div key={n.id} className={cn("p-3 rounded-lg border border-border", n.read ? "bg-muted/20" : "bg-primary/5 border-primary/20")}>
-                        <div className="flex items-center justify-between mb-1 flex-wrap gap-4">
+                        <div className="flex items-center justify-between mb-1">
                           <p className="text-sm font-semibold text-foreground">{n.title}</p>
                           <span className="text-[10px] text-muted-foreground">{new Date(n.created_at).toLocaleString("pt-BR")}</span>
                         </div>
@@ -580,7 +580,7 @@ const AdminPage = () => {
                     ))}
                   </div>
                 </div>
-                <div className="flex items-center justify-between p-3 rounded-lg border border-border flex-wrap gap-4">
+                <div className="flex items-center justify-between p-3 rounded-lg border border-border">
                   <div>
                     <p className="text-sm font-medium text-foreground">Remover branding</p>
                     <p className="text-[10px] text-muted-foreground">Remove "Powered by OmniCRM"</p>

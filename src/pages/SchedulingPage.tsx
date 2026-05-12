@@ -382,7 +382,7 @@ const SchedulingPage = () => {
       {tab === "reunioes" && (
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           <div className="lg:col-span-3 space-y-4">
-            <motion.div variants={item} className="flex items-center justify-between flex-wrap gap-4">
+            <motion.div variants={item} className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <button onClick={() => toast.info("Semana anterior")} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"><ChevronLeft className="h-5 w-5" /></button>
                 <h2 className="text-base font-semibold font-display text-foreground">1 — 5 Maio, 2026</h2>
@@ -440,7 +440,7 @@ const SchedulingPage = () => {
             <motion.div variants={item} className="rounded-xl border border-border bg-card p-5 shadow-card space-y-4">
               <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><ExternalLink className="h-4 w-4 text-primary" /> Links de Booking</h3>
               {[{ name: "Demo 30min", url: "caluagencia.com.br/demo" }, { name: "Consultoria 1h", url: "caluagencia.com.br/consultoria" }].map(l => (
-                <div key={l.name} className="flex items-center justify-between p-3 rounded-lg border border-border flex-wrap gap-4">
+                <div key={l.name} className="flex items-center justify-between p-3 rounded-lg border border-border">
                   <div><p className="text-sm font-medium text-foreground">{l.name}</p><p className="text-[11px] text-primary">{l.url}</p></div>
                   <div className="flex gap-1">
                     <button onClick={() => { navigator.clipboard.writeText(l.url); toast.success("Link copiado!"); }} className="p-1.5 rounded-md hover:bg-muted text-muted-foreground"><Copy className="h-3.5 w-3.5" /></button>
@@ -457,7 +457,7 @@ const SchedulingPage = () => {
       {showNewEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
           <div className="w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-elevated space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold font-display text-foreground">Novo Evento</h2>
               <button onClick={() => setShowNewEvent(false)} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"><X className="h-4 w-4" /></button>
             </div>

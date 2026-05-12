@@ -54,7 +54,7 @@ const SettingsPage = () => {
               <div className="rounded-xl border border-border bg-card p-6 shadow-card space-y-4">
                 <h3 className="text-base font-semibold font-display text-foreground">Notificações</h3>
                 {["Novos leads", "Conversas não respondidas (>1h)", "Deals movidos no pipeline", "Alertas de entregabilidade", "Sentimento negativo detectado"].map(n => (
-                  <div key={n} className="flex items-center justify-between py-2 flex-wrap gap-4">
+                  <div key={n} className="flex items-center justify-between py-2">
                     <span className="text-sm text-foreground">{n}</span>
                     <button className="relative h-6 w-11 rounded-full bg-primary transition-colors">
                       <span className="absolute top-0.5 left-5 h-5 w-5 rounded-full bg-primary-foreground shadow-sm transition-transform" />
@@ -75,7 +75,7 @@ const SettingsPage = () => {
                   { label: "Login com Google", desc: "OAuth 2.0 com Google Workspace", enabled: true },
                   { label: "Login com Microsoft", desc: "Azure AD / Microsoft 365", enabled: false },
                 ].map(s => (
-                  <div key={s.label} className="flex items-center justify-between p-3 rounded-lg border border-border flex-wrap gap-4">
+                  <div key={s.label} className="flex items-center justify-between p-3 rounded-lg border border-border">
                     <div>
                       <p className="text-sm font-medium text-foreground">{s.label}</p>
                       <p className="text-[10px] text-muted-foreground">{s.desc}</p>
@@ -86,11 +86,11 @@ const SettingsPage = () => {
               </div>
               <div className="rounded-xl border border-border bg-card p-6 shadow-card space-y-4">
                 <h3 className="text-base font-semibold font-display text-foreground flex items-center gap-2"><Key className="h-5 w-5 text-primary" /> Chaves API</h3>
-                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border flex-wrap gap-4">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border">
                   <div><p className="text-sm font-medium text-foreground">API Key Produção</p><p className="text-xs text-muted-foreground font-mono">sk-prod-****************************a8f2</p></div>
                   <div className="flex gap-1"><button className="p-1.5 rounded hover:bg-muted text-muted-foreground"><Eye className="h-4 w-4" /></button></div>
                 </div>
-                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border flex-wrap gap-4">
+                <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border border-border">
                   <div><p className="text-sm font-medium text-foreground">Webhook Secret</p><p className="text-xs text-muted-foreground font-mono">whsec-****************************3d1e</p></div>
                   <div className="flex gap-1"><button className="p-1.5 rounded hover:bg-muted text-muted-foreground"><Eye className="h-4 w-4" /></button></div>
                 </div>
@@ -103,7 +103,7 @@ const SettingsPage = () => {
                   { action: "API Key rotacionada", user: "dev@empresa.com", time: "Ontem 09:15", ip: "177.xxx.xxx.45" },
                   { action: "Usuário criado", user: "admin@empresa.com", time: "28 Fev 16:00", ip: "189.xxx.xxx.12" },
                 ].map((log, i) => (
-                  <div key={i} className="flex items-center justify-between p-2.5 text-xs border-b border-border last:border-0 flex-wrap gap-4">
+                  <div key={i} className="flex items-center justify-between p-2.5 text-xs border-b border-border last:border-0">
                     <span className="font-medium text-foreground">{log.action}</span>
                     <span className="text-muted-foreground">{log.user}</span>
                     <span className="text-muted-foreground">{log.time}</span>
@@ -124,7 +124,7 @@ const SettingsPage = () => {
                   { domain: "noreply.empresa.com", status: "verified", spf: true, dkim: true, dmarc: false },
                   { domain: "suporte.empresa.com", status: "pending", spf: false, dkim: false, dmarc: false },
                 ].map(d => (
-                  <div key={d.domain} className="flex items-center justify-between p-4 rounded-lg border border-border flex-wrap gap-4">
+                  <div key={d.domain} className="flex items-center justify-between p-4 rounded-lg border border-border">
                     <div>
                       <p className="text-sm font-medium text-foreground">{d.domain}</p>
                       <div className="flex gap-3 mt-1">
@@ -151,7 +151,7 @@ const SettingsPage = () => {
                   { ip: "198.51.100.2", pool: "Transacional", reputation: 99, volume: "45k/dia", status: "Aquecido" },
                   { ip: "198.51.100.3", pool: "Novo", reputation: 42, volume: "500/dia", status: "Aquecendo" },
                 ].map(ip => (
-                  <div key={ip.ip} className="flex items-center justify-between p-4 rounded-lg border border-border flex-wrap gap-4">
+                  <div key={ip.ip} className="flex items-center justify-between p-4 rounded-lg border border-border">
                     <div>
                       <p className="text-sm font-medium text-foreground font-mono">{ip.ip}</p>
                       <p className="text-xs text-muted-foreground">Pool: {ip.pool} · {ip.volume}</p>
@@ -192,7 +192,7 @@ const SettingsPage = () => {
                   { name: "LGPD", status: "Conforme", date: "Desde Jan 2026" },
                   { name: "GDPR", status: "Conforme", date: "Desde Jan 2026" },
                 ].map(c => (
-                  <div key={c.name} className="flex items-center justify-between p-3 rounded-lg border border-border flex-wrap gap-4">
+                  <div key={c.name} className="flex items-center justify-between p-3 rounded-lg border border-border">
                     <div><p className="text-sm font-medium text-foreground">{c.name}</p><p className="text-[10px] text-muted-foreground">{c.date}</p></div>
                     <span className={cn("px-2 py-0.5 rounded-full text-[10px] font-medium", c.status === "Conforme" ? "bg-secondary/10 text-secondary" : c.status === "Em progresso" ? "bg-accent/10 text-accent-foreground" : "bg-muted text-muted-foreground")}>{c.status}</span>
                   </div>
@@ -202,7 +202,7 @@ const SettingsPage = () => {
                 <h3 className="text-base font-semibold font-display text-foreground">Consentimento & Opt-in</h3>
                 <p className="text-xs text-muted-foreground">Gerencie políticas de consentimento e logs de opt-in para cada canal</p>
                 {["WhatsApp Opt-in", "E-mail Marketing", "SMS", "Cookies & Tracking"].map(c => (
-                  <div key={c} className="flex items-center justify-between p-3 rounded-lg border border-border flex-wrap gap-4">
+                  <div key={c} className="flex items-center justify-between p-3 rounded-lg border border-border">
                     <span className="text-sm text-foreground">{c}</span>
                     <div className="flex items-center gap-2">
                       <span className="text-[10px] text-muted-foreground">Logs retidos: 2 anos</span>

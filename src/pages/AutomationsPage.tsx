@@ -194,7 +194,7 @@ const AutomationsPage = () => {
                   <div className="flex-1"><h3 className="text-sm font-semibold text-foreground">{t.name}</h3><span className="text-[11px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">{t.category}</span></div>
                 </div>
                 <p className="text-xs text-muted-foreground mb-4">{t.description}</p>
-                <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">{t.nodes} nodes · {t.uses.toLocaleString()} usos</span>
                   <button onClick={() => { setTab("builder"); toast.success(`Template "${t.name}" carregado no builder`); }} className="text-xs font-medium text-primary flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">Usar template <ChevronRight className="h-3 w-3" /></button>
                 </div>
@@ -207,7 +207,7 @@ const AutomationsPage = () => {
       {tab === "builder" && (
         <div className="flex-1 flex gap-4 min-h-0">
           <div className="flex-1 rounded-xl border border-border bg-card shadow-card overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30 flex-wrap gap-4">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
               <div className="flex items-center gap-3">
                 <input defaultValue="Follow-up 5 Dias" className="text-sm font-semibold text-foreground bg-transparent border-none focus:outline-none focus:ring-0" />
                 <span className="px-2 py-0.5 rounded-md text-[11px] font-medium bg-accent/10 text-accent-foreground">Rascunho</span>

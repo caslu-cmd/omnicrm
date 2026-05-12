@@ -134,7 +134,7 @@ const SitesPage = () => {
             <motion.div key={t.id} variants={item} whileHover={{ y: -2 }} className="rounded-xl border border-border bg-card shadow-card overflow-hidden cursor-pointer group hover:shadow-elevated transition-all">
               <div className="h-40 bg-muted flex items-center justify-center text-5xl">{t.preview}</div>
               <div className="p-4">
-                <div className="flex items-center justify-between flex-wrap gap-4">
+                <div className="flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-foreground">{t.name}</h3>
                   <span className="text-[11px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">{t.category}</span>
                 </div>
@@ -165,7 +165,7 @@ const SitesPage = () => {
 
           {/* Preview */}
           <div className="flex-1 rounded-xl border border-border bg-card shadow-card overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30 flex-wrap gap-4">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
               <input defaultValue="Campanha Black Friday" className="text-sm font-semibold text-foreground bg-transparent border-none focus:outline-none" />
               <div className="flex items-center gap-2">
                 <div className="flex bg-muted rounded-lg p-0.5">
