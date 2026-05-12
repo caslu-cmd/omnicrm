@@ -342,18 +342,18 @@ SUAS SKILLS — detecte automaticamente qual aplicar:
 
 Material pronto para implementar. Português brasileiro.`,
 
-  designer: `Você é CAROLINA, Art Director Sênior da Calu Agência.
+  designer: `Você é MARCELA, Art Director e Designer da Calu Agência.
 Domina composição visual, identidade de marca e direção de arte para redes sociais.
 
 SUAS SKILLS — detecte automaticamente qual aplicar:
 
-• BRIEFING VISUAL → entregue: conceito criativo + formato e dimensões exatos + composição (layout, hierarquia, regra de terços) + paleta de cores com HEX + tipografia (família, peso, tamanho) + elementos gráficos + mood/referências + prompt otimizado para IA (Midjourney/DALL-E)
+• BRIEFING VISUAL DE POST → para cada post pedido, entregue: conceito criativo + formato e dimensões exatos + composição (layout, hierarquia, regra de terços) + paleta de cores com HEX + tipografia (família, peso, tamanho) + elementos gráficos + mood/referências + prompt otimizado para geração de imagem IA (Ideogram/DALL-E) + orientações de texto sobreposto
 
 • IDENTIDADE VISUAL → entregue: conceito visual + paleta completa com HEX e sensação de cada cor + tipografia por uso (título/corpo/CTA) + estilo fotográfico + elementos gráficos recorrentes + grid de feed + 3 templates base descritos + o que nunca fazer
 
 • DIREÇÃO DE ARTE PARA CAMPANHA → entregue: conceito da campanha + paleta + referências visuais por peça + briefing de cada formato necessário
 
-Referencie estratégia da Queila e copy da Beatriz quando disponíveis. Português brasileiro.`,
+Referencie tendências do Ben e copy da Beatriz quando disponíveis no contexto. Para cada post pedido, entregue um briefing visual completo e distinto. Português brasileiro.`,
 
   sales: `Você é EDUARDO, Agente de Vendas da Calu Agência.
 Frameworks: SPIN Selling, Challenger Sale, FEEL FELT FOUND. Especialista em WhatsApp, qualificação e CRM.
@@ -1643,7 +1643,7 @@ Cliente: ${client.name} | Segmento: ${segmento}${client.teamInstructions ? `\nIn
       analyst:    "Lucas, traga benchmarks, North Star Metric e metas de 30/60/90 dias.",
       social:     "Marina, monte o calendário editorial completo de 7 dias em tabela.",
       site:       "Valentina, traga a estratégia de SEO: keywords, clusters e títulos otimizados.",
-      designer:   "Carolina, escreva o briefing visual completo da peça (formato, paleta, mood).",
+      designer:   "Marcela, crie a imagem do post com Ideogram usando o copy da Beatriz e as tendências do Ben.",
       sales:      "Eduardo, monte o script de WhatsApp + qualificação + objeções + follow-up.",
       briefing:   "Lia, faça o diagnóstico inicial e monte o briefing de onboarding.",
       revisor:    "Vitória, revise os textos do contexto e entregue a versão final corrigida.",
@@ -1662,15 +1662,17 @@ Agentes disponíveis (use exatamente esses IDs):
 - analyst (Lucas — Métricas, benchmarks, dados)
 - social (Marina — Calendário editorial, social media)
 - site (Valentina — SEO, blog, conteúdo orgânico)
-- designer (Carolina — Briefing visual, criativo)
+- designer (Marcela — Gera imagens reais com Ideogram: posts, criativos, campanhas)
 - sales (Eduardo — WhatsApp, vendas, qualificação de leads, CRM)
 - briefing (Lia — Diagnóstico, onboarding, briefing inicial de novos clientes)
 - revisor (Vitória — Revisão ortográfica e gramatical de textos prontos)
 - video (Bobby — Edição de vídeo: cortes, efeitos, legendas, color grade)
-- ben (Ben — Pesquisa de tendências em tempo real: Google Trends Brasil, Instagram, TikTok, Twitter — use SEMPRE que a demanda envolver criação de conteúdo, posts ou campanhas)
+- ben (Ben — Pesquisa de tendências em tempo real: Google Trends Brasil, Instagram, TikTok, Twitter)
 
 Escolha SOMENTE os agentes que realmente fazem sentido para a demanda. Mínimo 1, máximo 5.
-IMPORTANTE: para demandas de conteúdo/posts, acione ben PRIMEIRO (ele alimenta Beatriz e Marcela com dados reais).
+REGRAS OBRIGATÓRIAS:
+- Para posts/conteúdo/campanhas: sempre inclua ben + copywriter + designer (nessa ordem)
+- ben alimenta Beatriz (copy) e Marcela (imagem) com dados reais de tendências
 
 Contexto: cliente "${clientContext.name}", segmento "${clientContext.industry}".
 ${clientContext.teamInstructions ? `Instruções permanentes: ${clientContext.teamInstructions}` : ""}
@@ -1788,6 +1790,7 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
 ⚠️ Estratégias, estimativas de prazo e benchmarks são permitidos. Não invente estado atual do cliente (propostas no CRM, leads, campanhas ativas, resultados) que não foi informado. Use futuro para o que será feito.`;
 
         let outputText = "";
+        let imageUrlForMsg: string | undefined;
         try {
           // Ben usa a edge function dedicada com web_search real
           if (agentId === "ben") {
@@ -1801,8 +1804,40 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
             });
             if (benErr) throw benErr;
             outputText = (benData?.content ?? "").trim();
-            // disponibiliza tendências no painel da Marcela
             if (outputText) setBenTrends(outputText);
+
+          // Marcela/designer usa generate-image (Ideogram)
+          } else if (agentId === "designer" || agentId === "marcela") {
+            const { data: imgData, error: imgErr } = await supabase.functions.invoke("generate-image", {
+              body: {
+                prompt: demand,
+                aspectRatio: "3:4",
+                clientContext: {
+                  name: clientContext.name,
+                  industry: clientContext.industry,
+                  brandColor: clientContext.brandColor,
+                },
+                beatrizCopy: (accumulated.copywriter ?? "").slice(0, 600),
+                carolinaStrategy: (accumulated.strategist ?? "").slice(0, 400),
+              },
+            });
+            if (imgErr) throw imgErr;
+            if (imgData?.imageUrl) {
+              imageUrlForMsg = imgData.imageUrl;
+              setGeneratedImages((prev) => [
+                ...prev,
+                {
+                  id: Date.now().toString(),
+                  imageData: imgData.imageData ?? "",
+                  mimeType: imgData.mimeType ?? "image/jpeg",
+                  prompt: imgData.promptUsed ?? demand,
+                  createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+                },
+              ]);
+              outputText = `Imagem criada pelo Ideogram! Prompt usado: ${(imgData.promptUsed ?? demand).slice(0, 200)}`;
+            } else {
+              outputText = imgData?.briefing ?? "Briefing visual criado (Ideogram não configurado).";
+            }
           } else {
             const agCfg = AGENT_CONFIG[agentId] ?? { maxTokens: 5000, thinking: false };
             const isPostAgent = ["social", "copywriter"].includes(agentId);
@@ -1881,8 +1916,9 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
         // (e) substitui o typing indicator pela resposta real
         const firstPara = outputText.split(/\n\s*\n/)[0]?.replace(/^#+\s*/g, "").trim() ?? outputText;
         updateConvMsg(typingMsgId, {
-          content: firstPara.slice(0, 300) + (firstPara.length > 300 ? "…" : ""),
+          content: imageUrlForMsg ? "✨ Imagem criada pelo Ideogram!" : (firstPara.slice(0, 300) + (firstPara.length > 300 ? "…" : "")),
           action: "respond", status: "done",
+          ...(imageUrlForMsg ? { imageUrl: imageUrlForMsg } : {}),
         });
 
         if (cancelAriaRef.current) {
