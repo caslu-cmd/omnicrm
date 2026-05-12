@@ -1217,6 +1217,7 @@ export default function ClientWorkspace() {
   const [agentConversations, setAgentConversations] = useState<AgentMsg[]>(() => {
     try { return JSON.parse(localStorage.getItem(`agent-conv-${id}`) ?? "[]"); } catch { return []; }
   });
+  const [showHistory, setShowHistory] = useState(false);
   const [clientBriefing, setClientBriefing] = useState<Record<string, any> | null>(() => {
     try { const raw = localStorage.getItem(`client-briefing-${id}`); return raw ? JSON.parse(raw) : null; } catch { return null; }
   });
@@ -6626,7 +6627,45 @@ Regras:
                       </button>
                     </div>
                     <div className="p-4 space-y-3 max-h-[600px] overflow-y-auto">
-                      {agentConversations.map((msg) => {
+                      {/* Agrupa em sessões por pedido do usuário */}
+                      {(() => {
+                        const sessions: AgentMsg[][] = [];
+                        let cur: AgentMsg[] = [];
+                        for (const msg of agentConversations) {
+                          if (msg.from === "user" && cur.length > 0) { sessions.push(cur); cur = []; }
+                          cur.push(msg);
+                        }
+                        if (cur.length > 0) sessions.push(cur);
+                        const lastSession = sessions[sessions.length - 1] ?? [];
+                        const historySessions = sessions.slice(0, -1);
+                        const renderableConvs = showHistory ? agentConversations : lastSession;
+                        return (
+                          <>
+                            {historySessions.length > 0 && (
+                              <button
+                                onClick={() => setShowHistory(h => !h)}
+                                className="w-full flex items-center justify-between px-4 py-2.5 rounded-xl text-[11px] font-semibold transition-all"
+                                style={{
+                                  background: showHistory ? "rgba(185,255,75,0.08)" : "rgba(255,255,255,0.03)",
+                                  border: `1px solid ${showHistory ? "rgba(185,255,75,0.25)" : "rgba(255,255,255,0.07)"}`,
+                                  color: showHistory ? "#B9FF4B" : "rgba(255,255,255,0.35)",
+                                }}>
+                                <span className="flex items-center gap-2">
+                                  <span style={{ fontSize: 12 }}>{showHistory ? "▾" : "▸"}</span>
+                                  HISTÓRICO
+                                  <span className="px-1.5 py-0.5 rounded-full text-[10px]"
+                                    style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.3)" }}>
+                                    {historySessions.length} pedido{historySessions.length !== 1 ? "s" : ""}
+                                  </span>
+                                </span>
+                                {!showHistory && (
+                                  <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.2)" }}>
+                                    {historySessions.reduce((acc, s) => acc + s.filter(m => m.from !== "user").length, 0)} respostas arquivadas
+                                  </span>
+                                )}
+                              </button>
+                            )}
+                            {renderableConvs.map((msg) => {
                         // Indicador de digitação animado
                         if (msg.action === "typing" || (msg.status === "processing" && msg.content === "")) {
                           const typingMeta = AGENT_META[msg.from] ?? { initial: msg.from[0]?.toUpperCase(), color: "#B9FF4B", name: msg.from };
@@ -6811,6 +6850,9 @@ Regras:
                           </motion.div>
                         );
                       })}
+                          </>
+                        );
+                      })()}
                     </div>
                   </div>
                 )}
