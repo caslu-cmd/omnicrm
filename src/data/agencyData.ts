@@ -236,7 +236,14 @@ export const CLIENTS: Client[] = [
       { label: "Custo/Lead",       value: "R$ 27", change: "-21%",  positive: true },
     ],
     contacts: [],
-    pipeline: [],
+    pipeline: [
+      { id: "gl-d1", title: "Consultoria Pregão Eletrônico", contact: "Carlos Silva", value: "R$ 4.800", stage: "prospeccao", probability: 20, dueDate: "20/05" },
+      { id: "gl-d2", title: "Habilitação — Empresa ABC Ltda", contact: "Mariana Souza", value: "R$ 3.200", stage: "qualificacao", probability: 45, dueDate: "15/05" },
+      { id: "gl-d3", title: "Proposta Completa — Construtora XYZ", contact: "Roberto Lima", value: "R$ 8.500", stage: "proposta", probability: 65, dueDate: "12/05" },
+      { id: "gl-d4", title: "Contrato Anual — TechGov Soluções", contact: "Fernanda Costa", value: "R$ 18.000", stage: "negociacao", probability: 82, dueDate: "10/05" },
+      { id: "gl-d5", title: "Matrícula — Curso Licitação 2025", contact: "Paulo Mendes", value: "R$ 2.400", stage: "proposta", probability: 55, dueDate: "14/05" },
+      { id: "gl-d6", title: "Retainer Mensal — Alfa Engenharia", contact: "Sônia Barros", value: "R$ 6.000", stage: "ganho", probability: 100, dueDate: "01/06" },
+    ],
     agentTasks: {
       copywriter: { current: "Escrevendo artigo 'Top 10 erros em licitações'", status: "trabalhando", recent: ["Guia de habilitação publicado", "3 legendas para campanha"], progress: 72 },
       traffic:    { current: "Otimizando segmentação LinkedIn Ads", status: "trabalhando", recent: ["CPA reduzido para R$ 27", "Novo público lookalike criado"], progress: 55 },

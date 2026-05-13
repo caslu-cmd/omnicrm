@@ -150,10 +150,38 @@ Deno.serve(async (req) => {
     raw_data: body,
   });
 
+  // Create lead in kanban pipeline (if endpoint has pipeline routing configured)
+  let leadId: string | null = null;
+  if (endpoint.pipeline_id) {
+    const raw = body as Record<string, unknown>;
+    const leadData: Record<string, unknown> = {
+      user_id:             endpoint.user_id,
+      client_id:           endpoint.client_id,
+      pipeline_id:         endpoint.pipeline_id,
+      stage_id:            endpoint.initial_stage_id ?? "lead",
+      name:                mapped.name ?? mapped.email ?? "Lead sem nome",
+      email:               mapped.email ?? null,
+      phone:               mapped.phone ?? null,
+      company:             mapped.company ?? null,
+      source:              "webhook",
+      webhook_endpoint_id: endpoint.id,
+      // ABCER usineiro fields
+      cnpj:         raw["cnpj"]         ? String(raw["cnpj"])         : null,
+      potencia_kw:  raw["potencia_kw"]  ?? raw["potencia"] ?? raw["kw"] ? String(raw["potencia_kw"] ?? raw["potencia"] ?? raw["kw"]) : null,
+      distribuidora:raw["distribuidora"] ? String(raw["distribuidora"]) : null,
+      // ABCER associado fields
+      uc:           raw["uc"]            ? String(raw["uc"])            : null,
+      consumo_medio:raw["consumo_medio"] ?? raw["consumo"] ? String(raw["consumo_medio"] ?? raw["consumo"]) : null,
+      metodo:       raw["metodo"]        ?? raw["payment_method"] ? String(raw["metodo"] ?? raw["payment_method"]) : null,
+    };
+    const { data: lead } = await db.from("client_leads").insert(leadData).select("id").single();
+    if (lead) leadId = lead.id;
+  }
+
   // Update trigger stats
   await db.from("webhook_endpoints")
     .update({ trigger_count: (endpoint.trigger_count ?? 0) + 1, last_triggered_at: new Date().toISOString() })
     .eq("id", endpoint.id);
 
-  return ok({ success: true, contact_id: contactId });
+  return ok({ success: true, contact_id: contactId, lead_id: leadId });
 });

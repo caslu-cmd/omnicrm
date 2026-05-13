@@ -33,6 +33,7 @@ import LiaBriefingPanel from "@/components/LiaBriefingPanel";
 import MetaAdsCampaignsSection from "@/components/MetaAdsCampaignsSection";
 import AdsSection from "@/components/AdsSection";
 import EditorialCalendarPanel from "@/components/EditorialCalendarPanel";
+import LeadsKanbanTab from "@/components/LeadsKanbanTab";
 
 const SOURCES: Record<string, { label: string; color: string; bg: string }> = {
   instagram: { label: "Instagram", color: "#E1306C", bg: "rgba(225,48,108,0.1)" },
@@ -3291,6 +3292,7 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
       integrations: "Integrações",
       webhooks:     "Webhooks",
       files:        "Arquivos",
+      leads:        "Funil de Leads",
     };
     const b = clientBriefing;
     const briefingLines = b ? [
@@ -11275,6 +11277,13 @@ Regras:
             ══════════════════════════════════════════════════════ */}
             {activeTab === "webhooks" && (
               <WebhooksTab clientId={client.id} />
+            )}
+
+            {/* ══════════════════════════════════════════════════════
+                FUNIL DE LEADS
+            ══════════════════════════════════════════════════════ */}
+            {activeTab === "leads" && (
+              <LeadsKanbanTab clientId={client.id} clientColor={client.color} />
             )}
 
             {/* ══════════════════════════════════════════════════════

@@ -209,12 +209,12 @@ export default function ApostilaPage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] overflow-hidden" style={{ background: "#07080A" }}>
+    <div className="flex flex-col md:flex-row md:h-[calc(100vh-4rem)] overflow-auto md:overflow-hidden" style={{ background: "#07080A" }}>
 
       {/* ── Painel esquerdo — layout & metadados ────────────────────────── */}
       <div
-        className="flex flex-col border-r overflow-y-auto"
-        style={{ width: 320, minWidth: 280, borderColor: "#1E1E2E", background: "#0A0A10" }}
+        className="flex flex-col w-full md:w-[320px] md:min-w-[280px] flex-shrink-0 border-b md:border-b-0 md:border-r overflow-y-auto"
+        style={{ borderColor: "#1E1E2E", background: "#0A0A10" }}
       >
         {/* Header */}
         <div className="flex items-center gap-3 px-5 py-4 border-b flex-shrink-0" style={{ borderColor: "#1E1E2E" }}>
@@ -381,7 +381,7 @@ export default function ApostilaPage() {
       </div>
 
       {/* ── Painel direito — progresso e resultado ──────────────────────── */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden min-h-[400px] md:min-h-0">
         <AnimatePresence mode="wait">
 
           {/* Estado inicial */}

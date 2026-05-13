@@ -5,10 +5,27 @@ import { toast } from "sonner";
 
 const SUPABASE_URL = "https://proldgiyterqhthludlp.supabase.co";
 
+const PIPELINE_OPTIONS = [
+  { id: "",           label: "Nenhum (apenas CRM)" },
+  { id: "usineiros",  label: "Usineiros",  stages: [
+    { id: "prospeccao", name: "Prospecção" }, { id: "contato", name: "Contato inicial" },
+    { id: "visita", name: "Visita técnica" }, { id: "proposta", name: "Proposta" },
+    { id: "negociacao", name: "Negociação" }, { id: "contrato", name: "Contrato" },
+    { id: "onboarding", name: "Onboarding" },
+  ]},
+  { id: "associados", label: "Associados", stages: [
+    { id: "lead", name: "Lead captado" }, { id: "simulacao", name: "Simulação feita" },
+    { id: "cadastro", name: "Cadastro iniciado" }, { id: "documentacao", name: "Doc. pendente" },
+    { id: "analise", name: "Análise" }, { id: "ativo", name: "Ativo" },
+  ]},
+];
+
 interface Endpoint {
   id: string;
   name: string;
   course_name: string | null;
+  pipeline_id: string | null;
+  initial_stage_id: string | null;
   token: string;
   active: boolean;
   trigger_count: number;
@@ -30,6 +47,8 @@ export default function WebhooksTab({ clientId }: { clientId: string }) {
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [newCourse, setNewCourse] = useState("");
+  const [newPipelineId, setNewPipelineId] = useState("");
+  const [newStageId, setNewStageId] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [leads, setLeads] = useState<Record<string, Lead[]>>({});
@@ -66,10 +85,14 @@ export default function WebhooksTab({ clientId }: { clientId: string }) {
       client_id: clientId,
       name: newName.trim(),
       course_name: newCourse.trim() || null,
+      pipeline_id: newPipelineId || null,
+      initial_stage_id: newStageId || null,
     });
     if (!error) {
       setNewName("");
       setNewCourse("");
+      setNewPipelineId("");
+      setNewStageId("");
       setShowForm(false);
       load();
       toast.success("Webhook criado!");
@@ -166,6 +189,46 @@ export default function WebhooksTab({ clientId }: { clientId: string }) {
               />
             </div>
           </div>
+          {/* Pipeline routing */}
+          <div>
+            <label className="text-[11px] uppercase tracking-wider font-semibold mb-1.5 block" style={{ color: "rgba(255,255,255,0.4)" }}>
+              Funil de destino (opcional)
+            </label>
+            <div className="flex gap-2 flex-wrap">
+              {PIPELINE_OPTIONS.map(p => (
+                <button key={p.id} onClick={() => { setNewPipelineId(p.id); setNewStageId(""); }}
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
+                  style={newPipelineId === p.id
+                    ? { background: `${accent}20`, color: accent, border: `1px solid ${accent}40` }
+                    : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  {p.label}
+                </button>
+              ))}
+            </div>
+            {newPipelineId && (() => {
+              const pipeline = PIPELINE_OPTIONS.find(p => p.id === newPipelineId);
+              if (!pipeline || !("stages" in pipeline)) return null;
+              return (
+                <div className="mt-2">
+                  <label className="text-[10px] uppercase tracking-wider font-semibold mb-1.5 block" style={{ color: "rgba(255,255,255,0.3)" }}>
+                    Etapa inicial
+                  </label>
+                  <div className="flex gap-2 flex-wrap">
+                    {pipeline.stages.map(s => (
+                      <button key={s.id} onClick={() => setNewStageId(s.id)}
+                        className="px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all"
+                        style={newStageId === s.id
+                          ? { background: "rgba(100,116,139,0.3)", color: "#94A3B8", border: "1px solid rgba(100,116,139,0.5)" }
+                          : { background: "rgba(255,255,255,0.03)", color: "rgba(255,255,255,0.3)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                        {s.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+
           <div className="flex gap-3">
             <button onClick={() => setShowForm(false)}
               className="flex-1 py-2.5 rounded-xl text-sm font-medium"

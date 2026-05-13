@@ -247,6 +247,7 @@ const ImportExportPage = () => {
               <h3 className="text-sm font-semibold text-foreground">Mapeamento de colunas</h3>
               <p className="text-xs text-muted-foreground">Associe as colunas do seu arquivo aos campos do OmniCRM</p>
               <div className="rounded-xl border border-border bg-card overflow-hidden">
+                <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border bg-muted/30">
@@ -280,6 +281,7 @@ const ImportExportPage = () => {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             </motion.div>
           )}

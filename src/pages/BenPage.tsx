@@ -155,12 +155,12 @@ export default function BenPage() {
     : "";
 
   return (
-    <div className="flex h-[calc(100vh-4rem)] overflow-hidden" style={{ background: "#07080A" }}>
+    <div className="flex flex-col md:flex-row md:h-[calc(100vh-4rem)] overflow-auto md:overflow-hidden" style={{ background: "#07080A" }}>
 
       {/* ── Painel esquerdo — inputs ───────────────────────────── */}
       <div
-        className="flex flex-col border-r"
-        style={{ width: 340, minWidth: 300, borderColor: "#1E1E2E", background: "#0A0A10" }}
+        className="flex flex-col w-full md:w-[340px] md:min-w-[300px] flex-shrink-0 border-b md:border-b-0 md:border-r overflow-y-auto"
+        style={{ borderColor: "#1E1E2E", background: "#0A0A10" }}
       >
         {/* Header */}
         <div className="flex items-center gap-3 px-5 py-4 border-b" style={{ borderColor: "#1E1E2E" }}>
@@ -303,7 +303,7 @@ export default function BenPage() {
       </div>
 
       {/* ── Painel direito — resultado ──────────────────────────── */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col overflow-hidden min-h-[400px] md:min-h-0">
 
         {/* Barra de progresso / abas */}
         <div

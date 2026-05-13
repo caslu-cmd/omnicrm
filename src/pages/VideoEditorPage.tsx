@@ -754,9 +754,9 @@ export default function VideoEditorPage() {
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-col md:flex-row flex-1 overflow-auto md:overflow-hidden">
         {/* ── LEFT: Video + Timeline ─────────────────────────────────────── */}
-        <div className="w-[58%] flex flex-col gap-3 p-5 border-r border-[#111]">
+        <div className="w-full md:w-[58%] flex flex-col gap-3 p-5 border-b md:border-b-0 md:border-r border-[#111]">
           {videoUrl && (
             <video
               key={videoUrl}
@@ -817,7 +817,7 @@ export default function VideoEditorPage() {
         </div>
 
         {/* ── RIGHT: Tabs ────────────────────────────────────────────────── */}
-        <div className="w-[42%] flex flex-col overflow-hidden">
+        <div className="w-full md:w-[42%] flex flex-col overflow-hidden min-h-[400px] md:min-h-0">
           {/* Tab bar */}
           <div className="border-b border-[#111] p-2 flex gap-1">
             <TabBtn id="bobby" label="Bobby" icon={<Sparkles />} active={activeTab === "bobby"} onClick={openBobbyTab} />

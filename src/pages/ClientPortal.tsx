@@ -542,7 +542,7 @@ export default function ClientPortal() {
             </div>
 
             {/* Grid de campos */}
-            <div className="p-4 grid grid-cols-2 gap-2.5">
+            <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {([
                 { key: "brand_name",       label: "Nome da marca",       value: briefing?.brand_name,                            full: false },
                 { key: "segment",          label: "Segmento / nicho",     value: briefing?.segment,                               full: false },
@@ -1055,7 +1055,7 @@ export default function ClientPortal() {
                               )}
 
                               {/* Abas de fase */}
-                              <div className="grid grid-cols-4 gap-1">
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-1">
                                 {PORTAL_PHASES.map(ph => {
                                   const phItems = allItems.filter((i: any) => i.phase === ph);
                                   const phDone = phItems.filter((i: any) => i.status === "completed").length;
@@ -1177,12 +1177,12 @@ export default function ClientPortal() {
               </div>
             </div>
 
-            <div className="grid grid-cols-3 gap-0">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-0">
               {PORTAL_TEAM.slice(1).map((member, i) => (
                 <div key={member.id} className="p-4"
                   style={{
-                    borderBottom: i < PORTAL_TEAM.length - 4 ? "1px solid rgba(0,0,0,0.05)" : "none",
-                    borderRight: (i % 3 !== 2) ? "1px solid rgba(0,0,0,0.05)" : "none",
+                    borderBottom: "1px solid rgba(0,0,0,0.05)",
+                    borderRight: "1px solid rgba(0,0,0,0.05)",
                   }}>
                   <div className="flex items-center gap-2.5 mb-2">
                     <div className="w-8 h-8 rounded-xl flex items-center justify-center text-[10px] font-bold flex-shrink-0"

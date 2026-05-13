@@ -106,6 +106,7 @@ const PaymentsPage = () => {
             <h3 className="text-sm font-semibold text-foreground">Minhas Faturas</h3>
             <button onClick={() => toast.success("Exportando faturas...")} className="flex items-center gap-1 text-xs text-primary font-medium hover:underline"><Download className="h-3 w-3" /> Exportar</button>
           </div>
+          <div className="overflow-x-auto">
           <table className="w-full">
             <thead><tr className="border-b border-border">
               <th className="text-left text-xs font-semibold text-muted-foreground uppercase px-5 py-3">Descrição</th>
@@ -128,6 +129,7 @@ const PaymentsPage = () => {
               ))}
             </tbody>
           </table>
+          </div>
         </motion.div>
       )}
 

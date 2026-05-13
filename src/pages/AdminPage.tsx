@@ -204,7 +204,7 @@ const AdminPage = () => {
           {/* ===== DASHBOARD OVERVIEW ===== */}
           {tab === "overview" && (
             <motion.div variants={item} className="space-y-6">
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
                 {[
                   { label: "Clientes White-Label", value: totalClients, icon: Palette, color: "text-primary", sub: "total cadastrados" },
                   { label: "Domínios Ativos", value: activeClients, icon: Globe, color: "text-secondary", sub: "com domínio customizado" },
@@ -231,7 +231,7 @@ const AdminPage = () => {
                     <p className="text-xs text-muted-foreground">Estimativa baseada nos clientes ativos</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
                   <div className="text-center">
                     <p className="text-2xl font-bold text-foreground">R$ {(totalClients * 297).toLocaleString("pt-BR")}</p>
                     <p className="text-xs text-muted-foreground">MRR Estimado</p>
@@ -391,6 +391,7 @@ const AdminPage = () => {
                 </button>
               </div>
               <div className="rounded-xl border border-border bg-card shadow-card overflow-hidden">
+                <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b border-border bg-muted/30">
@@ -422,6 +423,7 @@ const AdminPage = () => {
                     })}
                   </tbody>
                 </table>
+                </div>
               </div>
             </motion.div>
           )}
@@ -629,7 +631,7 @@ const AdminPage = () => {
                     <p className="text-xs text-muted-foreground">Resumo financeiro dos clientes white-label</p>
                   </div>
                 </div>
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                   {[
                     { label: "Clientes Ativos", value: String(totalClients) },
                     { label: "MRR", value: `R$ ${(totalClients * 297).toLocaleString("pt-BR")}` },
