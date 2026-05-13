@@ -1,14 +1,18 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import {
   Send, Mail, MessageSquare, Plus, Search, Filter, BarChart3,
   Eye, MousePointer, Clock, CheckCircle2, XCircle, Users,
-  ChevronDown, Pencil, Copy, Trash2, MoreVertical, TrendingUp
+  ChevronDown, Pencil, Copy, Trash2, MoreVertical, TrendingUp,
+  Upload, Loader2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { AIInputField } from "@/components/AIInputField";
 import { AITextareaField } from "@/components/AITextareaField";
+import { supabase } from "@/integrations/supabase/client";
+
+const SUPABASE_URL = "https://proldgiyterqhthludlp.supabase.co";
 
 interface Campaign {
   id: number; name: string; channel: "email" | "whatsapp"; status: "sent" | "scheduled" | "draft"; audience: number; delivered: number; opened: number; clicked: number; replied: number; sentAt: string;
@@ -41,6 +45,73 @@ const CampaignsPage = () => {
   const [campaignSubject, setCampaignSubject] = useState("");
   const [campaignContent, setCampaignContent] = useState("");
   const [scheduleMode, setScheduleMode] = useState<"now" | "later">("now");
+  const [importing, setImporting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!fileInputRef.current) return;
+    fileInputRef.current.value = "";
+    if (!file) return;
+
+    setImporting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? "";
+
+      let filesPayload: { name: string; base64: string; media_type: string }[] = [];
+      let textContent = "";
+
+      if (/\.(txt|csv|md)$/i.test(file.name)) {
+        textContent = await new Promise<string>((res) => {
+          const fr = new FileReader();
+          fr.onload = () => res(fr.result as string);
+          fr.readAsText(file, "utf-8");
+        });
+        textContent = `[${file.name}]\n${textContent}`;
+      } else {
+        const buf = await file.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let binary = "";
+        for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+        const b64 = btoa(binary);
+        const media = file.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : "application/octet-stream";
+        filesPayload.push({ name: file.name, base64: b64, media_type: media });
+      }
+
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/extract-campaigns`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ files: filesPayload, text_content: textContent }),
+      });
+      const result = await resp.json();
+      if (!resp.ok) throw new Error(result.error || `Erro ${resp.status}`);
+
+      const extracted: Campaign[] = (result.campaigns ?? []).map((c: Partial<Campaign> & Record<string, unknown>, i: number) => ({
+        id: Date.now() + i,
+        name: String(c.name ?? "Campanha importada"),
+        channel: (c.channel === "whatsapp" ? "whatsapp" : "email") as "email" | "whatsapp",
+        status: (["sent", "scheduled", "draft"].includes(c.status as string) ? c.status : "draft") as Campaign["status"],
+        audience: Number(c.audience) || 0,
+        delivered: Number(c.delivered) || 0,
+        opened: Number(c.opened) || 0,
+        clicked: Number(c.clicked) || 0,
+        replied: Number(c.replied) || 0,
+        sentAt: String(c.sentAt ?? "—"),
+      }));
+
+      if (extracted.length === 0) {
+        toast.warning("Nenhuma campanha encontrada no arquivo.");
+      } else {
+        setCampaigns(prev => [...extracted, ...prev]);
+        toast.success(`${extracted.length} campanha${extracted.length > 1 ? "s" : ""} importada${extracted.length > 1 ? "s" : ""}!`);
+      }
+    } catch (err: unknown) {
+      toast.error((err as Error).message || "Erro ao importar campanhas");
+    } finally {
+      setImporting(false);
+    }
+  };
 
   const filtered = campaigns.filter(c => c.name.toLowerCase().includes(searchCamp.toLowerCase()));
   const totalSent = campaigns.filter(c => c.status === "sent").reduce((a, b) => a + b.delivered, 0);
@@ -67,7 +138,18 @@ const CampaignsPage = () => {
     <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6 min-w-0 break-words">
       <motion.div variants={item} className="flex items-start justify-between gap-3 flex-wrap">
         <div className="min-w-0"><h1 className="text-xl md:text-2xl font-bold font-display text-foreground">Campanhas</h1><p className="text-xs md:text-sm text-muted-foreground mt-1 break-words">{campaigns.length} campanhas · {avgOpenRate}% abertura média</p></div>
-        <button onClick={() => setTab("compose")} className="flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors shrink-0"><Plus className="h-4 w-4" /> <span className="hidden sm:inline">Nova Campanha</span><span className="sm:hidden">Nova</span></button>
+        <div className="flex items-center gap-2 shrink-0">
+          <input ref={fileInputRef} type="file" accept=".csv,.txt,.pdf,.md,.xlsx,.xls" className="hidden" onChange={handleImportFile} />
+          <button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importing}
+            className="flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 rounded-lg border border-border bg-card text-sm font-medium text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors disabled:opacity-60"
+          >
+            {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+            <span className="hidden sm:inline">{importing ? "Extraindo..." : "Importar arquivo"}</span>
+          </button>
+          <button onClick={() => setTab("compose")} className="flex items-center gap-2 px-3 md:px-4 py-2 md:py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"><Plus className="h-4 w-4" /> <span className="hidden sm:inline">Nova Campanha</span><span className="sm:hidden">Nova</span></button>
+        </div>
       </motion.div>
 
       <motion.div variants={item} className="grid grid-cols-1 sm:grid-cols-4 gap-4">
