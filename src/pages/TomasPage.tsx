@@ -95,6 +95,32 @@ function detectSectionIcon(_el: Element, idx: number, total: number, name: strin
   return map[name] ?? "📌";
 }
 
+function applyChanges(html: string, changes: { selector?: string; insertAfter?: string; outerHTML: string }[]): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  for (const change of changes) {
+    try {
+      if (change.insertAfter) {
+        const anchor = doc.querySelector(change.insertAfter);
+        if (anchor) {
+          const tmp = doc.createElement("div");
+          tmp.innerHTML = change.outerHTML;
+          const newEl = tmp.firstElementChild;
+          if (newEl) anchor.after(newEl);
+        }
+      } else if (change.selector) {
+        const el = doc.querySelector(change.selector);
+        if (el) {
+          const tmp = doc.createElement("div");
+          tmp.innerHTML = change.outerHTML;
+          const newEl = tmp.firstElementChild;
+          if (newEl) el.replaceWith(newEl);
+        }
+      }
+    } catch { /* ignora erros individuais */ }
+  }
+  return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
+}
+
 function parseLPIntoSections(html: string): { markedHtml: string; sections: ParsedSection[] } {
   const doc = new DOMParser().parseFromString(html, "text/html");
   let sectionEls: Element[] = [];
@@ -535,7 +561,15 @@ export default function TomasPage() {
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || `Erro ${resp.status}`);
 
-      const newHtml = data.new_html as string;
+      // Suporta resposta cirúrgica (changes[]) ou fallback (new_html completo)
+      let newHtml: string;
+      if (data.changes && Array.isArray(data.changes)) {
+        newHtml = applyChanges(currentHtml, data.changes);
+      } else if (data.new_html) {
+        newHtml = data.new_html as string;
+      } else {
+        throw new Error("Resposta inválida do Tomás");
+      }
       setHtmlEditado(newHtml);
 
       if (editorMode) {
@@ -1264,44 +1298,6 @@ form.addEventListener('submit',function(e){
 
             {/* Botões inferiores */}
             <div className="px-5 pb-5 flex flex-col gap-2" style={{ background: "#0A0A10" }}>
-              {/* Comando ao Tomás (após geração) */}
-              {(resultado || parcial.html) && !gerandoAtivo && (
-                <div className="flex flex-col gap-1.5 pt-1">
-                  <p className="text-[10px] uppercase tracking-widest font-semibold flex items-center gap-1" style={{ color: "#444466" }}>
-                    <span>🖥️</span> Comando ao Tomás
-                  </p>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={tomasCmd}
-                      onChange={e => setTomasCmd(e.target.value)}
-                      onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); runTomasCommand(); } }}
-                      disabled={tomasCmdLoading}
-                      placeholder='Ex: "Muda as cores para azul"'
-                      className="flex-1 rounded-xl px-3 py-2 text-xs outline-none"
-                      style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0", fontFamily: "inherit" }}
-                      onFocus={e => e.currentTarget.style.borderColor = "#B9FF4B44"}
-                      onBlur={e => e.currentTarget.style.borderColor = "#2A2A3A"}
-                    />
-                    <button
-                      onClick={runTomasCommand}
-                      disabled={!tomasCmd.trim() || tomasCmdLoading}
-                      className="flex items-center justify-center rounded-xl flex-shrink-0 transition-all"
-                      style={{
-                        width: 36, height: 36,
-                        background: tomasCmd.trim() && !tomasCmdLoading ? "#B9FF4B" : "#1E1E2E",
-                        color: tomasCmd.trim() && !tomasCmdLoading ? "#07080A" : "#444466",
-                        cursor: tomasCmd.trim() && !tomasCmdLoading ? "pointer" : "not-allowed",
-                      }}
-                    >
-                      {tomasCmdLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                    </button>
-                  </div>
-                  {tomasCmdLoading && (
-                    <p className="text-[10px]" style={{ color: "#B9FF4B", opacity: 0.7 }}>Tomás está aplicando o comando...</p>
-                  )}
-                </div>
-              )}
               {/* Editor Visual button (after generation) */}
               {(resultado || parcial.html) && !gerandoAtivo && (
                 <button onClick={activateEditor}
@@ -1671,6 +1667,38 @@ form.addEventListener('submit',function(e){
 
           </AnimatePresence>
         </div>
+
+        {/* ── Barra de comando ao Tomás ── */}
+        {temAlgumConteudo && !gerandoAtivo && (
+          <div className="flex-shrink-0 px-4 py-2.5 border-t flex items-center gap-3"
+            style={{ borderColor: "#1E1E2E", background: "#0A0A10" }}>
+            <span className="text-[11px] font-bold flex-shrink-0" style={{ color: "#B9FF4B", opacity: 0.85 }}>🖥️ Tomás</span>
+            <input
+              type="text"
+              value={tomasCmd}
+              onChange={e => setTomasCmd(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); runTomasCommand(); } }}
+              disabled={tomasCmdLoading}
+              placeholder={tomasCmdLoading ? "Tomás está aplicando..." : "Peça uma alteração — ex: adiciona FAQ, muda cores para azul, deixa mais urgente..."}
+              className="flex-1 rounded-xl px-3 py-2 text-xs outline-none"
+              style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0", fontFamily: "inherit" }}
+              onFocus={e => e.currentTarget.style.borderColor = "#B9FF4B44"}
+              onBlur={e => e.currentTarget.style.borderColor = "#2A2A3A"}
+            />
+            <button
+              onClick={runTomasCommand}
+              disabled={!tomasCmd.trim() || tomasCmdLoading}
+              className="flex items-center justify-center rounded-xl flex-shrink-0 transition-all"
+              style={{
+                width: 34, height: 34,
+                background: tomasCmd.trim() && !tomasCmdLoading ? "#B9FF4B" : "#1E1E2E",
+                color: tomasCmd.trim() && !tomasCmdLoading ? "#07080A" : "#444466",
+                cursor: tomasCmd.trim() && !tomasCmdLoading ? "pointer" : "not-allowed",
+              }}>
+              {tomasCmdLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

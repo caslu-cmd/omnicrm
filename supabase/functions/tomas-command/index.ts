@@ -15,22 +15,31 @@ serve(async (req) => {
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!apiKey) throw new Error("ANTHROPIC_API_KEY não configurada");
 
-    const prompt = `Você é o Tomás, especialista em landing pages de alta conversão da Calu Agência.
+    const prompt = `Você é o Tomás, especialista em landing pages da Calu Agência.
 
-CONTEXTO DA LANDING PAGE:
+CONTEXTO:
 ${lp_context || "Landing page comercial em português brasileiro"}
 
-INSTRUÇÃO DO USUÁRIO:
+COMANDO:
 ${command}
 
-HTML ATUAL DA LANDING PAGE:
+HTML ATUAL:
 ${html}
 
-Aplique a instrução acima na landing page e retorne o HTML COMPLETO atualizado.
+Identifique quais seções/elementos precisam mudar para executar o comando.
+Retorne SOMENTE um JSON array (sem markdown, sem explicação):
+[
+  { "selector": "section#beneficios", "outerHTML": "<section id=\\"beneficios\\">...HTML completo da seção...</section>" }
+]
+
+Seletores válidos: "nav", "header#hero", "section#beneficios", "section#depoimentos", "section#sobre", "section#oferta", "section#contato", "footer", "head style"
+Para inserir nova seção: { "insertAfter": "section#oferta", "outerHTML": "...nova seção completa..." }
+Para mudanças globais de cor ou tipografia: use "head style" com o <style> inteiro atualizado.
+
 Regras:
-- Mantenha toda a estrutura, estilos e seções existentes — modifique apenas o necessário para cumprir a instrução
-- Mantenha Tailwind CSS via CDN, Google Fonts e todo o JavaScript inline
-- Retorne APENAS o código HTML completo, sem explicações e sem blocos de código markdown
+- Inclua APENAS os elementos que realmente mudam
+- outerHTML deve ser HTML completo e válido do elemento
+- Preserve o mesmo CSS, variáveis CSS e classes Tailwind
 - Mantenha o português brasileiro`;
 
     const r = await fetch("https://api.anthropic.com/v1/messages", {
@@ -47,24 +56,35 @@ Regras:
       }),
     });
 
-    if (!r.ok) {
-      const errText = await r.text();
-      throw new Error(`Claude ${r.status}: ${errText}`);
-    }
+    if (!r.ok) throw new Error(`Claude ${r.status}: ${await r.text()}`);
 
     const data = await r.json();
-    let new_html = (data.content?.[0]?.text ?? "").trim();
+    let raw = (data.content?.[0]?.text ?? "").trim();
 
     // Remove markdown code fences se presentes
-    if (new_html.startsWith("```")) {
-      const lines = new_html.split("\n");
-      new_html = lines.slice(1).join("\n");
-      if (new_html.endsWith("```")) new_html = new_html.slice(0, -3).trimEnd();
+    if (raw.startsWith("```")) {
+      raw = raw.split("\n").slice(1).join("\n");
+      if (raw.endsWith("```")) raw = raw.slice(0, -3).trimEnd();
     }
 
-    return new Response(JSON.stringify({ new_html }), {
-      headers: { ...cors, "Content-Type": "application/json" },
-    });
+    // Tenta parsear como JSON de changes
+    try {
+      const changes = JSON.parse(raw);
+      if (Array.isArray(changes)) {
+        return new Response(JSON.stringify({ changes }), {
+          headers: { ...cors, "Content-Type": "application/json" },
+        });
+      }
+    } catch { /* continua pro fallback */ }
+
+    // Fallback: modelo retornou HTML completo
+    if (raw.includes("<!DOCTYPE") || raw.includes("<html")) {
+      return new Response(JSON.stringify({ new_html: raw }), {
+        headers: { ...cors, "Content-Type": "application/json" },
+      });
+    }
+
+    throw new Error("Resposta inválida do modelo — tente novamente");
   } catch (e: any) {
     return new Response(JSON.stringify({ error: e.message ?? "Erro desconhecido" }), {
       status: 500,
