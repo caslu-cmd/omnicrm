@@ -810,7 +810,37 @@ export default function ClientWorkspace() {
   const [shareCopiedWithPwd, setShareCopiedWithPwd] = useState(false);
   const [openingShare, setOpeningShare] = useState(false);
   const [tasks, setTasks] = useState(MOCK_TASKS_TEMPLATE);
-  const [crmView, setCrmView] = useState<"contacts" | "pipeline" | "approvals" | "insights" | "whatsapp" | "deliverables" | "calendar">("contacts");
+  const [crmView, setCrmView] = useState<"contacts" | "pipeline" | "approvals" | "insights" | "whatsapp" | "deliverables" | "campaigns">("contacts");
+
+  type PipelineCampaign = {
+    enabled: boolean;
+    whatsapp: { active: boolean; message: string };
+    email: { active: boolean; subject: string; body: string };
+  };
+  const defaultCampaign = (): PipelineCampaign => ({
+    enabled: false,
+    whatsapp: { active: true, message: "" },
+    email: { active: false, subject: "", body: "" },
+  });
+  const [pipelineCampaigns, setPipelineCampaigns] = useState<Record<string, PipelineCampaign>>(() => {
+    try { const raw = localStorage.getItem(`pipeline-campaigns-${id}`); return raw ? JSON.parse(raw) : {}; } catch { return {}; }
+  });
+  const [editingCampaignStage, setEditingCampaignStage] = useState<string | null>(null);
+  const updatePipelineCampaign = (stageId: string, patch: Partial<PipelineCampaign>) => {
+    setPipelineCampaigns((prev) => {
+      const updated = { ...prev, [stageId]: { ...(prev[stageId] ?? defaultCampaign()), ...patch } };
+      localStorage.setItem(`pipeline-campaigns-${id}`, JSON.stringify(updated));
+      return updated;
+    });
+  };
+  const updateCampaignChannel = (stageId: string, channel: "whatsapp" | "email", patch: object) => {
+    setPipelineCampaigns((prev) => {
+      const cur = prev[stageId] ?? defaultCampaign();
+      const updated = { ...prev, [stageId]: { ...cur, [channel]: { ...cur[channel], ...patch } } };
+      localStorage.setItem(`pipeline-campaigns-${id}`, JSON.stringify(updated));
+      return updated;
+    });
+  };
   const [deliverables, setDeliverables] = useState<any[]>([]);
   const [delivLoading, setDelivLoading] = useState(false);
   const [delivForm, setDelivForm] = useState({ title: "", category: "", description: "", done_at: new Date().toISOString().slice(0, 10), visible_to_client: true, status: "completed" as "completed" | "in_progress" });
@@ -4680,7 +4710,7 @@ Regras:
                   {([
                     ["contacts",     "Leads"],
                     ["pipeline",     "Pipeline"],
-                    ["calendar",     "🗓️ Calendário"],
+                    ["campaigns",    "⚡ Campanhas"],
                     ["approvals",    `Aprovações${(pendingPosts.length + agentProposals.length) > 0 ? ` (${pendingPosts.length + agentProposals.length})` : ""}`],
                     ["deliverables", "Entregas"],
                     ["insights",     "Insights IA"],
@@ -4933,14 +4963,184 @@ Regras:
                   </div>
                 )}
 
-                {/* ── APROVAÇÕES ── */}
-                {crmView === "calendar" && id && (
-                  <EditorialCalendarPanel
-                    clientId={id}
-                    clientName={client.name}
-                    clientSegment={(client as any).segment}
-                    accentColor={client.color}
-                  />
+                {/* ── CAMPANHAS AUTOMÁTICAS POR ESTÁGIO ── */}
+                {crmView === "campaigns" && (
+                  <div className="space-y-4">
+                    <div>
+                      <h3 className="text-sm font-semibold" style={{ color: "#F0F0F0" }}>Campanhas automáticas por estágio</h3>
+                      <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>
+                        Configure mensagens de WhatsApp e e-mail que disparam automaticamente quando um lead avança no pipeline.
+                      </p>
+                    </div>
+
+                    <div className="space-y-3">
+                      {PIPELINE_STAGES.map((stage) => {
+                        const campaign = pipelineCampaigns[stage.id] ?? defaultCampaign();
+                        const isEditing = editingCampaignStage === stage.id;
+                        const activeChannels = [campaign.whatsapp.active && campaign.whatsapp.message, campaign.email.active && campaign.email.subject].filter(Boolean).length;
+
+                        return (
+                          <div key={stage.id} className="rounded-2xl overflow-hidden transition-all"
+                            style={{ border: `1px solid ${campaign.enabled ? `${stage.color}35` : "rgba(255,255,255,0.07)"}`, background: campaign.enabled ? `${stage.color}06` : "rgba(255,255,255,0.02)" }}>
+
+                            {/* Header do estágio */}
+                            <div className="flex items-center gap-3 px-4 py-3">
+                              <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: stage.color }} />
+                              <span className="text-sm font-semibold flex-1" style={{ color: "rgba(255,255,255,0.85)" }}>{stage.label}</span>
+
+                              {/* badges canais ativos */}
+                              {campaign.enabled && activeChannels > 0 && (
+                                <div className="flex gap-1.5">
+                                  {campaign.whatsapp.active && campaign.whatsapp.message && (
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: "rgba(37,211,102,0.15)", color: "#25D366" }}>WhatsApp</span>
+                                  )}
+                                  {campaign.email.active && campaign.email.subject && (
+                                    <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: "rgba(96,165,250,0.15)", color: "#60A5FA" }}>E-mail</span>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Toggle ativar campanha */}
+                              <button onClick={() => updatePipelineCampaign(stage.id, { enabled: !campaign.enabled })}
+                                className="w-9 h-5 rounded-full transition-all relative flex-shrink-0"
+                                style={{ background: campaign.enabled ? stage.color : "rgba(255,255,255,0.1)" }}>
+                                <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all" style={{ left: campaign.enabled ? "18px" : "2px" }} />
+                              </button>
+
+                              {/* Expandir */}
+                              <button onClick={() => setEditingCampaignStage(isEditing ? null : stage.id)}
+                                className="w-7 h-7 rounded-lg flex items-center justify-center transition-all"
+                                style={{ background: isEditing ? `${stage.color}20` : "rgba(255,255,255,0.05)", color: isEditing ? stage.color : "rgba(255,255,255,0.3)" }}>
+                                <svg className="w-3.5 h-3.5 transition-transform" style={{ transform: isEditing ? "rotate(180deg)" : "rotate(0)" }} viewBox="0 0 12 12" fill="none">
+                                  <path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                              </button>
+                            </div>
+
+                            {/* Editor expandido */}
+                            {isEditing && (
+                              <div className="px-4 pb-4 space-y-4" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                                <p className="text-[11px] pt-3" style={{ color: "rgba(255,255,255,0.3)" }}>
+                                  Variáveis disponíveis: <code className="px-1 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.06)", color: stage.color }}>{`{{nome}}`}</code> <code className="px-1 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.06)", color: stage.color }}>{`{{empresa}}`}</code> <code className="px-1 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.06)", color: stage.color }}>{`{{valor}}`}</code> <code className="px-1 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.06)", color: stage.color }}>{`{{etapa}}`}</code>
+                                </p>
+
+                                {/* ── WhatsApp ── */}
+                                <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(37,211,102,0.2)", background: "rgba(37,211,102,0.03)" }}>
+                                  <div className="flex items-center justify-between px-3 py-2.5" style={{ borderBottom: "1px solid rgba(37,211,102,0.1)" }}>
+                                    <div className="flex items-center gap-2">
+                                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" /></svg>
+                                      <span className="text-xs font-semibold" style={{ color: "#25D366" }}>WhatsApp</span>
+                                    </div>
+                                    <button onClick={() => updateCampaignChannel(stage.id, "whatsapp", { active: !campaign.whatsapp.active })}
+                                      className="w-8 h-4 rounded-full transition-all relative"
+                                      style={{ background: campaign.whatsapp.active ? "#25D366" : "rgba(255,255,255,0.1)" }}>
+                                      <span className="absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all" style={{ left: campaign.whatsapp.active ? "17px" : "2px" }} />
+                                    </button>
+                                  </div>
+                                  <div className="p-3">
+                                    <textarea
+                                      value={campaign.whatsapp.message}
+                                      onChange={(e) => updateCampaignChannel(stage.id, "whatsapp", { message: e.target.value })}
+                                      rows={4}
+                                      placeholder={`Olá {{nome}}! 👋 Passando para avisar que sua proposta avançou para a etapa de ${stage.label}. Qualquer dúvida, estou à disposição!`}
+                                      className="w-full rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none"
+                                      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(37,211,102,0.15)", color: "rgba(255,255,255,0.8)" }}
+                                      onFocus={(e) => (e.target.style.borderColor = "rgba(37,211,102,0.4)")}
+                                      onBlur={(e) => (e.target.style.borderColor = "rgba(37,211,102,0.15)")}
+                                    />
+                                    <p className="text-[10px] mt-1 text-right" style={{ color: "rgba(255,255,255,0.2)" }}>{campaign.whatsapp.message.length} chars</p>
+                                  </div>
+                                </div>
+
+                                {/* ── E-mail ── */}
+                                <div className="rounded-xl overflow-hidden" style={{ border: "1px solid rgba(96,165,250,0.2)", background: "rgba(96,165,250,0.03)" }}>
+                                  <div className="flex items-center justify-between px-3 py-2.5" style={{ borderBottom: "1px solid rgba(96,165,250,0.1)" }}>
+                                    <div className="flex items-center gap-2">
+                                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" style={{ color: "#60A5FA" }}><path d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                      <span className="text-xs font-semibold" style={{ color: "#60A5FA" }}>E-mail</span>
+                                    </div>
+                                    <button onClick={() => updateCampaignChannel(stage.id, "email", { active: !campaign.email.active })}
+                                      className="w-8 h-4 rounded-full transition-all relative"
+                                      style={{ background: campaign.email.active ? "#60A5FA" : "rgba(255,255,255,0.1)" }}>
+                                      <span className="absolute top-0.5 w-3 h-3 rounded-full bg-white transition-all" style={{ left: campaign.email.active ? "17px" : "2px" }} />
+                                    </button>
+                                  </div>
+                                  <div className="p-3 space-y-2.5">
+                                    <div>
+                                      <label className="text-[10px] uppercase tracking-wider font-semibold block mb-1" style={{ color: "rgba(255,255,255,0.3)" }}>Assunto</label>
+                                      <input
+                                        type="text"
+                                        value={campaign.email.subject}
+                                        onChange={(e) => updateCampaignChannel(stage.id, "email", { subject: e.target.value })}
+                                        placeholder={`Sua proposta avançou — ${stage.label} 🎉`}
+                                        className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none"
+                                        style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(96,165,250,0.15)", color: "rgba(255,255,255,0.8)" }}
+                                        onFocus={(e) => (e.target.style.borderColor = "rgba(96,165,250,0.4)")}
+                                        onBlur={(e) => (e.target.style.borderColor = "rgba(96,165,250,0.15)")}
+                                      />
+                                    </div>
+                                    <div>
+                                      <label className="text-[10px] uppercase tracking-wider font-semibold block mb-1" style={{ color: "rgba(255,255,255,0.3)" }}>Corpo do e-mail</label>
+                                      <textarea
+                                        value={campaign.email.body}
+                                        onChange={(e) => updateCampaignChannel(stage.id, "email", { body: e.target.value })}
+                                        rows={5}
+                                        placeholder={`Olá {{nome}},\n\nInformamos que sua proposta com a {{empresa}} avançou para a etapa de ${stage.label}.\n\nQualquer dúvida, estamos à disposição!\n\nAtenciosamente,\n${client.name}`}
+                                        className="w-full rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none"
+                                        style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(96,165,250,0.15)", color: "rgba(255,255,255,0.8)" }}
+                                        onFocus={(e) => (e.target.style.borderColor = "rgba(96,165,250,0.4)")}
+                                        onBlur={(e) => (e.target.style.borderColor = "rgba(96,165,250,0.15)")}
+                                      />
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Disparo manual */}
+                                <div className="flex items-center gap-3 pt-1">
+                                  <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
+                                  <button
+                                    onClick={() => {
+                                      const leadsNaEtapa = client.pipeline.filter(d => d.stage === stage.id);
+                                      if (!leadsNaEtapa.length) { toast.info(`Nenhum lead em ${stage.label} no momento.`); return; }
+                                      toast.success(`Campanha disparada para ${leadsNaEtapa.length} lead${leadsNaEtapa.length !== 1 ? "s" : ""} em ${stage.label}!`);
+                                    }}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-semibold transition-all"
+                                    style={{ background: `${stage.color}15`, color: stage.color, border: `1px solid ${stage.color}30` }}>
+                                    <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                                    Disparar agora para leads em {stage.label}
+                                  </button>
+                                  <div className="flex-1 h-px" style={{ background: "rgba(255,255,255,0.06)" }} />
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Resumo */}
+                    <div className="rounded-2xl p-4" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                      <p className="text-[11px] font-semibold mb-2" style={{ color: "rgba(255,255,255,0.4)" }}>Resumo de automações ativas</p>
+                      <div className="flex flex-wrap gap-2">
+                        {PIPELINE_STAGES.map((stage) => {
+                          const c = pipelineCampaigns[stage.id];
+                          if (!c?.enabled) return null;
+                          const channels = [c.whatsapp.active && c.whatsapp.message && "WhatsApp", c.email.active && c.email.subject && "E-mail"].filter(Boolean);
+                          if (!channels.length) return null;
+                          return (
+                            <span key={stage.id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-medium"
+                              style={{ background: `${stage.color}12`, border: `1px solid ${stage.color}25`, color: stage.color }}>
+                              <span className="w-1.5 h-1.5 rounded-full" style={{ background: stage.color }} />
+                              {stage.label}: {channels.join(" + ")}
+                            </span>
+                          );
+                        })}
+                        {!PIPELINE_STAGES.some(s => pipelineCampaigns[s.id]?.enabled) && (
+                          <p className="text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>Nenhuma campanha ativa ainda. Ative o toggle em cada estágio.</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
                 )}
 
                 {crmView === "approvals" && (
