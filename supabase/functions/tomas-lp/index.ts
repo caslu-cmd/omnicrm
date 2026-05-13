@@ -241,7 +241,7 @@ serve(async (req) => {
             },
             body: JSON.stringify({
               model: "claude-sonnet-4-6",
-              max_tokens: 16000,
+              max_tokens: 12000,
               stream: true,
               system: TOMAS_SYSTEM,
               messages: [{ role: "user", content: [{ type: "text", text: `Copy da Beatriz:\n${copy}\n\nEspecificação visual do Designer:\n${design}\n\nCrie o HTML completo da landing page agora.` }] }],
@@ -250,11 +250,13 @@ serve(async (req) => {
 
           if (!tomasResp.ok) throw new Error(`Claude Tomás ${tomasResp.status}: ${await tomasResp.text()}`);
 
-          // Lê o stream internamente (mantém a função viva) sem enviar chunks ao frontend
+          // Lê o stream e envia chunks parciais ao frontend para preview progressivo
           const tomasReader = tomasResp.body!.getReader();
           const dec = new TextDecoder();
           let htmlFull = "";
           let sseBuffer = "";
+          let lastChunkSent = 0;
+          const CHUNK_INTERVAL = 1200; // envia preview a cada ~1200 chars novos
 
           while (true) {
             const { value, done } = await tomasReader.read();
@@ -271,6 +273,11 @@ serve(async (req) => {
                 if (parsed.type === "error") throw new Error(`Anthropic: ${JSON.stringify(parsed.error)}`);
                 if (parsed.type === "content_block_delta" && parsed.delta?.type === "text_delta") {
                   htmlFull += parsed.delta.text;
+                  // Envia preview parcial ao frontend enquanto gera
+                  if (htmlFull.length - lastChunkSent >= CHUNK_INTERVAL) {
+                    lastChunkSent = htmlFull.length;
+                    sse(ctrl, { etapa: "html", status: "Tomás montando a página...", conteudo: htmlFull });
+                  }
                 }
               } catch (innerErr) {
                 if (String(innerErr).includes("Anthropic:")) throw innerErr;

@@ -184,6 +184,8 @@ export default function TomasPage() {
   const [extras, setExtras]       = useState("");
   const [arquivos, setArquivos]   = useState<File[]>([]);
   const [dragOver, setDragOver]   = useState(false);
+  const [extracting, setExtracting] = useState(false);
+  const [autoFilled, setAutoFilled] = useState(false);
 
   // ── Generation state ────────────────────────────────────────────────────────
   const [etapa, setEtapa]         = useState<Etapa>("idle");
@@ -262,6 +264,61 @@ export default function TomasPage() {
   const formValido        = produto.trim() && publico.trim();
   const htmlParaExibir    = editorMode ? markedHtml : (htmlEditado || resultado?.html || parcial.html || "");
 
+  // ── Auto-extract briefing from files ────────────────────────────────────────
+
+  const extractBriefingFromFiles = useCallback(async (files: File[]) => {
+    if (!files.length) return;
+    setExtracting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? "";
+
+      const filesPayload: { name: string; base64: string; media_type: string }[] = [];
+      const textParts: string[] = [];
+
+      for (const f of files) {
+        if (/\.(txt|md)$/i.test(f.name)) {
+          const txt = await new Promise<string>((res) => {
+            const fr = new FileReader(); fr.onload = () => res(fr.result as string); fr.readAsText(f, "utf-8");
+          });
+          textParts.push(`[${f.name}]\n${txt.trim()}`);
+        } else {
+          const buf = await f.arrayBuffer();
+          const bytes = new Uint8Array(buf);
+          let binary = "";
+          for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+          filesPayload.push({ name: f.name, base64: btoa(binary), media_type: "application/pdf" });
+        }
+      }
+
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/extract-briefing`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ files: filesPayload, text_content: textParts.join("\n\n") }),
+      });
+
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || `Erro ${resp.status}`);
+
+      const OBJETIVOS = ["Capturar leads", "Vender direto", "Divulgar evento", "Apresentar empresa", "Lançar produto", "Agendar consulta"];
+      const TONS = ["Direto e persuasivo", "Inspirador", "Profissional", "Amigável", "Luxo e exclusivo"];
+
+      if (data.produto)  setProduto(data.produto);
+      if (data.publico)  setPublico(data.publico);
+      if (data.objetivo && OBJETIVOS.includes(data.objetivo)) setObjetivo(data.objetivo);
+      if (data.tom && TONS.includes(data.tom)) setTom(data.tom);
+      if (data.cores)    setCores(data.cores);
+      if (data.extras)   setExtras(data.extras);
+
+      setAutoFilled(true);
+      toast.success("Briefing extraído do arquivo!");
+    } catch (e: any) {
+      toast.error(e.message || "Não foi possível extrair o briefing.");
+    } finally {
+      setExtracting(false);
+    }
+  }, []);
+
   // ── Helpers ──────────────────────────────────────────────────────────────────
 
   const cancelar = useCallback(() => {
@@ -279,6 +336,8 @@ export default function TomasPage() {
     setPublico("");
     setCores("");
     setExtras("");
+    setArquivos([]);
+    setAutoFilled(false);
     setPreviewEditMode(false);
     setEditorMode(false);
     setSections([]);
@@ -471,7 +530,10 @@ export default function TomasPage() {
           if (payload.conteudo) {
             if (payload.etapa === "copy")   parcialLocal.copy   = payload.conteudo;
             if (payload.etapa === "design") parcialLocal.design = payload.conteudo;
-            if (payload.etapa === "html")   parcialLocal.html   = payload.conteudo;
+            if (payload.etapa === "html") {
+              if (!parcialLocal.html) setAbaAtiva("preview"); // auto-switch ao primeiro chunk
+              parcialLocal.html = payload.conteudo;
+            }
             setParcial({ ...parcialLocal });
           }
         }
@@ -667,24 +729,31 @@ export default function TomasPage() {
             <div className="flex-1 flex flex-col px-5 py-4 gap-3 overflow-y-auto" style={{ background: "#0A0A10" }}>
               <label className="text-[11px] uppercase tracking-widest font-semibold" style={{ color: "#444466" }}>Briefing</label>
 
+              {autoFilled && (
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: "#0E1A08", border: "1px solid #B9FF4B33" }}>
+                  <CheckCircle2 className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#B9FF4B" }} />
+                  <span className="text-[11px]" style={{ color: "#B9FF4B", opacity: 0.8 }}>Briefing extraído — revise e ajuste se necessário</span>
+                </div>
+              )}
+
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] uppercase tracking-widest" style={{ color: "#555577" }}>Produto / Serviço <span style={{ color: "#B9FF4B" }}>*</span></label>
                 <input type="text" className="rounded-xl px-3 py-2.5 text-sm outline-none"
-                  style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0" }}
+                  style={{ background: "#141420", border: `1px solid ${autoFilled && produto ? "#B9FF4B33" : "#2A2A3A"}`, color: "#E0E0F0" }}
                   placeholder="Ex: Curso de gestão financeira para MEIs"
-                  value={produto} onChange={e => setProduto(e.target.value)} disabled={gerandoAtivo}
+                  value={produto} onChange={e => { setProduto(e.target.value); setAutoFilled(false); }} disabled={gerandoAtivo}
                   onFocus={e => e.currentTarget.style.borderColor = "#B9FF4B44"}
-                  onBlur={e => e.currentTarget.style.borderColor = "#2A2A3A"} />
+                  onBlur={e => e.currentTarget.style.borderColor = autoFilled && produto ? "#B9FF4B33" : "#2A2A3A"} />
               </div>
 
               <div className="flex flex-col gap-1">
                 <label className="text-[10px] uppercase tracking-widest" style={{ color: "#555577" }}>Público-alvo <span style={{ color: "#B9FF4B" }}>*</span></label>
                 <input type="text" className="rounded-xl px-3 py-2.5 text-sm outline-none"
-                  style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0" }}
+                  style={{ background: "#141420", border: `1px solid ${autoFilled && publico ? "#B9FF4B33" : "#2A2A3A"}`, color: "#E0E0F0" }}
                   placeholder="Ex: Empreendedores 30-50 anos, iniciantes"
-                  value={publico} onChange={e => setPublico(e.target.value)} disabled={gerandoAtivo}
+                  value={publico} onChange={e => { setPublico(e.target.value); setAutoFilled(false); }} disabled={gerandoAtivo}
                   onFocus={e => e.currentTarget.style.borderColor = "#B9FF4B44"}
-                  onBlur={e => e.currentTarget.style.borderColor = "#2A2A3A"} />
+                  onBlur={e => e.currentTarget.style.borderColor = autoFilled && publico ? "#B9FF4B33" : "#2A2A3A"} />
               </div>
 
               <div className="flex flex-col gap-1">
@@ -737,27 +806,54 @@ export default function TomasPage() {
               {/* Upload */}
               <div className="flex flex-col gap-2 flex-shrink-0">
                 <input ref={fileInputRef} type="file" multiple accept=".pdf,.docx,.doc,.txt,.md" style={{ display: "none" }}
-                  onChange={e => { setArquivos(prev => [...prev, ...Array.from(e.target.files ?? [])]); e.target.value = ""; }} />
+                  onChange={e => {
+                    const added = Array.from(e.target.files ?? []);
+                    if (!added.length) return;
+                    setArquivos(prev => {
+                      const next = [...prev, ...added];
+                      extractBriefingFromFiles(next);
+                      return next;
+                    });
+                    e.target.value = "";
+                  }} />
                 <div
-                  onDragOver={e => { e.preventDefault(); if (!gerandoAtivo) setDragOver(true); }}
+                  onDragOver={e => { e.preventDefault(); if (!gerandoAtivo && !extracting) setDragOver(true); }}
                   onDragLeave={() => setDragOver(false)}
                   onDrop={e => {
-                    e.preventDefault(); setDragOver(false); if (gerandoAtivo) return;
-                    const files = Array.from(e.dataTransfer.files).filter(f => /\.(pdf|docx|doc|txt|md)$/i.test(f.name));
-                    if (files.length) setArquivos(prev => [...prev, ...files]);
+                    e.preventDefault(); setDragOver(false);
+                    if (gerandoAtivo || extracting) return;
+                    const added = Array.from(e.dataTransfer.files).filter(f => /\.(pdf|docx|doc|txt|md)$/i.test(f.name));
+                    if (!added.length) return;
+                    setArquivos(prev => {
+                      const next = [...prev, ...added];
+                      extractBriefingFromFiles(next);
+                      return next;
+                    });
                   }}
-                  onClick={() => { if (!gerandoAtivo) fileInputRef.current?.click(); }}
-                  className="flex flex-col items-center justify-center gap-1 py-3 rounded-xl text-xs transition-all"
+                  onClick={() => { if (!gerandoAtivo && !extracting) fileInputRef.current?.click(); }}
+                  className="flex flex-col items-center justify-center gap-1.5 py-4 rounded-xl text-xs transition-all"
                   style={{
-                    background: dragOver ? "#B9FF4B0D" : "#141420",
-                    border: `1.5px dashed ${dragOver ? "#B9FF4B" : arquivos.length > 0 ? "#B9FF4B55" : "#2A2A3A"}`,
-                    color: dragOver ? "#B9FF4B" : arquivos.length > 0 ? "#B9FF4B" : "#555577",
-                    cursor: gerandoAtivo ? "default" : "pointer",
+                    background: dragOver ? "#B9FF4B0D" : extracting ? "#B9FF4B08" : "#141420",
+                    border: `1.5px dashed ${dragOver ? "#B9FF4B" : extracting ? "#B9FF4B55" : arquivos.length > 0 ? "#B9FF4B44" : "#2A2A3A"}`,
+                    color: dragOver ? "#B9FF4B" : extracting ? "#B9FF4B" : arquivos.length > 0 ? "#B9FF4B" : "#555577",
+                    cursor: gerandoAtivo || extracting ? "default" : "pointer",
                   }}>
-                  <Paperclip className="w-3.5 h-3.5" />
-                  <span>{dragOver ? "Solte aqui" : arquivos.length > 0 ? `${arquivos.length} arquivo(s) anexado(s)` : "Arraste ou clique — PDF, Word, TXT"}</span>
+                  {extracting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span className="font-medium">Extraindo briefing do arquivo...</span>
+                      <span style={{ color: "#555577", fontSize: 10 }}>Claude está lendo o material</span>
+                    </>
+                  ) : (
+                    <>
+                      <Paperclip className="w-3.5 h-3.5" />
+                      <span>{dragOver ? "Solte aqui" : arquivos.length > 0 ? `${arquivos.length} arquivo(s) — clique para adicionar mais` : "Arraste o briefing aqui — PDF, Word, TXT"}</span>
+                      {arquivos.length === 0 && <span style={{ color: "#444466", fontSize: 10 }}>Os campos serão preenchidos automaticamente</span>}
+                    </>
+                  )}
                 </div>
-                {arquivos.length > 0 && (
+
+                {arquivos.length > 0 && !extracting && (
                   <div className="flex flex-col gap-1 max-h-20 overflow-y-auto">
                     {arquivos.map((f, i) => (
                       <div key={i} className="flex items-center gap-2 px-2 py-1 rounded-lg" style={{ background: "#141420" }}>
@@ -767,6 +863,18 @@ export default function TomasPage() {
                       </div>
                     ))}
                   </div>
+                )}
+
+                {/* Re-extract button */}
+                {arquivos.length > 0 && !extracting && !gerandoAtivo && (
+                  <button
+                    onClick={() => extractBriefingFromFiles(arquivos)}
+                    className="flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[11px] font-medium transition-all"
+                    style={{ background: "#1E1E2E", color: "#888899", border: "1px solid #2A2A3A" }}
+                    onMouseEnter={e => { e.currentTarget.style.color = "#B9FF4B"; e.currentTarget.style.borderColor = "#B9FF4B44"; }}
+                    onMouseLeave={e => { e.currentTarget.style.color = "#888899"; e.currentTarget.style.borderColor = "#2A2A3A"; }}>
+                    <RefreshCw className="w-3 h-3" /> Re-extrair briefing
+                  </button>
                 )}
               </div>
             </div>
