@@ -523,6 +523,17 @@ export default function TomasPage() {
             setHtmlEditado(parcialLocal.html);
             setAbaAtiva("preview");
             toast.success("Landing page gerada! Clique em 'Editor Visual' para editar campo a campo.");
+            // Salva LP no localStorage para o picker de criativos das campanhas
+            try {
+              const stored = JSON.parse(localStorage.getItem("calu_pages") ?? "[]");
+              stored.unshift({
+                id: Date.now(),
+                name: produto || clientName || "Landing Page",
+                html: parcialLocal.html,
+                savedAt: new Date().toISOString(),
+              });
+              localStorage.setItem("calu_pages", JSON.stringify(stored.slice(0, 30)));
+            } catch { /* ignora falha de quota */ }
             return;
           }
           setEtapa(payload.etapa as Etapa);

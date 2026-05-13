@@ -1,10 +1,10 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Send, Mail, MessageSquare, Plus, Search, Filter, BarChart3,
-  Eye, MousePointer, Clock, CheckCircle2, XCircle, Users,
-  ChevronDown, Pencil, Copy, Trash2, MoreVertical, TrendingUp,
-  Upload, Loader2
+  Eye, MousePointer, Clock, CheckCircle2, Users,
+  Pencil, Copy, MoreVertical, TrendingUp,
+  Upload, Loader2, Sparkles, ImageIcon, CheckCircle, X, Globe
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -13,6 +13,8 @@ import { AITextareaField } from "@/components/AITextareaField";
 import { supabase } from "@/integrations/supabase/client";
 
 const SUPABASE_URL = "https://proldgiyterqhthludlp.supabase.co";
+
+interface SavedLP { id: number; name: string; html: string; savedAt: string; }
 
 interface Campaign {
   id: number; name: string; channel: "email" | "whatsapp"; status: "sent" | "scheduled" | "draft"; audience: number; delivered: number; opened: number; clicked: number; replied: number; sentAt: string;
@@ -46,7 +48,19 @@ const CampaignsPage = () => {
   const [campaignContent, setCampaignContent] = useState("");
   const [scheduleMode, setScheduleMode] = useState<"now" | "later">("now");
   const [importing, setImporting] = useState(false);
+  const [extracting, setExtracting] = useState(false);
+  const [selectedCreative, setSelectedCreative] = useState<SavedLP | null>(null);
+  const [savedPages, setSavedPages] = useState<SavedLP[]>([]);
+  const [showCreativePicker, setShowCreativePicker] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const briefFileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    try {
+      const pages = JSON.parse(localStorage.getItem("calu_pages") ?? "[]");
+      setSavedPages(pages);
+    } catch { /* nada */ }
+  }, [tab]); // recarrega ao abrir o compose
 
   const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -110,6 +124,57 @@ const CampaignsPage = () => {
       toast.error((err as Error).message || "Erro ao importar campanhas");
     } finally {
       setImporting(false);
+    }
+  };
+
+  const handleExtractBrief = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!briefFileRef.current) return;
+    briefFileRef.current.value = "";
+    if (!file) return;
+
+    setExtracting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? "";
+
+      let filesPayload: { name: string; base64: string; media_type: string }[] = [];
+      let textContent = "";
+
+      if (/\.(txt|csv|md)$/i.test(file.name)) {
+        textContent = await new Promise<string>((res) => {
+          const fr = new FileReader();
+          fr.onload = () => res(fr.result as string);
+          fr.readAsText(file, "utf-8");
+        });
+        textContent = `[${file.name}]\n${textContent}`;
+      } else {
+        const buf = await file.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let binary = "";
+        for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+        const b64 = btoa(binary);
+        const media = file.name.toLowerCase().endsWith(".pdf") ? "application/pdf" : "application/octet-stream";
+        filesPayload.push({ name: file.name, base64: b64, media_type: media });
+      }
+
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/extract-campaign-brief`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ files: filesPayload, text_content: textContent }),
+      });
+      const result = await resp.json();
+      if (!resp.ok) throw new Error(result.error || `Erro ${resp.status}`);
+
+      if (result.nome) setCampaignName(result.nome);
+      if (result.canal === "whatsapp" || result.canal === "email") setComposeChannel(result.canal);
+      if (result.assunto) setCampaignSubject(result.assunto);
+      if (result.conteudo) setCampaignContent(result.conteudo);
+      toast.success("Campanha preenchida com IA! Revise e publique.");
+    } catch (err: unknown) {
+      toast.error((err as Error).message || "Erro ao extrair briefing");
+    } finally {
+      setExtracting(false);
     }
   };
 
@@ -212,7 +277,26 @@ const CampaignsPage = () => {
 
       {tab === "compose" && (
         <motion.div variants={item} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* ── Coluna principal ── */}
           <div className="lg:col-span-2 space-y-5">
+
+            {/* Criar com IA — upload de arquivo */}
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-sm font-semibold text-foreground flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /> Criar com IA</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Envie um briefing, roteiro ou e-mail de referência e a IA preenche a campanha automaticamente.</p>
+              </div>
+              <input ref={briefFileRef} type="file" accept=".pdf,.txt,.csv,.md,.docx" className="hidden" onChange={handleExtractBrief} />
+              <button
+                onClick={() => briefFileRef.current?.click()}
+                disabled={extracting}
+                className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-60"
+              >
+                {extracting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
+                {extracting ? "Extraindo..." : "Enviar arquivo"}
+              </button>
+            </div>
+
             <div className="rounded-xl border border-border bg-card p-5 shadow-card space-y-4">
               <h2 className="text-base font-semibold font-display text-foreground">Nova Campanha</h2>
               <div className="flex gap-2">
@@ -231,14 +315,14 @@ const CampaignsPage = () => {
               )}
               {composeChannel === "whatsapp" && (
                 <div>
-                  <label className="text-xs font-medium text-muted-foreground">Template WhatsApp (aprovado)</label>
-                  <select className="w-full mt-1 rounded-lg border border-input bg-background py-2.5 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20">
-                    <option>Selecionar template...</option><option>{"Boas-vindas - Olá {{nome}}, bem-vindo!"}</option><option>{"Follow-up - {{nome}}, vimos seu interesse em..."}</option><option>{"Promoção - Oferta especial para você, {{nome}}"}</option>
-                  </select>
-                  <div className="mt-3 rounded-lg bg-muted/50 p-4 border border-border">
-                    <p className="text-xs text-muted-foreground mb-2">Preview do template:</p>
-                    <div className="bg-secondary/10 rounded-lg p-3 text-sm text-foreground">Olá <span className="font-semibold text-primary">{'{{nome}}'}</span>, bem-vindo ao OmniCRM! 🎉<br />Estamos felizes em ter você conosco. Precisa de ajuda?</div>
-                  </div>
+                  <label className="text-xs font-medium text-muted-foreground">Mensagem</label>
+                  <AITextareaField value={campaignContent} onChange={e => setCampaignContent(e.target.value)} rows={6} placeholder="Mensagem WhatsApp..." className="w-full mt-1 rounded-xl border border-input bg-background py-3 px-4 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20 resize-none" fieldLabel="Mensagem WhatsApp" fieldContext={`Campanha WhatsApp "${campaignName || "Nova campanha"}"`} />
+                  {campaignContent && (
+                    <div className="mt-3 rounded-lg bg-muted/50 p-4 border border-border">
+                      <p className="text-xs text-muted-foreground mb-2">Preview:</p>
+                      <div className="bg-secondary/10 rounded-lg p-3 text-sm text-foreground whitespace-pre-wrap">{campaignContent}</div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -249,6 +333,7 @@ const CampaignsPage = () => {
             </div>
           </div>
 
+          {/* ── Sidebar ── */}
           <div className="space-y-5">
             <div className="rounded-xl border border-border bg-card p-5 shadow-card space-y-4">
               <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><Users className="h-4 w-4 text-primary" /> Audiência</h3>
@@ -259,6 +344,39 @@ const CampaignsPage = () => {
                 <div className="flex justify-between text-xs"><span className="text-muted-foreground">Bounced</span><span className="font-semibold text-destructive">630</span></div>
               </div>
             </div>
+
+            {/* Criativo — picker de landing pages */}
+            <div className="rounded-xl border border-border bg-card p-5 shadow-card space-y-4">
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><Globe className="h-4 w-4 text-primary" /> Criativo (Landing Page)</h3>
+              {selectedCreative ? (
+                <div className="space-y-3">
+                  <div className="relative rounded-xl overflow-hidden border-2 border-primary" style={{ height: 160 }}>
+                    <iframe
+                      srcDoc={selectedCreative.html}
+                      sandbox="allow-same-origin"
+                      scrolling="no"
+                      style={{ width: 1280, height: 900, transform: "scale(0.195)", transformOrigin: "top left", pointerEvents: "none", border: "none" }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
+                    <div className="absolute bottom-2 left-3 right-3 flex items-center justify-between">
+                      <span className="text-white text-xs font-medium truncate">{selectedCreative.name}</span>
+                      <CheckCircle className="h-4 w-4 text-primary shrink-0" />
+                    </div>
+                    <button onClick={() => setSelectedCreative(null)} className="absolute top-2 right-2 rounded-full bg-black/50 p-1 text-white hover:bg-black/70"><X className="h-3 w-3" /></button>
+                  </div>
+                  <button onClick={() => setShowCreativePicker(true)} className="w-full py-2 rounded-lg border border-dashed border-border text-xs font-medium text-muted-foreground hover:border-primary/40 hover:text-primary">Trocar página</button>
+                </div>
+              ) : (
+                <div>
+                  <button onClick={() => setShowCreativePicker(true)} className="w-full flex flex-col items-center gap-2 py-6 rounded-xl border-2 border-dashed border-border hover:border-primary/40 hover:bg-primary/5 transition-colors text-muted-foreground hover:text-primary">
+                    <ImageIcon className="h-8 w-8" />
+                    <span className="text-xs font-medium">Escolher landing page</span>
+                    <span className="text-[11px] opacity-70">Páginas criadas pelo Tomás</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
             <div className="rounded-xl border border-border bg-card p-5 shadow-card space-y-4">
               <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><Clock className="h-4 w-4 text-primary" /> Agendamento</h3>
               <div className="flex gap-2">
@@ -273,6 +391,58 @@ const CampaignsPage = () => {
             </div>
           </div>
         </motion.div>
+      )}
+
+      {/* ── Creative Picker Modal ── */}
+      {showCreativePicker && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowCreativePicker(false)}>
+          <div className="w-full max-w-4xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between p-5 border-b border-border shrink-0">
+              <div>
+                <h2 className="text-base font-semibold font-display">Escolher Criativo</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Landing pages geradas pelo Tomás — selecione uma para vincular à campanha</p>
+              </div>
+              <button onClick={() => setShowCreativePicker(false)} className="p-2 rounded-lg hover:bg-muted text-muted-foreground"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="overflow-y-auto p-5">
+              {savedPages.length === 0 ? (
+                <div className="flex flex-col items-center gap-3 py-16 text-center text-muted-foreground">
+                  <ImageIcon className="h-12 w-12 opacity-30" />
+                  <p className="text-sm font-medium">Nenhuma landing page salva ainda</p>
+                  <p className="text-xs opacity-70">Gere uma página no Tomás e ela aparecerá aqui automaticamente.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  {savedPages.map(page => (
+                    <button
+                      key={page.id}
+                      onClick={() => { setSelectedCreative(page); setShowCreativePicker(false); }}
+                      className={cn("group relative rounded-xl overflow-hidden border-2 text-left transition-all hover:shadow-elevated", selectedCreative?.id === page.id ? "border-primary" : "border-border hover:border-primary/50")}
+                    >
+                      {/* Thumbnail via iframe escalado */}
+                      <div className="relative overflow-hidden bg-muted" style={{ height: 160 }}>
+                        <iframe
+                          srcDoc={page.html}
+                          sandbox="allow-same-origin"
+                          scrolling="no"
+                          style={{ width: 1280, height: 900, transform: "scale(0.195)", transformOrigin: "top left", pointerEvents: "none", border: "none" }}
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                        {selectedCreative?.id === page.id && (
+                          <div className="absolute top-2 right-2 rounded-full bg-primary p-1"><CheckCircle className="h-3.5 w-3.5 text-white" /></div>
+                        )}
+                      </div>
+                      <div className="p-3 bg-card">
+                        <p className="text-xs font-semibold text-foreground truncate">{page.name}</p>
+                        <p className="text-[11px] text-muted-foreground mt-0.5">{new Date(page.savedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </motion.div>
   );
