@@ -333,6 +333,12 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:64px;display:flex;ali
 .btn-submit{width:100%;padding:18px;font-size:17px;font-weight:700;border-radius:14px;background:var(--gc);color:#fff;border:none;cursor:pointer;box-shadow:var(--sc);transition:all .25s cubic-bezier(.4,0,.2,1);letter-spacing:.02em;font-family:inherit}
 .btn-submit:hover{transform:translateY(-2px);filter:brightness(1.08)}
 .form-micro{text-align:center;font-size:13px;color:var(--t2);margin-top:12px;opacity:.8}
+/* FORM FIELDS HTML — sempre use estes name attrs para o CRM capturar corretamente:
+<input class="form-field" type="text"  name="name"    placeholder="Seu nome completo">
+<input class="form-field" type="email" name="email"   placeholder="Seu melhor e-mail">
+<input class="form-field" type="tel"   name="phone"   placeholder="WhatsApp com DDD">
+<textarea class="form-field"           name="message" rows="3" placeholder="Mensagem (opcional)"></textarea>
+*/
 
 /* 13. FOOTER */
 footer{background:#050508;border-top:1px solid rgba(255,255,255,.06);padding-block:48px}

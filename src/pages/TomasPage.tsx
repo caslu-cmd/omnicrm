@@ -212,6 +212,12 @@ export default function TomasPage() {
   const [directEditField, setDirectEditField]     = useState<string | null>(null);
   const [directEditValue, setDirectEditValue]     = useState("");
 
+  // ── Form injection state ─────────────────────────────────────────────────────
+  const [formMode, setFormMode]     = useState<"none" | "crm" | "forminator">("none");
+  const [formFields, setFormFields] = useState<("name" | "email" | "phone" | "message")[]>(["name", "email", "phone"]);
+  const [formCta, setFormCta]       = useState("Quero me inscrever");
+  const [formInjected, setFormInjected] = useState(false);
+
   // ── WordPress state ─────────────────────────────────────────────────────────
   const [wpUrl, setWpUrl]           = useState("");
   const [wpUser, setWpUser]         = useState("");
@@ -458,6 +464,7 @@ export default function TomasPage() {
     setSections([]);
     setStatusMsg("Iniciando...");
     setAbaAtiva("copy");
+    setFormInjected(false);
 
     const parcialLocal: Resultado = { copy: "", design: "", html: "" };
 
@@ -581,6 +588,59 @@ export default function TomasPage() {
       setPublicando(false);
     }
   }, [editorMode, markedHtml, htmlEditado, resultado, wpUrl, wpUser, wpPassword, wpSlug, wpTitulo, wpTemplate, forminatorId]);
+
+  // ── injectCrmForm ────────────────────────────────────────────────────────────
+  const injectCrmForm = useCallback(async () => {
+    const currentHtml = htmlEditado || resultado?.html || parcial.html;
+    if (!currentHtml) return;
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const userId = session?.user?.id ?? "";
+    const safeSource = `lp:${produto.slice(0, 40).replace(/'/g, "")}`;
+    const safeClientId = (clientId || "").replace(/'/g, "");
+    const safeCta = formCta.replace(/'/g, "\\'");
+
+    const script = `<script>(function(){
+var EP='${SUPABASE_URL}/functions/v1/lp-form-submit';
+var UID='${userId}';
+var CID='${safeClientId}';
+var SRC='${safeSource}';
+var form=document.querySelector('#contato form,.form-wrap form,form');
+if(!form)return;
+var sb=form.querySelector('button[type=submit],.btn-submit,button');
+if(sb&&'${safeCta}')sb.textContent='${safeCta}';
+form.addEventListener('submit',function(e){
+  e.preventDefault();
+  var btn=form.querySelector('button[type=submit],.btn-submit,button');
+  var orig=btn?btn.textContent:'';
+  if(btn){btn.textContent='Enviando...';btn.disabled=true;}
+  var p={user_id:UID,client_id:CID,source:SRC};
+  form.querySelectorAll('input:not([type=hidden]):not([type=submit]):not([type=button]),textarea,select').forEach(function(el){
+    var hint=(el.name||el.getAttribute('placeholder')||el.id||el.getAttribute('aria-label')||'').toLowerCase();
+    var val=el.value.trim();if(!val)return;
+    if(hint.includes('nome')||hint.includes('name'))p.name=val;
+    else if(hint.includes('email'))p.email=val;
+    else if(hint.includes('tel')||hint.includes('fone')||hint.includes('phone')||hint.includes('whatsapp')||el.type==='tel')p.phone=val;
+    else if(hint.includes('mensagem')||hint.includes('message')||el.tagName==='TEXTAREA')p.message=val;
+    else if(!p.name)p.name=val;
+  });
+  if(!p.name)p.name=p.email||'Lead';
+  fetch(EP,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(p)})
+  .then(function(){
+    form.innerHTML='<div style="text-align:center;padding:56px 24px"><div style="font-size:48px;margin-bottom:16px">✓</div><p style="font-weight:700;font-size:20px;margin-bottom:8px;color:inherit">Recebemos seu contato!</p><p style="opacity:0.65;font-size:15px">Entraremos em contato em breve.</p></div>';
+  })
+  .catch(function(){if(btn){btn.textContent=orig;btn.disabled=false;}alert('Erro ao enviar. Tente novamente.');});
+});
+})();<\/script>`;
+
+    const newHtml = currentHtml.includes("</body>")
+      ? currentHtml.replace("</body>", script + "</body>")
+      : currentHtml + script;
+
+    setHtmlEditado(newHtml);
+    setFormInjected(true);
+    toast.success("Formulário conectado ao CRM! Leads entram direto nos Contatos.");
+  }, [htmlEditado, resultado, parcial.html, clientId, produto, formCta]);
 
   // ── addEditingToPreview (basic edit mode) ────────────────────────────────────
 
@@ -889,6 +949,67 @@ export default function TomasPage() {
                 )}
               </div>
             </div>
+
+            {/* Painel de Formulário */}
+            {(resultado || parcial.html) && !gerandoAtivo && (
+              <div className="px-5 py-3 border-t" style={{ borderColor: "#1E1E2E", background: "#0A0A10" }}>
+                <p className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: "#444466" }}>Formulário de inscrição</p>
+                <div className="flex gap-1 mb-3">
+                  {(["none", "crm", "forminator"] as const).map(m => (
+                    <button key={m} onClick={() => setFormMode(m)}
+                      className="flex-1 py-1.5 rounded-lg text-[11px] font-medium transition-all"
+                      style={{ background: formMode === m ? "#B9FF4B22" : "#141420", border: `1px solid ${formMode === m ? "#B9FF4B55" : "#2A2A3A"}`, color: formMode === m ? "#B9FF4B" : "#555577" }}>
+                      {m === "none" ? "Nenhum" : m === "crm" ? "CRM" : "Forminator"}
+                    </button>
+                  ))}
+                </div>
+
+                {formMode === "crm" && (
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                      {(["name", "email", "phone", "message"] as const).map(f => {
+                        const labels = { name: "Nome", email: "E-mail", phone: "Telefone", message: "Mensagem" };
+                        return (
+                          <label key={f} className="flex items-center gap-1.5 text-[11px] cursor-pointer select-none"
+                            style={{ color: formFields.includes(f) ? "#B9FF4B" : "#555577" }}>
+                            <input type="checkbox" checked={formFields.includes(f)}
+                              onChange={e => setFormFields(prev => e.target.checked ? [...prev, f] : prev.filter(x => x !== f))}
+                              style={{ accentColor: "#B9FF4B" }} />
+                            {labels[f]}
+                          </label>
+                        );
+                      })}
+                    </div>
+                    <input type="text" value={formCta} onChange={e => setFormCta(e.target.value)}
+                      className="rounded-xl px-3 py-2 text-sm outline-none"
+                      style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0" }}
+                      placeholder="Texto do botão: Ex: Quero me inscrever"
+                      onFocus={e => e.currentTarget.style.borderColor = "#B9FF4B44"}
+                      onBlur={e => e.currentTarget.style.borderColor = "#2A2A3A"} />
+                    <button onClick={injectCrmForm} disabled={formInjected}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                      style={{ background: formInjected ? "#0E1A08" : "#B9FF4B22", border: `1px solid ${formInjected ? "#B9FF4B33" : "#B9FF4B55"}`, color: "#B9FF4B", opacity: formInjected ? 0.7 : 1 }}>
+                      {formInjected ? <><CheckCircle2 className="w-4 h-4" /> Formulário conectado</> : <><Wand2 className="w-4 h-4" /> Conectar ao CRM</>}
+                    </button>
+                    {formInjected && (
+                      <p className="text-[10px] text-center" style={{ color: "#444466" }}>Leads entram direto nos Contatos do OmniCRM</p>
+                    )}
+                  </div>
+                )}
+
+                {formMode === "forminator" && (
+                  <div className="flex flex-col gap-2">
+                    <input type="text" value={forminatorId} onChange={e => setForminatorId(e.target.value)}
+                      className="rounded-xl px-3 py-2 text-sm outline-none"
+                      style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0" }}
+                      placeholder="ID do formulário — Ex: 42"
+                      onFocus={e => e.currentTarget.style.borderColor = "#B9FF4B44"}
+                      onBlur={e => e.currentTarget.style.borderColor = "#2A2A3A"} />
+                    <p className="text-[10px]" style={{ color: "#444466" }}>Shortcode [forminator_form id="..."] injetado ao publicar no WordPress</p>
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Botões inferiores */}
             <div className="px-5 pb-5 flex flex-col gap-2" style={{ background: "#0A0A10" }}>
