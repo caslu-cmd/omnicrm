@@ -457,6 +457,7 @@ export default function TomasPage() {
     setEditorMode(false);
     setSections([]);
     setStatusMsg("Iniciando...");
+    setAbaAtiva("copy");
 
     const parcialLocal: Resultado = { copy: "", design: "", html: "" };
 
