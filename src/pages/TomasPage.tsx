@@ -465,13 +465,15 @@ export default function TomasPage() {
       const token = session?.access_token ?? "";
 
       const arquivosPayload: { name: string; base64: string; media_type: string }[] = [];
-      const textoExtra: string[] = [];
       for (const f of arquivos) {
         if (/\.(txt|md)$/i.test(f.name)) {
-          const texto = await new Promise<string>((res) => {
-            const fr = new FileReader(); fr.onload = () => res(fr.result as string); fr.readAsText(f, "utf-8");
-          });
-          textoExtra.push(`[${f.name}]\n${texto.trim()}`);
+          // TXT/MD files are injected as skillContext in tomas-lp — skip from briefing
+          const buf = await f.arrayBuffer();
+          const bytes = new Uint8Array(buf);
+          let binary = "";
+          for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+          const b64 = btoa(binary);
+          arquivosPayload.push({ name: f.name, base64: b64, media_type: "text/plain" });
         } else {
           const buf = await f.arrayBuffer();
           const bytes = new Uint8Array(buf);
@@ -482,7 +484,7 @@ export default function TomasPage() {
           arquivosPayload.push({ name: f.name, base64: b64, media_type: media });
         }
       }
-      const briefingBase = [
+      const briefingFinal = [
         `Produto/Serviço: ${produto}`,
         `Público-alvo: ${publico}`,
         `Objetivo da LP: ${objetivo}`,
@@ -490,9 +492,6 @@ export default function TomasPage() {
         cores.trim() ? `Cores da marca: ${cores}` : null,
         extras.trim() ? `\nInformações adicionais:\n${extras}` : null,
       ].filter(Boolean).join("\n");
-      const briefingFinal = textoExtra.length > 0
-        ? `${briefingBase}\n\n--- Materiais de referência ---\n${textoExtra.join("\n\n")}`
-        : briefingBase;
 
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/tomas-lp`, {
         method: "POST",
