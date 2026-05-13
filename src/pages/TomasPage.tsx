@@ -6,7 +6,7 @@ import {
   Loader2, CheckCircle2, AlertCircle, Layout, Sparkles,
   RefreshCw, Copy, Monitor, Smartphone, Paperclip,
   Globe, ExternalLink, Edit3, ChevronLeft, Wand2,
-  Check, X, Pencil, PanelLeft,
+  Check, X, Pencil, PanelLeft, ImagePlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,6 +27,14 @@ const ETAPAS = [
 
 // ── Editor types ───────────────────────────────────────────────────────────────
 
+interface ImageAsset {
+  id: string;
+  file: File;
+  label: string;
+  previewUrl: string;
+  uploadedUrl?: string;
+}
+
 interface ParsedField {
   id: string;
   label: string;
@@ -44,6 +52,16 @@ interface ParsedSection {
 
 function etapaIndex(e: Etapa) { return ETAPAS.findIndex((x) => x.id === e); }
 function copyToClipboard(text: string) { navigator.clipboard.writeText(text); toast.success("Copiado!"); }
+
+function guessImageLabel(filename: string): string {
+  const n = filename.toLowerCase().replace(/\.[^.]+$/, "");
+  if (n.includes("logo")) return "Logo";
+  if (n.includes("palestrante") || n.includes("speaker") || n.includes("professor")) return "Foto do Palestrante";
+  if (n.includes("banner") || n.includes("capa") || n.includes("cover")) return "Banner";
+  if (n.includes("produto") || n.includes("product")) return "Foto do Produto";
+  if (n.includes("foto") || n.includes("photo") || n.includes("perfil")) return "Foto";
+  return "Imagem";
+}
 function downloadHtml(html: string, name = `landing-page-${Date.now()}.html`) {
   const a = Object.assign(document.createElement("a"), {
     href: URL.createObjectURL(new Blob([html], { type: "text/html" })),
@@ -184,7 +202,9 @@ export default function TomasPage() {
   const [cores, setCores]         = useState("");
   const [extras, setExtras]       = useState("");
   const [arquivos, setArquivos]   = useState<File[]>([]);
+  const [imagens, setImagens]     = useState<ImageAsset[]>([]);
   const [dragOver, setDragOver]   = useState(false);
+  const [imgDragOver, setImgDragOver] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [autoFilled, setAutoFilled] = useState(false);
 
@@ -198,8 +218,9 @@ export default function TomasPage() {
   const [htmlEditado, setHtmlEditado]     = useState("");
   const [editandoHtml, setEditandoHtml]   = useState(false);
   const [previewEditMode, setPreviewEditMode] = useState(false);
-  const readerRef    = useRef<ReadableStreamDefaultReader | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const readerRef       = useRef<ReadableStreamDefaultReader | null>(null);
+  const fileInputRef    = useRef<HTMLInputElement>(null);
+  const imgFileInputRef = useRef<HTMLInputElement>(null);
 
   // ── Editor Visual state ─────────────────────────────────────────────────────
   const [editorMode, setEditorMode]               = useState(false);
@@ -212,6 +233,10 @@ export default function TomasPage() {
   const [aiSuggestion, setAiSuggestion]           = useState<{ fieldId: string; text: string } | null>(null);
   const [directEditField, setDirectEditField]     = useState<string | null>(null);
   const [directEditValue, setDirectEditValue]     = useState("");
+
+  // ── Tomas command state ──────────────────────────────────────────────────────
+  const [tomasCmd, setTomasCmd]         = useState("");
+  const [tomasCmdLoading, setTomasCmdLoading] = useState(false);
 
   // ── Saved page state ─────────────────────────────────────────────────────────
   const [savedPageId, setSavedPageId] = useState<string | null>(null);
@@ -368,6 +393,7 @@ export default function TomasPage() {
     setCores("");
     setExtras("");
     setArquivos([]);
+    setImagens(prev => { prev.forEach(img => URL.revokeObjectURL(img.previewUrl)); return []; });
     setAutoFilled(false);
     setPreviewEditMode(false);
     setEditorMode(false);
@@ -479,6 +505,58 @@ export default function TomasPage() {
     toast.success("Campo atualizado!");
   };
 
+  // ── Tomas command ──────────────────────────────────────────────────────────
+
+  const runTomasCommand = async () => {
+    if (!tomasCmd.trim() || tomasCmdLoading) return;
+    const currentHtml = stripEditorAttrs(editorMode ? markedHtml : (htmlEditado || resultado?.html || ""));
+    if (!currentHtml) return;
+
+    setTomasCmdLoading(true);
+    const cmdText = tomasCmd.trim();
+    setTomasCmd("");
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? "";
+      const lpContext = [
+        `Produto/Serviço: ${produto}`,
+        `Público-alvo: ${publico}`,
+        `Objetivo: ${objetivo}`,
+        `Tom de voz: ${tom}`,
+        clientName ? `Cliente: ${clientName}` : null,
+      ].filter(Boolean).join("\n");
+
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/tomas-command`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ html: currentHtml, command: cmdText, lp_context: lpContext }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || `Erro ${resp.status}`);
+
+      const newHtml = data.new_html as string;
+      setHtmlEditado(newHtml);
+
+      if (editorMode) {
+        const { markedHtml: newMarked, sections: newSections } = parseLPIntoSections(newHtml);
+        setMarkedHtml(newMarked);
+        setSections(newSections);
+        setSelectedSectionIdx(0);
+        setAiEditField(null);
+        setAiSuggestion(null);
+        setDirectEditField(null);
+      }
+
+      toast.success("Tomás aplicou o comando!");
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao executar comando");
+      setTomasCmd(cmdText);
+    } finally {
+      setTomasCmdLoading(false);
+    }
+  };
+
   // ── LP generation ──────────────────────────────────────────────────────────
 
   const gerar = useCallback(async () => {
@@ -519,6 +597,25 @@ export default function TomasPage() {
           arquivosPayload.push({ name: f.name, base64: b64, media_type: media });
         }
       }
+      // Upload de imagens para o Supabase Storage (bucket brand-assets)
+      const imagensPayload: { url: string; label: string }[] = [];
+      for (const img of imagens) {
+        if (img.uploadedUrl) {
+          imagensPayload.push({ url: img.uploadedUrl, label: img.label });
+          continue;
+        }
+        setStatusMsg(`Enviando ${img.label}...`);
+        const ext = img.file.name.split(".").pop() ?? "jpg";
+        const path = `lp-assets/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+        const { data: upData, error: upErr } = await (supabase.storage as any)
+          .from("brand-assets")
+          .upload(path, img.file, { contentType: img.file.type, upsert: false });
+        if (upErr) { toast.error(`Erro ao enviar ${img.label}: ${upErr.message}`); continue; }
+        const { data: { publicUrl } } = (supabase.storage as any).from("brand-assets").getPublicUrl(upData.path);
+        setImagens(prev => prev.map(i => i.id === img.id ? { ...i, uploadedUrl: publicUrl } : i));
+        imagensPayload.push({ url: publicUrl, label: img.label });
+      }
+
       const briefingFinal = [
         `Produto/Serviço: ${produto}`,
         `Público-alvo: ${publico}`,
@@ -531,7 +628,7 @@ export default function TomasPage() {
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/tomas-lp`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ briefing: briefingFinal, client_name: clientName, arquivos: arquivosPayload }),
+        body: JSON.stringify({ briefing: briefingFinal, client_name: clientName, arquivos: arquivosPayload, imagens: imagensPayload }),
       });
       if (!resp.ok) throw new Error(`Erro ${resp.status}`);
       if (!resp.body) throw new Error("Stream não disponível");
@@ -801,6 +898,45 @@ form.addEventListener('submit',function(e){
             )}
           </div>
         )}
+
+        {/* ── Comando ao Tomás ── */}
+        <div className="flex-shrink-0 px-3 pb-3 pt-2 border-t" style={{ borderColor: "#1E1E2E" }}>
+          <p className="text-[10px] uppercase tracking-widest font-semibold mb-2 px-1 flex items-center gap-1.5" style={{ color: "#444466" }}>
+            <span>🖥️</span> Comando ao Tomás
+          </p>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={tomasCmd}
+              onChange={e => setTomasCmd(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); runTomasCommand(); } }}
+              disabled={tomasCmdLoading}
+              placeholder='Ex: "Adiciona uma seção de FAQ"'
+              className="flex-1 rounded-xl px-3 py-2 text-xs outline-none"
+              style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0", fontFamily: "inherit" }}
+              onFocus={e => e.currentTarget.style.borderColor = "#B9FF4B44"}
+              onBlur={e => e.currentTarget.style.borderColor = "#2A2A3A"}
+            />
+            <button
+              onClick={runTomasCommand}
+              disabled={!tomasCmd.trim() || tomasCmdLoading}
+              className="flex items-center justify-center rounded-xl flex-shrink-0 transition-all"
+              style={{
+                width: 36, height: 36,
+                background: tomasCmd.trim() && !tomasCmdLoading ? "#B9FF4B" : "#1E1E2E",
+                color: tomasCmd.trim() && !tomasCmdLoading ? "#07080A" : "#444466",
+                cursor: tomasCmd.trim() && !tomasCmdLoading ? "pointer" : "not-allowed",
+              }}
+            >
+              {tomasCmdLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            </button>
+          </div>
+          {tomasCmdLoading && (
+            <p className="text-[10px] mt-1.5 px-1" style={{ color: "#B9FF4B", opacity: 0.7 }}>
+              Tomás está aplicando o comando...
+            </p>
+          )}
+        </div>
       </div>
     );
   }
@@ -991,6 +1127,78 @@ form.addEventListener('submit',function(e){
                   </button>
                 )}
               </div>
+
+              {/* Upload de imagens */}
+              <div className="flex flex-col gap-2 flex-shrink-0">
+                <label className="text-[10px] uppercase tracking-widest" style={{ color: "#555577" }}>
+                  Imagens <span style={{ color: "#444466" }}>(logo, palestrantes — opcional)</span>
+                </label>
+                <input ref={imgFileInputRef} type="file" multiple accept="image/*" style={{ display: "none" }}
+                  onChange={e => {
+                    const added = Array.from(e.target.files ?? []);
+                    if (!added.length) return;
+                    setImagens(prev => [...prev, ...added.map(f => ({
+                      id: `${Date.now()}-${Math.random()}`,
+                      file: f,
+                      label: guessImageLabel(f.name),
+                      previewUrl: URL.createObjectURL(f),
+                    }))]);
+                    e.target.value = "";
+                  }} />
+                <div
+                  onDragOver={e => { e.preventDefault(); if (!gerandoAtivo) setImgDragOver(true); }}
+                  onDragLeave={() => setImgDragOver(false)}
+                  onDrop={e => {
+                    e.preventDefault(); setImgDragOver(false);
+                    if (gerandoAtivo) return;
+                    const added = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith("image/"));
+                    if (!added.length) return;
+                    setImagens(prev => [...prev, ...added.map(f => ({
+                      id: `${Date.now()}-${Math.random()}`,
+                      file: f,
+                      label: guessImageLabel(f.name),
+                      previewUrl: URL.createObjectURL(f),
+                    }))]);
+                  }}
+                  onClick={() => { if (!gerandoAtivo) imgFileInputRef.current?.click(); }}
+                  className="flex items-center justify-center gap-2 py-3 rounded-xl text-xs transition-all"
+                  style={{
+                    background: imgDragOver ? "#B9FF4B0D" : "#141420",
+                    border: `1.5px dashed ${imgDragOver ? "#B9FF4B" : imagens.length > 0 ? "#B9FF4B44" : "#2A2A3A"}`,
+                    color: imgDragOver ? "#B9FF4B" : imagens.length > 0 ? "#B9FF4B" : "#555577",
+                    cursor: gerandoAtivo ? "default" : "pointer",
+                  }}>
+                  <ImagePlus className="w-3.5 h-3.5" />
+                  <span>{imgDragOver ? "Solte aqui" : imagens.length > 0 ? `${imagens.length} imagem(ns) — clique para adicionar mais` : "Arraste imagens — JPG, PNG, SVG, WebP"}</span>
+                </div>
+
+                {imagens.length > 0 && (
+                  <div className="flex flex-col gap-1.5">
+                    {imagens.map(img => (
+                      <div key={img.id} className="flex items-center gap-2 p-1.5 rounded-xl" style={{ background: "#141420", border: "1px solid #2A2A3A" }}>
+                        <img src={img.previewUrl} alt={img.label}
+                          className="w-9 h-9 rounded-lg object-cover flex-shrink-0"
+                          style={{ border: "1px solid #2A2A3A" }} />
+                        <input
+                          type="text"
+                          value={img.label}
+                          onChange={e => setImagens(prev => prev.map(i => i.id === img.id ? { ...i, label: e.target.value } : i))}
+                          disabled={gerandoAtivo}
+                          className="flex-1 bg-transparent text-xs outline-none"
+                          style={{ color: "#E0E0F0" }}
+                          placeholder="Rótulo da imagem"
+                        />
+                        {img.uploadedUrl && <CheckCircle2 className="w-3 h-3 flex-shrink-0" style={{ color: "#B9FF4B" }} />}
+                        <button
+                          onClick={() => { URL.revokeObjectURL(img.previewUrl); setImagens(prev => prev.filter(i => i.id !== img.id)); }}
+                          disabled={gerandoAtivo}
+                          className="text-[10px] flex-shrink-0 px-1"
+                          style={{ color: "#444466" }}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Painel de Formulário */}
@@ -1056,6 +1264,44 @@ form.addEventListener('submit',function(e){
 
             {/* Botões inferiores */}
             <div className="px-5 pb-5 flex flex-col gap-2" style={{ background: "#0A0A10" }}>
+              {/* Comando ao Tomás (após geração) */}
+              {(resultado || parcial.html) && !gerandoAtivo && (
+                <div className="flex flex-col gap-1.5 pt-1">
+                  <p className="text-[10px] uppercase tracking-widest font-semibold flex items-center gap-1" style={{ color: "#444466" }}>
+                    <span>🖥️</span> Comando ao Tomás
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={tomasCmd}
+                      onChange={e => setTomasCmd(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); runTomasCommand(); } }}
+                      disabled={tomasCmdLoading}
+                      placeholder='Ex: "Muda as cores para azul"'
+                      className="flex-1 rounded-xl px-3 py-2 text-xs outline-none"
+                      style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0", fontFamily: "inherit" }}
+                      onFocus={e => e.currentTarget.style.borderColor = "#B9FF4B44"}
+                      onBlur={e => e.currentTarget.style.borderColor = "#2A2A3A"}
+                    />
+                    <button
+                      onClick={runTomasCommand}
+                      disabled={!tomasCmd.trim() || tomasCmdLoading}
+                      className="flex items-center justify-center rounded-xl flex-shrink-0 transition-all"
+                      style={{
+                        width: 36, height: 36,
+                        background: tomasCmd.trim() && !tomasCmdLoading ? "#B9FF4B" : "#1E1E2E",
+                        color: tomasCmd.trim() && !tomasCmdLoading ? "#07080A" : "#444466",
+                        cursor: tomasCmd.trim() && !tomasCmdLoading ? "pointer" : "not-allowed",
+                      }}
+                    >
+                      {tomasCmdLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  {tomasCmdLoading && (
+                    <p className="text-[10px]" style={{ color: "#B9FF4B", opacity: 0.7 }}>Tomás está aplicando o comando...</p>
+                  )}
+                </div>
+              )}
               {/* Editor Visual button (after generation) */}
               {(resultado || parcial.html) && !gerandoAtivo && (
                 <button onClick={activateEditor}

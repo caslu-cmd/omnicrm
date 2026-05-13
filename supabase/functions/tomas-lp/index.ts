@@ -395,7 +395,8 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { briefing, client_name, arquivos = [] } = body;
+    const { briefing, client_name, arquivos = [], imagens = [] } = body;
+    // imagens: Array<{ url: string; label: string }>
     // arquivos: Array<{ name: string; base64: string; media_type?: string }>
 
     // Skills de texto (txt/md) são injetadas como instruções extras no Designer e no Tomás
@@ -408,6 +409,11 @@ serve(async (req) => {
     }
     const skillContext = skillTexts.length > 0
       ? `\n\n--- Referências de estilo e técnicas adicionais (use como inspiração e guia) ---\n${skillTexts.join("\n\n")}`
+      : "";
+
+    // Imagens enviadas pelo cliente — URLs reais para usar no HTML
+    const imagensContext = (imagens as { url: string; label: string }[]).length > 0
+      ? `\n\n--- IMAGENS FORNECIDAS PELO CLIENTE ---\nUse OBRIGATORIAMENTE estas URLs nos <img src="..."> (não substitua por gradientes CSS):\n${(imagens as { url: string; label: string }[]).map(img => `- ${img.label}: ${img.url}`).join("\n")}`
       : "";
 
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY") ?? "";
@@ -472,7 +478,7 @@ serve(async (req) => {
               max_tokens: 16000,
               stream: true,
               system: TOMAS_SYSTEM,
-              messages: [{ role: "user", content: [{ type: "text", text: `Copy da Beatriz:\n${copy}\n\nEspecificação visual do Designer:\n${design}${skillContext}\n\nCrie o HTML completo da landing page agora.` }] }],
+              messages: [{ role: "user", content: [{ type: "text", text: `Copy da Beatriz:\n${copy}\n\nEspecificação visual do Designer:\n${design}${skillContext}${imagensContext}\n\nCrie o HTML completo da landing page agora.` }] }],
             }),
           });
 
