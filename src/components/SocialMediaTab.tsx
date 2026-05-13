@@ -166,11 +166,53 @@ export default function SocialMediaTab({
   const pendingOAuthStateRef = useRef<string>("");
   const userIdRef = useRef<string>("");
 
+  // ── Reel state ───────────────────────────────────────────────
+  const [reelVideoFile, setReelVideoFile] = useState<File | null>(null);
+  const [reelVideoUrl, setReelVideoUrl] = useState("");
+  const [reelThumbnailUrl, setReelThumbnailUrl] = useState("");
+  const [reelTitle, setReelTitle] = useState("");
+  const [reelTitleStyle, setReelTitleStyle] = useState<"bold-white" | "minimal" | "gradient" | "neon" | "outlined">("bold-white");
+  const [reelDuration, setReelDuration] = useState(0);
+  const [reelCurrentTime, setReelCurrentTime] = useState(0);
+  const [reelDragOver, setReelDragOver] = useState(false);
+  const reelVideoRef = useRef<HTMLVideoElement>(null);
+  const reelCanvasRef = useRef<HTMLCanvasElement>(null);
+  const reelFileRef = useRef<HTMLInputElement>(null);
+
+  const captureReelFrame = () => {
+    const video = reelVideoRef.current;
+    const canvas = reelCanvasRef.current;
+    if (!video || !canvas) return;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    canvas.getContext("2d")?.drawImage(video, 0, 0, canvas.width, canvas.height);
+    setReelThumbnailUrl(canvas.toDataURL("image/jpeg", 0.92));
+  };
+
+  const handleReelFile = (file: File) => {
+    if (!file.type.startsWith("video/")) { toast.error("Selecione um arquivo de vídeo."); return; }
+    setReelVideoFile(file);
+    setReelVideoUrl(URL.createObjectURL(file));
+    setReelThumbnailUrl("");
+    setReelCurrentTime(0);
+    setReelDuration(0);
+  };
+
+  const resetReel = () => {
+    setReelVideoFile(null);
+    setReelVideoUrl("");
+    setReelThumbnailUrl("");
+    setReelTitle("");
+    setReelCurrentTime(0);
+    setReelDuration(0);
+    if (reelFileRef.current) reelFileRef.current.value = "";
+  };
+
   const [composer, setComposer] = useState({
     platforms: [] as string[],
     caption: "",
     media_url: "",
-    media_type: "post" as "post" | "story" | "batch" | "carousel",
+    media_type: "post" as "post" | "story" | "batch" | "carousel" | "reel" | "reel",
     link_url: "",
     post_now: true,
     scheduled_at: "",
@@ -624,12 +666,71 @@ export default function SocialMediaTab({
   // ── Create post ────────────────────────────────────────────
   const handleSubmitPost = async () => {
     if (!composer.platforms.length) { toast.error("Selecione ao menos uma plataforma."); return; }
+    if (composer.media_type === "reel" && !reelVideoFile) { toast.error("Selecione um vídeo para o Reel."); return; }
     if (composer.media_type === "story" && !composer.media_url.trim()) { toast.error("Story requer imagem."); return; }
     if (composer.media_type === "post" && !composer.caption.trim() && !composer.media_url.trim()) { toast.error("Adicione uma legenda ou imagem."); return; }
     if (!composer.post_now && !composer.scheduled_at) { toast.error("Selecione a data de agendamento."); return; }
 
     setSubmitting(true);
     try {
+      // ── Reel: upload vídeo + thumbnail ──────────────────────
+      if (composer.media_type === "reel" && reelVideoFile) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) { toast.error("Sessão expirada."); return; }
+        const isScheduling = !composer.post_now && !!composer.scheduled_at;
+
+        const videoUploaded = await uploadMediaToSupabase(reelVideoFile);
+
+        // Upload thumbnail se disponível (blob dataURL → File)
+        let thumbUrl: string | null = null;
+        if (reelThumbnailUrl && reelThumbnailUrl.startsWith("data:")) {
+          const resp = await fetch(reelThumbnailUrl);
+          const blob = await resp.blob();
+          const thumbFile = new File([blob], `reel-thumb-${Date.now()}.jpg`, { type: "image/jpeg" });
+          thumbUrl = await uploadMediaToSupabase(thumbFile);
+        } else if (reelThumbnailUrl && reelThumbnailUrl.startsWith("blob:")) {
+          const resp = await fetch(reelThumbnailUrl);
+          const blob = await resp.blob();
+          const thumbFile = new File([blob], `reel-thumb-${Date.now()}.jpg`, { type: "image/jpeg" });
+          thumbUrl = await uploadMediaToSupabase(thumbFile);
+        }
+
+        const reelCaption = [
+          reelTitle ? `*${reelTitle}*\n\n` : "",
+          composer.caption || "",
+        ].join("").trim();
+
+        const { data: post, error: insertError } = await supabase.from("scheduled_posts" as any).insert({
+          user_id: session.user.id,
+          client_id: clientId,
+          platforms: composer.platforms,
+          caption: reelCaption || null,
+          media_url: videoUploaded,
+          media_urls: thumbUrl ? [videoUploaded, thumbUrl] : [videoUploaded],
+          media_type: "video",
+          scheduled_at: isScheduling ? composer.scheduled_at : null,
+          status: isScheduling ? "scheduled" : "publishing",
+          fb_post_id: null, ig_media_id: null, error_message: null,
+        }).select().single();
+        if (insertError) throw insertError;
+
+        if (!isScheduling && post) {
+          try {
+            const pub = await callFn({ action: "approve-post", post_id: (post as any).id });
+            if (pub.error_message) toast.warning(`Reel enviado com aviso: ${pub.error_message}`);
+            else toast.success("Reel publicado!");
+          } catch { toast.warning("Reel salvo, mas falhou ao publicar na rede. Tente novamente."); }
+        } else {
+          toast.success(`Reel agendado para ${new Date(composer.scheduled_at!).toLocaleString("pt-BR")}`);
+        }
+
+        setShowComposer(false);
+        resetReel();
+        setComposer({ platforms: [], caption: "", media_url: "", media_type: "post", link_url: "", post_now: true, scheduled_at: "" });
+        loadPosts();
+        return;
+      }
+
       let finalMediaUrl = composer.media_url || null;
       if (localMediaFile && composer.media_url.startsWith("blob:")) {
         const uploaded = await uploadMediaToSupabase(localMediaFile);
@@ -1296,11 +1397,13 @@ export default function SocialMediaTab({
 
                 {/* Post type */}
                 <div className="flex gap-2 flex-wrap">
-                  {(["post", "carousel", "story", "batch"] as const).map((t) => (
-                    <button key={t} onClick={() => { setComposer((p) => ({ ...p, media_type: t })); setBatchItems([]); setCarouselItems([]); }}
+                  {(["post", "carousel", "story", "batch", "reel"] as const).map((t) => (
+                    <button key={t} onClick={() => { setComposer((p) => ({ ...p, media_type: t })); setBatchItems([]); setCarouselItems([]); if (t !== "reel") resetReel(); }}
                       className="flex-1 py-2 rounded-xl text-xs font-semibold transition-all"
-                      style={composer.media_type === t ? { background: t === "carousel" ? "#A78BFA" : clientColor, color: "#07080A" } : { background: "rgba(255,255,255,0.05)", color: s(0.4), border: "1px solid rgba(255,255,255,0.09)" }}>
-                      {t === "post" ? "📝 Post" : t === "carousel" ? "🎠 Carrossel" : t === "story" ? "📱 Story" : "📦 Lote"}
+                      style={composer.media_type === t
+                        ? { background: t === "carousel" ? "#A78BFA" : t === "reel" ? "#F43F5E" : clientColor, color: "#07080A" }
+                        : { background: "rgba(255,255,255,0.05)", color: s(0.4), border: "1px solid rgba(255,255,255,0.09)" }}>
+                      {t === "post" ? "📝 Post" : t === "carousel" ? "🎠 Carrossel" : t === "story" ? "📱 Story" : t === "reel" ? "🎬 Reel" : "📦 Lote"}
                     </button>
                   ))}
                 </div>
@@ -1666,6 +1769,219 @@ export default function SocialMediaTab({
                   </div>
                 )}
 
+                {/* ── Reel mode ───────────────────────────────── */}
+                {composer.media_type === "reel" && (
+                  <div className="space-y-4">
+                    {/* hidden inputs */}
+                    <input ref={reelFileRef} type="file" accept="video/mp4,video/quicktime,video/webm" className="hidden"
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleReelFile(f); }} />
+                    <canvas ref={reelCanvasRef} className="hidden" />
+
+                    {/* Step 1 — Upload */}
+                    {!reelVideoUrl ? (
+                      <div
+                        onClick={() => reelFileRef.current?.click()}
+                        onDragOver={(e) => { e.preventDefault(); setReelDragOver(true); }}
+                        onDragEnter={(e) => { e.preventDefault(); setReelDragOver(true); }}
+                        onDragLeave={() => setReelDragOver(false)}
+                        onDrop={(e) => { e.preventDefault(); setReelDragOver(false); const f = e.dataTransfer.files?.[0]; if (f) handleReelFile(f); }}
+                        className="w-full py-10 rounded-xl flex flex-col items-center gap-3 cursor-pointer transition-all"
+                        style={{ background: reelDragOver ? "rgba(244,63,94,0.07)" : "rgba(255,255,255,0.03)", border: `1px dashed ${reelDragOver ? "#F43F5E" : "rgba(255,255,255,0.12)"}` }}>
+                        <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ background: "rgba(244,63,94,0.12)" }}>
+                          <svg className="w-6 h-6" viewBox="0 0 24 24" fill="none" style={{ color: "#F43F5E" }}><path d="M15 10l4.553-2.277A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-sm font-semibold" style={{ color: reelDragOver ? "#F43F5E" : s(0.6) }}>
+                            {reelDragOver ? "Solte o vídeo aqui" : "Arraste ou clique para adicionar o vídeo"}
+                          </p>
+                          <p className="text-[11px] mt-1" style={{ color: s(0.3) }}>MP4, MOV, WEBM · máx. 1GB · proporção 9:16 recomendada</p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        {/* Video info row */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: "rgba(244,63,94,0.15)" }}>
+                              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" style={{ color: "#F43F5E" }}><path d="M15 10l4.553-2.277A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M3 8a2 2 0 012-2h10a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V8z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                            </div>
+                            <span className="text-xs font-medium truncate max-w-[160px]" style={{ color: s(0.7) }}>{reelVideoFile?.name}</span>
+                          </div>
+                          <button onClick={resetReel} className="text-[10px] px-2 py-1 rounded-lg" style={{ background: "rgba(248,113,113,0.12)", color: "#F87171" }}>Trocar vídeo</button>
+                        </div>
+
+                        {/* ── Scrubber — escolha de capa ── */}
+                        <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(244,63,94,0.2)", background: "rgba(244,63,94,0.04)" }}>
+                          <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: "1px solid rgba(244,63,94,0.12)" }}>
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" style={{ color: "#F43F5E" }}><path d="M4 16l4-4 4 4 4-8 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                            <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "#F43F5E" }}>Escolher capa do Reel</span>
+                          </div>
+                          <div className="p-4 space-y-3">
+                            {/* Preview grid: thumbnail atual + video */}
+                            <div className="flex gap-3">
+                              {/* Capa selecionada */}
+                              <div className="flex-shrink-0" style={{ width: 72 }}>
+                                <div className="text-[9px] font-semibold uppercase tracking-wider mb-1 text-center" style={{ color: s(0.3) }}>Capa</div>
+                                <div className="rounded-xl overflow-hidden" style={{ aspectRatio: "9/16", background: "rgba(255,255,255,0.06)", border: reelThumbnailUrl ? "2px solid #F43F5E" : "1px dashed rgba(255,255,255,0.15)" }}>
+                                  {reelThumbnailUrl
+                                    ? <img src={reelThumbnailUrl} alt="capa" className="w-full h-full object-cover" />
+                                    : <div className="w-full h-full flex items-center justify-center"><svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" style={{ color: s(0.2) }}><path d="M4 16l4-4 4 4 4-8 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg></div>
+                                  }
+                                </div>
+                              </div>
+
+                              {/* Video scrubber */}
+                              <div className="flex-1 space-y-2">
+                                <div className="text-[9px] font-semibold uppercase tracking-wider" style={{ color: s(0.3) }}>Arraste para escolher o frame</div>
+                                <div className="rounded-xl overflow-hidden relative" style={{ aspectRatio: "16/9", background: "#000" }}>
+                                  <video
+                                    ref={reelVideoRef}
+                                    src={reelVideoUrl}
+                                    className="w-full h-full object-contain"
+                                    muted
+                                    preload="metadata"
+                                    onLoadedMetadata={() => {
+                                      const v = reelVideoRef.current;
+                                      if (v) { setReelDuration(v.duration); setReelCurrentTime(0); }
+                                    }}
+                                    onSeeked={captureReelFrame}
+                                  />
+                                </div>
+                                {/* Slider */}
+                                <div className="space-y-1">
+                                  <input
+                                    type="range"
+                                    min={0}
+                                    max={reelDuration || 1}
+                                    step={0.05}
+                                    value={reelCurrentTime}
+                                    onChange={(e) => {
+                                      const t = parseFloat(e.target.value);
+                                      setReelCurrentTime(t);
+                                      if (reelVideoRef.current) reelVideoRef.current.currentTime = t;
+                                    }}
+                                    className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                                    style={{ accentColor: "#F43F5E" }}
+                                  />
+                                  <div className="flex justify-between text-[9px]" style={{ color: s(0.3) }}>
+                                    <span>{reelDuration > 0 ? `${reelCurrentTime.toFixed(1)}s` : "0s"}</span>
+                                    <span>{reelDuration > 0 ? `${reelDuration.toFixed(1)}s` : "—"}</span>
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={captureReelFrame}
+                                  className="w-full py-2 rounded-xl text-xs font-semibold transition-all"
+                                  style={{ background: "rgba(244,63,94,0.15)", color: "#F43F5E", border: "1px solid rgba(244,63,94,0.3)" }}>
+                                  📸 Capturar este frame como capa
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Upload capa manual */}
+                            <div className="flex items-center gap-2">
+                              <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.07)" }} />
+                              <span className="text-[9px] font-medium uppercase tracking-wider" style={{ color: s(0.25) }}>ou</span>
+                              <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.07)" }} />
+                            </div>
+                            <label className="flex items-center justify-center gap-2 py-2 rounded-xl cursor-pointer transition-all text-xs font-medium"
+                              style={{ background: "rgba(255,255,255,0.04)", border: "1px dashed rgba(255,255,255,0.12)", color: s(0.4) }}>
+                              <Upload className="w-3.5 h-3.5" />
+                              Enviar imagem como capa
+                              <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden"
+                                onChange={(e) => {
+                                  const f = e.target.files?.[0];
+                                  if (!f) return;
+                                  const url = URL.createObjectURL(f);
+                                  setReelThumbnailUrl(url);
+                                }} />
+                            </label>
+                          </div>
+                        </div>
+
+                        {/* ── Título do Reel ── */}
+                        <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.025)" }}>
+                          <div className="flex items-center gap-2 px-4 py-2.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                            <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" style={{ color: s(0.5) }}><path d="M4 6h16M4 12h10M4 18h6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                            <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: s(0.5) }}>Título do Reel</span>
+                            <span className="text-[9px] ml-auto" style={{ color: s(0.25) }}>opcional</span>
+                          </div>
+                          <div className="p-4 space-y-3">
+                            <input
+                              type="text"
+                              value={reelTitle}
+                              onChange={(e) => setReelTitle(e.target.value)}
+                              placeholder="Ex: Como fazer bolo de chocolate 🍫"
+                              maxLength={100}
+                              className="w-full rounded-xl px-3 py-2.5 text-sm focus:outline-none"
+                              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: s(0.85) }}
+                            />
+                            <p className="text-[10px] text-right" style={{ color: s(0.2) }}>{reelTitle.length}/100</p>
+
+                            {/* Estilos do título */}
+                            {reelTitle && (
+                              <div className="space-y-2">
+                                <div className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: s(0.3) }}>Estilo do título</div>
+                                <div className="grid grid-cols-3 gap-2">
+                                  {([
+                                    { id: "bold-white" as const, label: "Branco Bold", preview: { color: "#fff", fontWeight: 800, textShadow: "0 2px 8px rgba(0,0,0,0.8)" } },
+                                    { id: "minimal" as const, label: "Minimalista", preview: { color: "rgba(255,255,255,0.85)", fontWeight: 400, letterSpacing: "0.04em" } },
+                                    { id: "gradient" as const, label: "Gradiente", preview: { background: "linear-gradient(135deg,#F43F5E,#A855F7)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", fontWeight: 800 } },
+                                    { id: "neon" as const, label: "Neon", preview: { color: clientColor, fontWeight: 700, textShadow: `0 0 16px ${clientColor}` } },
+                                    { id: "outlined" as const, label: "Contorno", preview: { color: "transparent", WebkitTextStroke: "1.5px #fff", fontWeight: 800 } },
+                                  ]).map(({ id, label, preview }) => (
+                                    <button key={id} onClick={() => setReelTitleStyle(id)}
+                                      className="rounded-xl px-2 py-3 flex flex-col items-center gap-1.5 transition-all"
+                                      style={{ background: reelTitleStyle === id ? "rgba(244,63,94,0.1)" : "rgba(255,255,255,0.03)", border: `1px solid ${reelTitleStyle === id ? "rgba(244,63,94,0.4)" : "rgba(255,255,255,0.08)"}` }}>
+                                      <span className="text-[13px]" style={preview as React.CSSProperties}>{reelTitle.slice(0, 8) || "Título"}</span>
+                                      <span className="text-[9px] font-medium" style={{ color: reelTitleStyle === id ? "#F43F5E" : s(0.3) }}>{label}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Caption do Reel */}
+                    <div>
+                      <label className="block text-xs font-medium mb-2" style={{ color: s(0.4) }}>Legenda do Reel</label>
+                      <textarea
+                        value={composer.caption}
+                        onChange={(e) => setComposer((p) => ({ ...p, caption: e.target.value }))}
+                        rows={3}
+                        placeholder="Escreva a legenda do Reel…"
+                        className="w-full rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none"
+                        style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: s(0.8) }}
+                      />
+                      <p className="text-[10px] mt-1 text-right" style={{ color: s(0.2) }}>{composer.caption.length}/2200</p>
+                    </div>
+
+                    {/* Schedule do Reel */}
+                    <div>
+                      <label className="block text-xs font-medium mb-2" style={{ color: s(0.4) }}>Publicação</label>
+                      <div className="flex gap-2 mb-3">
+                        {[{ v: true, label: "Publicar agora" }, { v: false, label: "Agendar" }].map(({ v, label }) => (
+                          <button key={label} onClick={() => setComposer((p) => ({ ...p, post_now: v }))}
+                            className="flex-1 py-2 rounded-xl text-xs font-medium transition-all"
+                            style={composer.post_now === v
+                              ? { background: "rgba(244,63,94,0.15)", color: "#F43F5E", border: "1px solid rgba(244,63,94,0.3)" }
+                              : { background: "rgba(255,255,255,0.04)", color: s(0.4), border: "1px solid rgba(255,255,255,0.07)" }}>
+                            {label}
+                          </button>
+                        ))}
+                      </div>
+                      {!composer.post_now && (
+                        <input type="datetime-local" value={composer.scheduled_at}
+                          onChange={(e) => setComposer((p) => ({ ...p, scheduled_at: e.target.value }))}
+                          className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none"
+                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: s(0.8), colorScheme: "dark" }} />
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Caption — hidden for stories and batch */}
                 {composer.media_type === "post" && <div>
                   <label className="block text-xs font-medium mb-2" style={{ color: s(0.4) }}>Legenda</label>
@@ -1784,14 +2100,15 @@ export default function SocialMediaTab({
                     (composer.media_type === "batch" || composer.media_type === "story") ? handleBatchSubmit :
                     handleSubmitPost
                   }
-                  disabled={submitting}
+                  disabled={submitting || (composer.media_type === "reel" && !reelVideoFile)}
                   className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-50 transition-all"
-                  style={{ background: composer.media_type === "carousel" ? "#A78BFA" : (composer.media_type === "story" || (composer.media_type === "batch" && batchSubType === "story")) ? "#F472B6" : clientColor, color: "#07080A" }}>
+                  style={{ background: composer.media_type === "carousel" ? "#A78BFA" : composer.media_type === "reel" ? "#F43F5E" : (composer.media_type === "story" || (composer.media_type === "batch" && batchSubType === "story")) ? "#F472B6" : clientColor, color: "#fff" }}>
                   {(() => {
                     const isStoryMode = composer.media_type === "story" || (composer.media_type === "batch" && batchSubType === "story");
                     const isBatch = composer.media_type === "batch" || composer.media_type === "story";
                     if (submitting && submitProgress) return <><RefreshCw className="w-4 h-4 animate-spin" /> Enviando {submitProgress.current}/{submitProgress.total}…</>;
                     if (submitting) return <><RefreshCw className="w-4 h-4 animate-spin" /> {composer.post_now ? "Publicando…" : "Agendando…"}</>;
+                    if (composer.media_type === "reel") return <><Send className="w-4 h-4" /> {reelVideoFile ? (composer.post_now ? "Publicar Reel" : "Agendar Reel") : "Adicione um vídeo"}</>;
                     if (composer.media_type === "carousel") return <><Send className="w-4 h-4" /> {carouselItems.length >= 2 ? `${composer.post_now ? "Publicar" : "Agendar"} carrossel (${carouselItems.length})` : "Adicione 2+ imagens"}</>;
                     if (isStoryMode) return <><Send className="w-4 h-4" /> {batchItems.length > 0 ? `Publicar ${batchItems.length} stor${batchItems.length !== 1 ? "ies" : "y"}` : "Adicione stories acima"}</>;
                     if (isBatch) return <><Send className="w-4 h-4" /> {batchItems.length > 0 ? `Publicar ${batchItems.length} post${batchItems.length !== 1 ? "s" : ""}` : "Adicione imagens acima"}</>;

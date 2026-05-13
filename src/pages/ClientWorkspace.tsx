@@ -687,6 +687,16 @@ type AgentMsg = {
   status: "sent" | "processing" | "done" | "error";
 };
 
+type BrandAsset = {
+  id: string;
+  type: "logo" | "manual" | "presentation";
+  file_name: string;
+  storage_path: string;
+  public_url: string;
+  size_bytes?: number;
+  created_at: string;
+};
+
 const AGENT_META: Record<string, { initial: string; color: string; name: string }> = {
   aria:      { initial: "Lu", color: "#B9FF4B", name: "Luna" },
   luana:     { initial: "Lu", color: "#B9FF4B", name: "Luna" },
@@ -975,6 +985,10 @@ export default function ClientWorkspace() {
   const [generatedImages, setGeneratedImages] = useState<Array<{id: string, imageData: string, mimeType: string, imageUrl?: string, prompt: string, createdAt: string}>>([]);
   const [marcelaLoading, setMarcelaLoading] = useState(false);
   const [marcelaError, setMarcelaError] = useState<string | null>(null);
+  const [brandIdentity, setBrandIdentity] = useState<{ primaryColor: string; secondaryColor: string; accentColor: string; logoUrl: string }>(() => {
+    try { const raw = localStorage.getItem(`brand-identity-${id}`); return raw ? JSON.parse(raw) : { primaryColor: "", secondaryColor: "", accentColor: "", logoUrl: "" }; } catch { return { primaryColor: "", secondaryColor: "", accentColor: "", logoUrl: "" }; }
+  });
+  const [showBrandIdentityPanel, setShowBrandIdentityPanel] = useState(false);
   const [designAspectRatio, setDesignAspectRatio] = useState<"1:1" | "9:16" | "16:9" | "4:3" | "3:4">("1:1");
   const [videoPlatform, setVideoPlatform] = useState<string>("reels");
   const [videoScript, setVideoScript] = useState("");
@@ -1437,6 +1451,14 @@ export default function ClientWorkspace() {
     });
   };
 
+  const updateBrandIdentity = (patch: Partial<typeof brandIdentity>) => {
+    setBrandIdentity((prev) => {
+      const updated = { ...prev, ...patch };
+      localStorage.setItem(`brand-identity-${id}`, JSON.stringify(updated));
+      return updated;
+    });
+  };
+
   // Build the briefing + memory context block injected into every agent call
   const buildBriefingBlock = (extra?: string) => {
     const b = clientBriefing;
@@ -1626,7 +1648,10 @@ Cliente: ${client.name} | Segmento: ${segmento}${client.teamInstructions ? `\nIn
     addConvMsgs([userMsg]);
 
     const clientContext = {
-      name: client.name, industry: clientBriefing?.segmento || client.industry, brandColor: client.color,
+      name: client.name, industry: clientBriefing?.segmento || client.industry,
+      brandColor: brandIdentity.primaryColor || client.color,
+      brandColors: { primary: brandIdentity.primaryColor || client.color, secondary: brandIdentity.secondaryColor || "", accent: brandIdentity.accentColor || "" },
+      logoUrl: brandIdentity.logoUrl || "",
       campaigns: client.activeCampaigns?.map((c) => c.name) ?? [],
       recentThemes: client.recentPosts?.map((p) => p.caption.slice(0, 80)) ?? [],
       nextAction: client.nextAction,
@@ -1817,6 +1842,8 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
                   name: clientContext.name,
                   industry: clientContext.industry,
                   brandColor: clientContext.brandColor,
+                  brandColors: clientContext.brandColors,
+                  logoUrl: clientContext.logoUrl,
                 },
                 beatrizCopy: (accumulated.copywriter ?? "").slice(0, 600),
                 carolinaStrategy: (accumulated.strategist ?? "").slice(0, 400),
@@ -2982,7 +3009,9 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
     const clientContext = {
       name: client.name,
       industry: client.industry,
-      brandColor: client.color,
+      brandColor: brandIdentity.primaryColor || client.color,
+      brandColors: { primary: brandIdentity.primaryColor || client.color, secondary: brandIdentity.secondaryColor || "", accent: brandIdentity.accentColor || "" },
+      logoUrl: brandIdentity.logoUrl || "",
       campaigns: client.activeCampaigns?.map((c) => c.name) ?? [],
       recentThemes: client.recentPosts?.map((p) => p.caption.slice(0, 80)) ?? [],
       nextAction: client.nextAction,
@@ -4517,6 +4546,100 @@ Regras:
                           </div>
                         ))}</div>
                       }
+                    </div>
+
+                    {/* ── Identidade Visual do Cliente ── */}
+                    <div className="rounded-2xl p-5" style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.7)" }}>Identidade Visual</h3>
+                        {(brandIdentity.primaryColor || brandIdentity.logoUrl) && (
+                          <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: "rgba(217,70,239,0.15)", color: "#D946EF" }}>salva</span>
+                        )}
+                      </div>
+
+                      {/* Preview das cores salvas */}
+                      {(brandIdentity.primaryColor || brandIdentity.secondaryColor || brandIdentity.accentColor) && (
+                        <div className="flex items-center gap-2 mb-4">
+                          {[
+                            { c: brandIdentity.primaryColor, label: "P" },
+                            { c: brandIdentity.secondaryColor, label: "S" },
+                            { c: brandIdentity.accentColor, label: "D" },
+                          ].filter(x => x.c).map(({ c, label }) => (
+                            <div key={label} className="flex flex-col items-center gap-1">
+                              <div className="w-8 h-8 rounded-lg border border-white/10" style={{ background: c }} />
+                              <span className="text-[9px]" style={{ color: "rgba(255,255,255,0.25)" }}>{label}</span>
+                            </div>
+                          ))}
+                          {brandIdentity.logoUrl && (
+                            <div className="ml-auto">
+                              <img src={brandIdentity.logoUrl} alt="logo" className="h-8 max-w-[64px] object-contain rounded"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="space-y-2.5">
+                        {/* Cores */}
+                        {([
+                          { key: "primaryColor" as const, label: "Cor Primária" },
+                          { key: "secondaryColor" as const, label: "Cor Secundária" },
+                          { key: "accentColor" as const, label: "Cor de Destaque" },
+                        ]).map(({ key, label }) => (
+                          <div key={key} className="flex items-center gap-2">
+                            <input
+                              type="color"
+                              value={brandIdentity[key] || "#ffffff"}
+                              onChange={(e) => updateBrandIdentity({ [key]: e.target.value })}
+                              title={label}
+                              className="w-7 h-7 rounded-lg cursor-pointer p-0.5 flex-shrink-0"
+                              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}
+                            />
+                            <input
+                              type="text"
+                              value={brandIdentity[key]}
+                              onChange={(e) => updateBrandIdentity({ [key]: e.target.value })}
+                              placeholder={`${label} (#hex)`}
+                              maxLength={7}
+                              className="flex-1 rounded-lg px-2.5 py-1.5 text-[11px] font-mono"
+                              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: brandIdentity[key] || "rgba(255,255,255,0.3)", outline: "none" }}
+                              onFocus={(e) => (e.target.style.borderColor = "rgba(217,70,239,0.5)")}
+                              onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.08)")}
+                            />
+                            {brandIdentity[key] && (
+                              <button onClick={() => updateBrandIdentity({ [key]: "" })} title="Remover" className="flex-shrink-0" style={{ color: "rgba(255,255,255,0.2)" }}>
+                                <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none"><path d="M2 10L10 2M2 2l8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                              </button>
+                            )}
+                          </div>
+                        ))}
+
+                        {/* Logo URL */}
+                        <div>
+                          <div className="text-[9px] uppercase tracking-widest font-semibold mb-1.5 mt-1" style={{ color: "rgba(255,255,255,0.25)" }}>Logo (URL)</div>
+                          <input
+                            type="text"
+                            value={brandIdentity.logoUrl}
+                            onChange={(e) => updateBrandIdentity({ logoUrl: e.target.value })}
+                            placeholder="https://... (.png ou .svg)"
+                            className="w-full rounded-lg px-2.5 py-1.5 text-[11px]"
+                            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#F0F0F0", outline: "none" }}
+                            onFocus={(e) => (e.target.style.borderColor = "rgba(217,70,239,0.5)")}
+                            onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.08)")}
+                          />
+                          {brandIdentity.logoUrl && (
+                            <div className="mt-1.5 flex items-center gap-2">
+                              <img src={brandIdentity.logoUrl} alt="logo preview" className="h-6 max-w-[60px] object-contain rounded"
+                                onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                              <span className="text-[9px]" style={{ color: "rgba(255,255,255,0.3)" }}>preview</span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <p className="text-[9px] mt-3 leading-relaxed" style={{ color: "rgba(255,255,255,0.2)" }}>
+                        Cores e logo usados automaticamente pela Marcela ao gerar peças visuais.
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -11875,6 +11998,102 @@ Regras:
                           </div>
                         )}
 
+                        {/* Identidade Visual do Cliente */}
+                        <div className="mb-3">
+                          <button
+                            onClick={() => setShowBrandIdentityPanel((v) => !v)}
+                            className="flex items-center justify-between w-full px-3 py-2 rounded-xl transition-all"
+                            style={{ background: showBrandIdentityPanel ? "rgba(217,70,239,0.08)" : "rgba(255,255,255,0.04)", border: `1px solid ${showBrandIdentityPanel ? "rgba(217,70,239,0.35)" : "rgba(255,255,255,0.08)"}` }}>
+                            <div className="flex items-center gap-2">
+                              <div className="flex gap-1">
+                                {[brandIdentity.primaryColor, brandIdentity.secondaryColor, brandIdentity.accentColor].map((c, i) =>
+                                  c ? <div key={i} className="w-3 h-3 rounded-full border border-white/20" style={{ background: c }} /> : null
+                                )}
+                                {!brandIdentity.primaryColor && !brandIdentity.secondaryColor && !brandIdentity.accentColor && (
+                                  <div className="w-3 h-3 rounded-full border border-dashed border-white/20" />
+                                )}
+                              </div>
+                              <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: showBrandIdentityPanel ? "rgba(217,70,239,0.9)" : "rgba(255,255,255,0.4)" }}>
+                                Identidade Visual
+                              </span>
+                              {(brandIdentity.primaryColor || brandIdentity.logoUrl) && (
+                                <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: "rgba(217,70,239,0.15)", color: "#D946EF" }}>salva</span>
+                              )}
+                            </div>
+                            <svg className="w-3 h-3 transition-transform" style={{ color: "rgba(255,255,255,0.3)", transform: showBrandIdentityPanel ? "rotate(180deg)" : "rotate(0deg)" }} viewBox="0 0 12 12" fill="none"><path d="M2 4l4 4 4-4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" /></svg>
+                          </button>
+
+                          {showBrandIdentityPanel && (
+                            <div className="mt-2 rounded-xl p-3 flex flex-col gap-3" style={{ background: "rgba(217,70,239,0.04)", border: "1px solid rgba(217,70,239,0.15)" }}>
+                              {/* Cores */}
+                              <div>
+                                <div className="text-[9px] uppercase tracking-widest font-semibold mb-2" style={{ color: "rgba(255,255,255,0.25)" }}>Cores da marca</div>
+                                <div className="flex flex-col gap-2">
+                                  {([
+                                    { key: "primaryColor" as const, label: "Primária *" },
+                                    { key: "secondaryColor" as const, label: "Secundária" },
+                                    { key: "accentColor" as const, label: "Destaque" },
+                                  ]).map(({ key, label }) => (
+                                    <div key={key} className="flex items-center gap-2">
+                                      <div className="relative">
+                                        <input
+                                          type="color"
+                                          value={brandIdentity[key] || "#ffffff"}
+                                          onChange={(e) => updateBrandIdentity({ [key]: e.target.value })}
+                                          className="w-7 h-7 rounded-lg cursor-pointer border-0 p-0.5"
+                                          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)" }}
+                                        />
+                                      </div>
+                                      <input
+                                        type="text"
+                                        value={brandIdentity[key]}
+                                        onChange={(e) => updateBrandIdentity({ [key]: e.target.value })}
+                                        placeholder={`#hex — ${label}`}
+                                        maxLength={7}
+                                        className="flex-1 rounded-lg px-2.5 py-1.5 text-[11px] font-mono"
+                                        style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: brandIdentity[key] || "rgba(255,255,255,0.35)", outline: "none" }}
+                                        onFocus={(e) => (e.target.style.borderColor = "rgba(217,70,239,0.5)")}
+                                        onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.08)")}
+                                      />
+                                      {brandIdentity[key] && (
+                                        <button onClick={() => updateBrandIdentity({ [key]: "" })} style={{ color: "rgba(255,255,255,0.2)" }}>
+                                          <svg className="w-3 h-3" viewBox="0 0 12 12" fill="none"><path d="M2 10L10 2M2 2l8 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                                        </button>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+
+                              {/* Logo URL */}
+                              <div>
+                                <div className="text-[9px] uppercase tracking-widest font-semibold mb-1.5" style={{ color: "rgba(255,255,255,0.25)" }}>Logo (URL da imagem)</div>
+                                <input
+                                  type="text"
+                                  value={brandIdentity.logoUrl}
+                                  onChange={(e) => updateBrandIdentity({ logoUrl: e.target.value })}
+                                  placeholder="https://... (.png ou .svg)"
+                                  className="w-full rounded-lg px-2.5 py-1.5 text-[11px]"
+                                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#F0F0F0", outline: "none" }}
+                                  onFocus={(e) => (e.target.style.borderColor = "rgba(217,70,239,0.5)")}
+                                  onBlur={(e) => (e.target.style.borderColor = "rgba(255,255,255,0.08)")}
+                                />
+                                {brandIdentity.logoUrl && (
+                                  <div className="mt-1.5 flex items-center gap-2">
+                                    <img src={brandIdentity.logoUrl} alt="logo" className="h-6 max-w-[60px] object-contain rounded"
+                                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                                    <span className="text-[9px]" style={{ color: "rgba(255,255,255,0.3)" }}>preview</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              <p className="text-[9px] leading-relaxed" style={{ color: "rgba(255,255,255,0.2)" }}>
+                                A Marcela usará essas cores e logo automaticamente ao gerar as peças visuais do cliente.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
                         {/* Formato */}
                         <div className="mb-3">
                           <div className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>Formato</div>
@@ -12003,7 +12222,7 @@ Regras:
         {postCanvas && (
           <PostCanvas
             imageUrl={postCanvas.imageUrl}
-            brandColor={client.color}
+            brandColor={brandIdentity.primaryColor || client.color}
             clientName={client.name}
             initialHeadline={postCanvas.headline}
             initialBody={postCanvas.body}
