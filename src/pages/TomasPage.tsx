@@ -174,6 +174,7 @@ export default function TomasPage() {
   const [searchParams] = useSearchParams();
   const clientId   = searchParams.get("clientId") ?? "";
   const clientName = searchParams.get("clientName") ?? "";
+  const pageId     = searchParams.get("pageId") ?? "";
 
   // ── Briefing state ──────────────────────────────────────────────────────────
   const [produto, setProduto]     = useState("");
@@ -212,6 +213,10 @@ export default function TomasPage() {
   const [directEditField, setDirectEditField]     = useState<string | null>(null);
   const [directEditValue, setDirectEditValue]     = useState("");
 
+  // ── Saved page state ─────────────────────────────────────────────────────────
+  const [savedPageId, setSavedPageId] = useState<string | null>(null);
+  const [savingPage, setSavingPage]   = useState(false);
+
   // ── Form injection state ─────────────────────────────────────────────────────
   const [formMode, setFormMode]     = useState<"none" | "crm" | "forminator">("none");
   const [formFields, setFormFields] = useState<("name" | "email" | "phone" | "message")[]>(["name", "email", "phone"]);
@@ -249,6 +254,26 @@ export default function TomasPage() {
       setWpCredsLoaded(true);
     })();
   }, [clientId, wpCredsLoaded]);
+
+  // ── Load existing LP by pageId ───────────────────────────────────────────────
+  useEffect(() => {
+    if (!pageId) return;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("landing_pages")
+        .select("id, title, html_content")
+        .eq("id", pageId)
+        .maybeSingle();
+      if (!data) { toast.error("Página não encontrada"); return; }
+      setSavedPageId(data.id);
+      setProduto(data.title);
+      setResultado({ copy: "", design: "", html: data.html_content });
+      setHtmlEditado(data.html_content);
+      setEtapa("concluido");
+      setAbaAtiva("preview");
+      toast.success(`"${data.title}" carregada para edição`);
+    })();
+  }, [pageId]);
 
   // ── iframe messages (basic edit + editor section click) ──────────────────────
   useEffect(() => {
@@ -351,6 +376,8 @@ export default function TomasPage() {
     setAiEditField(null);
     setAiSuggestion(null);
     setDirectEditField(null);
+    setSavedPageId(null);
+    setFormInjected(false);
   }, []);
 
   // ── Editor Visual ──────────────────────────────────────────────────────────
@@ -541,6 +568,22 @@ export default function TomasPage() {
               });
               localStorage.setItem("calu_pages", JSON.stringify(stored.slice(0, 30)));
             } catch { /* ignora falha de quota */ }
+
+            // Salva no Supabase landing_pages
+            try {
+              const { data: sess } = await supabase.auth.getSession();
+              const uid = sess?.session?.user?.id;
+              const slug = (produto || clientName || "landing-page")
+                .toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").slice(0, 60)
+                + "-" + Date.now();
+              const { data: saved } = await (supabase as any).from("landing_pages").insert({
+                title: produto || clientName || "Landing Page",
+                slug,
+                html_content: parcialLocal.html,
+                created_by: uid ?? null,
+              }).select("id").single();
+              if (saved?.id) setSavedPageId(saved.id);
+            } catch { /* não bloqueia o fluxo */ }
             return;
           }
           setEtapa(payload.etapa as Etapa);
@@ -1115,6 +1158,24 @@ form.addEventListener('submit',function(e){
                       <Copy className="w-3.5 h-3.5" /> Copiar
                     </button>
                   </>
+                )}
+                {savedPageId && (resultado || htmlEditado) && !gerandoAtivo && (
+                  <button
+                    onClick={async () => {
+                      setSavingPage(true);
+                      const html = stripEditorAttrs(editorMode ? markedHtml : (htmlEditado || resultado?.html || ""));
+                      const { error } = await (supabase as any).from("landing_pages")
+                        .update({ html_content: html, updated_at: new Date().toISOString() })
+                        .eq("id", savedPageId);
+                      setSavingPage(false);
+                      if (error) toast.error("Erro ao salvar");
+                      else toast.success("Alterações salvas!");
+                    }}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-semibold"
+                    style={{ background: "#B9FF4B22", border: "1px solid #B9FF4B55", color: "#B9FF4B" }}>
+                    {savingPage ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                    {savingPage ? "Salvando..." : "Salvar"}
+                  </button>
                 )}
                 {(resultado || markedHtml) && (
                   <button onClick={() => downloadHtml(stripEditorAttrs(htmlParaExibir))}

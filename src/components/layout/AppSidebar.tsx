@@ -8,7 +8,7 @@ import {
   Palette, Bell, Crown, ArrowLeftRight, Star,
   ArrowLeft, Megaphone, BarChart2, ExternalLink,
   Bot, Activity, Link2, ListTodo, Share2, Clapperboard, Mic, CalendarDays, Webhook, Layout, TrendingUp, FileBarChart, BookOpen,
-  ChevronDown, Code2
+  ChevronDown, Code2, Filter
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
@@ -39,6 +39,7 @@ const crmItems = [
   { to: "/voice", icon: Phone, label: "Voz & Chamadas" },
   { to: "/video-editor", icon: Clapperboard, label: "Editor de Vídeo" },
   { to: "/tomas", icon: Layout, label: "Criador de LPs" },
+  { to: "/pages", icon: Globe, label: "Landing Pages" },
   { to: "/ben", icon: TrendingUp, label: "Tendências — Ben" },
   { to: "/notebook", icon: BookOpen, label: "Notebook IA" },
   { to: "/wordpress", icon: Globe, label: "WordPress" },
@@ -65,6 +66,7 @@ const bottomItems = [
 const clientTools = [
   { tab: "",             icon: LayoutDashboard, label: "Visão Geral" },
   { tab: "crm",          icon: Users,           label: "CRM" },
+  { tab: "leads",        icon: Filter,          label: "Funil de Leads" },
   { tab: "campaigns",    icon: Megaphone,       label: "Campanhas" },
   { tab: "teo",          icon: Code2,           label: "Site — Teo" },
   { tab: "agents",       icon: Bot,             label: "Agentes IA" },
@@ -74,6 +76,7 @@ const clientTools = [
   { tab: "tasks",        icon: ListTodo,        label: "O que fazer" },
   { tab: "social",      icon: Share2,       label: "Redes Sociais" },
   { tab: "calendario",  icon: CalendarDays, label: "Calendário Editorial" },
+  { tab: "brand",         icon: Palette,      label: "Identidade Visual" },
   { tab: "integrations", icon: Link2,        label: "Integrações" },
   { tab: "webhooks",     icon: Webhook,      label: "Webhooks" },
   { tab: "time",         icon: Users,        label: "Time do Cliente" },
