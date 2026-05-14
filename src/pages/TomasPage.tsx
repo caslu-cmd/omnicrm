@@ -172,16 +172,21 @@ function parseLPIntoSections(html: string): { markedHtml: string; sections: Pars
       fields.push({ id: fieldId, label, value: text });
     };
 
-    let h1n = 0, h2n = 0, h3n = 0, pn = 0, btn = 0, imgn = 0;
+    let h1n = 0, h2n = 0, h3n = 0, h4n = 0, pn = 0, liN = 0, btn = 0, imgn = 0;
     sectionEl.querySelectorAll("h1").forEach(el => addField(el, h1n++ === 0 ? "Título Principal" : `Título ${h1n}`));
     sectionEl.querySelectorAll("h2").forEach(el => addField(el, h2n++ === 0 ? "Título" : `Título ${h2n}`));
     sectionEl.querySelectorAll("h3").forEach(el => addField(el, h3n++ === 0 ? "Subtítulo" : `Subtítulo ${h3n}`));
+    sectionEl.querySelectorAll("h4,h5,h6").forEach(el => addField(el, `Subtítulo ${++h4n}`));
     sectionEl.querySelectorAll("p").forEach(el => {
-      if ((el.textContent?.trim().length ?? 0) > 15) addField(el, pn++ === 0 ? "Texto" : `Texto ${pn}`);
+      if ((el.textContent?.trim().length ?? 0) > 8) addField(el, pn++ === 0 ? "Texto" : `Texto ${pn}`);
+    });
+    sectionEl.querySelectorAll("li").forEach(el => {
+      const text = el.textContent?.trim() ?? "";
+      if (text.length > 3 && text.length < 200) addField(el, `Item ${++liN}`);
     });
     sectionEl.querySelectorAll("button, a").forEach(el => {
       const text = el.textContent?.trim() ?? "";
-      if (text && text.length < 60 && text.length > 2) addField(el, btn++ === 0 ? "Botão CTA" : `Botão ${btn}`);
+      if (text && text.length < 80 && text.length > 2) addField(el, btn++ === 0 ? "Botão CTA" : `Botão ${btn}`);
     });
     sectionEl.querySelectorAll("img").forEach(el => {
       const src = el.getAttribute("src") ?? "";
@@ -315,6 +320,8 @@ export default function TomasPage() {
   const [aiSuggestion, setAiSuggestion]           = useState<{ fieldId: string; text: string } | null>(null);
   const [directEditField, setDirectEditField]     = useState<string | null>(null);
   const [directEditValue, setDirectEditValue]     = useState("");
+  const [rawHtmlSectionId, setRawHtmlSectionId]  = useState<string | null>(null);
+  const [rawHtmlValue, setRawHtmlValue]           = useState("");
 
   // ── Tomas command state ──────────────────────────────────────────────────────
   const [tomasCmd, setTomasCmd]         = useState("");
@@ -567,6 +574,59 @@ export default function TomasPage() {
     });
     toast.success("Seção removida!");
   }, []);
+
+  const openRawHtmlEditor = useCallback((sectionId: string) => {
+    const doc = new DOMParser().parseFromString(markedHtml, "text/html");
+    const el = doc.querySelector(`[data-calu-section="${sectionId}"]`);
+    if (!el) return;
+    const clean = el.outerHTML.replace(/ data-calu-(section|field)="[^"]*"/g, "");
+    setRawHtmlSectionId(sectionId);
+    setRawHtmlValue(clean);
+    setAiEditField(null);
+    setDirectEditField(null);
+  }, [markedHtml]);
+
+  const applyRawSectionHtml = useCallback(() => {
+    if (!rawHtmlSectionId || !rawHtmlValue.trim()) return;
+    setMarkedHtml(prev => {
+      const doc = new DOMParser().parseFromString(prev, "text/html");
+      const el = doc.querySelector(`[data-calu-section="${rawHtmlSectionId}"]`);
+      if (!el) return prev;
+      const tmp = doc.createElement("div");
+      tmp.innerHTML = rawHtmlValue.trim();
+      const newEl = tmp.firstElementChild;
+      if (newEl) {
+        newEl.setAttribute("data-calu-section", rawHtmlSectionId);
+        el.replaceWith(newEl);
+      }
+      return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
+    });
+    // re-parse fields for this section
+    setSections(prev => prev.map((s, i) => {
+      if (s.id !== rawHtmlSectionId) return s;
+      const tmpDoc = new DOMParser().parseFromString(rawHtmlValue.trim(), "text/html");
+      const root = tmpDoc.body.firstElementChild ?? tmpDoc.body;
+      const fields: ParsedField[] = [];
+      let fIdx = 0;
+      const sid = rawHtmlSectionId;
+      const addF = (el: Element, label: string) => {
+        const text = el.textContent?.trim() ?? "";
+        if (!text || text.length < 2) return;
+        const fid = `${sid}-raw${fIdx++}`;
+        fields.push({ id: fid, label, value: text });
+      };
+      root.querySelectorAll("h1").forEach(e => addF(e, "Título Principal"));
+      root.querySelectorAll("h2").forEach(e => addF(e, "Título"));
+      root.querySelectorAll("h3,h4").forEach(e => addF(e, "Subtítulo"));
+      root.querySelectorAll("p").forEach(e => { if ((e.textContent?.trim().length ?? 0) > 8) addF(e, "Texto"); });
+      root.querySelectorAll("li").forEach((e, i) => { const t = e.textContent?.trim() ?? ""; if (t.length > 3) addF(e, `Item ${i + 1}`); });
+      root.querySelectorAll("button,a").forEach(e => { const t = e.textContent?.trim() ?? ""; if (t.length > 2 && t.length < 80) addF(e, "Botão"); });
+      return { ...s, fields: fields.length ? fields : s.fields };
+    }));
+    setRawHtmlSectionId(null);
+    setRawHtmlValue("");
+    toast.success("Seção atualizada!");
+  }, [rawHtmlSectionId, rawHtmlValue]);
 
   const applyEffect = useCallback((effectKey: string) => {
     const effect = PREMIUM_EFFECTS.find(e => e.key === effectKey);
@@ -1107,16 +1167,27 @@ form.addEventListener('submit',function(e){
     if (!currentHtml) return;
     if (!forminatorId.trim()) { toast.error("Digite o ID do formulário Forminator"); return; }
 
+    const fid = forminatorId.trim();
     const formSection = `
 <section id="form-inscricao" style="padding:80px 20px;background:var(--bg,#07080A);text-align:center;">
   <div style="max-width:600px;margin:0 auto;">
     <h2 style="font-size:clamp(1.4rem,4vw,2rem);font-weight:700;margin-bottom:12px;color:inherit;">Inscreva-se agora</h2>
     <p style="opacity:0.65;font-size:1rem;margin-bottom:32px;">Preencha o formulário abaixo e garanta sua vaga</p>
-    <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:32px;">
-      [forminator_form id="${forminatorId.trim()}"]
-    </div>
+    <div class="calu-form-wrap" style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:32px;">[forminator_form id="${fid}"]</div>
   </div>
-</section>`;
+</section>
+<script>(function(){
+  if(typeof window.forminator_vars!=='undefined')return;
+  var w=document.querySelector('.calu-form-wrap');
+  if(!w)return;
+  w.innerHTML='<div style="display:flex;flex-direction:column;gap:10px;text-align:left;">'
+    +'<input type="text" placeholder="Nome completo" disabled style="padding:12px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:#E0E0F0;font-size:14px;font-family:inherit;width:100%;box-sizing:border-box;"/>'
+    +'<input type="email" placeholder="E-mail" disabled style="padding:12px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:#E0E0F0;font-size:14px;font-family:inherit;width:100%;box-sizing:border-box;"/>'
+    +'<input type="tel" placeholder="WhatsApp" disabled style="padding:12px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:#E0E0F0;font-size:14px;font-family:inherit;width:100%;box-sizing:border-box;"/>'
+    +'<button disabled style="width:100%;padding:14px;border-radius:8px;background:var(--accent,#B9FF4B);color:#07080A;font-weight:700;font-size:15px;border:none;font-family:inherit;">Quero me inscrever</button>'
+    +'<p style="text-align:center;font-size:11px;opacity:0.4;color:inherit;margin:6px 0 0;">Formulário Forminator #${fid} — publicar no WordPress para ativar</p>'
+    +'</div>';
+})();<\/script>`;
 
     const newHtml = currentHtml.includes("</main>")
       ? currentHtml.replace("</main>", formSection + "\n</main>")
@@ -1209,16 +1280,28 @@ form.addEventListener('submit',function(e){
                     <span className="text-[10px] flex-shrink-0 group-hover:hidden" style={{ color: "rgba(255,255,255,0.2)" }}>
                       {s.fields.length}
                     </span>
-                    <button
-                      onClick={e => { e.stopPropagation(); deleteSection(s.id); }}
-                      title="Excluir seção"
-                      className="hidden group-hover:flex items-center justify-center w-5 h-5 rounded flex-shrink-0 transition-colors"
-                      style={{ color: "#FF4466" }}
-                      onMouseEnter={e => e.currentTarget.style.background = "#FF446622"}
-                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                    >
-                      <Trash2 className="w-3 h-3" />
-                    </button>
+                    <div className="hidden group-hover:flex items-center gap-1 flex-shrink-0">
+                      <button
+                        onClick={e => { e.stopPropagation(); setSelectedSectionIdx(i); openRawHtmlEditor(s.id); }}
+                        title="Editar HTML da seção"
+                        className="flex items-center justify-center w-5 h-5 rounded text-[9px] font-bold transition-colors"
+                        style={{ color: "#8888BB", background: "#1E1E2E" }}
+                        onMouseEnter={e => e.currentTarget.style.color = "#B9FF4B"}
+                        onMouseLeave={e => e.currentTarget.style.color = "#8888BB"}
+                      >
+                        {"</>"}
+                      </button>
+                      <button
+                        onClick={e => { e.stopPropagation(); deleteSection(s.id); }}
+                        title="Excluir seção"
+                        className="flex items-center justify-center w-5 h-5 rounded flex-shrink-0 transition-colors"
+                        style={{ color: "#FF4466" }}
+                        onMouseEnter={e => e.currentTarget.style.background = "#FF446622"}
+                        onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -1229,9 +1312,50 @@ form.addEventListener('submit',function(e){
             {/* Fields of selected section */}
             {selectedSection && (
               <div className="flex-1 overflow-y-auto px-3 pb-4">
-                <p className="text-[10px] uppercase tracking-widest font-semibold px-1 mb-3" style={{ color: "#444466" }}>
-                  {selectedSection.name} — campos
-                </p>
+                <div className="flex items-center justify-between px-1 mb-3">
+                  <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#444466" }}>
+                    {rawHtmlSectionId === selectedSection.id ? "Editar HTML" : `${selectedSection.name} — campos`}
+                  </p>
+                  <button
+                    onClick={() => rawHtmlSectionId === selectedSection.id
+                      ? (setRawHtmlSectionId(null), setRawHtmlValue(""))
+                      : openRawHtmlEditor(selectedSection.id)}
+                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-medium transition-all"
+                    style={{
+                      background: rawHtmlSectionId === selectedSection.id ? "#B9FF4B22" : "#1A1A2E",
+                      border: `1px solid ${rawHtmlSectionId === selectedSection.id ? "#B9FF4B44" : "#2A2A3A"}`,
+                      color: rawHtmlSectionId === selectedSection.id ? "#B9FF4B" : "#555577",
+                    }}>
+                    {"</>"} {rawHtmlSectionId === selectedSection.id ? "Campos" : "HTML"}
+                  </button>
+                </div>
+
+                {/* Raw HTML editor mode */}
+                {rawHtmlSectionId === selectedSection.id ? (
+                  <div className="flex flex-col gap-2">
+                    <textarea
+                      autoFocus
+                      rows={14}
+                      value={rawHtmlValue}
+                      onChange={e => setRawHtmlValue(e.target.value)}
+                      spellCheck={false}
+                      className="w-full resize-none rounded-xl px-3 py-2.5 text-[11px] font-mono outline-none"
+                      style={{ background: "#0D0D16", border: "1px solid #B9FF4B33", color: "#B9FF4B", lineHeight: 1.6 }}
+                    />
+                    <div className="flex gap-2">
+                      <button onClick={() => { setRawHtmlSectionId(null); setRawHtmlValue(""); }}
+                        className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl text-[11px]"
+                        style={{ background: "#1E1E2E", color: "#888899" }}>
+                        <X className="w-3 h-3" /> Cancelar
+                      </button>
+                      <button onClick={applyRawSectionHtml}
+                        className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl text-[11px] font-semibold"
+                        style={{ background: "#B9FF4B", color: "#07080A" }}>
+                        <Check className="w-3 h-3" /> Aplicar
+                      </button>
+                    </div>
+                  </div>
+                ) : (
                 <div className="flex flex-col gap-3">
                   {selectedSection.fields.map(field => (
                     <FieldEditor
@@ -1257,6 +1381,7 @@ form.addEventListener('submit',function(e){
                     />
                   ))}
                 </div>
+                )}
               </div>
             )}
           </div>
