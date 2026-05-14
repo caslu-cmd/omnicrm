@@ -406,11 +406,19 @@ Deno.serve(async (req) => {
       };
       if (enableThinking) body.thinking = { type: "enabled", budget_tokens: budget };
       if (tools) body.tools = tools;
-      const response = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
-        body: JSON.stringify(body),
-      });
+      let response: Response | null = null;
+      let lastBody = "";
+      for (let attempt = 0; attempt < 4; attempt++) {
+        if (attempt > 0) await new Promise(r => setTimeout(r, 1500 * attempt));
+        const r = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-api-key": apiKey, "anthropic-version": "2023-06-01" },
+          body: JSON.stringify(body),
+        });
+        if (r.status === 529) { lastBody = await r.text(); continue; }
+        response = r; break;
+      }
+      if (!response) throw new Error(`Anthropic sobrecarregada, tente novamente. (${lastBody})`);
       if (!response.ok) throw new Error(await response.text());
       return response.json() as Promise<{ stop_reason: string; content: ContentBlock[] }>;
     };

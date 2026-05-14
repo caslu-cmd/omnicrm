@@ -67,22 +67,27 @@ Brand context: ${brandName} | ${industry} | accent color ${brandColor}`;
     `PEDIDO DO USUÁRIO: ${userRequest}`,
   ].filter(Boolean).join("\n\n---\n\n");
 
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "x-api-key": anthropicKey,
-      "anthropic-version": "2023-06-01",
-      "content-type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 700,
-      system: systemMsg,
-      messages: [{ role: "user", content: userMsg }],
-    }),
-  });
-
-  if (!res.ok) return userRequest;
+  let res: Response | null = null;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise(r => setTimeout(r, 1500 * attempt));
+    const r = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "x-api-key": anthropicKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 700,
+        system: systemMsg,
+        messages: [{ role: "user", content: userMsg }],
+      }),
+    });
+    if (r.status === 529) continue;
+    res = r; break;
+  }
+  if (!res || !res.ok) return userRequest;
   const data = await res.json();
   return data.content?.[0]?.text?.trim() ?? userRequest;
 }

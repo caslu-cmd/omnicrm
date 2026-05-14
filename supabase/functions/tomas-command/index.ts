@@ -105,20 +105,27 @@ Regras:
     }
     messageContent.push({ type: "text", text: promptText });
 
-    const r = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-6",
-        max_tokens: 16000,
-        messages: [{ role: "user", content: messageContent }],
-      }),
-    });
-
+    let r: Response | null = null;
+    let lastErr = "";
+    for (let attempt = 0; attempt < 4; attempt++) {
+      if (attempt > 0) await new Promise(res => setTimeout(res, 1500 * attempt));
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": apiKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-6",
+          max_tokens: 16000,
+          messages: [{ role: "user", content: messageContent }],
+        }),
+      });
+      if (res.status === 529) { lastErr = await res.text(); continue; }
+      r = res; break;
+    }
+    if (!r) throw new Error(`Claude sobrecarregado, tente novamente em instantes. (${lastErr})`);
     if (!r.ok) throw new Error(`Claude ${r.status}: ${await r.text()}`);
 
     const data = await r.json();
