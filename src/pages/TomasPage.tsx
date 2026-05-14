@@ -216,6 +216,41 @@ function applyFieldUpdate(html: string, fieldId: string, newValue: string, field
   return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
 }
 
+// ── Premium effects ───────────────────────────────────────────────────────────
+
+const PREMIUM_EFFECTS: { key: string; label: string; emoji: string; css: string }[] = [
+  {
+    key: "glow",
+    label: "Glow",
+    emoji: "✨",
+    css: `/* [calu-effect:glow] */\nh1,h2{text-shadow:0 0 40px rgba(185,255,75,0.35),0 0 80px rgba(185,255,75,0.15);}\na[href],button,[class*="btn"]{box-shadow:0 0 22px rgba(185,255,75,0.28),0 4px 20px rgba(0,0,0,0.5);}\n/* [/calu-effect:glow] */`,
+  },
+  {
+    key: "shadow",
+    label: "Drop Shadow",
+    emoji: "🌑",
+    css: `/* [calu-effect:shadow] */\nsection>div,[class*="card"]{box-shadow:0 20px 60px rgba(0,0,0,0.55),0 8px 25px rgba(0,0,0,0.35);}\nimg{box-shadow:0 25px 60px rgba(0,0,0,0.65);border-radius:12px;}\n/* [/calu-effect:shadow] */`,
+  },
+  {
+    key: "glass",
+    label: "Glass",
+    emoji: "🪟",
+    css: `/* [calu-effect:glass] */\n[class*="card"],section>div>div{background:rgba(255,255,255,0.04)!important;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,0.09)!important;border-radius:16px;}\n/* [/calu-effect:glass] */`,
+  },
+  {
+    key: "gradient",
+    label: "Gradiente",
+    emoji: "🌈",
+    css: `/* [calu-effect:gradient] */\nh1,h2{background:linear-gradient(135deg,#ffffff 0%,#B9FF4B 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}\n/* [/calu-effect:gradient] */`,
+  },
+  {
+    key: "grain",
+    label: "Grain",
+    emoji: "🎞️",
+    css: `/* [calu-effect:grain] */\nbody::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:9999;opacity:0.035;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");background-size:256px;}\n/* [/calu-effect:grain] */`,
+  },
+];
+
 function stripEditorAttrs(html: string): string {
   return html.replace(/ data-calu-(section|field)="[^"]*"/g, "");
 }
@@ -531,6 +566,26 @@ export default function TomasPage() {
       return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
     });
     toast.success("Seção removida!");
+  }, []);
+
+  const applyEffect = useCallback((effectKey: string) => {
+    const effect = PREMIUM_EFFECTS.find(e => e.key === effectKey);
+    if (!effect) return;
+    const marker = `[calu-effect:${effectKey}]`;
+    setMarkedHtml(prev => {
+      let newHtml: string;
+      if (prev.includes(marker)) {
+        newHtml = prev.replace(new RegExp(`/\\* \\[calu-effect:${effectKey}\\] \\*/[\\s\\S]*?/\\* \\[/calu-effect:${effectKey}\\] \\*/\\n?`, "g"), "");
+        toast.success(`Efeito ${effect.label} removido`);
+      } else {
+        newHtml = prev.includes("</style>")
+          ? prev.replace("</style>", `\n${effect.css}\n</style>`)
+          : prev.replace("</head>", `<style>\n${effect.css}\n</style>\n</head>`);
+        toast.success(`✨ ${effect.label} aplicado!`);
+      }
+      setHtmlEditado(stripEditorAttrs(newHtml));
+      return newHtml;
+    });
   }, []);
 
   const replaceImage = useCallback((fieldId: string, file: File) => {
@@ -1245,17 +1300,40 @@ form.addEventListener('submit',function(e){
             </p>
           )}
           {!tomasCmdLoading && (
-            <div className="flex flex-wrap gap-1 mt-2">
-              {["Fonte Inter", "Fonte Playfair Display", "Fonte Montserrat", "Fonte Space Grotesk"].map(f => (
-                <button key={f} onClick={() => { setTomasCmd(`Troca a fonte do texto para ${f.replace("Fonte ", "")}`); }}
-                  className="px-2 py-0.5 rounded-full text-[10px] transition-colors"
-                  style={{ background: "#1A1A2E", border: "1px solid #2A2A3A", color: "#8888AA" }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = "#B9FF4B44"; e.currentTarget.style.color = "#B9FF4B"; }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = "#2A2A3A"; e.currentTarget.style.color = "#8888AA"; }}>
-                  {f}
-                </button>
-              ))}
-            </div>
+            <>
+              {/* Efeitos premium */}
+              <div className="mt-2 mb-1">
+                <p className="text-[9px] uppercase tracking-widest px-0.5 mb-1.5" style={{ color: "#333355" }}>Efeitos premium</p>
+                <div className="flex flex-wrap gap-1">
+                  {PREMIUM_EFFECTS.map(ef => {
+                    const active = markedHtml.includes(`[calu-effect:${ef.key}]`);
+                    return (
+                      <button key={ef.key} onClick={() => applyEffect(ef.key)}
+                        className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] transition-all"
+                        style={{
+                          background: active ? "#B9FF4B22" : "#1A1A2E",
+                          border: `1px solid ${active ? "#B9FF4B55" : "#2A2A3A"}`,
+                          color: active ? "#B9FF4B" : "#8888AA",
+                        }}>
+                        <span>{ef.emoji}</span>{ef.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              {/* Sugestões de fonte */}
+              <div className="flex flex-wrap gap-1 mt-1">
+                {["Fonte Inter", "Fonte Playfair Display", "Fonte Montserrat", "Fonte Space Grotesk"].map(f => (
+                  <button key={f} onClick={() => { setTomasCmd(`Troca a fonte do texto para ${f.replace("Fonte ", "")}`); }}
+                    className="px-2 py-0.5 rounded-full text-[10px] transition-colors"
+                    style={{ background: "#1A1A2E", border: "1px solid #2A2A3A", color: "#8888AA" }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = "#B9FF4B44"; e.currentTarget.style.color = "#B9FF4B"; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = "#2A2A3A"; e.currentTarget.style.color = "#8888AA"; }}>
+                    {f}
+                  </button>
+                ))}
+              </div>
+            </>
           )}
         </div>
       </div>
