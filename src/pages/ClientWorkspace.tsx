@@ -1045,6 +1045,8 @@ export default function ClientWorkspace() {
   const [generatedImages, setGeneratedImages] = useState<Array<{id: string, imageData: string, mimeType: string, imageUrl?: string, prompt: string, createdAt: string}>>([]);
   const [marcelaLoading, setMarcelaLoading] = useState(false);
   const [marcelaError, setMarcelaError] = useState<string | null>(null);
+  const [postCompleteLoading, setPostCompleteLoading] = useState(false);
+  const [postCompleteStep, setPostCompleteStep] = useState<"beatriz" | "marcela" | null>(null);
   const [brandIdentity, setBrandIdentity] = useState<{ primaryColor: string; secondaryColor: string; accentColor: string; logoUrl: string }>(() => {
     try { const raw = localStorage.getItem(`brand-identity-${id}`); return raw ? JSON.parse(raw) : { primaryColor: "", secondaryColor: "", accentColor: "", logoUrl: "" }; } catch { return { primaryColor: "", secondaryColor: "", accentColor: "", logoUrl: "" }; }
   });
@@ -1841,6 +1843,7 @@ Responda APENAS JSON válido, sem markdown, sem texto extra:
 
       // ━━━━━━━━━━ PASSO 3 — Execução sequencial ━━━━━━━━━━
       const accumulated: Record<string, string> = {};
+      const sessionPostIds: string[] = []; // posts criados pela Beatriz nesta sessão
 
       // Session necessária para que agentes salvem posts no Supabase
       const { data: { session: _agentSession } } = await supabase.auth.getSession();
@@ -1925,6 +1928,15 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
                   createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
                 },
               ]);
+              // Linka a imagem aos posts que a Beatriz criou nesta sessão
+              if (sessionPostIds.length > 0) {
+                for (const postId of sessionPostIds) {
+                  await (supabase as any).from("scheduled_posts")
+                    .update({ media_url: imgData.imageUrl, media_type: "image" })
+                    .eq("id", postId);
+                }
+                loadPendingPosts();
+              }
               outputText = `Imagem criada pelo Ideogram! Prompt usado: ${(imgData.promptUsed ?? demand).slice(0, 200)}`;
             } else {
               outputText = imgData?.briefing ?? "Briefing visual criado (Ideogram não configurado).";
@@ -1956,8 +1968,9 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
             if (agErr) throw agErr;
             outputText = (agData?.content ?? "").trim();
 
-            const agentPosts: unknown[] = agData?.posts_created ?? [];
+            const agentPosts: any[] = agData?.posts_created ?? [];
             if (agentPosts.length > 0) {
+              agentPosts.forEach(p => p?.id && sessionPostIds.push(p.id));
               loadPendingPosts();
               addConvMsgs([{
                 id: `${agentId}-drafted-${Date.now()}`,
@@ -3260,6 +3273,109 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
       setMarcelaError(msg);
     } finally {
       setMarcelaLoading(false);
+    }
+  };
+
+  // ── Criar Post Completo: Beatriz (legenda) → Marcela (imagem) → linked ────────
+  const handleCreateCompletePost = async () => {
+    if (!id || !user) return;
+    const brief = agentInstruction.trim();
+    setPostCompleteLoading(true);
+    setMarcelaError(null);
+    setSelectedAgentId(null);
+
+    const clientCtx = {
+      name: client.name,
+      industry: client.industry,
+      brandColor: brandIdentity.primaryColor || client.color,
+      brandColors: { primary: brandIdentity.primaryColor || client.color, secondary: brandIdentity.secondaryColor || "", accent: brandIdentity.accentColor || "" },
+      logoUrl: brandIdentity.logoUrl || "",
+    };
+    const briefCtx = buildBriefingBlock();
+    const clientLine = `Cliente: ${client.name} | Segmento: ${client.industry || "—"}${client.teamInstructions ? `\nInstruções permanentes: ${client.teamInstructions}` : ""}`;
+
+    try {
+      // ── Passo 1: Beatriz escreve a legenda e salva o rascunho ──
+      setPostCompleteStep("beatriz");
+      const { data: beatrizData } = await supabase.functions.invoke("chat-ai", {
+        body: {
+          systemPrompt: AGENT_PROMPTS["copywriter"],
+          enableDraftTool: true,
+          client_id: id,
+          user_id: user.id,
+          maxTokens: 2500,
+          messages: [{
+            role: "user",
+            content: `${clientLine}${briefCtx}\n\nCrie um post completo para Instagram${brief ? ` sobre: ${brief}` : ""}.\nEscreva a legenda completa com emojis, hashtags e CTA. Use a ferramenta draft_post para salvar o rascunho.`,
+          }],
+        },
+      });
+      const beatrizCaption: string = beatrizData?.content ?? "";
+      const postsCreated: any[] = beatrizData?.posts_created ?? [];
+      if (beatrizCaption) {
+        setAgentChats(prev => ({
+          ...prev,
+          copywriter: [...(prev["copywriter"] ?? []), { role: "user" as const, content: brief || "Criar post" }, { role: "assistant" as const, content: beatrizCaption }],
+        }));
+      }
+      if (postsCreated.length > 0) loadPendingPosts();
+
+      // ── Passo 2: Marcela cria a imagem baseada na legenda da Beatriz ──
+      setPostCompleteStep("marcela");
+      const startedAt = Date.now();
+      const ESTIMATED = 35;
+      setDesignerTask({ prompt: brief || "Post Completo", progress: 0, startedAt, estimatedSeconds: ESTIMATED });
+      if (designerIntervalRef.current) clearInterval(designerIntervalRef.current);
+      designerIntervalRef.current = setInterval(() => {
+        setDesignerTask(prev => prev ? { ...prev, progress: Math.min(90, Math.round(((Date.now() - prev.startedAt) / 1000 / prev.estimatedSeconds) * 100)) } : null);
+      }, 600);
+
+      const { data: imgData, error: imgError } = await supabase.functions.invoke("generate-image", {
+        body: {
+          prompt: brief || "criar post para Instagram",
+          aspectRatio: normalizeImageAspectRatio(designAspectRatio),
+          clientContext: clientCtx,
+          beatrizCopy: beatrizCaption.slice(0, 900),
+          benTrends: (benTrends ?? "").slice(0, 300),
+        },
+      });
+      if (designerIntervalRef.current) clearInterval(designerIntervalRef.current);
+      if (imgError) throw imgError;
+      if (!imgData?.imageData) throw new Error(imgData?.error ?? "Marcela não retornou imagem");
+
+      setDesignerTask(prev => prev ? { ...prev, progress: 100 } : null);
+      setTimeout(() => setDesignerTask(null), 2500);
+
+      // Montar blob preview
+      const byteCharacters = atob(imgData.imageData);
+      const byteNumbers = new Uint8Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
+      const blobUrl = URL.createObjectURL(new Blob([byteNumbers], { type: imgData.mimeType ?? "image/png" }));
+      setGeneratedImages(prev => [
+        { id: Date.now().toString(), imageData: blobUrl, mimeType: imgData.mimeType ?? "image/png", prompt: imgData.promptUsed ?? brief, createdAt: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) },
+        ...prev,
+      ]);
+
+      // ── Passo 3: Linka a imagem ao post da Beatriz ──
+      if (postsCreated.length > 0 && imgData.imageUrl) {
+        for (const post of postsCreated) {
+          await (supabase as any).from("scheduled_posts")
+            .update({ media_url: imgData.imageUrl, media_type: "image" })
+            .eq("id", post.id);
+        }
+        loadPendingPosts();
+      }
+
+      setAgentInstruction("");
+      toast.success(`Post completo criado! Beatriz escreveu a legenda${postsCreated.length > 0 ? " e salvou o rascunho" : ""} — Marcela gerou a imagem.`);
+    } catch (err: any) {
+      if (designerIntervalRef.current) clearInterval(designerIntervalRef.current);
+      setDesignerTask(null);
+      setMarcelaError(err.message ?? "Erro ao criar post completo");
+      toast.error("Erro ao criar post completo");
+    } finally {
+      setPostCompleteLoading(false);
+      setPostCompleteStep(null);
     }
   };
 
@@ -8072,7 +8188,7 @@ Regras:
                                     {marcelaError}
                                   </div>
                                 )}
-                                <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-2 flex-wrap">
                                   {agentFile ? (
                                     <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg flex-shrink-0" style={{ background: `${selectedAgent.color}12`, border: `1px solid ${selectedAgent.color}28` }}>
                                       <Image className="w-3 h-3 flex-shrink-0" style={{ color: selectedAgent.color }} />
@@ -8087,14 +8203,29 @@ Regras:
                                     </button>
                                   )}
                                   <div className="flex-1" />
+                                  {/* Só imagem */}
                                   <button
                                     onClick={() => { setSelectedAgentId(null); handleSendToDesigner(); }}
-                                    disabled={marcelaLoading}
-                                    className="flex items-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
+                                    disabled={marcelaLoading || postCompleteLoading}
+                                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold transition-all disabled:opacity-40"
+                                    style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.6)", border: "1px solid rgba(255,255,255,0.12)" }}>
+                                    {marcelaLoading && !postCompleteLoading ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Image className="w-3 h-3" />}
+                                    Só imagem
+                                  </button>
+                                  {/* Post Completo */}
+                                  <button
+                                    onClick={handleCreateCompletePost}
+                                    disabled={marcelaLoading || postCompleteLoading}
+                                    className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all disabled:opacity-40"
                                     style={{ background: selectedAgent.color, color: "#07080A" }}>
-                                    {marcelaLoading ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Gerando...</> : <><Send className="w-3.5 h-3.5" /> Criar agora</>}
+                                    {postCompleteLoading
+                                      ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> {postCompleteStep === "beatriz" ? "Beatriz escrevendo…" : "Marcela criando…"}</>
+                                      : <><Sparkles className="w-3.5 h-3.5" /> Post Completo</>}
                                   </button>
                                 </div>
+                                <p className="text-[10px] mt-1" style={{ color: "rgba(255,255,255,0.2)" }}>
+                                  Post Completo = Beatriz escreve a legenda + Marcela gera a imagem com o headline
+                                </p>
                                 {agentFile && renderFilePreview(agentFile, agentFileUrl, agentFileText, selectedAgent.color)}
                               </>
                             )}
