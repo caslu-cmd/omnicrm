@@ -13,7 +13,7 @@ import {
   UserCheck, PhoneCall, MessageSquare as MsgSq, BadgeCheck,
   Paperclip, X, Palette, PenLine, BarChart3, Layout, Table2, AtSign,
   Target, ArrowRight, Repeat2, MousePointerClick, Filter, Trash2, Mic, MicOff, StopCircle,
-  Save, Settings2, Award, Download, Loader2, Sparkles, ListChecks, Code2,
+  Save, Settings2, Award, Download, Loader2, Sparkles, ListChecks, Code2, Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
