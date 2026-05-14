@@ -32,29 +32,40 @@ async function buildDesignPromptWithClaude(
   clientContext: Record<string, unknown>,
   beatrizCopy: string,
   carolinaStrategy: string,
+  benTrends: string,
   anthropicKey: string,
 ): Promise<string> {
-  const brandColor = String(clientContext.brandColor ?? "neutro");
-  const brandName  = String(clientContext.name ?? "marca");
-  const industry   = String(clientContext.industry ?? "negócio");
+  const brandColor   = String(clientContext.brandColor ?? "");
+  const brandName    = String(clientContext.name ?? "marca");
+  const industry     = String(clientContext.industry ?? "negócio");
+  const secondaryColor = (clientContext.brandColors as any)?.secondary ?? "";
+  const logoUrl      = String(clientContext.logoUrl ?? "");
 
-  const systemMsg = `You are Marcela, a senior visual designer. Write a detailed Ideogram AI image generation prompt in English.
+  const systemMsg = `You are Marcela, a senior art director at a Brazilian digital marketing agency.
+Your job: write a detailed Ideogram AI prompt in English that generates a complete, ready-to-publish social media post — with text, design, and branding.
 
-RULES — follow exactly:
-1. VISUAL ONLY — describe photography, illustration, composition, lighting, colors, mood, textures. Do NOT invent or include random text in the image.
-2. If text must appear in the image, use ONLY the brand name "${brandName}" placed tastefully (e.g. small watermark, corner logo). Nothing else written.
-3. The image concept must visually represent the theme of the copy provided — same subject, same emotion, same product/service.
-4. Brand color palette: ${brandColor}. Industry: ${industry}.
-5. Style: clean, modern, professional social media aesthetic. No stock-photo clichés.
+RULES (follow strictly):
+1. Ideogram V2 renders text PERFECTLY. You MUST include the post headline as quoted text directly in the prompt.
+2. Extract the strongest headline from the copy (max 7 words, keep it in Portuguese). Put it in quotes like: "Sua Headline Aqui"
+3. If a CTA exists in the copy (e.g. "Inscreva-se", "Saiba mais"), include it too as a smaller quoted label.
+4. The design must feel like a real social media creative: bold headline on top, supporting visual behind, accent color.
+5. Brand accent color: ${brandColor || "vibrant brand color"}${secondaryColor ? ` + secondary ${secondaryColor}` : ""}. These colors MUST appear in the design.
+6. Industry: ${industry} — brand: ${brandName}.
+7. Style: modern, professional, bold typography, high contrast. Think award-winning Brazilian agency work.
+8. No stock-photo clichés. Specific, conceptual, purposeful composition.
+9. End your prompt with: sharp text rendering, professional graphic design, social media ready.
 
-Write ONLY the prompt text. No explanations, no JSON.
-End with: High quality, professional design, sharp, clean composition.`;
+PROMPT STRUCTURE TO FOLLOW:
+Social media post design, bold headline text "[HEADLINE IN PORTUGUESE]" in [font style] typography, [optional smaller CTA text "[CTA]"], [background: scene/gradient/abstract with brand color], [mood/style], [composition], sharp text rendering, professional graphic design, social media ready.
+
+Brand context: ${brandName} | ${industry} | accent color ${brandColor}`;
 
   const userMsg = [
-    `Post theme and copy to visually represent: ${beatrizCopy ? beatrizCopy.slice(0, 500) : userRequest}`,
-    `Visual request: ${userRequest}`,
-    carolinaStrategy ? `Brand strategy: ${carolinaStrategy.slice(0, 200)}` : "",
-  ].filter(Boolean).join("\n\n");
+    beatrizCopy   ? `COPY DA BEATRIZ (use o headline e CTA daqui):\n${beatrizCopy.slice(0, 900)}` : "",
+    carolinaStrategy ? `ESTRATÉGIA:\n${carolinaStrategy.slice(0, 300)}` : "",
+    benTrends     ? `TENDÊNCIAS DO BEN:\n${benTrends.slice(0, 250)}` : "",
+    `PEDIDO DO USUÁRIO: ${userRequest}`,
+  ].filter(Boolean).join("\n\n---\n\n");
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -65,7 +76,7 @@ End with: High quality, professional design, sharp, clean composition.`;
     },
     body: JSON.stringify({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 600,
+      max_tokens: 700,
       system: systemMsg,
       messages: [{ role: "user", content: userMsg }],
     }),
@@ -120,7 +131,6 @@ async function generateWithIdeogram(
 
   if (!imageUrl) throw new Error("Ideogram returned no image URL");
 
-  // Download image and convert to base64
   const imgRes = await fetch(imageUrl);
   if (!imgRes.ok) throw new Error(`Failed to fetch generated image: ${imgRes.status}`);
 
@@ -141,6 +151,7 @@ Deno.serve(async (req) => {
       clientContext = {},
       beatrizCopy = "",
       carolinaStrategy = "",
+      benTrends = "",
     } = await req.json();
 
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY") || Deno.env.get("LOVABLE_API_KEY");
@@ -152,18 +163,23 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (!prompt) {
-      return new Response(JSON.stringify({ error: "prompt obrigatório" }), {
+    if (!prompt && !beatrizCopy) {
+      return new Response(JSON.stringify({ error: "prompt ou beatrizCopy obrigatório" }), {
         status: 400, headers: { ...cors, "Content-Type": "application/json" },
       });
     }
 
-    // Step 1: Claude builds the professional design prompt
+    // Step 1: Claude builds the professional design prompt with text
     const finalPrompt = await buildDesignPromptWithClaude(
-      prompt, clientContext, beatrizCopy, carolinaStrategy, anthropicKey,
+      prompt || "criar post para redes sociais",
+      clientContext,
+      beatrizCopy,
+      carolinaStrategy,
+      benTrends,
+      anthropicKey,
     );
 
-    // Step 2: If no Ideogram key, return just the briefing
+    // Step 2: If no Ideogram key, return the briefing
     if (!ideogramKey) {
       return new Response(
         JSON.stringify({

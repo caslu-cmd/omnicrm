@@ -1906,8 +1906,9 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
                   brandColors: clientContext.brandColors,
                   logoUrl: clientContext.logoUrl,
                 },
-                beatrizCopy: (accumulated.copywriter ?? "").slice(0, 600),
+                beatrizCopy: (accumulated.copywriter ?? "").slice(0, 900),
                 carolinaStrategy: (accumulated.strategist ?? "").slice(0, 400),
+                benTrends: (accumulated.ben ?? "").slice(0, 300),
               },
             });
             if (imgErr) throw imgErr;
@@ -3217,9 +3218,22 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
       nextAction: client.nextAction,
     };
 
+    // Pega o copy mais recente da Beatriz e estratégia da Queila/Carol
+    const beatrizMsgs = agentChats["copywriter"] ?? [];
+    const beatrizCopy = beatrizMsgs.filter(m => m.role === "assistant").slice(-1)[0]?.content ?? "";
+    const strategistMsgs = agentChats["strategist"] ?? [];
+    const carolinaStrategy = strategistMsgs.filter(m => m.role === "assistant").slice(-1)[0]?.content ?? "";
+
     try {
       const { data, error } = await supabase.functions.invoke("generate-image", {
-        body: { prompt: direction, aspectRatio: normalizeImageAspectRatio(designAspectRatio), clientContext },
+        body: {
+          prompt: direction,
+          aspectRatio: normalizeImageAspectRatio(designAspectRatio),
+          clientContext,
+          beatrizCopy: beatrizCopy.slice(0, 900),
+          carolinaStrategy: carolinaStrategy.slice(0, 400),
+          benTrends: (benTrends ?? "").slice(0, 300),
+        },
       });
       if (designerIntervalRef.current) clearInterval(designerIntervalRef.current);
       if (error) throw error;
@@ -8031,10 +8045,23 @@ Regras:
                             {/* Designer: textarea + formato + send */}
                             {selectedAgent.id === "designer" && (
                               <>
+                                {/* Copy da Beatriz disponível */}
+                                {(agentChats["copywriter"] ?? []).filter(m => m.role === "assistant").length > 0 && (
+                                  <div className="flex items-start gap-2 px-3 py-2 rounded-xl mb-2"
+                                    style={{ background: "rgba(167,139,250,0.08)", border: "1px solid rgba(167,139,250,0.2)" }}>
+                                    <span className="text-sm flex-shrink-0">✍️</span>
+                                    <div className="min-w-0">
+                                      <p className="text-[10px] font-semibold mb-0.5" style={{ color: "#A78BFA" }}>Copy da Beatriz disponível</p>
+                                      <p className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.4)" }}>
+                                        {(agentChats["copywriter"] ?? []).filter(m => m.role === "assistant").slice(-1)[0]?.content.slice(0, 90) ?? ""}…
+                                      </p>
+                                    </div>
+                                  </div>
+                                )}
                                 <textarea
                                   value={agentInstruction}
                                   onChange={(e) => setAgentInstruction(e.target.value)}
-                                  placeholder="Dê uma direção (opcional) — ou deixe em branco e a Carolina decide sozinha com base no cliente."
+                                  placeholder={"Descreva o post (opcional) — ex: \"post de lançamento do curso\" ou \"anúncio de Black Friday\".\nSem texto: Marcela usa o copy da Beatriz + identidade do cliente automaticamente."}
                                   rows={3}
                                   autoFocus
                                   className="w-full rounded-xl px-4 py-3 text-sm resize-none mb-3"
@@ -12746,10 +12773,22 @@ Regras:
                         </div>
                       </>
                     )}
+                    {viewedAgent.id === "designer" && (agentChats["copywriter"] ?? []).filter(m => m.role === "assistant").length > 0 && (
+                      <div className="flex items-start gap-2 px-3 py-2 rounded-xl mb-2"
+                        style={{ background: "rgba(167,139,250,0.08)", border: "1px solid rgba(167,139,250,0.2)" }}>
+                        <span className="text-sm flex-shrink-0">✍️</span>
+                        <div className="min-w-0">
+                          <p className="text-[10px] font-semibold mb-0.5" style={{ color: "#A78BFA" }}>Copy da Beatriz disponível</p>
+                          <p className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.4)" }}>
+                            {(agentChats["copywriter"] ?? []).filter(m => m.role === "assistant").slice(-1)[0]?.content.slice(0, 90) ?? ""}…
+                          </p>
+                        </div>
+                      </div>
+                    )}
                     <textarea
                       value={agentInstruction}
                       onChange={(e) => setAgentInstruction(e.target.value)}
-                      placeholder={viewedAgent.id === "designer" ? "Dê uma direção (opcional) — ou deixe em branco e a Carolina decide sozinha com base no cliente." : `O que você quer que ${viewedAgent.name} faça?`}
+                      placeholder={viewedAgent.id === "designer" ? "Descreva o post (opcional) — ex: \"post de lançamento\". Marcela usa o copy da Beatriz + identidade do cliente automaticamente." : `O que você quer que ${viewedAgent.name} faça?`}
                       rows={3}
                       className="w-full rounded-xl px-4 py-3 text-sm resize-none"
                       style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${viewedAgent.color}25`, color: "#F0F0F0", outline: "none" }}
