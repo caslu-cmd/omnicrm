@@ -6,7 +6,7 @@ import {
   Loader2, CheckCircle2, AlertCircle, Layout, Sparkles,
   RefreshCw, Copy, Monitor, Smartphone, Paperclip,
   Globe, ExternalLink, Edit3, ChevronLeft, Wand2,
-  Check, X, Pencil, PanelLeft, ImagePlus,
+  Check, X, Pencil, PanelLeft, ImagePlus, Search,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -268,6 +268,14 @@ export default function TomasPage() {
   const [savedPageId, setSavedPageId] = useState<string | null>(null);
   const [savingPage, setSavingPage]   = useState(false);
 
+  // ── Pedir alterações state ───────────────────────────────────────────────────
+  const [alteracaoInput, setAlteracaoInput]     = useState("");
+  const [alteracaoLoading, setAlteracaoLoading] = useState(false);
+
+  // ── SEO state ────────────────────────────────────────────────────────────────
+  const [seoLoading, setSeoLoading] = useState(false);
+  const [seoApplied, setSeoApplied] = useState(false);
+
   // ── Form injection state ─────────────────────────────────────────────────────
   const [formMode, setFormMode]     = useState<"none" | "crm" | "forminator">("none");
   const [formFields, setFormFields] = useState<("name" | "email" | "phone" | "message")[]>(["name", "email", "phone"]);
@@ -430,6 +438,9 @@ export default function TomasPage() {
     setDirectEditField(null);
     setSavedPageId(null);
     setFormInjected(false);
+    setAlteracaoInput("");
+    setAlteracaoLoading(false);
+    setSeoApplied(false);
   }, []);
 
   // ── Editor Visual ──────────────────────────────────────────────────────────
@@ -588,6 +599,108 @@ export default function TomasPage() {
       setTomasCmd(cmdText);
     } finally {
       setTomasCmdLoading(false);
+    }
+  };
+
+  // ── Pedir alterações (disponível fora do editor) ───────────────────────────
+
+  const pedirAlteracao = async () => {
+    if (!alteracaoInput.trim() || alteracaoLoading) return;
+    const currentHtml = stripEditorAttrs(editorMode ? markedHtml : (htmlEditado || resultado?.html || ""));
+    if (!currentHtml) return;
+    setAlteracaoLoading(true);
+    const cmd = alteracaoInput.trim();
+    setAlteracaoInput("");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? "";
+      const lpContext = [
+        `Produto/Serviço: ${produto}`,
+        `Público-alvo: ${publico}`,
+        `Objetivo: ${objetivo}`,
+        `Tom de voz: ${tom}`,
+        clientName ? `Cliente: ${clientName}` : null,
+      ].filter(Boolean).join("\n");
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/tomas-command`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ html: currentHtml, command: cmd, lp_context: lpContext }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || `Erro ${resp.status}`);
+      let newHtml: string;
+      if (data.changes && Array.isArray(data.changes)) {
+        newHtml = applyChanges(currentHtml, data.changes);
+      } else if (data.new_html) {
+        newHtml = data.new_html as string;
+      } else {
+        throw new Error("Resposta inválida do Tomás");
+      }
+      setHtmlEditado(newHtml);
+      if (editorMode) {
+        const { markedHtml: newMarked, sections: newSections } = parseLPIntoSections(newHtml);
+        setMarkedHtml(newMarked);
+        setSections(newSections);
+        setSelectedSectionIdx(0);
+        setAiEditField(null);
+        setAiSuggestion(null);
+        setDirectEditField(null);
+      }
+      toast.success("Tomás aplicou as alterações!");
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao aplicar alterações");
+      setAlteracaoInput(cmd);
+    } finally {
+      setAlteracaoLoading(false);
+    }
+  };
+
+  // ── Otimizar SEO ────────────────────────────────────────────────────────────
+
+  const otimizarSEO = async () => {
+    const currentHtml = stripEditorAttrs(editorMode ? markedHtml : (htmlEditado || resultado?.html || ""));
+    if (!currentHtml || seoLoading) return;
+    setSeoLoading(true);
+    const seoCmd = `Otimize o SEO desta landing page sem alterar nada do design visual:
+1. Verifique/melhore o <title> (deve conter as palavras-chave principais do produto, até 60 chars)
+2. Adicione ou melhore <meta name="description" content="..."> persuasivo (150-160 chars com CTA)
+3. Adicione Open Graph completo: og:title, og:description, og:type="website", og:site_name
+4. Garanta que existe exatamente um <h1> com as palavras-chave principais
+5. Adicione atributo alt descritivo e relevante em todas as <img> que estiverem sem alt ou com alt vazio
+6. Adicione <meta name="robots" content="index, follow"> se não existir
+7. Adicione <meta name="viewport" content="width=device-width, initial-scale=1.0"> se não existir
+Retorne o HTML completo com as otimizações aplicadas no <head>.`;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? "";
+      const lpContext = `Produto/Serviço: ${produto}\nPúblico-alvo: ${publico}\nObjetivo: ${objetivo}`;
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/tomas-command`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ html: currentHtml, command: seoCmd, lp_context: lpContext }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || `Erro ${resp.status}`);
+      let newHtml: string;
+      if (data.changes && Array.isArray(data.changes)) {
+        newHtml = applyChanges(currentHtml, data.changes);
+      } else if (data.new_html) {
+        newHtml = data.new_html as string;
+      } else {
+        throw new Error("Resposta inválida");
+      }
+      setHtmlEditado(newHtml);
+      setSeoApplied(true);
+      if (editorMode) {
+        const { markedHtml: newMarked, sections: newSections } = parseLPIntoSections(newHtml);
+        setMarkedHtml(newMarked);
+        setSections(newSections);
+      }
+      toast.success("SEO otimizado! Meta tags, Open Graph e alt texts aplicados.");
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao otimizar SEO");
+    } finally {
+      setSeoLoading(false);
     }
   };
 
@@ -1296,15 +1409,75 @@ form.addEventListener('submit',function(e){
               </div>
             )}
 
+            {/* ── Pedir alterações ── */}
+            {(resultado || parcial.html) && !gerandoAtivo && (
+              <div className="px-5 py-3 border-t flex-shrink-0" style={{ borderColor: "#1E1E2E", background: "#0A0A10" }}>
+                <p className="text-[10px] uppercase tracking-widest font-semibold mb-2 flex items-center gap-1.5" style={{ color: "#444466" }}>
+                  <span>💬</span> Pedir alterações ao Tomás
+                </p>
+                <div className="flex flex-col gap-2">
+                  <textarea
+                    rows={2}
+                    className="resize-none rounded-xl px-3 py-2.5 text-sm outline-none"
+                    style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0", lineHeight: 1.6, fontFamily: "inherit" }}
+                    placeholder={'"Torna o hero mais impactante" ou "Adiciona seção de FAQ"'}
+                    value={alteracaoInput}
+                    onChange={e => setAlteracaoInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter" && e.ctrlKey) pedirAlteracao(); }}
+                    disabled={alteracaoLoading}
+                    onFocus={e => e.currentTarget.style.borderColor = "#B9FF4B44"}
+                    onBlur={e => e.currentTarget.style.borderColor = "#2A2A3A"}
+                  />
+                  <button
+                    onClick={pedirAlteracao}
+                    disabled={!alteracaoInput.trim() || alteracaoLoading}
+                    className="w-full flex items-center justify-center gap-2 py-2 rounded-xl text-sm font-semibold transition-all"
+                    style={{
+                      background: alteracaoInput.trim() && !alteracaoLoading ? "#B9FF4B22" : "#141420",
+                      border: `1px solid ${alteracaoInput.trim() && !alteracaoLoading ? "#B9FF4B55" : "#2A2A3A"}`,
+                      color: alteracaoInput.trim() && !alteracaoLoading ? "#B9FF4B" : "#444466",
+                      cursor: alteracaoInput.trim() && !alteracaoLoading ? "pointer" : "not-allowed",
+                    }}
+                  >
+                    {alteracaoLoading
+                      ? <><Loader2 className="w-4 h-4 animate-spin" /> Tomás aplicando...</>
+                      : <><Send className="w-4 h-4" /> Enviar ao Tomás</>
+                    }
+                  </button>
+                  {alteracaoLoading && (
+                    <p className="text-[10px] text-center" style={{ color: "#B9FF4B", opacity: 0.6 }}>
+                      Ctrl+Enter para enviar rapidamente
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Botões inferiores */}
             <div className="px-5 pb-5 flex flex-col gap-2" style={{ background: "#0A0A10" }}>
-              {/* Editor Visual button (after generation) */}
+              {/* SEO + Editor Visual (after generation) */}
               {(resultado || parcial.html) && !gerandoAtivo && (
-                <button onClick={activateEditor}
-                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all"
-                  style={{ background: "#B9FF4B15", border: "1px solid #B9FF4B40", color: "#B9FF4B" }}>
-                  <Wand2 className="w-4 h-4" /> Editor Visual
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={otimizarSEO}
+                    disabled={seoLoading}
+                    title="Aplica meta description, Open Graph, alt texts e otimiza title/h1"
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                    style={{
+                      background: seoApplied ? "#0E1A08" : "#1E1E2E",
+                      border: `1px solid ${seoApplied ? "#B9FF4B44" : "#2A2A3A"}`,
+                      color: seoApplied ? "#B9FF4B" : "#8888AA",
+                    }}
+                  >
+                    {seoLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Search className="w-3.5 h-3.5" />}
+                    {seoApplied ? "SEO ✓" : "SEO"}
+                  </button>
+                  <button onClick={activateEditor}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                    style={{ background: "#B9FF4B15", border: "1px solid #B9FF4B40", color: "#B9FF4B" }}>
+                    <Wand2 className="w-3.5 h-3.5" /> Editor
+                  </button>
+                </div>
               )}
               {/* Gerar / Cancelar */}
               {gerandoAtivo ? (

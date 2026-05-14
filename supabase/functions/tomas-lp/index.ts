@@ -171,7 +171,8 @@ PALETA — 10 valores exatos (hex real, não XXXXXX):
 --border: [rgba]            /* ex: rgba(255,255,255,0.08) ou rgba(0,0,0,0.1) */
 --grad-hero: linear-gradient(135deg, [hex1] 0%, [hex2] 50%, [hex3] 100%)
 --grad-cta: linear-gradient(135deg, [primary], [accent])
---primary-rgb: [R],[G],[B]  /* OBRIGATÓRIO: valores decimais para rgba() — ex: 212,168,83 */
+--primary-rgb: [R],[G],[B]  /* OBRIGATÓRIO: valores decimais da cor primária para rgba() — ex: se primária for #D4A853, aqui vai 212,168,83 */
+--accent-rgb:  [R],[G],[B]  /* OBRIGATÓRIO: idem para a cor acento */
 
 TIPOGRAFIA (Google Fonts — par expressivo):
 - Display (h1, h2, h3): [nome exato da fonte] — pesos 700/800/900 — h1: clamp(44px,6vw,80px) ls:-0.03em lh:1.05
@@ -194,12 +195,13 @@ ORB-3 (hero, posição center): tamanho [px]x[px], cor mista, blur [px]
 SEÇÕES — especifique fundo, destaque visual e intenção:
 1. NAV: bg var(--bg-nav) + backdrop-filter blur(20px), logo cor primária, links texto-2
 2. HERO: fundo var(--grad-hero), h1 com gradient-text, badge pré-headline, CTA duplo, social proof com avatares
-3. BENEFÍCIOS: fundo var(--bg-1) ou var(--bg-2), cards com icon-box gradient + hover sutil
-4. DEPOIMENTOS: fundo alternado, aspas decorativas, borda-esquerda primária, stars douradas
-5. SOBRE: layout 55/45, stat boxes com números grandes em gradient-text
-6. OFERTA: card centralizado max-width 560px, border gradient, lista check com ícone primária
-7. CTA FORM: fundo com overlay do grad-hero em baixa opacidade, formulário com inputs estilizados
-8. FOOTER: fundo near-black, linha gradient, logo em primária
+3. BENEFÍCIOS: fundo var(--bg-1) ou var(--bg-2), cards com icon-box gradient + hover sutil, emojis como ícones
+4. COMO FUNCIONA: fundo alternado, steps numerados com círculos gradient, linha vertical conectando os números, max-width 680px centralizado
+5. DEPOIMENTOS: fundo alternado, aspas decorativas, borda-esquerda primária, stars douradas
+6. SOBRE: layout 55/45, stat boxes com números grandes em gradient-text
+7. OFERTA: card centralizado max-width 560px, border gradient, lista check com ícone primária
+8. CTA FORM: fundo com overlay do grad-hero em baixa opacidade, badge de urgência, formulário com inputs estilizados
+9. FOOTER: fundo near-black, linha gradient, logo em primária
 
 Retorne SOMENTE os valores acima preenchidos, sem texto extra.`;
 
@@ -217,6 +219,7 @@ const TOMAS_SYSTEM = `Você é TOMÁS, desenvolvedor frontend sênior da Calu Ag
 ━━━ TEMPLATES CSS (adapte os valores, não mude a estrutura) ━━━
 
 /* 1. CUSTOM PROPERTIES — substitua cada [VALOR] pelo hex/rgb da spec */
+/* ATENÇÃO: --rgb vem do campo --primary-rgb do Designer (ex: "212,168,83") */
 :root {
   --p: [hex primária];          /* cor primária */
   --a: [hex acento];            /* cor acento */
@@ -226,7 +229,7 @@ const TOMAS_SYSTEM = `Você é TOMÁS, desenvolvedor frontend sênior da Calu Ag
   --t1: [hex texto-1];          /* texto principal */
   --t2: [hex texto-2];          /* texto secundário */
   --bdr: [rgba border];         /* ex: rgba(255,255,255,0.08) */
-  --rgb: [R],[G],[B];           /* rgb da primária — ex: 212,168,83 */
+  --rgb: [COPIE AQUI o valor de --primary-rgb da spec, ex: 212,168,83];
   --gh: [grad-hero completo];   /* linear-gradient(135deg,...) */
   --gc: linear-gradient(135deg, var(--p), var(--a));
   --sc: 0 4px 28px rgba(var(--rgb),.4);   /* sombra CTA */
@@ -292,8 +295,8 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:64px;display:flex;ali
 .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:28px}
 .card{background:var(--bgc);border-radius:20px;padding:32px;border:1px solid var(--bdr);transition:all .3s cubic-bezier(.4,0,.2,1);position:relative;overflow:hidden}
 .card:hover{transform:translateY(-6px);box-shadow:0 20px 60px rgba(var(--rgb),.18);border-color:rgba(var(--rgb),.45)}
-.icon-box{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:var(--gc);box-shadow:0 4px 16px rgba(var(--rgb),.35);margin-bottom:20px;flex-shrink:0}
-.icon-box i{color:#fff;font-size:22px}
+.icon-box{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:var(--gc);box-shadow:0 4px 16px rgba(var(--rgb),.35);margin-bottom:20px;flex-shrink:0;font-size:26px;line-height:1}
+/* Ícones: use EMOJI Unicode direto no HTML — ex: <span class="icon-box">🚀</span>. NUNCA use Font Awesome. */
 
 /* GLASSMORPHISM variant (usar quando bg-card é escuro) */
 .glass{background:rgba(255,255,255,.05);backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1)}
@@ -307,7 +310,20 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:64px;display:flex;ali
 .t-name{font-weight:700;font-size:15px;color:var(--t1)}
 .t-role{font-size:13px;color:var(--t2)}
 
-/* 10. ABOUT / STATS */
+/* 10. HOW IT WORKS (Como Funciona) */
+.steps{display:flex;flex-direction:column;gap:0;max-width:680px;margin-inline:auto;position:relative}
+.steps::before{content:'';position:absolute;left:25px;top:52px;bottom:52px;width:2px;background:linear-gradient(to bottom,var(--p),rgba(var(--rgb),.1));z-index:0}
+.step{display:flex;gap:28px;align-items:flex-start;position:relative;z-index:1;padding-bottom:40px}
+.step:last-child{padding-bottom:0}
+.step-num{width:52px;height:52px;min-width:52px;border-radius:50%;background:var(--gc);color:#fff;font-weight:900;font-size:18px;display:flex;align-items:center;justify-content:center;box-shadow:var(--sc);font-family:'[DISPLAY_FONT]',sans-serif}
+.step-body h3{margin-bottom:8px;color:var(--t1)}
+.step-body p{color:var(--t2);font-size:16px;line-height:1.7}
+/* Alternativa horizontal (3 passos em grid): */
+.steps-h{display:grid;grid-template-columns:repeat(3,1fr);gap:32px;text-align:center}
+.steps-h .step{flex-direction:column;align-items:center;text-align:center;padding-bottom:0}
+.steps-h .step-num{margin-inline:auto;margin-bottom:16px}
+
+/* 10b. ABOUT / STATS */
 .grid2{display:grid;grid-template-columns:55fr 45fr;gap:60px;align-items:center}
 .stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 .stat-card{text-align:center;padding:24px 16px;background:rgba(var(--rgb),.08);border-radius:16px;border:1px solid rgba(var(--rgb),.2)}
@@ -363,27 +379,43 @@ footer{background:#050508;border-top:1px solid rgba(255,255,255,.06);padding-blo
 @media(max-width:1024px){.grid3{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr;gap:40px}}
 @media(max-width:640px){.grid3{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}.stat-grid{grid-template-columns:repeat(2,1fr)}.nav-links{display:none}.btn{padding:14px 28px;font-size:15px}}
 
+━━━ MAPEAMENTO DO COPY DA BEATRIZ → HTML ━━━
+A Beatriz entrega o copy em seções com prefixo ##. Use CADA palavra, sem cortar:
+## HEADLINE        → <h1 class="gt"> no hero
+## SUBHEADLINE     → <p> subtítulo abaixo do h1 no hero
+## HERO            → parágrafo descritivo no hero (opcional, antes dos CTAs)
+## BENEFICIOS      → cada linha **Título:** Descrição → um .card (icon-box emoji + h3 + p)
+## PROVA_SOCIAL    → cada depoimento **Nome, Cargo:** "texto" → um .tcard
+## SOBRE           → texto na seção #sobre
+## OFERTA          → conteúdo do .offer-card (check-list + price se houver)
+## CTA_BOTAO       → texto do .btn-p (botão principal)
+## URGENCIA        → badge/linha de urgência na seção #contato (se não vazio)
+
 ━━━ ESTRUTURA HTML OBRIGATÓRIA ━━━
 Use exatamente essa sequência:
-<nav> → logo + links + btn CTA
-<header id="hero"> → orbs + badge + h1.gt + subtítulo + .btn-p + .btn-g + .sp-strip
-<section id="beneficios"> → h2 + grid de 3-4 .card com .icon-box + h3 + p
+<nav> → logo (texto estilizado) + links + .btn-p CTA
+<header id="hero"> → orbs + badge + h1.gt + subtítulo + hero text + .btn-p + .btn-g + .sp-strip
+<section id="beneficios"> → h2 + grid de 3-4 .card com .icon-box (emoji) + h3 + p
+<section id="como-funciona"> → h2 + .steps (3-4 .step com .step-num + .step-body)
 <section id="depoimentos"> → h2 + grid de 3 .tcard com stars + texto + .t-author
-<section id="sobre"> → .grid2 com texto+stat-grid ou imagem-placeholder
-<section id="oferta"> → .offer-card com badge + preço + .check-list + .btn-submit
-<section id="contato"> → .form-wrap com h2 + .form-group × 2-3 + .btn-submit
+<section id="sobre"> → .grid2 com texto+stat-grid
+<section id="oferta"> → .offer-card com badge + .check-list + .btn-submit
+<section id="contato"> → badge urgência + .form-wrap com h2 + .form-group × 2-3 + .btn-submit
 <footer> → .footer-inner + .footer-copy
 
 ━━━ QUALIDADE FINAL ━━━
 Antes de finalizar o HTML mentalmente revise:
-✓ Todos os --rgb valores definidos para cada rgba() necessário?
-✓ Google Fonts com preconnect e URL correta?
-✓ Orbs com tamanhos diferentes e animações com delay diferentes?
+✓ --rgb definido com os valores R,G,B decimais do Designer (--primary-rgb)?
+✓ Google Fonts com preconnect e URL completa da spec?
+✓ Orbs presentes no hero com tamanhos e delays diferentes?
 ✓ h1 usa a classe .gt para gradient-text?
-✓ Cards têm hover com transform + box-shadow?
-✓ Formulário tem focus visível e microcopy?
-✓ Footer tem cor near-black distinta do restante?
-✓ Mobile oculta nav-links e reduz tamanhos?
+✓ Cards têm hover com transform + box-shadow colorido?
+✓ Ícones nos icon-box são EMOJIS (não Font Awesome)?
+✓ Seção #como-funciona com .steps numerados visualmente?
+✓ Copy da Beatriz usado integralmente — sem resumir?
+✓ Formulário tem focus-ring colorido e microcopy abaixo do botão?
+✓ Footer near-black com cor distinta do restante?
+✓ Mobile: nav-links ocultos, grid passa para 1 coluna?
 
 Retorne SOMENTE o código HTML completo. Sem markdown, sem code fences, sem explicação.
 Comece com <!DOCTYPE html> e termine com </html>.`;
