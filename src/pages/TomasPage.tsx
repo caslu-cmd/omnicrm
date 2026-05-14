@@ -391,6 +391,18 @@ function replaceBlockInColumn(html: string, sectionId: string, columnIndex: numb
   return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
 }
 
+function applySectionReorder(html: string, sectionIds: string[], fromIdx: number, toIdx: number): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const els = sectionIds.map(id => doc.querySelector(`[data-calu-section="${id}"]`)).filter(Boolean) as Element[];
+  if (els.length < 2 || fromIdx === toIdx) return html;
+  const moved = els[fromIdx];
+  const target = els[toIdx];
+  if (!moved || !target) return html;
+  if (fromIdx < toIdx) target.after(moved);
+  else target.before(moved);
+  return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
+}
+
 function applyInsertSectionAt(html: string, sectionId: string, pos: "before" | "after", newHtml: string): string {
   const doc = new DOMParser().parseFromString(html, "text/html");
   const el = doc.querySelector(`[data-calu-section="${sectionId}"]`);
@@ -568,6 +580,8 @@ export default function TomasPage() {
   const [blockImgPrev, setBlockImgPrev] = useState("");
   const [blockUploading, setBlockUploading] = useState(false);
   const blockImgRef                     = useRef<HTMLInputElement>(null);
+  const [dragFromIdx, setDragFromIdx]   = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx]   = useState<number | null>(null);
 
   // ── Saved page state ─────────────────────────────────────────────────────────
   const [savedPageId, setSavedPageId] = useState<string | null>(null);
@@ -1637,116 +1651,94 @@ form.addEventListener('submit',function(e){
 
             {sections.map((sec, sIdx) => {
               const cols = getSectionColumns(markedHtml, sec.id);
+              const isDragging = dragFromIdx === sIdx;
+              const isDragOver = dragOverIdx === sIdx && dragFromIdx !== sIdx;
+              const doDelete = (type: "image"|"form"|"text", colIdx: number) => {
+                const nh = deleteBlockFromColumn(markedHtml, sec.id, colIdx, type);
+                setMarkedHtml(nh);
+                const { sections: ns } = parseLPIntoSections(nh);
+                setSections(ns);
+                setHtmlEditado(stripEditorAttrs(nh));
+                toast.success("Item removido!");
+              };
               return (
-                <div key={sec.id} className="flex flex-col gap-1.5">
+                <div key={sec.id} className="flex flex-col gap-1.5"
+                  draggable
+                  onDragStart={e => { e.dataTransfer.effectAllowed = "move"; setDragFromIdx(sIdx); setBlockActionTarget(null); }}
+                  onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (dragOverIdx !== sIdx) setDragOverIdx(sIdx); }}
+                  onDragLeave={() => setDragOverIdx(null)}
+                  onDrop={e => {
+                    e.preventDefault();
+                    if (dragFromIdx !== null && dragFromIdx !== sIdx) {
+                      const ids = sections.map(s => s.id);
+                      const nh = applySectionReorder(markedHtml, ids, dragFromIdx, sIdx);
+                      setMarkedHtml(nh);
+                      const { sections: ns } = parseLPIntoSections(nh);
+                      setSections(ns);
+                      setHtmlEditado(stripEditorAttrs(nh));
+                      toast.success("Seção reordenada!");
+                    }
+                    setDragFromIdx(null); setDragOverIdx(null);
+                  }}
+                  onDragEnd={() => { setDragFromIdx(null); setDragOverIdx(null); }}
+                  style={{ opacity: isDragging ? 0.4 : 1, transition: "opacity 0.15s" }}>
+
                   {/* Section card */}
-                  <div className="rounded-xl overflow-hidden" style={{ border: "1px solid #2A2A3A", background: "#0D0D18" }}>
+                  <div className="rounded-xl overflow-hidden" style={{ border: isDragOver ? "2px solid #B9FF4B88" : "1px solid #2A2A3A", background: "#0D0D18", transition: "border 0.1s" }}>
                     {/* Section header */}
-                    <div className="flex items-center gap-1.5 px-3 py-2" style={{ background: "#141420", borderBottom: "1px solid #1E1E2E" }}>
+                    <div className="flex items-center gap-1.5 px-2 py-2" style={{ background: "#141420", borderBottom: "1px solid #1E1E2E", cursor: "grab" }}>
+                      <span title="Arrastar para reordenar" style={{ color: "#333355", fontSize: 13, lineHeight: 1, flexShrink: 0, cursor: "grab" }}>⠿</span>
                       <span className="text-sm">{sec.icon}</span>
                       <span className="text-xs font-semibold flex-1 truncate" style={{ color: "rgba(255,255,255,0.7)" }}>{sec.name}</span>
-                      <div className="flex items-center gap-0.5">
-                        {sIdx > 0 && (
-                          <button title="Mover para cima" onClick={() => {
-                            const newHtml = applyMoveSection(markedHtml, sec.id, "up");
-                            setMarkedHtml(newHtml);
-                            const { sections: ns } = parseLPIntoSections(newHtml);
-                            setSections(ns);
-                            setHtmlEditado(stripEditorAttrs(newHtml));
-                          }} className="w-5 h-5 flex items-center justify-center rounded transition-colors text-[10px]"
-                          style={{ color: "#555577", background: "transparent" }}
-                          onMouseEnter={e => e.currentTarget.style.color = "#B9FF4B"}
-                          onMouseLeave={e => e.currentTarget.style.color = "#555577"}>↑</button>
-                        )}
-                        {sIdx < sections.length - 1 && (
-                          <button title="Mover para baixo" onClick={() => {
-                            const newHtml = applyMoveSection(markedHtml, sec.id, "down");
-                            setMarkedHtml(newHtml);
-                            const { sections: ns } = parseLPIntoSections(newHtml);
-                            setSections(ns);
-                            setHtmlEditado(stripEditorAttrs(newHtml));
-                          }} className="w-5 h-5 flex items-center justify-center rounded transition-colors text-[10px]"
-                          style={{ color: "#555577", background: "transparent" }}
-                          onMouseEnter={e => e.currentTarget.style.color = "#B9FF4B"}
-                          onMouseLeave={e => e.currentTarget.style.color = "#555577"}>↓</button>
-                        )}
-                        <button title="Excluir seção" onClick={() => deleteSection(sec.id)}
-                          className="w-5 h-5 flex items-center justify-center rounded transition-colors"
-                          style={{ color: "#555577" }}
-                          onMouseEnter={e => e.currentTarget.style.color = "#FF4466"}
-                          onMouseLeave={e => e.currentTarget.style.color = "#555577"}>
-                          <Trash2 className="w-3 h-3" />
-                        </button>
-                      </div>
+                      <button title="Excluir seção" onClick={() => deleteSection(sec.id)}
+                        className="w-5 h-5 flex items-center justify-center rounded transition-colors flex-shrink-0"
+                        style={{ color: "#555577" }}
+                        onMouseEnter={e => e.currentTarget.style.color = "#FF4466"}
+                        onMouseLeave={e => e.currentTarget.style.color = "#555577"}>
+                        <Trash2 className="w-3 h-3" />
+                      </button>
                     </div>
 
                     {/* Columns */}
                     <div className={`grid gap-px ${cols.length >= 3 ? "grid-cols-3" : cols.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}
                       style={{ background: "#1A1A2A" }}>
-                      {cols.map((col) => {
-                        const isActing = blockActionTarget?.sectionId === sec.id && blockActionTarget?.colIdx === col.index;
-                        return (
-                        <div key={col.index} className="flex flex-col gap-1 p-2" style={{ background: "#0D0D18", minHeight: 72 }}>
-                          {/* Content type chips — clicáveis */}
-                          <div className="flex flex-wrap gap-1 min-h-[20px]">
+                      {cols.map((col) => (
+                        <div key={col.index} className="flex flex-col gap-1 p-2" style={{ background: "#0D0D18", minHeight: 64 }}>
+                          {/* Chips: clica no emoji = substituir, clica no ✕ = excluir */}
+                          <div className="flex flex-wrap gap-1 min-h-[18px]">
                             {col.hasText && (
-                              <button onClick={() => setBlockActionTarget(isActing && blockActionTarget?.type === "text" ? null : { sectionId: sec.id, colIdx: col.index, type: "text" })}
-                                className="text-[9px] px-1.5 py-0.5 rounded-full transition-all"
-                                style={{ background: isActing && blockActionTarget?.type === "text" ? "#B9FF4B33" : "#1E1E2E", color: "#8888BB", border: `1px solid ${isActing && blockActionTarget?.type === "text" ? "#B9FF4B55" : "transparent"}`, cursor: "pointer" }}>
-                                📝 texto
-                              </button>
+                              <span className="flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded-full" style={{ background: "#1E1E2E", color: "#8888BB" }}>
+                                📝
+                                <button onClick={() => doDelete("text", col.index)} title="Excluir texto"
+                                  className="transition-colors" style={{ color: "#FF446666", lineHeight: 1 }}
+                                  onMouseEnter={e => (e.currentTarget.style.color = "#FF4466")}
+                                  onMouseLeave={e => (e.currentTarget.style.color = "#FF446666")}>✕</button>
+                              </span>
                             )}
                             {col.hasImage && (
-                              <button onClick={() => setBlockActionTarget(isActing && blockActionTarget?.type === "image" ? null : { sectionId: sec.id, colIdx: col.index, type: "image" })}
-                                className="text-[9px] px-1.5 py-0.5 rounded-full transition-all"
-                                style={{ background: isActing && blockActionTarget?.type === "image" ? "#60A5FA33" : "#1E1E2E", color: "#60A5FA", border: `1px solid ${isActing && blockActionTarget?.type === "image" ? "#60A5FA55" : "transparent"}`, cursor: "pointer" }}>
-                                🖼️ imagem
-                              </button>
+                              <span className="flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded-full" style={{ background: "#1E1E2E", color: "#60A5FA" }}>
+                                <button onClick={() => { setBlockInsertTarget({ sectionId: sec.id, colIdx: col.index, mode: "replace" }); setBlockType("image"); setBlockVal(""); setBlockImgPrev(""); }} title="Substituir imagem" style={{ color: "#60A5FA" }}>🖼️</button>
+                                <button onClick={() => doDelete("image", col.index)} title="Excluir imagem"
+                                  className="transition-colors" style={{ color: "#FF446666", lineHeight: 1 }}
+                                  onMouseEnter={e => (e.currentTarget.style.color = "#FF4466")}
+                                  onMouseLeave={e => (e.currentTarget.style.color = "#FF446666")}>✕</button>
+                              </span>
                             )}
                             {col.hasForm && (
-                              <button onClick={() => setBlockActionTarget(isActing && blockActionTarget?.type === "form" ? null : { sectionId: sec.id, colIdx: col.index, type: "form" })}
-                                className="text-[9px] px-1.5 py-0.5 rounded-full transition-all"
-                                style={{ background: isActing && blockActionTarget?.type === "form" ? "#34D39933" : "#1E1E2E", color: "#34D399", border: `1px solid ${isActing && blockActionTarget?.type === "form" ? "#34D39955" : "transparent"}`, cursor: "pointer" }}>
-                                📋 form
-                              </button>
+                              <span className="flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded-full" style={{ background: "#1E1E2E", color: "#34D399" }}>
+                                <button onClick={() => { setBlockInsertTarget({ sectionId: sec.id, colIdx: col.index, mode: "replace" }); setBlockType("form"); setBlockVal(""); setBlockImgPrev(""); }} title="Substituir formulário" style={{ color: "#34D399" }}>📋</button>
+                                <button onClick={() => doDelete("form", col.index)} title="Excluir formulário"
+                                  className="transition-colors" style={{ color: "#FF446666", lineHeight: 1 }}
+                                  onMouseEnter={e => (e.currentTarget.style.color = "#FF4466")}
+                                  onMouseLeave={e => (e.currentTarget.style.color = "#FF446666")}>✕</button>
+                              </span>
                             )}
                             {col.isEmpty && <span className="text-[9px]" style={{ color: "#333355" }}>vazio</span>}
                           </div>
-                          {/* Action row when a chip is selected */}
-                          {isActing && (
-                            <div className="flex gap-1 mt-0.5">
-                              {blockActionTarget!.type !== "text" && (
-                                <button onClick={() => {
-                                  setBlockInsertTarget({ sectionId: sec.id, colIdx: col.index, mode: "replace" });
-                                  setBlockType(blockActionTarget!.type === "image" ? "image" : "form");
-                                  setBlockVal(""); setBlockImgPrev("");
-                                  setBlockActionTarget(null);
-                                }} className="flex-1 text-[9px] py-0.5 rounded font-semibold"
-                                  style={{ background: "#B9FF4B22", color: "#B9FF4B", border: "1px solid #B9FF4B44" }}>
-                                  Substituir
-                                </button>
-                              )}
-                              <button onClick={() => {
-                                const newHtml = deleteBlockFromColumn(markedHtml, sec.id, col.index, blockActionTarget!.type);
-                                setMarkedHtml(newHtml);
-                                const { sections: ns } = parseLPIntoSections(newHtml);
-                                setSections(ns);
-                                setHtmlEditado(stripEditorAttrs(newHtml));
-                                setBlockActionTarget(null);
-                                toast.success("Item removido!");
-                              }} className="flex-1 text-[9px] py-0.5 rounded font-semibold"
-                                style={{ background: "#FF446622", color: "#FF4466", border: "1px solid #FF446644" }}>
-                                Excluir
-                              </button>
-                              <button onClick={() => setBlockActionTarget(null)}
-                                className="text-[9px] px-1.5 py-0.5 rounded"
-                                style={{ background: "#1E1E2E", color: "#666688" }}>✕</button>
-                            </div>
-                          )}
-                          {!isActing && col.preview && <p className="text-[9px] truncate" style={{ color: "#333355" }}>{col.preview}</p>}
+                          {col.preview && <p className="text-[9px] truncate" style={{ color: "#333355" }}>{col.preview}</p>}
                           {/* Add block button */}
                           <button
-                            onClick={() => { setBlockInsertTarget({ sectionId: sec.id, colIdx: col.index, mode: "col" }); setBlockType(null); setBlockVal(""); setBlockImgPrev(""); setBlockActionTarget(null); }}
+                            onClick={() => { setBlockInsertTarget({ sectionId: sec.id, colIdx: col.index, mode: "col" }); setBlockType(null); setBlockVal(""); setBlockImgPrev(""); }}
                             className="mt-auto flex items-center justify-center gap-1 w-full py-1 rounded-lg text-[10px] transition-all"
                             style={{ background: "#141420", border: "1px dashed #2A2A3A", color: "#444466" }}
                             onMouseEnter={e => { e.currentTarget.style.borderColor = "#B9FF4B55"; e.currentTarget.style.color = "#B9FF4B"; }}
@@ -1754,8 +1746,7 @@ form.addEventListener('submit',function(e){
                             + bloco
                           </button>
                         </div>
-                        );
-                      })}
+                      ))}
                     </div>
                   </div>
 
