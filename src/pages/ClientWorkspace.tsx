@@ -59,6 +59,16 @@ const HEAT_CFG = {
   cold: { emoji: "🔵", label: "Frio",   color: "#60A5FA", bg: "rgba(96,165,250,0.1)"  },
 };
 
+// ── Course pipeline stages ────────────────────────────────────
+const COURSE_PIPELINE_STAGES = [
+  { key: "inscrito",             label: "Inscrito",        emoji: "📝" },
+  { key: "aguardando_pagamento", label: "Ag. Pagamento",   emoji: "💳" },
+  { key: "confirmado",           label: "Confirmado",      emoji: "✅" },
+  { key: "inicio_curso",         label: "Início do Curso", emoji: "🚀" },
+  { key: "andamento",            label: "Em Andamento",    emoji: "📚" },
+  { key: "concluido",            label: "Concluído",       emoji: "🎓" },
+];
+
 // ── Marketing Team Definition ──────────────────────────────────
 const MARKETING_TEAM = [
   {
@@ -1019,6 +1029,18 @@ export default function ClientWorkspace() {
   const [newChecklistItem, setNewChecklistItem] = useState({ title: "", description: "", responsible: "agency" });
   const [savingChecklistItem, setSavingChecklistItem] = useState(false);
   const [selectedChecklistPhase, setSelectedChecklistPhase] = useState<Record<string, string>>({});
+
+  // Course pipeline messages
+  type PipelineMsg = { id?: string; body: string; subject?: string };
+  type CourseMsgs = Record<string, Record<string, PipelineMsg>>; // courseId → stage → channel → msg
+  const [coursePipelineMsgs, setCoursePipelineMsgs] = useState<Record<string, CourseMsgs>>({});
+  const [activeMsgStage, setActiveMsgStage] = useState<Record<string, string>>({});
+  const [activeMsgChannel, setActiveMsgChannel] = useState<Record<string, "whatsapp" | "email">>({});
+  const [msgBody, setMsgBody] = useState<Record<string, string>>({});
+  const [msgSubject, setMsgSubject] = useState<Record<string, string>>({});
+  const [msgGenerating, setMsgGenerating] = useState<string | null>(null);
+  const [msgSaving, setMsgSaving] = useState<string | null>(null);
+  const [msgSending, setMsgSending] = useState<string | null>(null);
   const [generatedImages, setGeneratedImages] = useState<Array<{id: string, imageData: string, mimeType: string, imageUrl?: string, prompt: string, createdAt: string}>>([]);
   const [marcelaLoading, setMarcelaLoading] = useState(false);
   const [marcelaError, setMarcelaError] = useState<string | null>(null);
@@ -2862,6 +2884,94 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
     dia_evento: "Dia do Evento",
   };
   const PHASES = ["pre_venda", "venda", "pos_venda", "dia_evento"] as const;
+
+  // ── Course pipeline message functions ────────────────────────────────────────
+
+  const loadCoursePipelineMsgs = async (courseId: string) => {
+    const { data } = await (supabase as any)
+      .from("course_pipeline_messages")
+      .select("*")
+      .eq("course_id", courseId);
+    if (!data) return;
+    const map: CourseMsgs = {};
+    for (const row of data) {
+      if (!map[row.stage]) map[row.stage] = {};
+      map[row.stage][row.channel] = { id: row.id, body: row.body, subject: row.subject ?? "" };
+    }
+    setCoursePipelineMsgs(prev => ({ ...prev, [courseId]: map }));
+  };
+
+  const savePipelineMsg = async (courseId: string) => {
+    const stage = activeMsgStage[courseId] ?? COURSE_PIPELINE_STAGES[0].key;
+    const channel = activeMsgChannel[courseId] ?? "whatsapp";
+    const body = msgBody[`${courseId}_${stage}_${channel}`] ?? "";
+    const subject = msgSubject[`${courseId}_${stage}_${channel}`] ?? "";
+    if (!body.trim()) { toast.error("Escreva a mensagem antes de salvar"); return; }
+    setMsgSaving(`${courseId}_${stage}_${channel}`);
+    try {
+      await (supabase as any).from("course_pipeline_messages").upsert({
+        course_id: courseId, client_id: id, stage, channel, body, subject,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "course_id,stage,channel" });
+      setCoursePipelineMsgs(prev => ({
+        ...prev,
+        [courseId]: {
+          ...(prev[courseId] ?? {}),
+          [stage]: { ...(prev[courseId]?.[stage] ?? {}), [channel]: { body, subject } },
+        },
+      }));
+      toast.success("Mensagem salva!");
+    } catch { toast.error("Erro ao salvar"); }
+    finally { setMsgSaving(null); }
+  };
+
+  const generatePipelineMsg = async (courseId: string, course: any) => {
+    const stage = activeMsgStage[courseId] ?? COURSE_PIPELINE_STAGES[0].key;
+    const channel = activeMsgChannel[courseId] ?? "whatsapp";
+    const key = `${courseId}_${stage}_${channel}`;
+    setMsgGenerating(key);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-course-message", {
+        body: { course_title: course.title, course_description: course.description ?? "", stage, channel, client_name: client.name },
+      });
+      if (error) throw new Error(error.message);
+      setMsgBody(prev => ({ ...prev, [key]: data.body ?? "" }));
+      if (channel === "email" && data.subject) setMsgSubject(prev => ({ ...prev, [key]: data.subject }));
+    } catch (e: any) { toast.error(e.message || "Erro ao gerar mensagem"); }
+    finally { setMsgGenerating(null); }
+  };
+
+  const sendPipelineMsgToAll = async (courseId: string, students: any[]) => {
+    const stage = activeMsgStage[courseId] ?? COURSE_PIPELINE_STAGES[0].key;
+    const channel = activeMsgChannel[courseId] ?? "whatsapp";
+    const key = `${courseId}_${stage}_${channel}`;
+    const body = msgBody[key] ?? coursePipelineMsgs[courseId]?.[stage]?.[channel]?.body ?? "";
+    const subject = msgSubject[key] ?? coursePipelineMsgs[courseId]?.[stage]?.[channel]?.subject ?? "";
+    if (!body.trim()) { toast.error("Salve ou escreva a mensagem antes de enviar"); return; }
+    const targets = channel === "whatsapp"
+      ? students.filter((s: any) => s.student_phone)
+      : students.filter((s: any) => s.student_email);
+    if (targets.length === 0) { toast.error(`Nenhum aluno tem ${channel === "whatsapp" ? "WhatsApp" : "e-mail"} cadastrado`); return; }
+    setMsgSending(key);
+    let sent = 0, errors = 0;
+    await Promise.allSettled(targets.map(async (s: any) => {
+      const personalized = body.replace(/\{nome\}/gi, s.student_name?.split(" ")[0] ?? s.student_name ?? "");
+      try {
+        if (channel === "whatsapp") {
+          if (!wpCreds?.zapi_instance) throw new Error("WhatsApp não configurado");
+          await wpInvoke({ action: "send_message", phone: s.student_phone, message: personalized });
+        } else {
+          await supabase.functions.invoke("send-email", {
+            body: { to: s.student_email, subject: subject || "Mensagem do curso", html: `<p>${personalized.replace(/\n/g, "<br>")}</p>` },
+          });
+        }
+        sent++;
+      } catch { errors++; }
+    }));
+    setMsgSending(null);
+    if (sent > 0) toast.success(`Enviado para ${sent} aluno${sent !== 1 ? "s" : ""}!`);
+    if (errors > 0) toast.error(`${errors} envio${errors !== 1 ? "s" : ""} falharam`);
+  };
 
   const handleGenerateChecklist = async (course: any, phase: string) => {
     const key = `${course.id}_${phase}`;
@@ -8996,7 +9106,7 @@ Regras:
 
                       {/* Course header */}
                       <div className="flex items-center gap-4 px-5 py-4">
-                        <button className="flex items-center gap-4 flex-1 text-left" onClick={() => { const next = isOpen ? null : course.id; setExpandedCourse(next); if (next) loadCourseFiles(next); }}>
+                        <button className="flex items-center gap-4 flex-1 text-left" onClick={() => { const next = isOpen ? null : course.id; setExpandedCourse(next); if (next) { loadCourseFiles(next); loadCoursePipelineMsgs(next); } }}>
                           <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                             style={{ background: `${client.color}18`, border: `1px solid ${client.color}28` }}>
                             <GraduationCap className="w-5 h-5" style={{ color: client.color }} />
@@ -9208,6 +9318,132 @@ Regras:
                             </div>
                           </motion.div>
                         )}
+                      </AnimatePresence>
+
+                      {/* ── Mensagens do Pipeline ─────────────────── */}
+                      <AnimatePresence>
+                        {isOpen && (() => {
+                          const courseId = course.id;
+                          const stage = activeMsgStage[courseId] ?? COURSE_PIPELINE_STAGES[0].key;
+                          const channel = activeMsgChannel[courseId] ?? "whatsapp";
+                          const key = `${courseId}_${stage}_${channel}`;
+                          const saved = coursePipelineMsgs[courseId]?.[stage]?.[channel];
+                          const currentBody = msgBody[key] ?? saved?.body ?? "";
+                          const currentSubject = msgSubject[key] ?? saved?.subject ?? "";
+                          const students = dbEnrollments[courseId] ?? [];
+                          const targetCount = channel === "whatsapp"
+                            ? students.filter((s: any) => s.student_phone).length
+                            : students.filter((s: any) => s.student_email).length;
+                          const isGenerating = msgGenerating === key;
+                          const isSaving = msgSaving === key;
+                          const isSending = msgSending === key;
+
+                          return (
+                            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                              exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden"
+                              style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                              <div className="px-5 py-4 space-y-3">
+                                {/* Header */}
+                                <div className="flex items-center justify-between">
+                                  <p className="text-[10px] font-semibold uppercase tracking-widest flex items-center gap-1.5"
+                                    style={{ color: "rgba(255,255,255,0.4)" }}>
+                                    <Send className="w-3 h-3" /> Mensagens do Pipeline
+                                  </p>
+                                  {/* Channel toggle */}
+                                  <div className="flex gap-1">
+                                    {(["whatsapp", "email"] as const).map(ch => (
+                                      <button key={ch} onClick={() => setActiveMsgChannel(prev => ({ ...prev, [courseId]: ch }))}
+                                        className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-medium transition-all"
+                                        style={{
+                                          background: channel === ch ? (ch === "whatsapp" ? "rgba(37,211,102,0.15)" : "rgba(99,102,241,0.15)") : "rgba(255,255,255,0.04)",
+                                          color: channel === ch ? (ch === "whatsapp" ? "#25D366" : "#818CF8") : "rgba(255,255,255,0.3)",
+                                          border: `1px solid ${channel === ch ? (ch === "whatsapp" ? "rgba(37,211,102,0.3)" : "rgba(99,102,241,0.3)") : "rgba(255,255,255,0.08)"}`,
+                                        }}>
+                                        {ch === "whatsapp" ? <MessageCircle className="w-3 h-3" /> : <Mail className="w-3 h-3" />}
+                                        {ch === "whatsapp" ? "WhatsApp" : "E-mail"}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                {/* Stage pills */}
+                                <div className="flex flex-wrap gap-1.5">
+                                  {COURSE_PIPELINE_STAGES.map(s => {
+                                    const hasSaved = !!coursePipelineMsgs[courseId]?.[s.key]?.[channel]?.body;
+                                    const isActive = stage === s.key;
+                                    return (
+                                      <button key={s.key}
+                                        onClick={() => setActiveMsgStage(prev => ({ ...prev, [courseId]: s.key }))}
+                                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-[10px] font-medium transition-all"
+                                        style={{
+                                          background: isActive ? `${client.color}18` : "rgba(255,255,255,0.04)",
+                                          border: `1px solid ${isActive ? `${client.color}40` : "rgba(255,255,255,0.08)"}`,
+                                          color: isActive ? client.color : "rgba(255,255,255,0.4)",
+                                        }}>
+                                        {s.emoji} {s.label}
+                                        {hasSaved && <span className="w-1.5 h-1.5 rounded-full ml-0.5 flex-shrink-0" style={{ background: client.color }} />}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+
+                                {/* Message editor */}
+                                <div className="space-y-2">
+                                  {channel === "email" && (
+                                    <input
+                                      placeholder="Assunto do e-mail"
+                                      value={currentSubject}
+                                      onChange={e => setMsgSubject(prev => ({ ...prev, [key]: e.target.value }))}
+                                      className="w-full rounded-xl px-3 py-2 text-xs focus:outline-none"
+                                      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#F0F0F0" }}
+                                    />
+                                  )}
+                                  <textarea
+                                    rows={4}
+                                    placeholder={`Mensagem para alunos na etapa "${COURSE_PIPELINE_STAGES.find(s => s.key === stage)?.label}"...\nUse {nome} para personalizar com o nome do aluno.`}
+                                    value={currentBody}
+                                    onChange={e => setMsgBody(prev => ({ ...prev, [key]: e.target.value }))}
+                                    disabled={isGenerating}
+                                    className="w-full rounded-xl px-3 py-2 text-xs resize-none focus:outline-none"
+                                    style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#F0F0F0", lineHeight: 1.6 }}
+                                  />
+                                  <p className="text-[9px]" style={{ color: "rgba(255,255,255,0.2)" }}>
+                                    Use <span style={{ color: client.color }}>{"{nome}"}</span> para inserir o primeiro nome do aluno automaticamente
+                                  </p>
+
+                                  {/* Action buttons */}
+                                  <div className="flex gap-2">
+                                    <button onClick={() => generatePipelineMsg(courseId, course)}
+                                      disabled={isGenerating}
+                                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium transition-all"
+                                      style={{ background: "rgba(139,92,246,0.1)", border: "1px solid rgba(139,92,246,0.2)", color: "#A78BFA" }}>
+                                      {isGenerating ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                                      {isGenerating ? "Gerando..." : "Gerar com IA"}
+                                    </button>
+                                    <button onClick={() => savePipelineMsg(courseId)}
+                                      disabled={isSaving || !currentBody.trim()}
+                                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-medium transition-all"
+                                      style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.5)" }}>
+                                      {isSaving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                                      Salvar
+                                    </button>
+                                    <button onClick={() => sendPipelineMsgToAll(courseId, students)}
+                                      disabled={isSending || !currentBody.trim() || targetCount === 0}
+                                      className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold transition-all"
+                                      style={{
+                                        background: (!isSending && currentBody.trim() && targetCount > 0) ? `${client.color}18` : "rgba(255,255,255,0.04)",
+                                        border: `1px solid ${(!isSending && currentBody.trim() && targetCount > 0) ? `${client.color}35` : "rgba(255,255,255,0.08)"}`,
+                                        color: (!isSending && currentBody.trim() && targetCount > 0) ? client.color : "rgba(255,255,255,0.25)",
+                                      }}>
+                                      {isSending ? <Loader2 className="w-3 h-3 animate-spin" /> : <Send className="w-3 h-3" />}
+                                      {isSending ? "Enviando..." : `Enviar a todos ${targetCount > 0 ? `(${targetCount})` : ""}`}
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </motion.div>
+                          );
+                        })()}
                       </AnimatePresence>
 
                       {/* ── Checklist por Fase ──────────────────── */}
