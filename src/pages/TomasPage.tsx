@@ -6,7 +6,7 @@ import {
   Loader2, CheckCircle2, AlertCircle, Layout, Sparkles,
   RefreshCw, Copy, Monitor, Smartphone, Paperclip,
   Globe, ExternalLink, Edit3, ChevronLeft, Wand2,
-  Check, X, Pencil, PanelLeft, ImagePlus, Search, Image as ImageIcon, Trash2,
+  Check, X, Pencil, PanelLeft, ImagePlus, Search, Image as ImageIcon, Trash2, Upload,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
