@@ -917,6 +917,12 @@ export default function ClientWorkspace() {
   const [attachedFileUrl, setAttachedFileUrl] = useState<string | null>(null);
   const [attachedFileText, setAttachedFileText] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [contextFiles, setContextFiles] = useState<{name: string; text: string; size: number}[]>([]);
+  const contextFilesInputRef = useRef<HTMLInputElement>(null);
+  const [courseFilesMap, setCourseFilesMap] = useState<Record<string, {name: string; url: string; size: number}[]>>({});
+  const [uploadingCourseFile, setUploadingCourseFile] = useState<string | null>(null);
+  const courseFileInputRef = useRef<HTMLInputElement>(null);
+  const courseFileTargetIdRef = useRef<string | null>(null);
   const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [viewingAgentId, setViewingAgentId] = useState<string | null>(null);
   const [agentInstruction, setAgentInstruction] = useState("");
@@ -1840,6 +1846,7 @@ Responda APENAS JSON válido, sem markdown, sem texto extra:
         const ctxBlock = `Data atual: ${dataHoje}.
 Cliente: ${clientContext.name} | Segmento: ${clientContext.industry} | Cor: ${clientContext.brandColor}
 ${clientContext.teamInstructions ? `Instruções permanentes: ${clientContext.teamInstructions}` : ""}${buildBriefingBlock()}
+${contextFiles.length > 0 ? `\n\nMATERIAIS DE REFERÊNCIA (baseie o conteúdo nestes arquivos):\n${contextFiles.map(f => `[${f.name}]:\n${f.text.slice(0, 3000)}`).join("\n\n---\n\n")}` : ""}
 ${accumulated.ben ? `\nTENDÊNCIAS DO BEN — use como munição para copy e visual:\n${accumulated.ben.slice(0, 1500)}` : ""}
 ${accumulated.strategist ? `\nESTRATÉGIA DA QUEILA (referencie):\n${accumulated.strategist.slice(0, 1500)}` : ""}
 ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copywriter.slice(0, 1000)}` : ""}
@@ -3009,6 +3016,57 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
     if (attachedFileUrl) URL.revokeObjectURL(attachedFileUrl);
     setAttachedFile(null); setAttachedFileUrl(null); setAttachedFileText(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
+  const handleContextFileAdd = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!contextFilesInputRef.current) return;
+    contextFilesInputRef.current.value = "";
+    for (const file of files) {
+      if (contextFiles.length >= 5) { toast.error("Máximo 5 arquivos de referência"); break; }
+      let text = "";
+      try {
+        if (/\.(txt|md|csv)$/i.test(file.name) || file.type.startsWith("text/")) {
+          text = await file.text();
+        } else {
+          text = `[Arquivo binário: ${file.name} — ${(file.size / 1024).toFixed(0)}KB]`;
+        }
+      } catch { text = `[${file.name}]`; }
+      setContextFiles(prev => [...prev, { name: file.name, text: text.slice(0, 8000), size: file.size }]);
+    }
+  };
+
+  const loadCourseFiles = async (courseId: string) => {
+    const { data } = await (supabase as any).storage.from("brand-assets").list(`${id}/courses/${courseId}`);
+    if (data) {
+      const files = (data as any[]).filter((f: any) => f.name !== ".emptyFolderPlaceholder").map((f: any) => ({
+        name: f.name,
+        size: f.metadata?.size ?? 0,
+        url: (supabase as any).storage.from("brand-assets").getPublicUrl(`${id}/courses/${courseId}/${f.name}`).data.publicUrl,
+      }));
+      setCourseFilesMap(prev => ({ ...prev, [courseId]: files }));
+    }
+  };
+
+  const handleCourseFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const courseId = courseFileTargetIdRef.current;
+    const file = e.target.files?.[0];
+    if (!file || !courseId || !courseFileInputRef.current) return;
+    courseFileInputRef.current.value = "";
+    setUploadingCourseFile(courseId);
+    try {
+      const { error } = await (supabase as any).storage.from("brand-assets").upload(`${id}/courses/${courseId}/${file.name}`, file, { upsert: true });
+      if (error) throw error;
+      toast.success(`${file.name} enviado!`);
+      loadCourseFiles(courseId);
+    } catch { toast.error("Erro ao enviar arquivo"); }
+    finally { setUploadingCourseFile(null); }
+  };
+
+  const deleteCourseFile = async (courseId: string, fileName: string) => {
+    await (supabase as any).storage.from("brand-assets").remove([`${id}/courses/${courseId}/${fileName}`]);
+    loadCourseFiles(courseId);
+    toast.success("Arquivo removido");
   };
 
   const clearAgentFile = () => {
@@ -6382,6 +6440,55 @@ Regras:
             {activeTab === "agents" && (
               <div className="space-y-5">
 
+                {/* ── Materiais de Referência ── */}
+                <div className="rounded-2xl px-5 py-4 space-y-3"
+                  style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.5)" }}>
+                        Materiais de Referência
+                      </p>
+                      <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.25)" }}>
+                        Envie arquivos de conteúdo — todo o time vai se basear neles
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => contextFilesInputRef.current?.click()}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-semibold transition-all"
+                      style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.45)", border: "1px dashed rgba(255,255,255,0.15)" }}
+                      onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(185,255,75,0.35)"; e.currentTarget.style.color = "#B9FF4B"; }}
+                      onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(255,255,255,0.15)"; e.currentTarget.style.color = "rgba(255,255,255,0.45)"; }}>
+                      <Paperclip className="w-3 h-3" /> Adicionar arquivo
+                    </button>
+                  </div>
+                  <input ref={contextFilesInputRef} type="file" multiple
+                    accept=".pdf,.doc,.docx,.txt,.md,.csv,.xlsx,.ppt,.pptx"
+                    className="hidden" onChange={handleContextFileAdd} />
+                  {contextFiles.length > 0 && (
+                    <div className="flex flex-wrap gap-2">
+                      {contextFiles.map((cf, i) => (
+                        <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-lg"
+                          style={{ background: "rgba(185,255,75,0.07)", border: "1px solid rgba(185,255,75,0.18)" }}>
+                          <FileText className="w-3 h-3 flex-shrink-0" style={{ color: "#B9FF4B" }} />
+                          <span className="text-[11px] font-medium max-w-[160px] truncate" style={{ color: "rgba(255,255,255,0.7)" }}>{cf.name}</span>
+                          <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>{(cf.size / 1024).toFixed(0)}KB</span>
+                          <button onClick={() => setContextFiles(prev => prev.filter((_, j) => j !== i))}
+                            style={{ color: "rgba(255,255,255,0.25)" }}
+                            onMouseEnter={e => (e.currentTarget.style.color = "#F87171")}
+                            onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.25)")}>
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {contextFiles.length === 0 && (
+                    <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.18)" }}>
+                      Nenhum arquivo — clique em "Adicionar arquivo" para enviar PDFs, Word, CSV, etc.
+                    </p>
+                  )}
+                </div>
+
                 {/* ── Passo 1 — Lia (Briefing) ── */}
                 <motion.div
                   initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
@@ -8869,6 +8976,11 @@ Regras:
                   </div>
                 )}
 
+                {/* Hidden file input for course materials */}
+                <input ref={courseFileInputRef} type="file"
+                  accept=".pdf,.doc,.docx,.txt,.md,.csv,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg"
+                  className="hidden" onChange={handleCourseFileUpload} />
+
                 {/* Course list */}
                 {!coursesLoading && dbCourses.map((course) => {
                   const students = dbEnrollments[course.id] ?? [];
@@ -8884,7 +8996,7 @@ Regras:
 
                       {/* Course header */}
                       <div className="flex items-center gap-4 px-5 py-4">
-                        <button className="flex items-center gap-4 flex-1 text-left" onClick={() => setExpandedCourse(isOpen ? null : course.id)}>
+                        <button className="flex items-center gap-4 flex-1 text-left" onClick={() => { const next = isOpen ? null : course.id; setExpandedCourse(next); if (next) loadCourseFiles(next); }}>
                           <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
                             style={{ background: `${client.color}18`, border: `1px solid ${client.color}28` }}>
                             <GraduationCap className="w-5 h-5" style={{ color: client.color }} />
@@ -9035,6 +9147,60 @@ Regras:
                                           <X className="w-3 h-3" />
                                         </button>
                                       </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {/* ── Materiais do Curso ── */}
+                      <AnimatePresence>
+                        {isOpen && (
+                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden"
+                            style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                            <div className="px-5 py-4 space-y-3">
+                              <div className="flex items-center justify-between">
+                                <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>Materiais do Curso</p>
+                                <button
+                                  onClick={() => { courseFileTargetIdRef.current = course.id; courseFileInputRef.current?.click(); }}
+                                  disabled={uploadingCourseFile === course.id}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all"
+                                  style={{ background: `${client.color}10`, color: client.color, border: `1px solid ${client.color}25` }}>
+                                  {uploadingCourseFile === course.id
+                                    ? <><RefreshCw className="w-3 h-3 animate-spin" /> Enviando...</>
+                                    : <><Upload className="w-3 h-3" /> Enviar arquivo</>}
+                                </button>
+                              </div>
+                              {(courseFilesMap[course.id] ?? []).length === 0 ? (
+                                <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.2)" }}>
+                                  Nenhum material ainda — envie PDFs, apostilas, slides, etc.
+                                </p>
+                              ) : (
+                                <div className="space-y-1.5">
+                                  {(courseFilesMap[course.id] ?? []).map(file => (
+                                    <div key={file.name} className="flex items-center gap-3 px-3 py-2 rounded-xl"
+                                      style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                                      <FileText className="w-3.5 h-3.5 flex-shrink-0" style={{ color: client.color }} />
+                                      <span className="flex-1 text-[11px] font-medium truncate" style={{ color: "rgba(255,255,255,0.7)" }}>{file.name}</span>
+                                      <span className="text-[10px] flex-shrink-0" style={{ color: "rgba(255,255,255,0.3)" }}>{(file.size / 1024).toFixed(0)}KB</span>
+                                      <a href={file.url} target="_blank" rel="noreferrer"
+                                        className="flex-shrink-0 p-1 rounded"
+                                        style={{ color: "rgba(255,255,255,0.3)" }}
+                                        onMouseEnter={e => (e.currentTarget.style.color = client.color)}
+                                        onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.3)")}>
+                                        <Eye className="w-3.5 h-3.5" />
+                                      </a>
+                                      <button onClick={() => deleteCourseFile(course.id, file.name)}
+                                        className="flex-shrink-0 p-1 rounded"
+                                        style={{ color: "rgba(255,255,255,0.25)" }}
+                                        onMouseEnter={e => (e.currentTarget.style.color = "#F87171")}
+                                        onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.25)")}>
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                      </button>
                                     </div>
                                   ))}
                                 </div>
