@@ -190,12 +190,26 @@ function parseLPIntoSections(html: string): { markedHtml: string; sections: Pars
     });
     sectionEl.querySelectorAll("img").forEach(el => {
       const src = el.getAttribute("src") ?? "";
-      if (!src || src.startsWith("data:") || src.length < 4) return;
+      if (!src || src.startsWith("data:") || src.length < 2) return;
       const fieldId = `${sectionId}-f${fIdx++}`;
       el.setAttribute("data-calu-field", fieldId);
       const alt = el.getAttribute("alt") || "";
-      const label = imgn++ === 0 ? "Imagem" : `Imagem ${imgn}`;
+      const cls = (el.getAttribute("class") ?? "").toLowerCase();
+      const isLogo = cls.includes("logo") || (el.closest("[class*='logo'],[id*='logo']") !== null);
+      const label = isLogo ? "Logo" : (imgn++ === 0 ? "Imagem" : `Imagem ${imgn}`);
       fields.push({ id: fieldId, label: alt ? `${label} — ${alt}` : label, value: src, type: "image", src });
+    });
+    // CSS background-image elements
+    let bgn = 0;
+    sectionEl.querySelectorAll("[style*='background-image']").forEach(el => {
+      if (el.getAttribute("data-calu-field")) return; // already tagged
+      const style = el.getAttribute("style") ?? "";
+      const match = style.match(/background-image:\s*url\(['"]?([^'")]+)['"]?\)/i);
+      if (!match || !match[1] || match[1].startsWith("data:")) return;
+      const src = match[1];
+      const fieldId = `${sectionId}-f${fIdx++}`;
+      el.setAttribute("data-calu-field", fieldId);
+      fields.push({ id: fieldId, label: bgn++ === 0 ? "Imagem Fundo" : `Imagem Fundo ${bgn}`, value: src, type: "image", src });
     });
 
     if (fields.length > 0) {
@@ -203,6 +217,23 @@ function parseLPIntoSections(html: string): { markedHtml: string; sections: Pars
       sections.push({ id: sectionId, name, icon: detectSectionIcon(sectionEl, sIdx, sectionEls.length, name), fields });
     }
   });
+
+  // Rescue images in nav/header that fell outside all sections → add to first section (Hero)
+  if (sections.length > 0) {
+    const tagged = new Set(sections.flatMap(s => s.fields.map(f => f.id)));
+    let extraFIdx = sections[0].fields.length;
+    doc.querySelectorAll("nav img, header img").forEach(el => {
+      if (el.getAttribute("data-calu-field")) return; // already tagged
+      const src = el.getAttribute("src") ?? "";
+      if (!src || src.startsWith("data:") || src.length < 2) return;
+      const fieldId = `s0-f${extraFIdx++}`;
+      el.setAttribute("data-calu-field", fieldId);
+      const alt = el.getAttribute("alt") || "";
+      const cls = (el.getAttribute("class") ?? "").toLowerCase();
+      const label = cls.includes("logo") ? "Logo" : (alt || "Imagem (nav)");
+      sections[0].fields.push({ id: fieldId, label, value: src, type: "image", src });
+    });
+  }
 
   const markedHtml = "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
   return { markedHtml, sections };
@@ -213,7 +244,17 @@ function applyFieldUpdate(html: string, fieldId: string, newValue: string, field
   const el = doc.querySelector(`[data-calu-field="${fieldId}"]`);
   if (el) {
     if (fieldType === "image") {
-      el.setAttribute("src", newValue);
+      if (el.tagName === "IMG") {
+        el.setAttribute("src", newValue);
+      } else {
+        // background-image element
+        const style = el.getAttribute("style") ?? "";
+        const newStyle = style.replace(
+          /background-image:\s*url\(['"]?[^'")]+['"]?\)/i,
+          `background-image: url('${newValue}')`
+        );
+        el.setAttribute("style", newStyle || (style + `;background-image:url('${newValue}')`));
+      }
     } else {
       el.textContent = newValue;
     }
@@ -263,10 +304,28 @@ function stripEditorAttrs(html: string): string {
 function injectEditorScript(html: string, selectedId: string): string {
   const script = `<script>(function(){
 var s=document.createElement('style');
-s.textContent='[data-calu-section]{cursor:pointer;transition:outline 0.15s;}[data-calu-section]:hover{outline:2px dashed rgba(185,255,75,0.45)!important;outline-offset:3px;}[data-calu-section="${selectedId}"]{outline:2px solid #B9FF4B!important;outline-offset:3px;}';
+s.textContent='[data-calu-section]{cursor:pointer;transition:outline 0.15s;}[data-calu-section]:hover{outline:2px dashed rgba(185,255,75,0.35)!important;outline-offset:3px;}[data-calu-section="${selectedId}"]{outline:2px solid #B9FF4B!important;outline-offset:3px;}[data-calu-field]{cursor:pointer!important;transition:outline 0.1s;}[data-calu-field]:hover{outline:1px dashed rgba(96,165,250,0.7)!important;outline-offset:2px;}img[data-calu-field]:hover{outline:2px solid #60A5FA!important;outline-offset:2px;cursor:crosshair!important;}';
 document.head.appendChild(s);
-document.querySelectorAll('[data-calu-section]').forEach(function(el){
-  el.addEventListener('click',function(e){e.preventDefault();e.stopPropagation();window.parent.postMessage({type:'calu-section-click',sectionId:el.getAttribute('data-calu-section')},'*');},true);
+document.querySelectorAll('[data-calu-section]').forEach(function(sec){
+  sec.addEventListener('click',function(e){
+    var fieldEl=e.target.closest('[data-calu-field]');
+    if(fieldEl){
+      e.stopPropagation();
+      window.parent.postMessage({type:'calu-field-click',fieldId:fieldEl.getAttribute('data-calu-field'),sectionId:sec.getAttribute('data-calu-section')},'*');
+    } else {
+      e.preventDefault();e.stopPropagation();
+      window.parent.postMessage({type:'calu-section-click',sectionId:sec.getAttribute('data-calu-section')},'*');
+    }
+  },true);
+});
+// Also catch fields outside a data-calu-section (nav images, etc.)
+document.querySelectorAll('[data-calu-field]').forEach(function(el){
+  if(!el.closest('[data-calu-section]')){
+    el.addEventListener('click',function(e){
+      e.stopPropagation();
+      window.parent.postMessage({type:'calu-field-click',fieldId:el.getAttribute('data-calu-field'),sectionId:'s0'},'*');
+    },true);
+  }
 });
 })();<\/script>`;
   return html.includes("</body>") ? html.replace("</body>", script + "</body>") : html + script;
@@ -334,8 +393,9 @@ export default function TomasPage() {
   // ── Pedir alterações state ───────────────────────────────────────────────────
   const [alteracaoInput, setAlteracaoInput]     = useState("");
   const [alteracaoLoading, setAlteracaoLoading] = useState(false);
-  const [alteracaoFiles, setAlteracaoFiles]     = useState<{name: string; text: string}[]>([]);
+  const [alteracaoFiles, setAlteracaoFiles]     = useState<{name: string; text?: string; isImage?: boolean; base64?: string; mimeType?: string; previewUrl?: string}[]>([]);
   const alteracaoFileRef = useRef<HTMLInputElement>(null);
+  const alteracaoImgRef  = useRef<HTMLInputElement>(null);
 
   // ── SEO state ────────────────────────────────────────────────────────────────
   const [seoLoading, setSeoLoading] = useState(false);
@@ -399,13 +459,34 @@ export default function TomasPage() {
     })();
   }, [pageId]);
 
-  // ── iframe messages (basic edit + editor section click) ──────────────────────
+  // ── iframe messages (basic edit + editor section/field click) ───────────────
   useEffect(() => {
     const handler = (e: MessageEvent) => {
       if (e.data?.type === "calu-html-update") setHtmlEditado(e.data.html);
       if (e.data?.type === "calu-section-click") {
         const idx = sections.findIndex(s => s.id === e.data.sectionId);
         if (idx >= 0) setSelectedSectionIdx(idx);
+      }
+      if (e.data?.type === "calu-field-click") {
+        // Select the right section first
+        const sIdx = sections.findIndex(s => s.id === e.data.sectionId);
+        if (sIdx >= 0) setSelectedSectionIdx(sIdx);
+        // Then select the field for direct editing
+        const sec = sIdx >= 0 ? sections[sIdx] : sections[0];
+        if (sec) {
+          const field = sec.fields.find(f => f.id === e.data.fieldId);
+          if (field) {
+            if (field.type === "image") {
+              // For images, just scroll to / highlight — the button is in FieldEditor
+              setDirectEditField(null);
+            } else {
+              setDirectEditField(field.id);
+              setDirectEditValue(field.value);
+              setAiEditField(null);
+              setAiSuggestion(null);
+            }
+          }
+        }
       }
     };
     window.addEventListener("message", handler);
@@ -788,12 +869,31 @@ export default function TomasPage() {
     const files = Array.from(e.target.files ?? []);
     e.target.value = "";
     for (const file of files) {
-      if (alteracaoFiles.length >= 3) { toast.error("Máximo 3 arquivos por alteração"); break; }
+      if (alteracaoFiles.length >= 3) { toast.error("Máximo 3 anexos por alteração"); break; }
       try {
         const text = file.type.startsWith("text/") || /\.(txt|md|html|css|js|ts|json|csv)$/i.test(file.name)
           ? await file.text()
           : `[Arquivo binário: ${file.name} — ${(file.size / 1024).toFixed(1)} KB]`;
         setAlteracaoFiles(prev => [...prev, { name: file.name, text: text.slice(0, 8000) }]);
+      } catch { toast.error(`Erro ao ler ${file.name}`); }
+    }
+  };
+
+  const handleAlteracaoImageAdd = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    for (const file of files) {
+      if (alteracaoFiles.length >= 3) { toast.error("Máximo 3 anexos por alteração"); break; }
+      if (!file.type.startsWith("image/")) continue;
+      try {
+        const buf = await file.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let binary = "";
+        for (let i = 0; i < bytes.length; i += 8192) binary += String.fromCharCode(...bytes.subarray(i, i + 8192));
+        const base64 = btoa(binary);
+        const previewUrl = URL.createObjectURL(file);
+        const mimeType = (file.type as "image/jpeg" | "image/png" | "image/gif" | "image/webp") ?? "image/jpeg";
+        setAlteracaoFiles(prev => [...prev, { name: file.name, isImage: true, base64, mimeType, previewUrl }]);
       } catch { toast.error(`Erro ao ler ${file.name}`); }
     }
   };
@@ -819,13 +919,16 @@ export default function TomasPage() {
         `Tom de voz: ${tom}`,
         clientName ? `Cliente: ${clientName}` : null,
       ].filter(Boolean).join("\n");
-      const fileContext = filesSnapshot.length > 0
-        ? "\n\nARQUIVOS DE REFERÊNCIA:\n" + filesSnapshot.map(f => `[${f.name}]:\n${f.text}`).join("\n\n---\n\n")
+      const textFiles = filesSnapshot.filter(f => !f.isImage);
+      const imgFiles  = filesSnapshot.filter(f => f.isImage);
+      const fileContext = textFiles.length > 0
+        ? "\n\nARQUIVOS DE REFERÊNCIA:\n" + textFiles.map(f => `[${f.name}]:\n${f.text}`).join("\n\n---\n\n")
         : "";
+      const images = imgFiles.map(f => ({ base64: f.base64!, mimeType: f.mimeType!, name: f.name }));
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/tomas-command`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ html: currentHtml, command: cmd + fileContext, lp_context: lpContext }),
+        body: JSON.stringify({ html: currentHtml, command: cmd + fileContext, lp_context: lpContext, images }),
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || `Erro ${resp.status}`);
@@ -1813,27 +1916,44 @@ form.addEventListener('submit',function(e){
                       onFocus={e => e.currentTarget.style.borderColor = "#B9FF4B44"}
                       onBlur={e => e.currentTarget.style.borderColor = "#2A2A3A"}
                     />
-                    <button
-                      type="button"
-                      onClick={() => alteracaoFileRef.current?.click()}
-                      disabled={alteracaoLoading || alteracaoFiles.length >= 3}
-                      title="Anexar arquivo de referência"
-                      className="absolute bottom-2 right-2 p-1 rounded-lg transition-colors"
-                      style={{ color: alteracaoFiles.length > 0 ? "#B9FF4B" : "#444466", background: "transparent" }}
-                    >
-                      <Paperclip className="w-4 h-4" />
-                    </button>
+                    <div className="absolute bottom-2 right-2 flex gap-1">
+                      <button
+                        type="button"
+                        onClick={() => alteracaoImgRef.current?.click()}
+                        disabled={alteracaoLoading || alteracaoFiles.length >= 3}
+                        title="Enviar imagem de referência (logo, foto, etc.)"
+                        className="p-1 rounded-lg transition-colors"
+                        style={{ color: alteracaoFiles.some(f => f.isImage) ? "#60A5FA" : "#444466", background: "transparent" }}
+                      >
+                        <ImageIcon className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => alteracaoFileRef.current?.click()}
+                        disabled={alteracaoLoading || alteracaoFiles.length >= 3}
+                        title="Anexar arquivo de referência"
+                        className="p-1 rounded-lg transition-colors"
+                        style={{ color: alteracaoFiles.some(f => !f.isImage) ? "#B9FF4B" : "#444466", background: "transparent" }}
+                      >
+                        <Paperclip className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                   <input ref={alteracaoFileRef} type="file" multiple accept=".txt,.md,.html,.css,.js,.ts,.json,.csv,.pdf" className="hidden" onChange={handleAlteracaoFileAdd} />
+                  <input ref={alteracaoImgRef} type="file" multiple accept="image/*" className="hidden" onChange={handleAlteracaoImageAdd} />
                   {alteracaoFiles.length > 0 && (
                     <div className="flex flex-wrap gap-1.5">
                       {alteracaoFiles.map((f, i) => (
-                        <div key={i} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px]"
-                          style={{ background: "#1A1A2E", border: "1px solid #B9FF4B33", color: "#B9FF4B" }}>
-                          <FileText className="w-3 h-3 flex-shrink-0" />
-                          <span className="max-w-[120px] truncate">{f.name}</span>
+                        <div key={i} className="flex items-center gap-1 rounded-lg text-[10px] overflow-hidden"
+                          style={{ background: "#1A1A2E", border: `1px solid ${f.isImage ? "#60A5FA44" : "#B9FF4B33"}` }}>
+                          {f.isImage && f.previewUrl ? (
+                            <img src={f.previewUrl} alt={f.name} className="w-8 h-8 object-cover flex-shrink-0" />
+                          ) : (
+                            <FileText className="w-3 h-3 flex-shrink-0 ml-2" style={{ color: "#B9FF4B" }} />
+                          )}
+                          <span className="max-w-[90px] truncate px-1.5 py-1" style={{ color: f.isImage ? "#60A5FA" : "#B9FF4B" }}>{f.name}</span>
                           <button onClick={() => setAlteracaoFiles(prev => prev.filter((_, j) => j !== i))}
-                            className="ml-0.5 opacity-60 hover:opacity-100">✕</button>
+                            className="pr-1.5 opacity-60 hover:opacity-100" style={{ color: "rgba(255,255,255,0.5)" }}>✕</button>
                         </div>
                       ))}
                     </div>
@@ -1851,7 +1971,7 @@ form.addEventListener('submit',function(e){
                   >
                     {alteracaoLoading
                       ? <><Loader2 className="w-4 h-4 animate-spin" /> Tomás aplicando...</>
-                      : <><Send className="w-4 h-4" /> Enviar ao Tomás{alteracaoFiles.length > 0 ? ` + ${alteracaoFiles.length} arquivo${alteracaoFiles.length > 1 ? "s" : ""}` : ""}</>
+                      : <><Send className="w-4 h-4" /> Enviar ao Tomás{alteracaoFiles.length > 0 ? ` + ${alteracaoFiles.filter(f=>f.isImage).length > 0 ? `${alteracaoFiles.filter(f=>f.isImage).length} img` : ""}${alteracaoFiles.filter(f=>!f.isImage).length > 0 ? ` + ${alteracaoFiles.filter(f=>!f.isImage).length} arq` : ""}` : ""}</>
                     }
                   </button>
                   {alteracaoLoading && (

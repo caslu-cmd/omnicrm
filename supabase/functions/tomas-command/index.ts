@@ -9,13 +9,13 @@ serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {
-    const { html, command, lp_context } = await req.json();
+    const { html, command, lp_context, images } = await req.json();
     if (!html || !command) throw new Error("html e command são obrigatórios");
 
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!apiKey) throw new Error("ANTHROPIC_API_KEY não configurada");
 
-    const prompt = `Você é o Tomás, especialista em landing pages da Calu Agência.
+    const promptText = `Você é o Tomás, especialista em landing pages da Calu Agência.
 
 CONTEXTO:
 ${lp_context || "Landing page comercial em português brasileiro"}
@@ -34,13 +34,39 @@ Retorne SOMENTE um JSON array (sem markdown, sem explicação):
 
 Seletores válidos: "nav", "header#hero", "section#beneficios", "section#depoimentos", "section#sobre", "section#oferta", "section#contato", "footer", "head style"
 Para inserir nova seção: { "insertAfter": "section#oferta", "outerHTML": "...nova seção completa..." }
+Para remover uma seção: { "selector": "section#xxx", "remove": true }
 Para mudanças globais de cor ou tipografia: use "head style" com o <style> inteiro atualizado.
+${images && images.length > 0 ? `\nIMPORTANTE: O usuário enviou ${images.length} imagem(ns) de referência. Use-as para guiar a substituição de logos, fotos ou identidade visual conforme o comando.` : ""}
 
 Regras:
 - Inclua APENAS os elementos que realmente mudam
 - outerHTML deve ser HTML completo e válido do elemento
 - Preserve o mesmo CSS, variáveis CSS e classes Tailwind
-- Mantenha o português brasileiro`;
+- Mantenha o português brasileiro
+- Para trocar FONTE: no "head style" adicione @import do Google Fonts e atualize font-family no body/h1/h2/etc.
+- Para trocar LOGO: substitua o elemento <img> com novo src mantendo todas as classes e atributos`;
+
+    // Build multimodal message content if images present
+    type ContentBlock =
+      | { type: "text"; text: string }
+      | { type: "image"; source: { type: "base64"; media_type: string; data: string } };
+
+    const messageContent: ContentBlock[] = [];
+
+    if (images && Array.isArray(images) && images.length > 0) {
+      for (const img of images) {
+        if (!img.base64 || !img.mimeType) continue;
+        messageContent.push({
+          type: "image",
+          source: {
+            type: "base64",
+            media_type: img.mimeType,
+            data: img.base64,
+          },
+        });
+      }
+    }
+    messageContent.push({ type: "text", text: promptText });
 
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -51,8 +77,8 @@ Regras:
       },
       body: JSON.stringify({
         model: "claude-sonnet-4-6",
-        max_tokens: 8192,
-        messages: [{ role: "user", content: prompt }],
+        max_tokens: 16000,
+        messages: [{ role: "user", content: messageContent }],
       }),
     });
 
