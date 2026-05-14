@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
+
+const SUPABASE_URL = "https://proldgiyterqhthludlp.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InByb2xkZ2l5dGVycWh0aGx1ZGxwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzcyNzQ4NjEsImV4cCI6MjA5Mjg1MDg2MX0.v8xcDbEbbyxv671SYhsWYHs9bbp9J-Q937SknjUiBIE";
 
 export default function PropostaPage() {
   const { slug } = useParams<{ slug: string }>();
@@ -9,15 +11,22 @@ export default function PropostaPage() {
 
   useEffect(() => {
     if (!slug) return;
-    supabase
-      .from("propostas")
-      .select("html_content")
-      .eq("slug", slug)
-      .single()
-      .then(({ data, error }) => {
-        if (error || !data) setErro(true);
-        else setHtml(data.html_content);
-      });
+
+    fetch(
+      `${SUPABASE_URL}/rest/v1/propostas?slug=eq.${encodeURIComponent(slug)}&select=html_content&limit=1`,
+      {
+        headers: {
+          apikey: SUPABASE_ANON_KEY,
+          Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+        },
+      }
+    )
+      .then((r) => r.json())
+      .then((rows: { html_content: string }[]) => {
+        if (!rows || rows.length === 0) setErro(true);
+        else setHtml(rows[0].html_content);
+      })
+      .catch(() => setErro(true));
   }, [slug]);
 
   if (erro) return (
