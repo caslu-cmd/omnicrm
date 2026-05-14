@@ -5,20 +5,57 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+async function fetchUrlContent(url: string): Promise<string> {
+  try {
+    const res = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; TomasBot/1.0; +https://calu.app)" },
+      signal: AbortSignal.timeout(12000),
+    });
+    if (!res.ok) return `[Erro ${res.status} ao acessar ${url}]`;
+    const html = await res.text();
+    const text = html
+      .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, " ")
+      .replace(/<!--[\s\S]*?-->/g, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<")
+      .replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'")
+      .replace(/\s{2,}/g, " ")
+      .trim();
+    return text.slice(0, 10000);
+  } catch (e) {
+    return `[Não foi possível acessar ${url}: ${String(e)}]`;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {
-    const { html, command, lp_context, images } = await req.json();
+    const { html, command, lp_context, images, source_urls } = await req.json();
     if (!html || !command) throw new Error("html e command são obrigatórios");
 
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!apiKey) throw new Error("ANTHROPIC_API_KEY não configurada");
 
+    // Fetch content from reference URLs
+    let urlsContext = "";
+    if (Array.isArray(source_urls) && source_urls.length > 0) {
+      const contents = await Promise.all(source_urls.map(fetchUrlContent));
+      urlsContext = "\n\nCONTEÚDO DAS PÁGINAS DE REFERÊNCIA (use estas informações na LP):\n" +
+        source_urls.map((url: string, i: number) => `--- ${url} ---\n${contents[i]}`).join("\n\n");
+    }
+
     const promptText = `Você é o Tomás, especialista em landing pages da Calu Agência.
 
 CONTEXTO:
-${lp_context || "Landing page comercial em português brasileiro"}
+${lp_context || "Landing page comercial em português brasileiro"}${urlsContext}
+
+⚠️ REGRA CRÍTICA — NUNCA INVENTE INFORMAÇÕES:
+- Use EXCLUSIVAMENTE os dados do CONTEXTO, ARQUIVOS DE REFERÊNCIA e CONTEÚDO DAS PÁGINAS acima
+- JAMAIS invente: preços, nomes, depoimentos, estatísticas, garantias, características, datas ou qualquer dado específico
+- Se uma informação não estiver nos materiais fornecidos, use placeholder: [INSERIR PREÇO], [NOME DO CLIENTE], [DEPOIMENTO REAL], etc.
+- Use TODAS as informações relevantes dos materiais — não omita conteúdo útil disponível
 
 COMANDO:
 ${command}

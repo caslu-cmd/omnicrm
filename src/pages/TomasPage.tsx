@@ -386,6 +386,10 @@ export default function TomasPage() {
   const [tomasCmd, setTomasCmd]         = useState("");
   const [tomasCmdLoading, setTomasCmdLoading] = useState(false);
 
+  // ── Source URLs state ────────────────────────────────────────────────────────
+  const [sourceUrls, setSourceUrls]     = useState<string[]>([]);
+  const [urlInput, setUrlInput]         = useState("");
+
   // ── Saved page state ─────────────────────────────────────────────────────────
   const [savedPageId, setSavedPageId] = useState<string | null>(null);
   const [savingPage, setSavingPage]   = useState(false);
@@ -829,7 +833,7 @@ export default function TomasPage() {
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/tomas-command`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ html: currentHtml, command: cmdText, lp_context: lpContext }),
+        body: JSON.stringify({ html: currentHtml, command: cmdText, lp_context: lpContext, source_urls: sourceUrls }),
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || `Erro ${resp.status}`);
@@ -865,6 +869,16 @@ export default function TomasPage() {
   };
 
   // ── Arquivos de alteração ────────────────────────────────────────────────────
+  const addSourceUrl = () => {
+    const url = urlInput.trim();
+    if (!url) return;
+    try { new URL(url); } catch { toast.error("URL inválida — inclua https://"); return; }
+    if (sourceUrls.includes(url)) { toast.error("URL já adicionada"); return; }
+    if (sourceUrls.length >= 5) { toast.error("Máximo 5 URLs de referência"); return; }
+    setSourceUrls(prev => [...prev, url]);
+    setUrlInput("");
+  };
+
   const handleAlteracaoFileAdd = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     e.target.value = "";
@@ -928,7 +942,7 @@ export default function TomasPage() {
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/tomas-command`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ html: currentHtml, command: cmd + fileContext, lp_context: lpContext, images }),
+        body: JSON.stringify({ html: currentHtml, command: cmd + fileContext, lp_context: lpContext, images, source_urls: sourceUrls }),
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || `Erro ${resp.status}`);
@@ -981,7 +995,7 @@ Retorne o HTML completo com as otimizações aplicadas no <head>.`;
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/tomas-command`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ html: currentHtml, command: seoCmd, lp_context: lpContext }),
+        body: JSON.stringify({ html: currentHtml, command: seoCmd, lp_context: lpContext, source_urls: sourceUrls }),
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || `Erro ${resp.status}`);
@@ -1680,6 +1694,53 @@ form.addEventListener('submit',function(e){
                   onBlur={e => e.currentTarget.style.borderColor = "#2A2A3A"} />
               </div>
 
+              {/* Páginas de referência */}
+              <div className="flex flex-col gap-2">
+                <label className="text-[10px] uppercase tracking-widest" style={{ color: "#555577" }}>
+                  Páginas de referência <span style={{ color: "#444466" }}>(opcional)</span>
+                </label>
+                <p className="text-[10px]" style={{ color: "#444466" }}>Tomás lerá o conteúdo dessas páginas e usará apenas as informações reais — nunca inventará dados.</p>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    className="flex-1 rounded-xl px-3 py-2 text-sm outline-none"
+                    style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0" }}
+                    placeholder="https://site-do-cliente.com.br"
+                    value={urlInput}
+                    onChange={e => setUrlInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addSourceUrl(); } }}
+                    disabled={gerandoAtivo}
+                    onFocus={e => e.currentTarget.style.borderColor = "#B9FF4B44"}
+                    onBlur={e => e.currentTarget.style.borderColor = "#2A2A3A"}
+                  />
+                  <button
+                    type="button"
+                    onClick={addSourceUrl}
+                    disabled={!urlInput.trim() || gerandoAtivo}
+                    title="Adicionar URL"
+                    className="px-3 rounded-xl transition-all disabled:opacity-40"
+                    style={{ background: "#B9FF4B15", border: "1px solid #B9FF4B33", color: "#B9FF4B" }}
+                  >
+                    <Globe className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                {sourceUrls.length > 0 && (
+                  <div className="flex flex-col gap-1">
+                    {sourceUrls.map((url, i) => (
+                      <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg"
+                        style={{ background: "#0E1A08", border: "1px solid #B9FF4B22" }}>
+                        <Globe className="w-3 h-3 flex-shrink-0" style={{ color: "#B9FF4B" }} />
+                        <span className="flex-1 truncate text-[11px]" style={{ color: "rgba(255,255,255,0.5)" }}>{url}</span>
+                        <button onClick={() => setSourceUrls(prev => prev.filter((_, j) => j !== i))}
+                          className="flex-shrink-0" style={{ color: "#555577" }}>
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Upload */}
               <div className="flex flex-col gap-2 flex-shrink-0">
                 <input ref={fileInputRef} type="file" multiple accept=".pdf,.docx,.doc,.txt,.md" style={{ display: "none" }}
@@ -1941,6 +2002,19 @@ form.addEventListener('submit',function(e){
                   </div>
                   <input ref={alteracaoFileRef} type="file" multiple accept=".txt,.md,.html,.css,.js,.ts,.json,.csv,.pdf" className="hidden" onChange={handleAlteracaoFileAdd} />
                   <input ref={alteracaoImgRef} type="file" multiple accept="image/*" className="hidden" onChange={handleAlteracaoImageAdd} />
+                  {/* URLs ativas como referência */}
+                  {sourceUrls.length > 0 && (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <Globe className="w-3 h-3 flex-shrink-0" style={{ color: "#B9FF4B", opacity: 0.6 }} />
+                      <span className="text-[10px]" style={{ color: "#555577" }}>Páginas ativas:</span>
+                      {sourceUrls.map((url, i) => (
+                        <span key={i} className="text-[10px] truncate max-w-[140px] px-1.5 py-0.5 rounded"
+                          style={{ background: "#0E1A08", color: "#B9FF4B", opacity: 0.7 }}>
+                          {new URL(url).hostname}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   {alteracaoFiles.length > 0 && (
                     <div className="flex flex-wrap gap-1.5">
                       {alteracaoFiles.map((f, i) => (
