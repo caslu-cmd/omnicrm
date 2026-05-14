@@ -272,6 +272,8 @@ export default function TomasPage() {
   // ── Pedir alterações state ───────────────────────────────────────────────────
   const [alteracaoInput, setAlteracaoInput]     = useState("");
   const [alteracaoLoading, setAlteracaoLoading] = useState(false);
+  const [alteracaoFiles, setAlteracaoFiles]     = useState<{name: string; text: string}[]>([]);
+  const alteracaoFileRef = useRef<HTMLInputElement>(null);
 
   // ── SEO state ────────────────────────────────────────────────────────────────
   const [seoLoading, setSeoLoading] = useState(false);
@@ -621,6 +623,21 @@ export default function TomasPage() {
     }
   };
 
+  // ── Arquivos de alteração ────────────────────────────────────────────────────
+  const handleAlteracaoFileAdd = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    for (const file of files) {
+      if (alteracaoFiles.length >= 3) { toast.error("Máximo 3 arquivos por alteração"); break; }
+      try {
+        const text = file.type.startsWith("text/") || /\.(txt|md|html|css|js|ts|json|csv)$/i.test(file.name)
+          ? await file.text()
+          : `[Arquivo binário: ${file.name} — ${(file.size / 1024).toFixed(1)} KB]`;
+        setAlteracaoFiles(prev => [...prev, { name: file.name, text: text.slice(0, 8000) }]);
+      } catch { toast.error(`Erro ao ler ${file.name}`); }
+    }
+  };
+
   // ── Pedir alterações (disponível fora do editor) ───────────────────────────
 
   const pedirAlteracao = async () => {
@@ -629,7 +646,9 @@ export default function TomasPage() {
     if (!currentHtml) return;
     setAlteracaoLoading(true);
     const cmd = alteracaoInput.trim();
+    const filesSnapshot = [...alteracaoFiles];
     setAlteracaoInput("");
+    setAlteracaoFiles([]);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token ?? "";
@@ -640,10 +659,13 @@ export default function TomasPage() {
         `Tom de voz: ${tom}`,
         clientName ? `Cliente: ${clientName}` : null,
       ].filter(Boolean).join("\n");
+      const fileContext = filesSnapshot.length > 0
+        ? "\n\nARQUIVOS DE REFERÊNCIA:\n" + filesSnapshot.map(f => `[${f.name}]:\n${f.text}`).join("\n\n---\n\n")
+        : "";
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/tomas-command`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
-        body: JSON.stringify({ html: currentHtml, command: cmd, lp_context: lpContext }),
+        body: JSON.stringify({ html: currentHtml, command: cmd + fileContext, lp_context: lpContext }),
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || `Erro ${resp.status}`);
@@ -1504,18 +1526,44 @@ form.addEventListener('submit',function(e){
                   <span>💬</span> Pedir alterações ao Tomás
                 </p>
                 <div className="flex flex-col gap-2">
-                  <textarea
-                    rows={2}
-                    className="resize-none rounded-xl px-3 py-2.5 text-sm outline-none"
-                    style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0", lineHeight: 1.6, fontFamily: "inherit" }}
-                    placeholder={'"Torna o hero mais impactante" ou "Adiciona seção de FAQ"'}
-                    value={alteracaoInput}
-                    onChange={e => setAlteracaoInput(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter" && e.ctrlKey) pedirAlteracao(); }}
-                    disabled={alteracaoLoading}
-                    onFocus={e => e.currentTarget.style.borderColor = "#B9FF4B44"}
-                    onBlur={e => e.currentTarget.style.borderColor = "#2A2A3A"}
-                  />
+                  <div className="relative">
+                    <textarea
+                      rows={2}
+                      className="resize-none rounded-xl px-3 py-2.5 text-sm outline-none w-full pr-10"
+                      style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0", lineHeight: 1.6, fontFamily: "inherit" }}
+                      placeholder={'"Torna o hero mais impactante" ou "Adiciona seção de FAQ"'}
+                      value={alteracaoInput}
+                      onChange={e => setAlteracaoInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === "Enter" && e.ctrlKey) pedirAlteracao(); }}
+                      disabled={alteracaoLoading}
+                      onFocus={e => e.currentTarget.style.borderColor = "#B9FF4B44"}
+                      onBlur={e => e.currentTarget.style.borderColor = "#2A2A3A"}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => alteracaoFileRef.current?.click()}
+                      disabled={alteracaoLoading || alteracaoFiles.length >= 3}
+                      title="Anexar arquivo de referência"
+                      className="absolute bottom-2 right-2 p-1 rounded-lg transition-colors"
+                      style={{ color: alteracaoFiles.length > 0 ? "#B9FF4B" : "#444466", background: "transparent" }}
+                    >
+                      <Paperclip className="w-4 h-4" />
+                    </button>
+                  </div>
+                  <input ref={alteracaoFileRef} type="file" multiple accept=".txt,.md,.html,.css,.js,.ts,.json,.csv,.pdf" className="hidden" onChange={handleAlteracaoFileAdd} />
+                  {alteracaoFiles.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {alteracaoFiles.map((f, i) => (
+                        <div key={i} className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px]"
+                          style={{ background: "#1A1A2E", border: "1px solid #B9FF4B33", color: "#B9FF4B" }}>
+                          <FileText className="w-3 h-3 flex-shrink-0" />
+                          <span className="max-w-[120px] truncate">{f.name}</span>
+                          <button onClick={() => setAlteracaoFiles(prev => prev.filter((_, j) => j !== i))}
+                            className="ml-0.5 opacity-60 hover:opacity-100">✕</button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <button
                     onClick={pedirAlteracao}
                     disabled={!alteracaoInput.trim() || alteracaoLoading}
@@ -1529,7 +1577,7 @@ form.addEventListener('submit',function(e){
                   >
                     {alteracaoLoading
                       ? <><Loader2 className="w-4 h-4 animate-spin" /> Tomás aplicando...</>
-                      : <><Send className="w-4 h-4" /> Enviar ao Tomás</>
+                      : <><Send className="w-4 h-4" /> Enviar ao Tomás{alteracaoFiles.length > 0 ? ` + ${alteracaoFiles.length} arquivo${alteracaoFiles.length > 1 ? "s" : ""}` : ""}</>
                     }
                   </button>
                   {alteracaoLoading && (
