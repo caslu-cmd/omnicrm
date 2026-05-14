@@ -318,6 +318,17 @@ function applyBlockInsertInColumn(html: string, sectionId: string, columnIndex: 
   return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
 }
 
+function applyDuplicateSection(html: string, sectionId: string): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const el = doc.querySelector(`[data-calu-section="${sectionId}"]`);
+  if (!el?.parentNode) return html;
+  const clone = el.cloneNode(true) as Element;
+  clone.removeAttribute("data-calu-section");
+  clone.querySelectorAll("[data-calu-field]").forEach(f => f.removeAttribute("data-calu-field"));
+  el.after(clone);
+  return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
+}
+
 function applyMoveSection(html: string, sectionId: string, dir: "up" | "down"): string {
   const doc = new DOMParser().parseFromString(html, "text/html");
   const el = doc.querySelector(`[data-calu-section="${sectionId}"]`);
@@ -852,6 +863,15 @@ export default function TomasPage() {
     });
     toast.success("Seção removida!");
   }, []);
+
+  const duplicateSection = useCallback((sectionId: string) => {
+    const newHtml = applyDuplicateSection(markedHtml, sectionId);
+    const { markedHtml: nm, sections: ns } = parseLPIntoSections(newHtml);
+    setMarkedHtml(nm);
+    setSections(ns);
+    setHtmlEditado(stripEditorAttrs(newHtml));
+    toast.success("Seção duplicada!");
+  }, [markedHtml]);
 
   // ── Block builder handlers ────────────────────────────────────────────────
   const handleBlockImageFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1690,6 +1710,13 @@ form.addEventListener('submit',function(e){
                       <span title="Arrastar para reordenar" style={{ color: "#333355", fontSize: 13, lineHeight: 1, flexShrink: 0, cursor: "grab" }}>⠿</span>
                       <span className="text-sm">{sec.icon}</span>
                       <span className="text-xs font-semibold flex-1 truncate" style={{ color: "rgba(255,255,255,0.7)" }}>{sec.name}</span>
+                      <button title="Duplicar seção" onClick={() => duplicateSection(sec.id)}
+                        className="w-5 h-5 flex items-center justify-center rounded transition-colors flex-shrink-0"
+                        style={{ color: "#555577" }}
+                        onMouseEnter={e => e.currentTarget.style.color = "#B9FF4B"}
+                        onMouseLeave={e => e.currentTarget.style.color = "#555577"}>
+                        <Copy className="w-3 h-3" />
+                      </button>
                       <button title="Excluir seção" onClick={() => deleteSection(sec.id)}
                         className="w-5 h-5 flex items-center justify-center rounded transition-colors flex-shrink-0"
                         style={{ color: "#555577" }}
@@ -1895,9 +1922,15 @@ form.addEventListener('submit',function(e){
                         style={{ color: "#8888BB", background: "#1E1E2E" }}
                         onMouseEnter={e => e.currentTarget.style.color = "#B9FF4B"}
                         onMouseLeave={e => e.currentTarget.style.color = "#8888BB"}
-                      >
-                        {"</>"}
-                      </button>
+                      >{"</>"}</button>
+                      <button
+                        onClick={e => { e.stopPropagation(); duplicateSection(s.id); }}
+                        title="Duplicar seção"
+                        className="flex items-center justify-center w-5 h-5 rounded flex-shrink-0 transition-colors"
+                        style={{ color: "#8888BB" }}
+                        onMouseEnter={e => e.currentTarget.style.color = "#B9FF4B"}
+                        onMouseLeave={e => e.currentTarget.style.color = "#8888BB"}
+                      ><Copy className="w-3 h-3" /></button>
                       <button
                         onClick={e => { e.stopPropagation(); deleteSection(s.id); }}
                         title="Excluir seção"
@@ -1905,9 +1938,7 @@ form.addEventListener('submit',function(e){
                         style={{ color: "#FF4466" }}
                         onMouseEnter={e => e.currentTarget.style.background = "#FF446622"}
                         onMouseLeave={e => e.currentTarget.style.background = "transparent"}
-                      >
-                        <Trash2 className="w-3 h-3" />
-                      </button>
+                      ><Trash2 className="w-3 h-3" /></button>
                     </div>
                   </div>
                 ))}
