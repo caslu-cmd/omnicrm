@@ -34,6 +34,7 @@ import MetaAdsCampaignsSection from "@/components/MetaAdsCampaignsSection";
 import AdsSection from "@/components/AdsSection";
 import EditorialCalendarPanel from "@/components/EditorialCalendarPanel";
 import LeadsKanbanTab from "@/components/LeadsKanbanTab";
+import OrchestratorPanel from "@/components/OrchestratorPanel";
 
 const SOURCES: Record<string, { label: string; color: string; bg: string }> = {
   instagram: { label: "Instagram", color: "#E1306C", bg: "rgba(225,48,108,0.1)" },
@@ -6549,6 +6550,25 @@ Regras:
             ══════════════════════════════════════════════════════ */}
             {activeTab === "agents" && (
               <div className="space-y-5">
+
+                {/* ── Orquestração Multi-Agente ── */}
+                <div className="rounded-2xl px-5 py-4 space-y-3"
+                  style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                  <div className="mb-1">
+                    <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.5)" }}>
+                      Orquestração — Calendários & Entregas
+                    </p>
+                    <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.25)" }}>
+                      Acione todos os agentes com um único comando e receba calendários, posts, artigo e campanha prontos
+                    </p>
+                  </div>
+                  <OrchestratorPanel
+                    clientId={id ?? ""}
+                    clientName={client?.name ?? ""}
+                    clientIndustry={clientBriefing?.segmento ?? client?.industry ?? ""}
+                    userId={user?.id}
+                  />
+                </div>
 
                 {/* ── Materiais de Referência ── */}
                 <div className="rounded-2xl px-5 py-4 space-y-3"
