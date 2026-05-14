@@ -1657,6 +1657,7 @@ export default function ClientWorkspace() {
       }
       const agCfg = AGENT_CONFIG[agentId] ?? { maxTokens: 6000, thinking: false };
       const isPostAgent = ["social", "copywriter"].includes(agentId);
+      const isDesignerAgent = ["designer", "marcela"].includes(agentId);
       const { data: { session } } = await supabase.auth.getSession();
       const agentUserId = session?.user?.id ?? null;
       const segmento = clientBriefing?.segmento || client.industry;
@@ -1666,11 +1667,21 @@ CONTEXTO DO CLIENTE:
 Cliente: ${client.name} | Segmento: ${segmento}${client.teamInstructions ? `\nInstruções permanentes: ${client.teamInstructions}` : ""}${buildBriefingBlock()}
 
 ⚠️ REGRA: Estratégias, prazos estimados e benchmarks do setor são bem-vindos. O que é proibido é citar estado atual inventado — não mencione propostas no CRM, leads cadastrados, campanhas em andamento ou resultados que não foram fornecidos no briefing. Use futuro para o que será feito, condicional para estimativas.`;
+      const clientCtx = isDesignerAgent ? {
+        name: client.name,
+        brandColor: client.color ?? clientBriefing?.corPrimaria ?? "",
+        industry: segmento,
+        brandColors: { secondary: clientBriefing?.corSecundaria ?? "" },
+        logoUrl: clientBriefing?.logoUrl ?? "",
+      } : undefined;
+      const beatrizHistory = agentChats["copywriter"] ?? [];
+      const latestBeatriz = beatrizHistory.filter(m => m.role === "assistant").slice(-1)[0]?.content ?? "";
       const { data: agData, error: agErr } = await supabase.functions.invoke("chat-ai", {
         body: {
           systemPrompt: systemWithCtx,
           maxTokens: agCfg.maxTokens,
           ...(isPostAgent && agentUserId && id ? { enableDraftTool: true, client_id: id, user_id: agentUserId } : {}),
+          ...(isDesignerAgent ? { enableImageTool: true, clientContext: clientCtx, beatrizCopy: latestBeatriz.slice(0, 900) } : {}),
           messages: newHistory,
         },
       });
@@ -8242,17 +8253,26 @@ Regras:
                                 {/* Histórico do chat */}
                                 {(agentChats[selectedAgent.id] ?? []).length > 0 && (
                                   <div className="flex flex-col gap-2 max-h-72 overflow-y-auto pr-1 py-1">
-                                    {(agentChats[selectedAgent.id] ?? []).map((msg, i) => (
-                                      <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
-                                        <div
-                                          className="max-w-[88%] rounded-xl px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap"
-                                          style={msg.role === "user"
-                                            ? { background: `${selectedAgent.color}22`, color: "rgba(255,255,255,0.9)", border: `1px solid ${selectedAgent.color}35` }
-                                            : { background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.82)" }}>
-                                          {msg.content}
+                                    {(agentChats[selectedAgent.id] ?? []).map((msg, i) => {
+                                      const imgPattern = /\[IMAGEM_GERADA:(https?:\/\/[^\]]+)\]/g;
+                                      const hasImg = imgPattern.test(msg.content);
+                                      const textOnly = msg.content.replace(/\[IMAGEM_GERADA:https?:\/\/[^\]]+\]/g, "").trim();
+                                      const imgUrls = [...msg.content.matchAll(/\[IMAGEM_GERADA:(https?:\/\/[^\]]+)\]/g)].map(m => m[1]);
+                                      return (
+                                        <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                                          <div
+                                            className="max-w-[88%] rounded-xl px-3 py-2 text-xs leading-relaxed whitespace-pre-wrap"
+                                            style={msg.role === "user"
+                                              ? { background: `${selectedAgent.color}22`, color: "rgba(255,255,255,0.9)", border: `1px solid ${selectedAgent.color}35` }
+                                              : { background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.82)" }}>
+                                            {textOnly && <span>{textOnly}</span>}
+                                            {hasImg && imgUrls.map((url, j) => (
+                                              <img key={j} src={url} alt="Post gerado" className="w-full rounded-lg mt-2 object-contain max-h-64" />
+                                            ))}
+                                          </div>
                                         </div>
-                                      </div>
-                                    ))}
+                                      );
+                                    })}
                                     {agentChatLoading && (
                                       <div className="flex justify-start">
                                         <div className="rounded-xl px-3 py-2.5" style={{ background: "rgba(255,255,255,0.06)" }}>

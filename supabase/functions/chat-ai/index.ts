@@ -45,34 +45,43 @@ const AGENT_SKILLS: Record<string, string> = {
   - Explique brevemente o gatilho psicológico usado
   - Responda em português brasileiro`,
 
-  marcela: `Você é Marcela, designer visual sênior da Calu Agência — especialista em identidade visual e design para
-  redes sociais.
+  marcela: `Você é Marcela, designer visual sênior da Calu Agência — especialista em criação de posts para redes sociais usando IA.
 
   Suas competências:
   - Design editorial para Instagram, Facebook, LinkedIn e TikTok
   - Teoria das cores, tipografia e hierarquia visual
   - Composição e grid para feed, stories, reels, carrossel, banner
-  - Criação de prompts detalhados para geração de imagens com IA (Ideogram, Flux)
-  - Feedback e revisão de peças visuais
+  - Geração de imagens reais com Ideogram V2 via ferramenta generate_image
 
-  Como você entrega:
-  - Descreva: paleta de cores (hex), tipografia, composição, elementos visuais, mood, formato
-  - Sempre oriente os textos na imagem em português brasileiro
-  - Responda em português brasileiro`,
+  REGRA PRINCIPAL:
+  Quando o usuário pedir para CRIAR, GERAR, FAZER ou PRODUZIR uma imagem, post visual, peça ou design:
+  → Chame IMEDIATAMENTE a ferramenta generate_image
+  → NÃO escreva briefings, documentos longos ou descrições antes de gerar
+  → Decida você mesma: proporção (1:1 feed, 9:16 stories), cores da marca, composição
+  → Inclua no brief o headline principal em português que deve aparecer na imagem
+  → Só escreva briefing textual se o usuário pedir EXPLICITAMENTE "briefing" ou "documento"
 
-  designer: `Você é Marcela, designer visual sênior da Calu Agência — especialista em identidade visual e design para
-  redes sociais.
+  Após gerar, comente brevemente as escolhas criativas.
+  Responda em português brasileiro.`,
+
+  designer: `Você é Marcela, designer visual sênior da Calu Agência — especialista em criação de posts para redes sociais usando IA.
 
   Suas competências:
   - Design editorial para Instagram, Facebook, LinkedIn e TikTok
   - Teoria das cores, tipografia e hierarquia visual
   - Composição e grid para feed, stories, reels, carrossel, banner
-  - Criação de prompts detalhados para geração de imagens com IA (Ideogram, Flux)
+  - Geração de imagens reais com Ideogram V2 via ferramenta generate_image
 
-  Como você entrega:
-  - Descreva: paleta de cores (hex), tipografia, composição, elementos visuais, mood, formato
-  - Sempre oriente os textos na imagem em português brasileiro
-  - Responda em português brasileiro`,
+  REGRA PRINCIPAL:
+  Quando o usuário pedir para CRIAR, GERAR, FAZER ou PRODUZIR uma imagem, post visual, peça ou design:
+  → Chame IMEDIATAMENTE a ferramenta generate_image
+  → NÃO escreva briefings, documentos longos ou descrições antes de gerar
+  → Decida você mesma: proporção (1:1 feed, 9:16 stories), cores da marca, composição
+  → Inclua no brief o headline principal em português que deve aparecer na imagem
+  → Só escreva briefing textual se o usuário pedir EXPLICITAMENTE "briefing" ou "documento"
+
+  Após gerar, comente brevemente as escolhas criativas.
+  Responda em português brasileiro.`,
 
   carolina: `Você é Carolina, diretora de arte sênior da Calu Agência — responsável pela direção criativa e
   consistência visual de todas as campanhas.
@@ -283,6 +292,26 @@ const DEFAULT_SYSTEM_PROMPT = `Você é a Caroline IA, assistente especializada 
   clientes para agências de publicidade brasileiras. Responda sempre em português brasileiro, de forma profissional mas
   acolhedora.`;
 
+const GENERATE_IMAGE_TOOL = {
+  name: "generate_image",
+  description: "Gera uma imagem real usando Ideogram V2. Chame IMEDIATAMENTE quando o usuário pedir para criar, gerar, fazer ou produzir uma imagem, post, peça visual ou design. Não escreva briefing — gere a imagem diretamente.",
+  input_schema: {
+    type: "object",
+    properties: {
+      brief: {
+        type: "string",
+        description: "Descrição do que deve aparecer na imagem: headline principal, cores, estilo visual, composição. Inclua o texto em português que deve aparecer na imagem.",
+      },
+      aspect_ratio: {
+        type: "string",
+        enum: ["1:1", "3:4", "4:3", "9:16", "16:9"],
+        description: "1:1 para feed quadrado, 3:4 para feed retrato (padrão), 9:16 para stories/reels, 16:9 para banner",
+      },
+    },
+    required: ["brief", "aspect_ratio"],
+  },
+};
+
 const DRAFT_POST_TOOL = {
   name: "draft_post",
   description: "Salva todos os rascunhos de posts de uma vez. Chame esta ferramenta UMA ÚNICA VEZ passando todos os posts no array.",
@@ -328,8 +357,12 @@ Deno.serve(async (req) => {
       enableThinking,
       thinkingBudget,
       enableDraftTool,
+      enableImageTool,
       client_id,
       user_id,
+      clientContext,
+      beatrizCopy,
+      benTrends,
     } = body;
 
     if (!messages || !Array.isArray(messages)) {
@@ -357,8 +390,10 @@ Deno.serve(async (req) => {
     // Cap thinking budget at 3000 — Supabase edge functions have 150s limit; 8000+ tokens cause 546 timeouts
     const budget = Math.min(thinkingBudget ?? 3000, 3000);
     const resolvedMaxTokens = enableThinking ? Math.max(maxTokens ?? 6000, budget + 2000) : (maxTokens ?? 1024);
-    const useToolUse = enableDraftTool === true && !!client_id && !!user_id;
-    const tools = useToolUse ? [DRAFT_POST_TOOL] : undefined;
+    const useDraftTool = enableDraftTool === true && !!client_id && !!user_id;
+    const useImgTool = enableImageTool === true;
+    const allTools = [...(useDraftTool ? [DRAFT_POST_TOOL] : []), ...(useImgTool ? [GENERATE_IMAGE_TOOL] : [])];
+    const tools = allTools.length > 0 ? allTools : undefined;
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -393,6 +428,7 @@ Deno.serve(async (req) => {
       try {
         let currentMessages: unknown[] = [...messages];
         const postsCreated: unknown[] = [];
+        const imagesGenerated: string[] = [];
         let finalContent = "";
         let data = await callClaude(currentMessages);
         let iterations = 0;
@@ -447,6 +483,61 @@ Deno.serve(async (req) => {
                   content: JSON.stringify({ success: false, error: String(e) }),
                 });
               }
+            } else if (block.name === "generate_image") {
+              const input = block.input as { brief: string; aspect_ratio: string };
+              try {
+                const imgRes = await fetch(`${supabaseUrl}/functions/v1/generate-image`, {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${serviceKey}`,
+                    "apikey": serviceKey,
+                  },
+                  body: JSON.stringify({
+                    prompt: input.brief,
+                    aspectRatio: input.aspect_ratio ?? "3:4",
+                    clientContext: clientContext ?? {},
+                    beatrizCopy: beatrizCopy ?? "",
+                    carolinaStrategy: "",
+                    benTrends: benTrends ?? "",
+                  }),
+                });
+                if (!imgRes.ok) {
+                  toolResults.push({
+                    type: "tool_result",
+                    tool_use_id: block.id,
+                    content: JSON.stringify({ success: false, error: `Erro ${imgRes.status} ao gerar imagem` }),
+                  });
+                } else {
+                  const imgData = await imgRes.json();
+                  if (imgData.success && imgData.imageUrl) {
+                    imagesGenerated.push(imgData.imageUrl);
+                    toolResults.push({
+                      type: "tool_result",
+                      tool_use_id: block.id,
+                      content: JSON.stringify({ success: true, imageUrl: imgData.imageUrl }),
+                    });
+                  } else if (imgData.briefing) {
+                    toolResults.push({
+                      type: "tool_result",
+                      tool_use_id: block.id,
+                      content: JSON.stringify({ success: false, message: "Chave Ideogram não configurada. " + imgData.message }),
+                    });
+                  } else {
+                    toolResults.push({
+                      type: "tool_result",
+                      tool_use_id: block.id,
+                      content: JSON.stringify({ success: false, error: imgData.error ?? "Erro desconhecido" }),
+                    });
+                  }
+                }
+              } catch (e) {
+                toolResults.push({
+                  type: "tool_result",
+                  tool_use_id: block.id,
+                  content: JSON.stringify({ success: false, error: String(e) }),
+                });
+              }
             } else {
               toolResults.push({
                 type: "tool_result",
@@ -465,10 +556,14 @@ Deno.serve(async (req) => {
             ?.map((b) => b.text ?? "")
             ?.join("") ?? "";
         finalContent += lastText;
+        // Append image markers so they persist in chat history
+        if (imagesGenerated.length > 0) {
+          finalContent += "\n\n" + imagesGenerated.map((url) => `[IMAGEM_GERADA:${url}]`).join("\n");
+        }
         clearInterval(keepAlive);
         await writer.write(
           encoder.encode(
-            JSON.stringify({ content: finalContent.trim(), posts_created: postsCreated, agentId: agentId ?? null }),
+            JSON.stringify({ content: finalContent.trim(), posts_created: postsCreated, images_generated: imagesGenerated, agentId: agentId ?? null }),
           ),
         );
         await writer.close();
