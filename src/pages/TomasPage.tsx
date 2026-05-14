@@ -6,7 +6,7 @@ import {
   Loader2, CheckCircle2, AlertCircle, Layout, Sparkles,
   RefreshCw, Copy, Monitor, Smartphone, Paperclip,
   Globe, ExternalLink, Edit3, ChevronLeft, Wand2,
-  Check, X, Pencil, PanelLeft, ImagePlus, Search, Image as ImageIcon,
+  Check, X, Pencil, PanelLeft, ImagePlus, Search, Image as ImageIcon, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -97,19 +97,22 @@ function detectSectionIcon(_el: Element, idx: number, total: number, name: strin
   return map[name] ?? "📌";
 }
 
-function applyChanges(html: string, changes: { selector?: string; insertAfter?: string; outerHTML: string }[]): string {
+function applyChanges(html: string, changes: { selector?: string; insertAfter?: string; outerHTML?: string; remove?: boolean }[]): string {
   const doc = new DOMParser().parseFromString(html, "text/html");
   for (const change of changes) {
     try {
       if (change.insertAfter) {
         const anchor = doc.querySelector(change.insertAfter);
-        if (anchor) {
+        if (anchor && change.outerHTML) {
           const tmp = doc.createElement("div");
           tmp.innerHTML = change.outerHTML;
           const newEl = tmp.firstElementChild;
           if (newEl) anchor.after(newEl);
         }
-      } else if (change.selector) {
+      } else if (change.selector && change.remove) {
+        const el = doc.querySelector(change.selector);
+        if (el) el.remove();
+      } else if (change.selector && change.outerHTML) {
         const el = doc.querySelector(change.selector);
         if (el) {
           const tmp = doc.createElement("div");
@@ -513,6 +516,21 @@ export default function TomasPage() {
       fields: s.fields.map(f => f.id === fieldId ? { ...f, value: newValue, src: fieldType === "image" ? newValue : f.src } : f),
     })));
     setMarkedHtml(prev => applyFieldUpdate(prev, fieldId, newValue, fieldType));
+  }, []);
+
+  const deleteSection = useCallback((sectionId: string) => {
+    setSections(prev => {
+      const filtered = prev.filter(s => s.id !== sectionId);
+      setSelectedSectionIdx(idx => Math.min(idx, Math.max(0, filtered.length - 1)));
+      return filtered;
+    });
+    setMarkedHtml(prev => {
+      const doc = new DOMParser().parseFromString(prev, "text/html");
+      const el = doc.querySelector(`[data-calu-section="${sectionId}"]`);
+      if (el) el.remove();
+      return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
+    });
+    toast.success("Seção removida!");
   }, []);
 
   const replaceImage = useCallback((fieldId: string, file: File) => {
@@ -1119,22 +1137,34 @@ form.addEventListener('submit',function(e){
               <p className="text-[10px] uppercase tracking-widest font-semibold px-1 mb-2" style={{ color: "#444466" }}>Seções</p>
               <div className="flex flex-col gap-0.5">
                 {sections.map((s, i) => (
-                  <button
+                  <div
                     key={s.id}
-                    onClick={() => { setSelectedSectionIdx(i); setAiEditField(null); setAiSuggestion(null); setDirectEditField(null); }}
-                    className="flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all text-left"
+                    className="group flex items-center gap-2 px-3 py-2 rounded-lg transition-all cursor-pointer"
                     style={{
                       background: i === selectedSectionIdx ? "#B9FF4B15" : "transparent",
-                      color: i === selectedSectionIdx ? "#B9FF4B" : "rgba(255,255,255,0.45)",
                       border: `1px solid ${i === selectedSectionIdx ? "#B9FF4B30" : "transparent"}`,
                     }}
+                    onClick={() => { setSelectedSectionIdx(i); setAiEditField(null); setAiSuggestion(null); setDirectEditField(null); }}
                   >
                     <span className="text-base flex-shrink-0">{s.icon}</span>
-                    <span className="truncate text-xs">{s.name}</span>
-                    <span className="ml-auto text-[10px] flex-shrink-0" style={{ color: "rgba(255,255,255,0.2)" }}>
+                    <span className="truncate text-xs font-medium flex-1"
+                      style={{ color: i === selectedSectionIdx ? "#B9FF4B" : "rgba(255,255,255,0.45)" }}>
+                      {s.name}
+                    </span>
+                    <span className="text-[10px] flex-shrink-0 group-hover:hidden" style={{ color: "rgba(255,255,255,0.2)" }}>
                       {s.fields.length}
                     </span>
-                  </button>
+                    <button
+                      onClick={e => { e.stopPropagation(); deleteSection(s.id); }}
+                      title="Excluir seção"
+                      className="hidden group-hover:flex items-center justify-center w-5 h-5 rounded flex-shrink-0 transition-colors"
+                      style={{ color: "#FF4466" }}
+                      onMouseEnter={e => e.currentTarget.style.background = "#FF446622"}
+                      onMouseLeave={e => e.currentTarget.style.background = "transparent"}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
                 ))}
               </div>
             </div>
@@ -1213,6 +1243,19 @@ form.addEventListener('submit',function(e){
             <p className="text-[10px] mt-1.5 px-1" style={{ color: "#B9FF4B", opacity: 0.7 }}>
               Tomás está aplicando o comando...
             </p>
+          )}
+          {!tomasCmdLoading && (
+            <div className="flex flex-wrap gap-1 mt-2">
+              {["Fonte Inter", "Fonte Playfair Display", "Fonte Montserrat", "Fonte Space Grotesk"].map(f => (
+                <button key={f} onClick={() => { setTomasCmd(`Troca a fonte do texto para ${f.replace("Fonte ", "")}`); }}
+                  className="px-2 py-0.5 rounded-full text-[10px] transition-colors"
+                  style={{ background: "#1A1A2E", border: "1px solid #2A2A3A", color: "#8888AA" }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = "#B9FF4B44"; e.currentTarget.style.color = "#B9FF4B"; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = "#2A2A3A"; e.currentTarget.style.color = "#8888AA"; }}>
+                  {f}
+                </button>
+              ))}
+            </div>
           )}
         </div>
       </div>
