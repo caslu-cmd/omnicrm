@@ -245,6 +245,7 @@ export default function TomasPage() {
   const [editandoHtml, setEditandoHtml]   = useState(false);
   const [previewEditMode, setPreviewEditMode] = useState(false);
   const readerRef       = useRef<ReadableStreamDefaultReader | null>(null);
+  const cancelledRef    = useRef(false);
   const fileInputRef    = useRef<HTMLInputElement>(null);
   const imgFileInputRef = useRef<HTMLInputElement>(null);
 
@@ -411,11 +412,29 @@ export default function TomasPage() {
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
 
+  const salvarParcialComoResultado = useCallback((html: string) => {
+    setEtapa("concluido");
+    setResultado(prev => ({ copy: prev?.copy ?? "", design: prev?.design ?? "", html }));
+    setHtmlEditado(html);
+    setAbaAtiva("preview");
+    try {
+      const stored = JSON.parse(localStorage.getItem("calu_pages") ?? "[]");
+      stored.unshift({ id: Date.now(), name: produto || "Landing Page", html, savedAt: new Date().toISOString() });
+      localStorage.setItem("calu_pages", JSON.stringify(stored.slice(0, 30)));
+    } catch { /* ignora */ }
+  }, [produto]);
+
   const cancelar = useCallback(() => {
+    cancelledRef.current = true;
     readerRef.current?.cancel();
-    setEtapa("idle");
-    setStatusMsg("");
-  }, []);
+    if (parcial.html) {
+      salvarParcialComoResultado(parcial.html);
+      toast.info("Geração cancelada — versão parcial salva para edição.");
+    } else {
+      setEtapa("idle");
+      setStatusMsg("");
+    }
+  }, [parcial, salvarParcialComoResultado]);
 
   const resetTudo = useCallback(() => {
     setEtapa("idle");
@@ -708,6 +727,7 @@ Retorne o HTML completo com as otimizações aplicadas no <head>.`;
 
   const gerar = useCallback(async () => {
     if (!produto.trim() || !publico.trim()) { toast.error("Preencha o produto/serviço e o público-alvo."); return; }
+    cancelledRef.current = false;
     setEtapa("copy");
     setResultado(null);
     setParcial({ copy: "", design: "", html: "" });
@@ -772,11 +792,15 @@ Retorne o HTML completo com as otimizações aplicadas no <head>.`;
         extras.trim() ? `\nInformações adicionais:\n${extras}` : null,
       ].filter(Boolean).join("\n");
 
+      const fetchAbort = new AbortController();
+      const fetchTimeout = setTimeout(() => fetchAbort.abort(), 160_000);
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/tomas-lp`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({ briefing: briefingFinal, client_name: clientName, arquivos: arquivosPayload, imagens: imagensPayload }),
+        signal: fetchAbort.signal,
       });
+      clearTimeout(fetchTimeout);
       if (!resp.ok) throw new Error(`Erro ${resp.status}`);
       if (!resp.body) throw new Error("Stream não disponível");
 
@@ -843,8 +867,34 @@ Retorne o HTML completo com as otimizações aplicadas no <head>.`;
           }
         }
       }
+      // Stream terminou sem evento "concluido" — salvar o que foi gerado
+      if (!cancelledRef.current) {
+        if (parcialLocal.html) {
+          setEtapa("concluido");
+          setResultado({ ...parcialLocal });
+          setHtmlEditado(parcialLocal.html);
+          setAbaAtiva("preview");
+          toast.success("Landing page gerada!");
+          try {
+            const stored = JSON.parse(localStorage.getItem("calu_pages") ?? "[]");
+            stored.unshift({ id: Date.now(), name: produto || clientName || "Landing Page", html: parcialLocal.html, savedAt: new Date().toISOString() });
+            localStorage.setItem("calu_pages", JSON.stringify(stored.slice(0, 30)));
+          } catch { /* ignora */ }
+          try {
+            const { data: sess } = await supabase.auth.getSession();
+            const uid = sess?.session?.user?.id;
+            const slug = (produto || clientName || "landing-page").toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").slice(0, 60) + "-" + Date.now();
+            const { data: saved } = await (supabase as any).from("landing_pages").insert({ title: produto || clientName || "Landing Page", slug, html_content: parcialLocal.html, created_by: uid ?? null }).select("id").single();
+            if (saved?.id) setSavedPageId(saved.id);
+          } catch { /* não bloqueia */ }
+        } else {
+          setEtapa("erro");
+          setStatusMsg("Geração incompleta — tente novamente.");
+          toast.error("A geração não foi concluída. Tente novamente.");
+        }
+      }
     } catch (err: any) {
-      if (err?.name === "AbortError") return;
+      if (cancelledRef.current || err?.name === "AbortError") return;
       setEtapa("erro");
       setStatusMsg(err?.message ?? "Erro desconhecido");
       toast.error("Falha ao gerar a landing page.");
@@ -928,6 +978,37 @@ form.addEventListener('submit',function(e){
     setFormInjected(true);
     toast.success("Formulário conectado ao CRM! Leads entram direto nos Contatos.");
   }, [htmlEditado, resultado, parcial.html, clientId, produto, formCta]);
+
+  // ── injectForminatorForm ─────────────────────────────────────────────────────
+  const injectForminatorForm = useCallback(() => {
+    const currentHtml = htmlEditado || resultado?.html || parcial.html;
+    if (!currentHtml) return;
+    if (!forminatorId.trim()) { toast.error("Digite o ID do formulário Forminator"); return; }
+
+    const formSection = `
+<section id="form-inscricao" style="padding:80px 20px;background:var(--bg,#07080A);text-align:center;">
+  <div style="max-width:600px;margin:0 auto;">
+    <h2 style="font-size:clamp(1.4rem,4vw,2rem);font-weight:700;margin-bottom:12px;color:inherit;">Inscreva-se agora</h2>
+    <p style="opacity:0.65;font-size:1rem;margin-bottom:32px;">Preencha o formulário abaixo e garanta sua vaga</p>
+    <div style="background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:32px;">
+      [forminator_form id="${forminatorId.trim()}"]
+    </div>
+  </div>
+</section>`;
+
+    const newHtml = currentHtml.includes("</main>")
+      ? currentHtml.replace("</main>", formSection + "\n</main>")
+      : currentHtml.replace("</body>", formSection + "\n</body>");
+
+    setHtmlEditado(newHtml);
+    setFormInjected(true);
+    if (editorMode) {
+      const { markedHtml: newMarked, sections: newSections } = parseLPIntoSections(newHtml);
+      setMarkedHtml(newMarked);
+      setSections(newSections);
+    }
+    toast.success(`Seção com formulário Forminator #${forminatorId.trim()} inserida na LP!`);
+  }, [htmlEditado, resultado, parcial.html, forminatorId, editorMode]);
 
   // ── addEditingToPreview (basic edit mode) ────────────────────────────────────
 
@@ -1403,7 +1484,14 @@ form.addEventListener('submit',function(e){
                       placeholder="ID do formulário — Ex: 42"
                       onFocus={e => e.currentTarget.style.borderColor = "#B9FF4B44"}
                       onBlur={e => e.currentTarget.style.borderColor = "#2A2A3A"} />
-                    <p className="text-[10px]" style={{ color: "#444466" }}>Shortcode [forminator_form id="..."] injetado ao publicar no WordPress</p>
+                    <button onClick={injectForminatorForm} disabled={formInjected || !forminatorId.trim()}
+                      className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                      style={{ background: formInjected ? "#0E1A08" : "#B9FF4B22", border: `1px solid ${formInjected ? "#B9FF4B33" : "#B9FF4B55"}`, color: "#B9FF4B", opacity: (formInjected || !forminatorId.trim()) ? 0.6 : 1 }}>
+                      {formInjected ? <><CheckCircle2 className="w-4 h-4" /> Formulário inserido</> : <><Wand2 className="w-4 h-4" /> Inserir na LP</>}
+                    </button>
+                    {formInjected && (
+                      <p className="text-[10px] text-center" style={{ color: "#444466" }}>Shortcode [forminator_form id="{forminatorId}"] inserido na seção de inscrição</p>
+                    )}
                   </div>
                 )}
               </div>
