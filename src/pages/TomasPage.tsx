@@ -239,6 +239,107 @@ function parseLPIntoSections(html: string): { markedHtml: string; sections: Pars
   return { markedHtml, sections };
 }
 
+// ── Block builder helpers ─────────────────────────────────────────────────────
+
+interface SectionColumn {
+  index: number;
+  hasText: boolean;
+  hasImage: boolean;
+  hasForm: boolean;
+  isEmpty: boolean;
+  preview: string;
+}
+
+function getSectionColumns(markedHtml: string, sectionId: string): SectionColumn[] {
+  const doc = new DOMParser().parseFromString(markedHtml, "text/html");
+  const sec = doc.querySelector(`[data-calu-section="${sectionId}"]`);
+  if (!sec) return [{ index: 0, hasText: true, hasImage: false, hasForm: false, isEmpty: false, preview: "" }];
+
+  let colEls: Element[] = [];
+  const gridEl = sec.querySelector('[class*="grid-cols"]');
+  if (gridEl) colEls = Array.from(gridEl.children).filter(el => el.tagName !== "SCRIPT" && el.tagName !== "STYLE");
+
+  if (colEls.length < 2) {
+    const flexEl = sec.querySelector('[class*="flex"]:not([class*="flex-col"])');
+    if (flexEl) {
+      const kids = Array.from(flexEl.children).filter(el => (el.textContent?.trim().length ?? 0) > 0 || el.querySelector("img"));
+      if (kids.length >= 2) colEls = kids;
+    }
+  }
+  if (colEls.length < 2 && sec.children.length === 1) {
+    const wrapper = sec.children[0];
+    const kids = Array.from(wrapper.children).filter(el => (el.textContent?.trim().length ?? 0) > 0 || el.querySelector("img"));
+    if (kids.length >= 2) colEls = kids;
+  }
+
+  if (colEls.length < 2) {
+    const hasImage = !!sec.querySelector("img") || sec.innerHTML.includes("background-image");
+    const hasForm = sec.innerHTML.toLowerCase().includes("<form") || sec.innerHTML.toLowerCase().includes("forminator") || sec.innerHTML.includes("[contact");
+    return [{ index: 0, hasText: !!sec.querySelector("h1,h2,h3,p"), hasImage, hasForm, isEmpty: false, preview: sec.textContent?.trim().slice(0, 50) ?? "" }];
+  }
+
+  return colEls.map((col, i) => ({
+    index: i,
+    hasText: !!col.querySelector("h1,h2,h3,h4,p,li,span"),
+    hasImage: !!col.querySelector("img") || col.innerHTML.includes("background-image"),
+    hasForm: col.innerHTML.toLowerCase().includes("<form") || col.innerHTML.toLowerCase().includes("forminator") || col.innerHTML.includes("[contact"),
+    isEmpty: (col.textContent?.trim().length ?? 0) === 0 && !col.querySelector("img"),
+    preview: col.textContent?.trim().slice(0, 45) ?? "",
+  }));
+}
+
+function applyBlockInsertInColumn(html: string, sectionId: string, columnIndex: number, blockHtml: string): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const sec = doc.querySelector(`[data-calu-section="${sectionId}"]`);
+  if (!sec) return html;
+  let targetEl: Element = sec;
+
+  let gridEl: Element | null = sec.querySelector('[class*="grid-cols"]');
+  if (!gridEl) {
+    const flexEl = sec.querySelector('[class*="flex"]:not([class*="flex-col"])');
+    if (flexEl) {
+      const kids = Array.from(flexEl.children).filter(el => (el.textContent?.trim().length ?? 0) > 0 || el.querySelector("img"));
+      if (kids.length >= 2) gridEl = flexEl;
+    }
+  }
+  if (!gridEl && sec.children.length === 1) {
+    const w = sec.children[0];
+    if (Array.from(w.children).filter(el => (el.textContent?.trim().length ?? 0) > 0 || el.querySelector("img")).length >= 2) gridEl = w;
+  }
+
+  if (gridEl) {
+    const cols = Array.from(gridEl.children);
+    targetEl = cols[columnIndex] ?? cols[cols.length - 1] ?? sec;
+  }
+
+  const div = doc.createElement("div");
+  div.innerHTML = blockHtml;
+  while (div.firstChild) targetEl.appendChild(div.firstChild);
+  return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
+}
+
+function applyMoveSection(html: string, sectionId: string, dir: "up" | "down"): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const el = doc.querySelector(`[data-calu-section="${sectionId}"]`);
+  if (!el?.parentNode) return html;
+  if (dir === "up" && el.previousElementSibling) el.parentNode.insertBefore(el, el.previousElementSibling);
+  else if (dir === "down" && el.nextElementSibling) el.parentNode.insertBefore(el.nextElementSibling, el);
+  return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
+}
+
+function applyInsertSectionAt(html: string, sectionId: string, pos: "before" | "after", newHtml: string): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const el = doc.querySelector(`[data-calu-section="${sectionId}"]`);
+  if (!el?.parentNode) return html;
+  const div = doc.createElement("div");
+  div.innerHTML = newHtml;
+  const frag = doc.createDocumentFragment();
+  while (div.firstChild) frag.appendChild(div.firstChild);
+  if (pos === "before") el.parentNode.insertBefore(frag, el);
+  else el.parentNode.insertBefore(frag, el.nextSibling);
+  return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
+}
+
 function applyFieldUpdate(html: string, fieldId: string, newValue: string, fieldType?: "text" | "image"): string {
   const doc = new DOMParser().parseFromString(html, "text/html");
   const el = doc.querySelector(`[data-calu-field="${fieldId}"]`);
@@ -389,6 +490,17 @@ export default function TomasPage() {
   // ── Source URLs state ────────────────────────────────────────────────────────
   const [sourceUrls, setSourceUrls]     = useState<string[]>([]);
   const [urlInput, setUrlInput]         = useState("");
+
+  // ── Block builder state ──────────────────────────────────────────────────────
+  const [blockMode, setBlockMode]       = useState(false);
+  const [blockInsertTarget, setBlockInsertTarget] = useState<{
+    sectionId: string; colIdx: number; mode: "col" | "before" | "after";
+  } | null>(null);
+  const [blockType, setBlockType]       = useState<"image"|"form"|"html"|"spacer"|null>(null);
+  const [blockVal, setBlockVal]         = useState("");
+  const [blockImgPrev, setBlockImgPrev] = useState("");
+  const [blockUploading, setBlockUploading] = useState(false);
+  const blockImgRef                     = useRef<HTMLInputElement>(null);
 
   // ── Saved page state ─────────────────────────────────────────────────────────
   const [savedPageId, setSavedPageId] = useState<string | null>(null);
@@ -659,6 +771,62 @@ export default function TomasPage() {
     });
     toast.success("Seção removida!");
   }, []);
+
+  // ── Block builder handlers ────────────────────────────────────────────────
+  const handleBlockImageFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setBlockUploading(true);
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target?.result as string;
+      setBlockImgPrev(dataUrl);
+      setBlockVal(dataUrl);
+      setBlockUploading(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleApplyBlockInsert = () => {
+    if (!blockInsertTarget || !blockType) return;
+    const currentHtml = editorMode ? markedHtml : (htmlEditado || resultado?.html || "");
+    if (!currentHtml) return;
+    let blockHtml = "";
+    if (blockType === "image") {
+      const src = blockVal.trim();
+      if (!src) { toast.error("Informe a URL ou faça upload da imagem"); return; }
+      blockHtml = `<div style="padding:12px 0;text-align:center"><img src="${src}" alt="" style="max-width:100%;height:auto;border-radius:8px;" /></div>`;
+    } else if (blockType === "form") {
+      if (!blockVal.trim()) { toast.error("Cole o código do formulário"); return; }
+      blockHtml = `<div class="block-form" style="padding:16px 0;">${blockVal}</div>`;
+    } else if (blockType === "html") {
+      if (!blockVal.trim()) { toast.error("Cole o HTML"); return; }
+      blockHtml = blockVal;
+    } else if (blockType === "spacer") {
+      const px = parseInt(blockVal) || 48;
+      blockHtml = `<div style="height:${px}px;display:block;"></div>`;
+    }
+
+    let newHtml: string;
+    if (blockInsertTarget.mode === "col") {
+      newHtml = applyBlockInsertInColumn(currentHtml, blockInsertTarget.sectionId, blockInsertTarget.colIdx, blockHtml);
+    } else {
+      const wrapTag = blockType === "html" ? "" : "";
+      const sectionHtml = `<section style="padding:60px 24px;">${blockHtml}</section>`;
+      newHtml = applyInsertSectionAt(currentHtml, blockInsertTarget.sectionId, blockInsertTarget.mode === "before" ? "before" : "after", sectionHtml);
+    }
+
+    setHtmlEditado(stripEditorAttrs(newHtml));
+    const { markedHtml: nm, sections: ns } = parseLPIntoSections(newHtml);
+    setMarkedHtml(nm);
+    setSections(ns);
+    setBlockInsertTarget(null);
+    setBlockType(null);
+    setBlockVal("");
+    setBlockImgPrev("");
+    toast.success("Bloco inserido!");
+  };
 
   const openRawHtmlEditor = useCallback((sectionId: string) => {
     const doc = new DOMParser().parseFromString(markedHtml, "text/html");
@@ -1352,19 +1520,31 @@ form.addEventListener('submit',function(e){
       <div className="flex flex-col h-full" style={{ background: "#0A0A10" }}>
 
         {/* Header */}
-        <div className="flex items-center gap-2 px-4 py-3 border-b flex-shrink-0" style={{ borderColor: "#1E1E2E" }}>
-          <button
-            onClick={exitEditor}
-            className="flex items-center gap-1.5 text-xs rounded-lg px-2 py-1.5 transition-colors"
-            style={{ color: "rgba(255,255,255,0.4)", background: "#141420" }}
-            onMouseEnter={e => e.currentTarget.style.color = "#B9FF4B"}
-            onMouseLeave={e => e.currentTarget.style.color = "rgba(255,255,255,0.4)"}
-          >
-            <ChevronLeft className="w-3.5 h-3.5" /> Briefing
-          </button>
-          <div className="flex items-center gap-1.5 ml-1">
-            <Wand2 className="w-3.5 h-3.5" style={{ color: "#B9FF4B" }} />
-            <span className="text-sm font-bold" style={{ color: "#F0F0F0" }}>Editor Visual</span>
+        <div className="flex flex-col border-b flex-shrink-0" style={{ borderColor: "#1E1E2E" }}>
+          <div className="flex items-center gap-2 px-4 py-2.5">
+            <button
+              onClick={exitEditor}
+              className="flex items-center gap-1.5 text-xs rounded-lg px-2 py-1.5 transition-colors"
+              style={{ color: "rgba(255,255,255,0.4)", background: "#141420" }}
+              onMouseEnter={e => e.currentTarget.style.color = "#B9FF4B"}
+              onMouseLeave={e => e.currentTarget.style.color = "rgba(255,255,255,0.4)"}
+            >
+              <ChevronLeft className="w-3.5 h-3.5" /> Briefing
+            </button>
+            <div className="flex items-center gap-1.5 ml-1">
+              <Wand2 className="w-3.5 h-3.5" style={{ color: "#B9FF4B" }} />
+              <span className="text-sm font-bold" style={{ color: "#F0F0F0" }}>Editor Visual</span>
+            </div>
+          </div>
+          {/* Mode toggle */}
+          <div className="flex px-3 pb-2.5 gap-1.5">
+            {[{id: false, label: "Campos", icon: "✏️"}, {id: true, label: "Blocos", icon: "⊞"}].map(m => (
+              <button key={String(m.id)} onClick={() => setBlockMode(m.id)}
+                className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                style={{ background: blockMode === m.id ? "#B9FF4B22" : "#141420", border: `1px solid ${blockMode === m.id ? "#B9FF4B55" : "#2A2A3A"}`, color: blockMode === m.id ? "#B9FF4B" : "rgba(255,255,255,0.35)" }}>
+                <span>{m.icon}</span>{m.label}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -1372,7 +1552,205 @@ form.addEventListener('submit',function(e){
           <div className="flex-1 flex items-center justify-center">
             <p className="text-sm" style={{ color: "#444466" }}>Nenhuma seção detectada</p>
           </div>
+        ) : blockMode ? (
+          /* ─── BLOCOS MODE ─────────────────────────────────────────────── */
+          <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-3">
+            <input ref={blockImgRef} type="file" accept="image/*" className="hidden" onChange={handleBlockImageFile} />
+
+            {/* Insert before first section */}
+            <button onClick={() => { setBlockInsertTarget({ sectionId: sections[0].id, colIdx: 0, mode: "before" }); setBlockType(null); setBlockVal(""); setBlockImgPrev(""); }}
+              className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-xl text-[11px] transition-all border-dashed"
+              style={{ background: "transparent", border: "1px dashed #2A2A3A", color: "#444466" }}
+              onMouseEnter={e => { e.currentTarget.style.borderColor = "#B9FF4B44"; e.currentTarget.style.color = "#B9FF4B"; }}
+              onMouseLeave={e => { e.currentTarget.style.borderColor = "#2A2A3A"; e.currentTarget.style.color = "#444466"; }}>
+              + inserir seção aqui
+            </button>
+
+            {sections.map((sec, sIdx) => {
+              const cols = getSectionColumns(markedHtml, sec.id);
+              return (
+                <div key={sec.id} className="flex flex-col gap-1.5">
+                  {/* Section card */}
+                  <div className="rounded-xl overflow-hidden" style={{ border: "1px solid #2A2A3A", background: "#0D0D18" }}>
+                    {/* Section header */}
+                    <div className="flex items-center gap-1.5 px-3 py-2" style={{ background: "#141420", borderBottom: "1px solid #1E1E2E" }}>
+                      <span className="text-sm">{sec.icon}</span>
+                      <span className="text-xs font-semibold flex-1 truncate" style={{ color: "rgba(255,255,255,0.7)" }}>{sec.name}</span>
+                      <div className="flex items-center gap-0.5">
+                        {sIdx > 0 && (
+                          <button title="Mover para cima" onClick={() => {
+                            const newHtml = applyMoveSection(markedHtml, sec.id, "up");
+                            setMarkedHtml(newHtml);
+                            const { sections: ns } = parseLPIntoSections(newHtml);
+                            setSections(ns);
+                            setHtmlEditado(stripEditorAttrs(newHtml));
+                          }} className="w-5 h-5 flex items-center justify-center rounded transition-colors text-[10px]"
+                          style={{ color: "#555577", background: "transparent" }}
+                          onMouseEnter={e => e.currentTarget.style.color = "#B9FF4B"}
+                          onMouseLeave={e => e.currentTarget.style.color = "#555577"}>↑</button>
+                        )}
+                        {sIdx < sections.length - 1 && (
+                          <button title="Mover para baixo" onClick={() => {
+                            const newHtml = applyMoveSection(markedHtml, sec.id, "down");
+                            setMarkedHtml(newHtml);
+                            const { sections: ns } = parseLPIntoSections(newHtml);
+                            setSections(ns);
+                            setHtmlEditado(stripEditorAttrs(newHtml));
+                          }} className="w-5 h-5 flex items-center justify-center rounded transition-colors text-[10px]"
+                          style={{ color: "#555577", background: "transparent" }}
+                          onMouseEnter={e => e.currentTarget.style.color = "#B9FF4B"}
+                          onMouseLeave={e => e.currentTarget.style.color = "#555577"}>↓</button>
+                        )}
+                        <button title="Excluir seção" onClick={() => deleteSection(sec.id)}
+                          className="w-5 h-5 flex items-center justify-center rounded transition-colors"
+                          style={{ color: "#555577" }}
+                          onMouseEnter={e => e.currentTarget.style.color = "#FF4466"}
+                          onMouseLeave={e => e.currentTarget.style.color = "#555577"}>
+                          <Trash2 className="w-3 h-3" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Columns */}
+                    <div className={`grid gap-px ${cols.length >= 3 ? "grid-cols-3" : cols.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}
+                      style={{ background: "#1A1A2A" }}>
+                      {cols.map((col) => (
+                        <div key={col.index} className="flex flex-col gap-1 p-2" style={{ background: "#0D0D18", minHeight: 72 }}>
+                          {/* Content type chips */}
+                          <div className="flex flex-wrap gap-1 min-h-[20px]">
+                            {col.hasText && <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: "#1E1E2E", color: "#8888BB" }}>📝</span>}
+                            {col.hasImage && <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: "#1E1E2E", color: "#60A5FA" }}>🖼️</span>}
+                            {col.hasForm && <span className="text-[9px] px-1.5 py-0.5 rounded-full" style={{ background: "#1E1E2E", color: "#34D399" }}>📋</span>}
+                            {col.isEmpty && <span className="text-[9px]" style={{ color: "#333355" }}>vazio</span>}
+                          </div>
+                          {col.preview && <p className="text-[9px] truncate" style={{ color: "#333355" }}>{col.preview}</p>}
+                          {/* Add block button */}
+                          <button
+                            onClick={() => { setBlockInsertTarget({ sectionId: sec.id, colIdx: col.index, mode: "col" }); setBlockType(null); setBlockVal(""); setBlockImgPrev(""); }}
+                            className="mt-auto flex items-center justify-center gap-1 w-full py-1 rounded-lg text-[10px] transition-all"
+                            style={{ background: "#141420", border: "1px dashed #2A2A3A", color: "#444466" }}
+                            onMouseEnter={e => { e.currentTarget.style.borderColor = "#B9FF4B55"; e.currentTarget.style.color = "#B9FF4B"; }}
+                            onMouseLeave={e => { e.currentTarget.style.borderColor = "#2A2A3A"; e.currentTarget.style.color = "#444466"; }}>
+                            + bloco
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Insert after this section */}
+                  <button onClick={() => { setBlockInsertTarget({ sectionId: sec.id, colIdx: 0, mode: "after" }); setBlockType(null); setBlockVal(""); setBlockImgPrev(""); }}
+                    className="w-full flex items-center justify-center gap-1.5 py-1 rounded-xl text-[11px] transition-all"
+                    style={{ background: "transparent", border: "1px dashed #2A2A3A", color: "#333355" }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = "#B9FF4B44"; e.currentTarget.style.color = "#B9FF4B"; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = "#2A2A3A"; e.currentTarget.style.color = "#333355"; }}>
+                    + inserir seção após
+                  </button>
+                </div>
+              );
+            })}
+
+            {/* Insert modal overlay */}
+            {blockInsertTarget && (
+              <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" style={{ background: "rgba(0,0,0,0.7)" }}
+                onClick={e => { if (e.target === e.currentTarget) { setBlockInsertTarget(null); setBlockType(null); } }}>
+                <div className="w-full max-w-sm rounded-2xl overflow-hidden" style={{ background: "#0E0E18", border: "1px solid #2A2A3A", maxHeight: "85vh", overflowY: "auto" }}>
+                  <div className="flex items-center justify-between px-4 py-3" style={{ borderBottom: "1px solid #1E1E2E" }}>
+                    <p className="text-sm font-bold" style={{ color: "#F0F0F0" }}>
+                      {blockInsertTarget.mode === "col" ? "Adicionar bloco na coluna" : "Inserir nova seção"}
+                    </p>
+                    <button onClick={() => { setBlockInsertTarget(null); setBlockType(null); }} style={{ color: "#444466" }}>
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="p-4 flex flex-col gap-4">
+                    {/* Type selector */}
+                    <div className="grid grid-cols-2 gap-2">
+                      {[
+                        { id: "image" as const, label: "Imagem", icon: "🖼️", desc: "Upload ou URL" },
+                        { id: "form"  as const, label: "Formulário", icon: "📋", desc: "Cole o HTML/embed" },
+                        { id: "html"  as const, label: "HTML livre", icon: "</>", desc: "Código personalizado" },
+                        { id: "spacer" as const, label: "Espaço", icon: "↕️", desc: "Separador de altura" },
+                      ].map(t => (
+                        <button key={t.id} onClick={() => { setBlockType(t.id); setBlockVal(""); setBlockImgPrev(""); }}
+                          className="flex flex-col items-center gap-1 p-3 rounded-xl transition-all text-center"
+                          style={{ background: blockType === t.id ? "#B9FF4B18" : "#141420", border: `1px solid ${blockType === t.id ? "#B9FF4B55" : "#2A2A3A"}`, color: blockType === t.id ? "#B9FF4B" : "rgba(255,255,255,0.5)" }}>
+                          <span className="text-lg">{t.icon}</span>
+                          <span className="text-xs font-semibold">{t.label}</span>
+                          <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>{t.desc}</span>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Image options */}
+                    {blockType === "image" && (
+                      <div className="flex flex-col gap-3">
+                        <div className="flex gap-2">
+                          <button onClick={() => blockImgRef.current?.click()}
+                            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm transition-all flex-1"
+                            style={{ background: "#141420", border: "1px solid #2A2A3A", color: "rgba(255,255,255,0.7)" }}>
+                            <Upload className="w-4 h-4" /> {blockUploading ? "Carregando..." : "Upload"}
+                          </button>
+                        </div>
+                        {blockImgPrev && <img src={blockImgPrev} alt="preview" className="w-full rounded-lg max-h-32 object-contain" style={{ background: "#141420" }} />}
+                        <div>
+                          <p className="text-[11px] mb-1.5" style={{ color: "#555577" }}>Ou cole uma URL:</p>
+                          <input type="url" placeholder="https://..." value={blockImgPrev ? "" : blockVal}
+                            onChange={e => { setBlockVal(e.target.value); setBlockImgPrev(""); }}
+                            className="w-full rounded-xl px-3 py-2 text-sm outline-none"
+                            style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0" }} />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Form embed */}
+                    {blockType === "form" && (
+                      <div className="flex flex-col gap-2">
+                        <p className="text-[11px]" style={{ color: "#555577" }}>Cole o código HTML do formulário (Forminator, Elementor Forms, WPForms, ou qualquer iframe/shortcode convertido em HTML):</p>
+                        <textarea rows={6} value={blockVal} onChange={e => setBlockVal(e.target.value)}
+                          placeholder={'<form action="...">\n  <input type="email" />\n  <button>Enviar</button>\n</form>'}
+                          className="w-full resize-none rounded-xl px-3 py-2.5 text-xs font-mono outline-none"
+                          style={{ background: "#0D0D16", border: "1px solid #2A2A3A", color: "#E0E0F0", lineHeight: 1.6 }} />
+                      </div>
+                    )}
+
+                    {/* HTML livre */}
+                    {blockType === "html" && (
+                      <div className="flex flex-col gap-2">
+                        <p className="text-[11px]" style={{ color: "#555577" }}>Cole qualquer HTML — vídeo, contador, mapa, widget:</p>
+                        <textarea rows={6} value={blockVal} onChange={e => setBlockVal(e.target.value)}
+                          placeholder="<div>Seu HTML aqui</div>"
+                          className="w-full resize-none rounded-xl px-3 py-2.5 text-xs font-mono outline-none"
+                          style={{ background: "#0D0D16", border: "1px solid #2A2A3A", color: "#E0E0F0", lineHeight: 1.6 }} />
+                      </div>
+                    )}
+
+                    {/* Spacer */}
+                    {blockType === "spacer" && (
+                      <div className="flex flex-col gap-2">
+                        <p className="text-[11px]" style={{ color: "#555577" }}>Altura em pixels:</p>
+                        <input type="number" min={8} max={300} value={blockVal || "48"} onChange={e => setBlockVal(e.target.value)}
+                          className="w-full rounded-xl px-3 py-2 text-sm outline-none"
+                          style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0" }} />
+                      </div>
+                    )}
+
+                    {/* Apply button */}
+                    {blockType && (
+                      <button onClick={handleApplyBlockInsert}
+                        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all"
+                        style={{ background: "#B9FF4B", color: "#07080A" }}>
+                        <Check className="w-4 h-4" /> Inserir bloco
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         ) : (
+          /* ─── CAMPOS MODE (existing) ──────────────────────────────────── */
           <div className="flex flex-col flex-1 overflow-hidden">
 
             {/* Sections list */}
