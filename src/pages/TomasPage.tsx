@@ -6,7 +6,7 @@ import {
   Loader2, CheckCircle2, AlertCircle, Layout, Sparkles,
   RefreshCw, Copy, Monitor, Smartphone, Paperclip,
   Globe, ExternalLink, Edit3, ChevronLeft, Wand2,
-  Check, X, Pencil, PanelLeft, ImagePlus, Search,
+  Check, X, Pencil, PanelLeft, ImagePlus, Search, Image as ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,6 +39,8 @@ interface ParsedField {
   id: string;
   label: string;
   value: string;
+  type?: "text" | "image";
+  src?: string;
 }
 
 interface ParsedSection {
@@ -167,7 +169,7 @@ function parseLPIntoSections(html: string): { markedHtml: string; sections: Pars
       fields.push({ id: fieldId, label, value: text });
     };
 
-    let h1n = 0, h2n = 0, h3n = 0, pn = 0, btn = 0;
+    let h1n = 0, h2n = 0, h3n = 0, pn = 0, btn = 0, imgn = 0;
     sectionEl.querySelectorAll("h1").forEach(el => addField(el, h1n++ === 0 ? "Título Principal" : `Título ${h1n}`));
     sectionEl.querySelectorAll("h2").forEach(el => addField(el, h2n++ === 0 ? "Título" : `Título ${h2n}`));
     sectionEl.querySelectorAll("h3").forEach(el => addField(el, h3n++ === 0 ? "Subtítulo" : `Subtítulo ${h3n}`));
@@ -177,6 +179,15 @@ function parseLPIntoSections(html: string): { markedHtml: string; sections: Pars
     sectionEl.querySelectorAll("button, a").forEach(el => {
       const text = el.textContent?.trim() ?? "";
       if (text && text.length < 60 && text.length > 2) addField(el, btn++ === 0 ? "Botão CTA" : `Botão ${btn}`);
+    });
+    sectionEl.querySelectorAll("img").forEach(el => {
+      const src = el.getAttribute("src") ?? "";
+      if (!src || src.startsWith("data:") || src.length < 4) return;
+      const fieldId = `${sectionId}-f${fIdx++}`;
+      el.setAttribute("data-calu-field", fieldId);
+      const alt = el.getAttribute("alt") || "";
+      const label = imgn++ === 0 ? "Imagem" : `Imagem ${imgn}`;
+      fields.push({ id: fieldId, label: alt ? `${label} — ${alt}` : label, value: src, type: "image", src });
     });
 
     if (fields.length > 0) {
@@ -189,10 +200,16 @@ function parseLPIntoSections(html: string): { markedHtml: string; sections: Pars
   return { markedHtml, sections };
 }
 
-function applyFieldUpdate(html: string, fieldId: string, newValue: string): string {
+function applyFieldUpdate(html: string, fieldId: string, newValue: string, fieldType?: "text" | "image"): string {
   const doc = new DOMParser().parseFromString(html, "text/html");
   const el = doc.querySelector(`[data-calu-field="${fieldId}"]`);
-  if (el) el.textContent = newValue;
+  if (el) {
+    if (fieldType === "image") {
+      el.setAttribute("src", newValue);
+    } else {
+      el.textContent = newValue;
+    }
+  }
   return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
 }
 
@@ -490,13 +507,23 @@ export default function TomasPage() {
     setDirectEditField(null);
   }, [markedHtml]);
 
-  const updateFieldValue = useCallback((fieldId: string, newValue: string) => {
+  const updateFieldValue = useCallback((fieldId: string, newValue: string, fieldType?: "text" | "image") => {
     setSections(prev => prev.map(s => ({
       ...s,
-      fields: s.fields.map(f => f.id === fieldId ? { ...f, value: newValue } : f),
+      fields: s.fields.map(f => f.id === fieldId ? { ...f, value: newValue, src: fieldType === "image" ? newValue : f.src } : f),
     })));
-    setMarkedHtml(prev => applyFieldUpdate(prev, fieldId, newValue));
+    setMarkedHtml(prev => applyFieldUpdate(prev, fieldId, newValue, fieldType));
   }, []);
+
+  const replaceImage = useCallback((fieldId: string, file: File) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const dataUrl = reader.result as string;
+      updateFieldValue(fieldId, dataUrl, "image");
+      toast.success("Imagem substituída!");
+    };
+    reader.readAsDataURL(file);
+  }, [updateFieldValue]);
 
   const startDirectEdit = (field: ParsedField) => {
     setDirectEditField(field.id);
@@ -1141,6 +1168,7 @@ form.addEventListener('submit',function(e){
                       onDirectEditChange={setDirectEditValue}
                       onConfirmDirectEdit={confirmDirectEdit}
                       onCancelDirectEdit={() => { setDirectEditField(null); setDirectEditValue(""); }}
+                      onReplaceImage={(file) => replaceImage(field.id, file)}
                     />
                   ))}
                 </div>
@@ -2033,6 +2061,7 @@ interface FieldEditorProps {
   onDirectEditChange: (v: string) => void;
   onConfirmDirectEdit: () => void;
   onCancelDirectEdit: () => void;
+  onReplaceImage: (file: File) => void;
 }
 
 function FieldEditor({
@@ -2041,63 +2070,92 @@ function FieldEditor({
   onOpenAiEdit, onCancelAiEdit, onSetInstruction, onRunAiRewrite,
   onApplySuggestion, onDiscardSuggestion,
   onStartDirectEdit, onDirectEditChange, onConfirmDirectEdit, onCancelDirectEdit,
+  onReplaceImage,
 }: FieldEditorProps) {
+  const imgInputRef = useRef<HTMLInputElement>(null);
   return (
     <div className="flex flex-col gap-2 p-3 rounded-xl" style={{ background: "#141420", border: "1px solid #1E1E2E" }}>
       {/* Label */}
       <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#555577" }}>{field.label}</p>
 
-      {/* Current value — direct edit or read-only display */}
-      {isDirectEditing ? (
-        <textarea
-          autoFocus
-          rows={3}
-          className="resize-none rounded-lg px-2.5 py-2 text-xs outline-none w-full"
-          style={{ background: "#0D0D16", border: "1px solid #B9FF4B55", color: "#E0E0F0", fontFamily: "inherit", lineHeight: 1.5 }}
-          value={directEditValue}
-          onChange={e => onDirectEditChange(e.target.value)}
-          onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onConfirmDirectEdit(); } if (e.key === "Escape") onCancelDirectEdit(); }}
-        />
-      ) : (
-        <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.6)" }}>
-          {field.value.length > 120 ? field.value.slice(0, 120) + "…" : field.value}
-        </p>
-      )}
-
-      {/* Direct edit action buttons */}
-      {isDirectEditing && (
-        <div className="flex gap-2">
-          <button onClick={onCancelDirectEdit}
-            className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px]"
-            style={{ background: "#1E1E2E", color: "#888899" }}>
-            <X className="w-3 h-3" /> Cancelar
-          </button>
-          <button onClick={onConfirmDirectEdit}
-            className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-semibold"
-            style={{ background: "#B9FF4B22", border: "1px solid #B9FF4B55", color: "#B9FF4B" }}>
-            <Check className="w-3 h-3" /> Aplicar
-          </button>
-        </div>
-      )}
-
-      {/* Action buttons (when not editing) */}
-      {!isDirectEditing && !isAiEditing && (
-        <div className="flex gap-1.5">
-          <button onClick={onStartDirectEdit}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] transition-all"
-            style={{ background: "#1E1E2E", color: "#8888AA" }}
-            onMouseEnter={e => e.currentTarget.style.color = "#F0F0F0"}
-            onMouseLeave={e => e.currentTarget.style.color = "#8888AA"}>
-            <Pencil className="w-3 h-3" /> Editar
-          </button>
-          <button onClick={onOpenAiEdit}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all"
+      {/* IMAGE FIELD */}
+      {field.type === "image" ? (
+        <>
+          <div className="rounded-lg overflow-hidden" style={{ border: "1px solid #1E1E2E", background: "#0D0D16" }}>
+            <img
+              src={field.value}
+              alt={field.label}
+              className="w-full object-cover"
+              style={{ maxHeight: 90, objectFit: "cover" }}
+              onError={e => { (e.target as HTMLImageElement).style.display = "none"; }}
+            />
+          </div>
+          <input ref={imgInputRef} type="file" accept="image/*" className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) { onReplaceImage(f); e.target.value = ""; } }} />
+          <button
+            onClick={() => imgInputRef.current?.click()}
+            className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-medium transition-all"
             style={{ background: "#B9FF4B15", border: "1px solid #B9FF4B30", color: "#B9FF4B" }}
             onMouseEnter={e => { e.currentTarget.style.background = "#B9FF4B25"; e.currentTarget.style.borderColor = "#B9FF4B60"; }}
             onMouseLeave={e => { e.currentTarget.style.background = "#B9FF4B15"; e.currentTarget.style.borderColor = "#B9FF4B30"; }}>
-            <Sparkles className="w-3 h-3" /> Editar com IA
+            <ImageIcon className="w-3 h-3" /> Substituir imagem
           </button>
-        </div>
+        </>
+      ) : (
+        <>
+          {/* Current value — direct edit or read-only display */}
+          {isDirectEditing ? (
+            <textarea
+              autoFocus
+              rows={3}
+              className="resize-none rounded-lg px-2.5 py-2 text-xs outline-none w-full"
+              style={{ background: "#0D0D16", border: "1px solid #B9FF4B55", color: "#E0E0F0", fontFamily: "inherit", lineHeight: 1.5 }}
+              value={directEditValue}
+              onChange={e => onDirectEditChange(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onConfirmDirectEdit(); } if (e.key === "Escape") onCancelDirectEdit(); }}
+            />
+          ) : (
+            <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.6)" }}>
+              {field.value.length > 120 ? field.value.slice(0, 120) + "…" : field.value}
+            </p>
+          )}
+
+          {/* Direct edit action buttons */}
+          {isDirectEditing && (
+            <div className="flex gap-2">
+              <button onClick={onCancelDirectEdit}
+                className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px]"
+                style={{ background: "#1E1E2E", color: "#888899" }}>
+                <X className="w-3 h-3" /> Cancelar
+              </button>
+              <button onClick={onConfirmDirectEdit}
+                className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-semibold"
+                style={{ background: "#B9FF4B22", border: "1px solid #B9FF4B55", color: "#B9FF4B" }}>
+                <Check className="w-3 h-3" /> Aplicar
+              </button>
+            </div>
+          )}
+
+          {/* Action buttons (when not editing) */}
+          {!isDirectEditing && !isAiEditing && (
+            <div className="flex gap-1.5">
+              <button onClick={onStartDirectEdit}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] transition-all"
+                style={{ background: "#1E1E2E", color: "#8888AA" }}
+                onMouseEnter={e => e.currentTarget.style.color = "#F0F0F0"}
+                onMouseLeave={e => e.currentTarget.style.color = "#8888AA"}>
+                <Pencil className="w-3 h-3" /> Editar
+              </button>
+              <button onClick={onOpenAiEdit}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium transition-all"
+                style={{ background: "#B9FF4B15", border: "1px solid #B9FF4B30", color: "#B9FF4B" }}
+                onMouseEnter={e => { e.currentTarget.style.background = "#B9FF4B25"; e.currentTarget.style.borderColor = "#B9FF4B60"; }}
+                onMouseLeave={e => { e.currentTarget.style.background = "#B9FF4B15"; e.currentTarget.style.borderColor = "#B9FF4B30"; }}>
+                <Sparkles className="w-3 h-3" /> Editar com IA
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {/* AI Edit mode */}
