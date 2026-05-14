@@ -5,7 +5,7 @@ import { toast } from "sonner";
 
 const SUPABASE_URL = "https://proldgiyterqhthludlp.supabase.co";
 
-const PIPELINE_OPTIONS = [
+const ALL_PIPELINES = [
   { id: "",           label: "Nenhum (apenas CRM)" },
   { id: "usineiros",  label: "Usineiros",  stages: [
     { id: "prospeccao", name: "Prospecção" }, { id: "contato", name: "Contato inicial" },
@@ -19,6 +19,10 @@ const PIPELINE_OPTIONS = [
     { id: "analise", name: "Análise" }, { id: "ativo", name: "Ativo" },
   ]},
 ];
+
+// Usineiros/Associados são pipelines exclusivos do workspace ABCER
+const getPipelineOptions = (clientId: string) =>
+  clientId === "abcer" ? ALL_PIPELINES : ALL_PIPELINES.slice(0, 1);
 
 interface Endpoint {
   id: string;
@@ -53,6 +57,8 @@ export default function WebhooksTab({ clientId }: { clientId: string }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [leads, setLeads] = useState<Record<string, Lead[]>>({});
   const [leadsLoading, setLeadsLoading] = useState<string | null>(null);
+  const [addingCourse, setAddingCourse] = useState(false);
+  const [quickCourseName, setQuickCourseName] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -138,16 +144,144 @@ export default function WebhooksTab({ clientId }: { clientId: string }) {
     }
   };
 
+  const createCourseWebhook = async () => {
+    const name = quickCourseName.trim();
+    if (!name) return;
+    setCreating(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { setCreating(false); return; }
+    const { error } = await (supabase as any).from("webhook_endpoints").insert({
+      user_id: session.user.id,
+      client_id: clientId,
+      name: `Inscrições — ${name}`,
+      course_name: name,
+      pipeline_id: null,
+      initial_stage_id: null,
+    });
+    if (!error) {
+      setQuickCourseName("");
+      setAddingCourse(false);
+      load();
+      toast.success(`Webhook para "${name}" criado!`);
+    } else {
+      toast.error("Erro ao criar webhook");
+    }
+    setCreating(false);
+  };
+
   const G = "rgba(185,255,75,";
   const accent = "#B9FF4B";
+  const courseEndpoints = endpoints.filter(ep => ep.course_name);
+  const otherEndpoints = endpoints.filter(ep => !ep.course_name);
 
   return (
     <div className="space-y-6">
+
+      {/* ── Webhooks por Curso ── */}
+      <div className="rounded-2xl p-5 space-y-4"
+        style={{ background: "rgba(185,255,75,0.03)", border: `1px solid ${G}0.12)` }}>
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold" style={{ color: accent }}>Webhooks por Curso</h3>
+            <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>
+              Um endpoint por curso — cole no Forminator para capturar inscrições
+            </p>
+          </div>
+          <button
+            onClick={() => setAddingCourse(v => !v)}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold"
+            style={{ background: `${G}0.12)`, color: accent, border: `1px solid ${G}0.2)` }}>
+            <Plus className="w-3.5 h-3.5" /> Novo curso
+          </button>
+        </div>
+
+        {/* Quick-add course form */}
+        {addingCourse && (
+          <div className="flex gap-2 items-center">
+            <input
+              autoFocus
+              value={quickCourseName}
+              onChange={e => setQuickCourseName(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") createCourseWebhook(); if (e.key === "Escape") setAddingCourse(false); }}
+              placeholder="Nome do curso (ex: Excel Avançado)"
+              className="flex-1 rounded-xl px-4 py-2 text-sm"
+              style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${G}0.2)`, color: "#F0F0F0", outline: "none" }}
+            />
+            <button onClick={createCourseWebhook} disabled={creating || !quickCourseName.trim()}
+              className="px-4 py-2 rounded-xl text-sm font-bold disabled:opacity-40 shrink-0"
+              style={{ background: accent, color: "#07080A" }}>
+              {creating ? "..." : "Criar"}
+            </button>
+            <button onClick={() => setAddingCourse(false)}
+              className="px-3 py-2 rounded-xl text-sm"
+              style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)" }}>
+              ✕
+            </button>
+          </div>
+        )}
+
+        {/* Course webhook cards */}
+        {courseEndpoints.length === 0 && !addingCourse ? (
+          <p className="text-xs text-center py-3" style={{ color: "rgba(255,255,255,0.2)" }}>
+            Nenhum webhook de curso criado ainda
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {courseEndpoints.map(ep => (
+              <div key={ep.id} className="rounded-xl overflow-hidden"
+                style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                <div className="p-4">
+                  <div className="flex items-center justify-between gap-3 mb-2">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.9)" }}>{ep.course_name}</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-medium`}
+                        style={{ background: ep.active ? "rgba(52,211,153,0.1)" : "rgba(255,255,255,0.06)", color: ep.active ? "#34D399" : "rgba(255,255,255,0.4)" }}>
+                        {ep.active ? "Ativo" : "Pausado"}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>{ep.trigger_count} leads</span>
+                      <button onClick={() => toggleActive(ep)}
+                        className="px-2.5 py-1 rounded-lg text-[11px] font-medium"
+                        style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                        {ep.active ? "Pausar" : "Ativar"}
+                      </button>
+                      <button onClick={() => remove(ep.id)}
+                        className="p-1 rounded-lg"
+                        style={{ color: "rgba(255,255,255,0.25)" }}
+                        onMouseEnter={e => (e.currentTarget.style.color = "#F87171")}
+                        onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.25)")}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <code className="text-[10px] px-3 py-1.5 rounded-lg flex-1 truncate font-mono"
+                      style={{ background: "rgba(0,0,0,0.3)", color: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.05)" }}>
+                      {webhookUrl(ep.token)}
+                    </code>
+                    <button onClick={() => copyUrl(ep.token)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shrink-0"
+                      style={{ background: `${G}0.12)`, color: accent, border: `1px solid ${G}0.2)` }}>
+                      <Copy className="w-3 h-3" /> Copiar
+                    </button>
+                  </div>
+                  {/* Forminator mini-instructions */}
+                  <p className="text-[10px] mt-2.5" style={{ color: "rgba(255,255,255,0.25)" }}>
+                    No Forminator: <span style={{ color: "rgba(255,255,255,0.45)" }}>Integrações → Webhook → cole a URL acima → POST + JSON</span>
+                  </p>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-base font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>Webhooks</h2>
+          <h2 className="text-base font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>Outros Webhooks</h2>
           <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>
-            Conecte formulários do Forminator e receba leads direto no CRM
+            Endpoints genéricos para pipelines e integrações
           </p>
         </div>
         <button
@@ -195,7 +329,7 @@ export default function WebhooksTab({ clientId }: { clientId: string }) {
               Funil de destino (opcional)
             </label>
             <div className="flex gap-2 flex-wrap">
-              {PIPELINE_OPTIONS.map(p => (
+              {getPipelineOptions(clientId).map(p => (
                 <button key={p.id} onClick={() => { setNewPipelineId(p.id); setNewStageId(""); }}
                   className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all"
                   style={newPipelineId === p.id
@@ -206,7 +340,7 @@ export default function WebhooksTab({ clientId }: { clientId: string }) {
               ))}
             </div>
             {newPipelineId && (() => {
-              const pipeline = PIPELINE_OPTIONS.find(p => p.id === newPipelineId);
+              const pipeline = getPipelineOptions(clientId).find(p => p.id === newPipelineId);
               if (!pipeline || !("stages" in pipeline)) return null;
               return (
                 <div className="mt-2">
@@ -244,22 +378,22 @@ export default function WebhooksTab({ clientId }: { clientId: string }) {
         </div>
       )}
 
-      {/* Endpoints list */}
+      {/* Endpoints list — outros (sem course_name) */}
       {loading ? (
         <div className="text-center py-12" style={{ color: "rgba(255,255,255,0.3)" }}>
           <div className="h-6 w-6 rounded-full border-2 animate-spin mx-auto mb-3" style={{ borderColor: accent, borderTopColor: "transparent" }} />
           Carregando webhooks...
         </div>
-      ) : endpoints.length === 0 ? (
+      ) : otherEndpoints.length === 0 ? (
         <div className="rounded-2xl p-10 text-center"
           style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.08)" }}>
           <Webhook className="w-8 h-8 mx-auto mb-3" style={{ color: "rgba(255,255,255,0.2)" }} />
-          <p className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.4)" }}>Nenhum webhook criado</p>
-          <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.2)" }}>Crie um webhook e configure no Forminator</p>
+          <p className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.4)" }}>Nenhum webhook genérico criado</p>
+          <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.2)" }}>Use "Novo Webhook" para endpoints com pipeline</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {endpoints.map(ep => (
+          {otherEndpoints.map(ep => (
             <div key={ep.id} className="rounded-2xl overflow-hidden"
               style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
 

@@ -4,7 +4,8 @@ import {
   Send, Mail, MessageSquare, Plus, Search, Filter, BarChart3,
   Eye, MousePointer, Clock, CheckCircle2, Users,
   Pencil, Copy, MoreVertical, TrendingUp,
-  Upload, Loader2, Sparkles, ImageIcon, CheckCircle, X, Globe
+  Upload, Loader2, Sparkles, ImageIcon, CheckCircle, X, Globe,
+  Image as ImageLucide, Layout,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -15,6 +16,15 @@ import { supabase } from "@/integrations/supabase/client";
 const SUPABASE_URL = "https://proldgiyterqhthludlp.supabase.co";
 
 interface SavedLP { id: number; name: string; html: string; savedAt: string; }
+
+interface PostCreative {
+  id: string; caption: string | null; media_url: string | null;
+  platforms: string[]; published_at: string | null; client_id: string;
+}
+type AnyCreative =
+  | { source: "lp"; id: number; name: string; html: string; savedAt: string }
+  | { source: "post"; id: string; name: string; mediaUrl: string; caption: string }
+  | { source: "image"; id: string; name: string; mediaUrl: string };
 
 interface Campaign {
   id: number; name: string; channel: "email" | "whatsapp"; status: "sent" | "scheduled" | "draft"; audience: number; delivered: number; opened: number; clicked: number; replied: number; sentAt: string;
@@ -49,11 +59,16 @@ const CampaignsPage = () => {
   const [scheduleMode, setScheduleMode] = useState<"now" | "later">("now");
   const [importing, setImporting] = useState(false);
   const [extracting, setExtracting] = useState(false);
-  const [selectedCreative, setSelectedCreative] = useState<SavedLP | null>(null);
+  const [selectedCreative, setSelectedCreative] = useState<AnyCreative | null>(null);
   const [savedPages, setSavedPages] = useState<SavedLP[]>([]);
   const [showCreativePicker, setShowCreativePicker] = useState(false);
+  const [creativeTab, setCreativeTab] = useState<"lp" | "posts" | "upload">("lp");
+  const [publishedPosts, setPublishedPosts] = useState<PostCreative[]>([]);
+  const [postsLoading, setPostsLoading] = useState(false);
+  const [uploadedImage, setUploadedImage] = useState<{ name: string; dataUrl: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const briefFileRef = useRef<HTMLInputElement>(null);
+  const uploadImageRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     try {
@@ -176,6 +191,33 @@ const CampaignsPage = () => {
     } finally {
       setExtracting(false);
     }
+  };
+
+  const loadPublishedPosts = async () => {
+    setPostsLoading(true);
+    try {
+      const { data, error } = await (supabase as any).from("scheduled_posts")
+        .select("id, caption, media_url, platforms, published_at, client_id")
+        .eq("status", "published")
+        .order("published_at", { ascending: false })
+        .limit(50);
+      if (error) throw error;
+      setPublishedPosts(data ?? []);
+    } catch {
+      toast.error("Erro ao carregar posts publicados");
+    } finally {
+      setPostsLoading(false);
+    }
+  };
+
+  const handleUploadImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!uploadImageRef.current) return;
+    uploadImageRef.current.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => setUploadedImage({ name: file.name, dataUrl: reader.result as string });
+    reader.readAsDataURL(file);
   };
 
   const filtered = campaigns.filter(c => c.name.toLowerCase().includes(searchCamp.toLowerCase()));
@@ -345,18 +387,22 @@ const CampaignsPage = () => {
               </div>
             </div>
 
-            {/* Criativo — picker de landing pages */}
+            {/* Criativo */}
             <div className="rounded-xl border border-border bg-card p-5 shadow-card space-y-4">
-              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><Globe className="h-4 w-4 text-primary" /> Criativo (Landing Page)</h3>
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><Globe className="h-4 w-4 text-primary" /> Criativo</h3>
               {selectedCreative ? (
                 <div className="space-y-3">
                   <div className="relative rounded-xl overflow-hidden border-2 border-primary" style={{ height: 160 }}>
-                    <iframe
-                      srcDoc={selectedCreative.html}
-                      sandbox="allow-same-origin"
-                      scrolling="no"
-                      style={{ width: 1280, height: 900, transform: "scale(0.195)", transformOrigin: "top left", pointerEvents: "none", border: "none" }}
-                    />
+                    {selectedCreative.source === "lp" ? (
+                      <iframe
+                        srcDoc={selectedCreative.html}
+                        sandbox="allow-same-origin"
+                        scrolling="no"
+                        style={{ width: 1280, height: 900, transform: "scale(0.195)", transformOrigin: "top left", pointerEvents: "none", border: "none" }}
+                      />
+                    ) : (
+                      <img src={selectedCreative.mediaUrl} alt={selectedCreative.name} className="w-full h-full object-cover" />
+                    )}
                     <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent" />
                     <div className="absolute bottom-2 left-3 right-3 flex items-center justify-between">
                       <span className="text-white text-xs font-medium truncate">{selectedCreative.name}</span>
@@ -364,14 +410,14 @@ const CampaignsPage = () => {
                     </div>
                     <button onClick={() => setSelectedCreative(null)} className="absolute top-2 right-2 rounded-full bg-black/50 p-1 text-white hover:bg-black/70"><X className="h-3 w-3" /></button>
                   </div>
-                  <button onClick={() => setShowCreativePicker(true)} className="w-full py-2 rounded-lg border border-dashed border-border text-xs font-medium text-muted-foreground hover:border-primary/40 hover:text-primary">Trocar página</button>
+                  <button onClick={() => setShowCreativePicker(true)} className="w-full py-2 rounded-lg border border-dashed border-border text-xs font-medium text-muted-foreground hover:border-primary/40 hover:text-primary">Trocar criativo</button>
                 </div>
               ) : (
                 <div>
                   <button onClick={() => setShowCreativePicker(true)} className="w-full flex flex-col items-center gap-2 py-6 rounded-xl border-2 border-dashed border-border hover:border-primary/40 hover:bg-primary/5 transition-colors text-muted-foreground hover:text-primary">
                     <ImageIcon className="h-8 w-8" />
-                    <span className="text-xs font-medium">Escolher landing page</span>
-                    <span className="text-[11px] opacity-70">Páginas criadas pelo Tomás</span>
+                    <span className="text-xs font-medium">Escolher criativo</span>
+                    <span className="text-[11px] opacity-70">Landing page, post publicado ou imagem</span>
                   </button>
                 </div>
               )}
@@ -397,49 +443,155 @@ const CampaignsPage = () => {
       {showCreativePicker && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowCreativePicker(false)}>
           <div className="w-full max-w-4xl bg-card border border-border rounded-2xl shadow-2xl flex flex-col max-h-[85vh]" onClick={e => e.stopPropagation()}>
+            {/* Header */}
             <div className="flex items-center justify-between p-5 border-b border-border shrink-0">
               <div>
                 <h2 className="text-base font-semibold font-display">Escolher Criativo</h2>
-                <p className="text-xs text-muted-foreground mt-0.5">Landing pages geradas pelo Tomás — selecione uma para vincular à campanha</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Selecione uma landing page, post publicado ou envie uma imagem</p>
               </div>
               <button onClick={() => setShowCreativePicker(false)} className="p-2 rounded-lg hover:bg-muted text-muted-foreground"><X className="h-5 w-5" /></button>
             </div>
-            <div className="overflow-y-auto p-5">
-              {savedPages.length === 0 ? (
-                <div className="flex flex-col items-center gap-3 py-16 text-center text-muted-foreground">
-                  <ImageIcon className="h-12 w-12 opacity-30" />
-                  <p className="text-sm font-medium">Nenhuma landing page salva ainda</p>
-                  <p className="text-xs opacity-70">Gere uma página no Tomás e ela aparecerá aqui automaticamente.</p>
-                </div>
-              ) : (
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {savedPages.map(page => (
+            {/* Tabs */}
+            <div className="flex gap-1 px-5 pt-4 shrink-0">
+              <button
+                onClick={() => setCreativeTab("lp")}
+                className={cn("flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors", creativeTab === "lp" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted")}
+              >
+                <Layout className="h-4 w-4" /> Landing Pages
+              </button>
+              <button
+                onClick={() => { setCreativeTab("posts"); loadPublishedPosts(); }}
+                className={cn("flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors", creativeTab === "posts" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted")}
+              >
+                <ImageLucide className="h-4 w-4" /> Posts Publicados
+              </button>
+              <button
+                onClick={() => setCreativeTab("upload")}
+                className={cn("flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors", creativeTab === "upload" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted")}
+              >
+                <Upload className="h-4 w-4" /> Upload Imagem
+              </button>
+            </div>
+            {/* Body */}
+            <div className="overflow-y-auto p-5 flex-1">
+
+              {/* ── Tab: Landing Pages ── */}
+              {creativeTab === "lp" && (
+                savedPages.length === 0 ? (
+                  <div className="flex flex-col items-center gap-3 py-16 text-center text-muted-foreground">
+                    <Layout className="h-12 w-12 opacity-30" />
+                    <p className="text-sm font-medium">Nenhuma landing page salva ainda</p>
+                    <p className="text-xs opacity-70">Gere uma página no Tomás e ela aparecerá aqui automaticamente.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {savedPages.map(page => (
+                      <button
+                        key={page.id}
+                        onClick={() => { setSelectedCreative({ source: "lp", id: page.id, name: page.name, html: page.html, savedAt: page.savedAt }); setShowCreativePicker(false); }}
+                        className={cn("group relative rounded-xl overflow-hidden border-2 text-left transition-all hover:shadow-elevated", selectedCreative?.source === "lp" && selectedCreative.id === page.id ? "border-primary" : "border-border hover:border-primary/50")}
+                      >
+                        <div className="relative overflow-hidden bg-muted" style={{ height: 160 }}>
+                          <iframe
+                            srcDoc={page.html}
+                            sandbox="allow-same-origin"
+                            scrolling="no"
+                            style={{ width: 1280, height: 900, transform: "scale(0.195)", transformOrigin: "top left", pointerEvents: "none", border: "none" }}
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                          {selectedCreative?.source === "lp" && selectedCreative.id === page.id && (
+                            <div className="absolute top-2 right-2 rounded-full bg-primary p-1"><CheckCircle className="h-3.5 w-3.5 text-white" /></div>
+                          )}
+                        </div>
+                        <div className="p-3 bg-card">
+                          <p className="text-xs font-semibold text-foreground truncate">{page.name}</p>
+                          <p className="text-[11px] text-muted-foreground mt-0.5">{new Date(page.savedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )
+              )}
+
+              {/* ── Tab: Posts Publicados ── */}
+              {creativeTab === "posts" && (
+                postsLoading ? (
+                  <div className="flex items-center justify-center py-16">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                ) : publishedPosts.length === 0 ? (
+                  <div className="flex flex-col items-center gap-3 py-16 text-center text-muted-foreground">
+                    <ImageLucide className="h-12 w-12 opacity-30" />
+                    <p className="text-sm font-medium">Nenhum post publicado encontrado</p>
+                    <p className="text-xs opacity-70">Posts com status "publicado" aparecerão aqui.</p>
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {publishedPosts.map(post => {
+                      const postName = post.caption?.slice(0, 40) || "Post publicado";
+                      const isSelected = selectedCreative?.source === "post" && selectedCreative.id === post.id;
+                      return (
+                        <button
+                          key={post.id}
+                          onClick={() => { setSelectedCreative({ source: "post", id: post.id, name: postName, mediaUrl: post.media_url || "", caption: post.caption || "" }); setShowCreativePicker(false); }}
+                          className={cn("group relative rounded-xl overflow-hidden border-2 text-left transition-all hover:shadow-elevated", isSelected ? "border-primary" : "border-border hover:border-primary/50")}
+                        >
+                          <div className="relative overflow-hidden bg-muted" style={{ height: 160 }}>
+                            {post.media_url ? (
+                              <img src={post.media_url} alt={postName} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="flex items-center justify-center w-full h-full text-muted-foreground"><ImageLucide className="h-10 w-10 opacity-30" /></div>
+                            )}
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                            {isSelected && (
+                              <div className="absolute top-2 right-2 rounded-full bg-primary p-1"><CheckCircle className="h-3.5 w-3.5 text-white" /></div>
+                            )}
+                          </div>
+                          <div className="p-3 bg-card">
+                            <p className="text-xs font-semibold text-foreground truncate">{postName}</p>
+                            <p className="text-[11px] text-muted-foreground mt-0.5">{post.published_at ? new Date(post.published_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }) : "—"}</p>
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )
+              )}
+
+              {/* ── Tab: Upload Imagem ── */}
+              {creativeTab === "upload" && (
+                <div className="space-y-4">
+                  <input ref={uploadImageRef} type="file" accept="image/*" className="hidden" onChange={handleUploadImage} />
+                  {uploadedImage ? (
+                    <div className="space-y-4">
+                      <div className="relative rounded-xl overflow-hidden border-2 border-primary mx-auto max-w-sm" style={{ height: 220 }}>
+                        <img src={uploadedImage.dataUrl} alt={uploadedImage.name} className="w-full h-full object-contain bg-muted" />
+                        <button onClick={() => setUploadedImage(null)} className="absolute top-2 right-2 rounded-full bg-black/50 p-1 text-white hover:bg-black/70"><X className="h-4 w-4" /></button>
+                      </div>
+                      <p className="text-xs text-center text-muted-foreground truncate">{uploadedImage.name}</p>
+                      <div className="flex gap-3 justify-center">
+                        <button onClick={() => uploadImageRef.current?.click()} className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:text-foreground">Trocar imagem</button>
+                        <button
+                          onClick={() => { setSelectedCreative({ source: "image", id: Date.now().toString(), name: uploadedImage.name, mediaUrl: uploadedImage.dataUrl }); setShowCreativePicker(false); }}
+                          className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90"
+                        >
+                          Usar esta imagem
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
                     <button
-                      key={page.id}
-                      onClick={() => { setSelectedCreative(page); setShowCreativePicker(false); }}
-                      className={cn("group relative rounded-xl overflow-hidden border-2 text-left transition-all hover:shadow-elevated", selectedCreative?.id === page.id ? "border-primary" : "border-border hover:border-primary/50")}
+                      onClick={() => uploadImageRef.current?.click()}
+                      className="w-full flex flex-col items-center gap-3 py-16 rounded-xl border-2 border-dashed border-border hover:border-primary/40 hover:bg-primary/5 transition-colors text-muted-foreground hover:text-primary"
                     >
-                      {/* Thumbnail via iframe escalado */}
-                      <div className="relative overflow-hidden bg-muted" style={{ height: 160 }}>
-                        <iframe
-                          srcDoc={page.html}
-                          sandbox="allow-same-origin"
-                          scrolling="no"
-                          style={{ width: 1280, height: 900, transform: "scale(0.195)", transformOrigin: "top left", pointerEvents: "none", border: "none" }}
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                        {selectedCreative?.id === page.id && (
-                          <div className="absolute top-2 right-2 rounded-full bg-primary p-1"><CheckCircle className="h-3.5 w-3.5 text-white" /></div>
-                        )}
-                      </div>
-                      <div className="p-3 bg-card">
-                        <p className="text-xs font-semibold text-foreground truncate">{page.name}</p>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">{new Date(page.savedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "short" })}</p>
-                      </div>
+                      <Upload className="h-10 w-10" />
+                      <span className="text-sm font-medium">Clique para enviar imagem</span>
+                      <span className="text-xs opacity-70">PNG, JPG, WebP, GIF</span>
                     </button>
-                  ))}
+                  )}
                 </div>
               )}
+
             </div>
           </div>
         </div>

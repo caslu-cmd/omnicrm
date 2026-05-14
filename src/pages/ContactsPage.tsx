@@ -102,7 +102,7 @@ const ContactsPage = () => {
     let all: Contact[] = [];
     let from = 0;
     while (true) {
-      const { data, error } = await supabase.from("contacts").select("*").order("created_at", { ascending: false }).range(from, from + pageSize - 1);
+      const { data, error } = await (supabase as any).from("contacts").select("*").neq("client_id", "abcer").order("created_at", { ascending: false }).range(from, from + pageSize - 1);
       if (error) { toast.error("Erro ao carregar contatos"); return; }
       all = all.concat(data || []);
       if (!data || data.length < pageSize) break;
