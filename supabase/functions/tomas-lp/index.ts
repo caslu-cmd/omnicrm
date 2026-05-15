@@ -369,7 +369,18 @@ nav{position:fixed;top:0;left:0;right:0;z-index:100;height:64px;display:flex;ali
 <textarea class="form-field"           name="message" rows="3" placeholder="Mensagem (opcional)"></textarea>
 */
 
-/* 13. FOOTER */
+/* 13. FORMINATOR OVERRIDE — form fields inherit LP design automatically */
+.forminator-custom-form,.forminator-custom-form .forminator-ui{background:transparent!important;border:none!important;box-shadow:none!important;padding:0!important}
+.forminator-custom-form .forminator-input,.forminator-custom-form .forminator-textarea,.forminator-custom-form .forminator-select-field select,.forminator-custom-form input[type="text"],.forminator-custom-form input[type="email"],.forminator-custom-form input[type="tel"],.forminator-custom-form input[type="number"],.forminator-custom-form textarea{width:100%!important;padding:14px 18px!important;background:var(--bgc)!important;border:1.5px solid var(--bdr)!important;border-radius:12px!important;color:var(--t1)!important;font-size:16px!important;font-family:inherit!important;transition:border-color .2s,box-shadow .2s!important;outline:none!important;box-sizing:border-box!important}
+.forminator-custom-form .forminator-input:focus,.forminator-custom-form .forminator-textarea:focus,.forminator-custom-form input:focus,.forminator-custom-form textarea:focus{border-color:var(--p)!important;box-shadow:0 0 0 3px rgba(var(--rgb),.15)!important}
+.forminator-custom-form .forminator-label,.forminator-custom-form label{color:var(--t2)!important;font-size:13px!important;font-weight:600!important;letter-spacing:.04em!important;text-transform:uppercase!important;margin-bottom:8px!important;display:block!important}
+.forminator-custom-form .forminator-button,.forminator-custom-form button[type="submit"],.forminator-custom-form input[type="submit"]{width:100%!important;padding:18px!important;font-size:17px!important;font-weight:700!important;border-radius:14px!important;background:var(--gc)!important;color:#fff!important;border:none!important;cursor:pointer!important;box-shadow:var(--sc)!important;transition:all .25s cubic-bezier(.4,0,.2,1)!important;letter-spacing:.02em!important;font-family:inherit!important}
+.forminator-custom-form .forminator-button:hover,.forminator-custom-form button[type="submit"]:hover{transform:translateY(-2px)!important;filter:brightness(1.08)!important}
+.forminator-custom-form .forminator-row{margin-bottom:20px!important}
+.forminator-custom-form .forminator-error-message,.forminator-custom-form .forminator-field-error{color:#ff4f4f!important;font-size:13px!important;margin-top:4px!important}
+.forminator-custom-form .forminator-response-output{border-radius:12px!important;padding:16px!important;margin-top:16px!important}
+
+/* 14. FOOTER */
 footer{background:#050508;border-top:1px solid rgba(255,255,255,.06);padding-block:48px}
 .footer-inner{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:24px}
 .footer-logo{font-family:'[DISPLAY_FONT]',sans-serif;font-weight:800;font-size:20px;color:var(--p)}
@@ -378,7 +389,7 @@ footer{background:#050508;border-top:1px solid rgba(255,255,255,.06);padding-blo
 .footer-links a:hover{color:var(--t1)}
 .footer-copy{font-size:13px;color:var(--t2);opacity:.6;margin-top:24px;text-align:center}
 
-/* 14. ANIMATIONS */
+/* 15. ANIMATIONS */
 @keyframes fadeInUp{from{opacity:.01;transform:translateY(32px)}to{opacity:1;transform:translateY(0)}}
 @keyframes fadeIn{from{opacity:.01}to{opacity:1}}
 @keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-22px)}}
@@ -388,7 +399,7 @@ footer{background:#050508;border-top:1px solid rgba(255,255,255,.06);padding-blo
 .a4{animation:fadeInUp .65s ease both .3s}
 .a5{animation:fadeIn .65s ease both .4s}
 
-/* 15. RESPONSIVE */
+/* 16. RESPONSIVE */
 @media(max-width:1024px){.grid3{grid-template-columns:repeat(2,1fr)}.grid2{grid-template-columns:1fr;gap:40px}}
 @media(max-width:640px){.grid3{grid-template-columns:1fr}.grid2{grid-template-columns:1fr}.stat-grid{grid-template-columns:repeat(2,1fr)}.nav-links{display:none}.btn{padding:14px 28px;font-size:15px}}
 
