@@ -150,7 +150,13 @@ Retorne SOMENTE o copy estruturado abaixo. Nenhum texto introdutório ou explica
 [Texto do botão — máx 6 palavras. Verbo imperativo no presente: "Quero", "Acesse", "Garanta", "Comece". Específico ao produto.]
 
 ## URGENCIA
-[Frase de escassez ou urgência SE o briefing indicar prazo, vagas limitadas ou promoção — caso contrário, deixe esta linha em branco]`;
+[Frase de escassez ou urgência SE o briefing indicar prazo, vagas limitadas ou promoção — caso contrário, deixe esta linha em branco]
+
+## MODULOS
+[SE o material contiver módulos, aulas, etapas, capítulos ou temas — liste TODOS aqui no formato abaixo. Inclua TODOS os que estiverem no documento, sem omitir nenhum. Se não houver, deixe em branco.]
+**Módulo 1 — [Título do módulo]:** [Aulas/tópicos: Aula 1.1 Título | Aula 1.2 Título | ...]
+**Módulo 2 — [Título do módulo]:** [...]
+[continue para todos os módulos]`;
 
 const DESIGNER_SYSTEM = `Você é a DESIGNER VISUAL sênior da Calu Agência. Seu output alimenta diretamente um desenvolvedor que vai implementar o HTML — seja PRECISA, ESPECÍFICA e OUSADA. Nada de paletas seguras ou tipografia genérica.
 
@@ -404,6 +410,8 @@ Use exatamente essa sequência:
 <header id="hero"> → orbs + badge + h1.gt + subtítulo + hero text + .btn-p + .btn-g + .sp-strip
 <section id="beneficios"> → h2 + grid de 3-4 .card com .icon-box (emoji) + h3 + p
 <section id="como-funciona"> → h2 + .steps (3-4 .step com .step-num + .step-body)
+[SE o copy da Beatriz contiver seção ## MODULOS com dados]:
+<section id="conteudo-programatico"> → h2 "O que você vai aprender" + contador (X módulos · Y aulas) + acordeão <details>/<summary> para CADA módulo listado na seção ## MODULOS — inclua TODOS os módulos, sem omitir nenhum. Cada <details> mostra o título do módulo no <summary> e as aulas em <ul> dentro.
 <section id="depoimentos"> → h2 + grid de 3 .tcard com stars + texto + .t-author
 <section id="sobre"> → .grid2 com texto+stat-grid
 <section id="oferta"> → .offer-card com badge + .check-list + .btn-submit
@@ -458,10 +466,11 @@ serve(async (req) => {
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY") ?? "";
     if (!apiKey) throw new Error("ANTHROPIC_API_KEY não configurada no Supabase");
 
-    // Trunca briefings muito longos para evitar 504 (12 000 chars ≈ 3 000 tokens — mais que suficiente)
-    const MAX_BRIEFING = 12_000;
+    // Trunca apenas briefings extremamente longos (>40 000 chars).
+    // O Designer usa Haiku (mais rápido) para compensar inputs maiores.
+    const MAX_BRIEFING = 40_000;
     const briefingTruncated = typeof briefing === "string" && briefing.length > MAX_BRIEFING
-      ? briefing.slice(0, MAX_BRIEFING) + "\n\n[...texto truncado para otimizar o processamento]"
+      ? briefing.slice(0, MAX_BRIEFING) + "\n\n[...texto truncado]"
       : briefing;
 
     const stream = new ReadableStream({
@@ -506,7 +515,7 @@ serve(async (req) => {
           ];
 
           const designHb = startHeartbeat(ctrl, "design", "Designer pensando...");
-          const design = await callClaude(apiKey, DESIGNER_SYSTEM, designContent, 2500, "claude-sonnet-4-6");
+          const design = await callClaude(apiKey, DESIGNER_SYSTEM, designContent, 2500, "claude-haiku-4-5-20251001");
           clearInterval(designHb);
           sse(ctrl, { etapa: "design", status: "Identidade visual definida ✓", conteudo: design });
 
