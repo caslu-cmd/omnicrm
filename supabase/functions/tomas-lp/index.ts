@@ -9,6 +9,13 @@ function sse(ctrl: ReadableStreamDefaultController, obj: object) {
   ctrl.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(obj)}\n\n`));
 }
 
+// Keeps SSE connection alive with a periodic ping (prevents 504 on long pipelines)
+function startHeartbeat(ctrl: ReadableStreamDefaultController, etapa: string, msg: string): ReturnType<typeof setInterval> {
+  return setInterval(() => {
+    try { sse(ctrl, { etapa, status: msg }); } catch { /* stream closed */ }
+  }, 8000);
+}
+
 async function callClaude(
   apiKey: string,
   system: string,
@@ -451,6 +458,12 @@ serve(async (req) => {
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY") ?? "";
     if (!apiKey) throw new Error("ANTHROPIC_API_KEY não configurada no Supabase");
 
+    // Trunca briefings muito longos para evitar 504 (12 000 chars ≈ 3 000 tokens — mais que suficiente)
+    const MAX_BRIEFING = 12_000;
+    const briefingTruncated = typeof briefing === "string" && briefing.length > MAX_BRIEFING
+      ? briefing.slice(0, MAX_BRIEFING) + "\n\n[...texto truncado para otimizar o processamento]"
+      : briefing;
+
     const stream = new ReadableStream({
       async start(ctrl) {
         try {
@@ -460,7 +473,7 @@ serve(async (req) => {
           const beatrizContent: unknown[] = [
             {
               type: "text",
-              text: `Cliente: ${client_name || "não informado"}\n\nBriefing:\n${briefing}\n\nCrie o copy completo da landing page seguindo a estrutura obrigatória.`,
+              text: `Cliente: ${client_name || "não informado"}\n\nBriefing:\n${briefingTruncated}\n\nCrie o copy completo da landing page seguindo a estrutura obrigatória.`,
             },
           ];
 
@@ -488,11 +501,13 @@ serve(async (req) => {
           const designContent: unknown[] = [
             {
               type: "text",
-              text: `Briefing do cliente:\n${briefing}\n\nCliente: ${client_name || "não informado"}\n\nCopy criado pela Beatriz:\n${copy}${skillContext}\n\nDefina a especificação visual completa da landing page.`,
+              text: `Briefing do cliente:\n${briefingTruncated}\n\nCliente: ${client_name || "não informado"}\n\nCopy criado pela Beatriz:\n${copy}${skillContext}\n\nDefina a especificação visual completa da landing page.`,
             },
           ];
 
+          const designHb = startHeartbeat(ctrl, "design", "Designer pensando...");
           const design = await callClaude(apiKey, DESIGNER_SYSTEM, designContent, 2500, "claude-sonnet-4-6");
+          clearInterval(designHb);
           sse(ctrl, { etapa: "design", status: "Identidade visual definida ✓", conteudo: design });
 
           // ── TOMÁS: HTML (stream interno → evento único ao frontend) ──────────
