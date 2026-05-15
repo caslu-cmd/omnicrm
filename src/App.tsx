@@ -169,6 +169,7 @@ const AppRoutes = () => (
 
     {/* Lista de presença — pública para alunos */}
     <Route path="/presenca/:courseId" element={<AttendancePage />} />
+    <Route path="/presenca/:courseId/:day" element={<AttendancePage />} />
 
     {/* Propostas comerciais — acesso público por slug */}
     <Route path="/proposta/:slug" element={<PropostaPage />} />

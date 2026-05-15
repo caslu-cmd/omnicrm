@@ -1006,7 +1006,8 @@ export default function ClientWorkspace() {
   const [dbGroupMembers, setDbGroupMembers] = useState<Record<string, any[]>>({});
   const [coursesLoading, setCoursesLoading] = useState(false);
   const [showNewCourse, setShowNewCourse] = useState(false);
-  const [newCourseForm, setNewCourseForm] = useState({ title: "", description: "", level: "Básico" });
+  const [newCourseForm, setNewCourseForm] = useState({ title: "", description: "", level: "Básico", num_days: 1 });
+  const [selectedQrDay, setSelectedQrDay] = useState<Record<string, number>>({});
   const [savingCourse, setSavingCourse] = useState(false);
   const [showAddStudent, setShowAddStudent] = useState<string | null>(null);
   const [newStudentForm, setNewStudentForm] = useState({ student_name: "", student_email: "", student_phone: "" });
@@ -2898,9 +2899,10 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
       user_id: session.user.id, client_id: id ?? "",
       title: newCourseForm.title, description: newCourseForm.description || null,
       level: newCourseForm.level, status: "active",
+      num_days: newCourseForm.num_days ?? 1,
     });
     setShowNewCourse(false);
-    setNewCourseForm({ title: "", description: "", level: "Básico" });
+    setNewCourseForm({ title: "", description: "", level: "Básico", num_days: 1 });
     loadDbCourses();
     toast.success("Curso criado!");
     setSavingCourse(false);
@@ -6206,8 +6208,10 @@ Regras:
                           <span className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Desconectado</span>
                         )}
                         <button onClick={() => setWpCredsOpen(v => !v)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all"
-                          style={wpCreds ? { background: "rgba(37,211,102,0.1)", color: "#25D366", border: "1px solid rgba(37,211,102,0.2)" } : { background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.12)" }}>
+                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
+                          style={wpCreds
+                            ? { background: "rgba(37,211,102,0.1)", color: "#25D366", border: "1px solid rgba(37,211,102,0.2)" }
+                            : { background: "rgba(185,255,75,0.12)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.35)" }}>
                           <Settings2 className="w-3 h-3" /> {wpCreds ? "ZApi configurado" : "Configurar ZApi"}
                         </button>
                         <button onClick={checkWpStatus} disabled={wpStatus === "loading"}
@@ -9494,6 +9498,13 @@ Regras:
                             style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#F0F0F0" }}>
                             {["Básico", "Intermediário", "Avançado"].map(l => <option key={l} value={l}>{l}</option>)}
                           </select>
+                          <div className="flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}>
+                            <span className="text-xs flex-1" style={{ color: "rgba(255,255,255,0.5)" }}>Dias de curso</span>
+                            <input type="number" min={1} max={30} value={newCourseForm.num_days}
+                              onChange={e => setNewCourseForm(p => ({ ...p, num_days: Math.max(1, parseInt(e.target.value) || 1) }))}
+                              className="w-12 text-center text-xs focus:outline-none bg-transparent"
+                              style={{ color: "#F0F0F0" }} />
+                          </div>
                         </div>
                         <div className="flex gap-2">
                           <button onClick={handleCreateCourse} disabled={savingCourse || !newCourseForm.title.trim()}
@@ -9540,7 +9551,11 @@ Regras:
                   const isCertOpen = certCourseId === course.id;
                   const isAttendOpen = attendanceCourseId === course.id;
                   const attending = dbAttendance[course.id] ?? [];
-                  const presencaUrl = `https://www.caluagencia.com.br/presenca/${course.id}`;
+                  const numDays = course.num_days ?? 1;
+                  const activeDay = selectedQrDay[course.id] ?? 1;
+                  const presencaUrl = numDays > 1
+                    ? `https://www.caluagencia.com.br/presenca/${course.id}/${activeDay}`
+                    : `https://www.caluagencia.com.br/presenca/${course.id}`;
 
                   return (
                     <motion.div key={course.id} className="rounded-2xl overflow-hidden"
@@ -10328,11 +10343,35 @@ Regras:
                                   <label className="text-[10px] uppercase tracking-widest font-semibold block" style={{ color: "rgba(255,255,255,0.3)" }}>
                                     QR Code para alunos
                                   </label>
+
+                                  {/* Day selector */}
+                                  {numDays > 1 && (
+                                    <div className="flex gap-1.5 flex-wrap">
+                                      {Array.from({ length: numDays }, (_, i) => i + 1).map(d => (
+                                        <button key={d}
+                                          onClick={() => setSelectedQrDay(prev => ({ ...prev, [course.id]: d }))}
+                                          className="px-3 py-1 rounded-lg text-[10px] font-semibold transition-all"
+                                          style={{
+                                            background: activeDay === d ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.04)",
+                                            color: activeDay === d ? "#34D399" : "rgba(255,255,255,0.35)",
+                                            border: `1px solid ${activeDay === d ? "rgba(52,211,153,0.3)" : "rgba(255,255,255,0.08)"}`,
+                                          }}>
+                                          Dia {d}
+                                        </button>
+                                      ))}
+                                    </div>
+                                  )}
+
                                   <div className="flex flex-col items-center gap-3 p-4 rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                                    <QRCodeCanvas id={`qr-canvas-${course.id}`} value={presencaUrl} size={400} bgColor="#ffffff" fgColor="#000000" style={{ display: "none" }} />
+                                    <QRCodeCanvas id={`qr-canvas-${course.id}-d${activeDay}`} value={presencaUrl} size={400} bgColor="#ffffff" fgColor="#000000" style={{ display: "none" }} />
                                     <div className="p-3 rounded-xl" style={{ background: "white" }}>
                                       <QRCodeSVG value={presencaUrl} size={140} />
                                     </div>
+                                    {numDays > 1 && (
+                                      <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full" style={{ background: "rgba(52,211,153,0.12)", color: "#34D399" }}>
+                                        Dia {activeDay} de {numDays}
+                                      </span>
+                                    )}
                                     <p className="text-[10px] text-center leading-snug" style={{ color: "rgba(255,255,255,0.35)" }}>
                                       Aluno escaneia e confirma presença com o e-mail da matrícula
                                     </p>
@@ -10345,7 +10384,7 @@ Regras:
                                     <div className="flex gap-2 w-full">
                                       <button
                                         onClick={() => {
-                                          const src = document.getElementById(`qr-canvas-${course.id}`) as HTMLCanvasElement;
+                                          const src = document.getElementById(`qr-canvas-${course.id}-d${activeDay}`) as HTMLCanvasElement;
                                           if (!src) return;
                                           const pad = 24;
                                           const out = document.createElement("canvas");
@@ -10356,7 +10395,7 @@ Regras:
                                           ctx.fillRect(0, 0, out.width, out.height);
                                           ctx.drawImage(src, pad, pad);
                                           const a = document.createElement("a");
-                                          a.download = `qrcode-presenca-${course.id}.png`;
+                                          a.download = numDays > 1 ? `qrcode-dia${activeDay}-${course.id}.png` : `qrcode-presenca-${course.id}.png`;
                                           a.href = out.toDataURL("image/png");
                                           a.click();
                                         }}
@@ -10366,7 +10405,7 @@ Regras:
                                       </button>
                                       <button
                                         onClick={() => {
-                                          const src = document.getElementById(`qr-canvas-${course.id}`) as HTMLCanvasElement;
+                                          const src = document.getElementById(`qr-canvas-${course.id}-d${activeDay}`) as HTMLCanvasElement;
                                           if (!src) return;
                                           const pad = 24;
                                           const out = document.createElement("canvas");
@@ -10377,7 +10416,7 @@ Regras:
                                           ctx.fillRect(0, 0, out.width, out.height);
                                           ctx.drawImage(src, pad, pad);
                                           const a = document.createElement("a");
-                                          a.download = `qrcode-presenca-${course.id}.jpg`;
+                                          a.download = numDays > 1 ? `qrcode-dia${activeDay}-${course.id}.jpg` : `qrcode-presenca-${course.id}.jpg`;
                                           a.href = out.toDataURL("image/jpeg", 0.92);
                                           a.click();
                                         }}
@@ -10398,6 +10437,11 @@ Regras:
                                 <div className="space-y-3">
                                   <label className="text-[10px] uppercase tracking-widest font-semibold block" style={{ color: "rgba(255,255,255,0.3)" }}>
                                     Presenças confirmadas
+                                    {numDays > 1 && attending.length > 0 && (
+                                      <span className="ml-2 normal-case font-normal" style={{ color: "rgba(52,211,153,0.6)" }}>
+                                        {attending.length} registro{attending.length !== 1 ? "s" : ""}
+                                      </span>
+                                    )}
                                   </label>
                                   {attending.length === 0 ? (
                                     <div className="py-8 text-center rounded-xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.07)" }}>
@@ -10418,6 +10462,11 @@ Regras:
                                             <p className="text-[11px] font-medium truncate" style={{ color: "rgba(255,255,255,0.8)" }}>{a.student_name}</p>
                                             <p className="text-[9px] truncate" style={{ color: "rgba(255,255,255,0.3)" }}>{a.student_email}</p>
                                           </div>
+                                          {numDays > 1 && a.day && (
+                                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: "rgba(52,211,153,0.12)", color: "#34D399" }}>
+                                              D{a.day}
+                                            </span>
+                                          )}
                                           <CheckCircle2 className="w-3 h-3 flex-shrink-0" style={{ color: "#34D399" }} />
                                         </div>
                                       ))}

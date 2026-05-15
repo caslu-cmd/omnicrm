@@ -6,8 +6,10 @@ import { CheckCircle2, Loader2, Mail, AlertTriangle } from "lucide-react";
 type Step = "email" | "checking" | "confirmed" | "already" | "not_found";
 
 export default function AttendancePage() {
-  const { courseId } = useParams<{ courseId: string }>();
-  const [course, setCourse] = useState<{ title: string } | null>(null);
+  const { courseId, day } = useParams<{ courseId: string; day?: string }>();
+  const dayNumber = day ? parseInt(day, 10) : 1;
+
+  const [course, setCourse] = useState<{ title: string; num_days?: number } | null>(null);
   const [loadingCourse, setLoadingCourse] = useState(true);
   const [email, setEmail] = useState("");
   const [step, setStep] = useState<Step>("email");
@@ -17,7 +19,7 @@ export default function AttendancePage() {
     if (!courseId) return;
     (supabase as any)
       .from("courses")
-      .select("title")
+      .select("title, num_days")
       .eq("id", courseId)
       .single()
       .then(({ data }: any) => { setCourse(data); setLoadingCourse(false); });
@@ -42,6 +44,7 @@ export default function AttendancePage() {
       .from("course_attendance")
       .select("id")
       .eq("course_id", courseId)
+      .eq("day", dayNumber)
       .ilike("student_email", trimmed)
       .maybeSingle();
 
@@ -51,11 +54,15 @@ export default function AttendancePage() {
       course_id: courseId,
       student_email: trimmed,
       student_name: enrollment.student_name,
+      day: dayNumber,
     });
     setStep("confirmed");
   };
 
   const retry = () => { setEmail(""); setStep("email"); };
+
+  const numDays = course?.num_days ?? 1;
+  const showDayLabel = numDays > 1;
 
   const card: React.CSSProperties = {
     width: "100%", maxWidth: 440,
@@ -103,6 +110,16 @@ export default function AttendancePage() {
             Lista de Presença
           </h1>
           <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 14 }}>{course.title}</p>
+          {showDayLabel && (
+            <span style={{
+              display: "inline-block", marginTop: 8,
+              padding: "4px 14px", borderRadius: 99,
+              background: "rgba(185,255,75,0.12)", border: "1px solid rgba(185,255,75,0.25)",
+              color: "#B9FF4B", fontSize: 12, fontWeight: 700, letterSpacing: "0.05em",
+            }}>
+              Dia {dayNumber} de {numDays}
+            </span>
+          )}
         </div>
 
         {step === "email" && (
@@ -140,7 +157,7 @@ export default function AttendancePage() {
                 transition: "all 0.2s",
               }}
             >
-              Confirmar presença
+              Confirmar presença{showDayLabel ? ` — Dia ${dayNumber}` : ""}
             </button>
           </div>
         )}
@@ -167,7 +184,9 @@ export default function AttendancePage() {
             </h2>
             <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 14 }}>
               Olá, <strong style={{ color: "#F0F0F0" }}>{studentName}</strong>.{" "}
-              Sua presença foi registrada com sucesso.
+              {showDayLabel
+                ? `Sua presença no Dia ${dayNumber} foi registrada com sucesso.`
+                : "Sua presença foi registrada com sucesso."}
             </p>
           </div>
         )}
@@ -187,7 +206,9 @@ export default function AttendancePage() {
             </h2>
             <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 14 }}>
               Olá, <strong style={{ color: "#F0F0F0" }}>{studentName}</strong>.{" "}
-              Sua presença neste curso já estava registrada.
+              {showDayLabel
+                ? `Sua presença no Dia ${dayNumber} já estava registrada.`
+                : "Sua presença neste curso já estava registrada."}
             </p>
           </div>
         )}
