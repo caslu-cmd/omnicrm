@@ -480,6 +480,80 @@ function applyImageReplace(html: string, oldSrc: string, newSrc: string): string
   return ("<!DOCTYPE html>\n" + doc.documentElement.outerHTML).split(oldSrc).join(newSrc);
 }
 
+// ── Element-level effects ──────────────────────────────────────────────────────
+
+const EL_EFFECTS_CARD = [
+  { key: "glow",    label: "Glow",    emoji: "✨", css: `[data-calu-el="ID"]{box-shadow:0 0 40px rgba(var(--rgb),.45),0 8px 32px rgba(var(--rgb),.2)!important;}` },
+  { key: "glass",   label: "Glass",   emoji: "🪟", css: `[data-calu-el="ID"]{background:rgba(255,255,255,.05)!important;backdrop-filter:blur(20px)!important;-webkit-backdrop-filter:blur(20px)!important;border:1px solid rgba(255,255,255,.1)!important;}` },
+  { key: "float",   label: "Float",   emoji: "🫧", css: `[data-calu-el="ID"]{animation:float 4s ease-in-out infinite;}` },
+  { key: "neon",    label: "Neon",    emoji: "💜", css: `[data-calu-el="ID"]{border:1px solid var(--p)!important;box-shadow:0 0 20px rgba(var(--rgb),.4),inset 0 0 20px rgba(var(--rgb),.05)!important;}` },
+  { key: "zoom",    label: "Zoom",    emoji: "🔍", css: `[data-calu-el="ID"]{transition:transform .3s ease!important;}[data-calu-el="ID"]:hover{transform:scale(1.04)!important;}` },
+  { key: "shimmer", label: "Shimmer", emoji: "🌟", css: `[data-calu-el="ID"]{position:relative;overflow:hidden;}[data-calu-el="ID"]::after{content:'';position:absolute;inset:0;background:linear-gradient(105deg,transparent 40%,rgba(255,255,255,.13) 50%,transparent 60%);animation:el-shimmer 2.5s ease-in-out infinite;}@keyframes el-shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}` },
+] as const;
+
+const EL_EFFECTS_IMG = [
+  { key: "shadow",    label: "Sombra",    emoji: "🌑", css: `[data-calu-el="ID"]{box-shadow:0 20px 60px rgba(0,0,0,.55),0 8px 25px rgba(0,0,0,.35)!important;border-radius:12px!important;}` },
+  { key: "glow",      label: "Glow",      emoji: "✨", css: `[data-calu-el="ID"]{box-shadow:0 0 40px rgba(var(--rgb),.45)!important;border-radius:12px!important;}` },
+  { key: "grayscale", label: "Cinza→Cor", emoji: "🎨", css: `[data-calu-el="ID"]{filter:grayscale(100%);transition:filter .4s ease!important;}[data-calu-el="ID"]:hover{filter:grayscale(0%)!important;}` },
+  { key: "zoom",      label: "Zoom",      emoji: "🔍", css: `[data-calu-el="ID"]{transition:transform .4s ease!important;}[data-calu-el="ID"]:hover{transform:scale(1.05)!important;}` },
+  { key: "frame",     label: "Frame",     emoji: "🖼️", css: `[data-calu-el="ID"]{border:3px solid var(--p)!important;border-radius:16px!important;}` },
+  { key: "float",     label: "Float",     emoji: "🫧", css: `[data-calu-el="ID"]{animation:float 5s ease-in-out infinite;}` },
+] as const;
+
+function tagLPElements(html: string): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  let ci = 0;
+  doc.querySelectorAll(".card,.tcard,.offer-card,.stat-card,.glass").forEach(el => {
+    if (!el.getAttribute("data-calu-el")) el.setAttribute("data-calu-el", `card-${ci++}`);
+  });
+  let ii = 0;
+  Array.from(doc.querySelectorAll("img")).filter(img => {
+    const s = img.getAttribute("src") ?? ""; return s && !s.startsWith("data:");
+  }).forEach(img => {
+    if (!img.getAttribute("data-calu-el")) img.setAttribute("data-calu-el", `img-${ii++}`);
+  });
+  if (!doc.querySelector("#calu-el-fx")) {
+    const s = doc.createElement("style"); s.id = "calu-el-fx"; s.textContent = "";
+    doc.head.appendChild(s);
+  }
+  return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
+}
+
+function getTaggedElements(html: string): { cards: {id:string;label:string}[]; images: {id:string;src:string;alt:string}[] } {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const cards = Array.from(doc.querySelectorAll("[data-calu-el^='card-']")).map(el => ({
+    id: el.getAttribute("data-calu-el")!,
+    label: el.querySelector("h3,h2,.t-name,.stat-n")?.textContent?.trim().slice(0, 28) ?? el.getAttribute("data-calu-el")!,
+  }));
+  const images = Array.from(doc.querySelectorAll("[data-calu-el^='img-']")).map(img => ({
+    id: img.getAttribute("data-calu-el")!,
+    src: img.getAttribute("src")!,
+    alt: img.getAttribute("alt") ?? "",
+  }));
+  return { cards, images };
+}
+
+function toggleElementEffect(html: string, elId: string, effectKey: string, effectCss: string): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  let fxStyle = doc.querySelector("#calu-el-fx") as HTMLStyleElement | null;
+  if (!fxStyle) { fxStyle = doc.createElement("style") as HTMLStyleElement; fxStyle.id = "calu-el-fx"; fxStyle.textContent = ""; doc.head.appendChild(fxStyle); }
+  const open = `/* [el-fx:${elId}:${effectKey}] */`;
+  const close = `/* [/el-fx:${elId}:${effectKey}] */`;
+  let css = fxStyle.textContent ?? "";
+  if (css.includes(open)) {
+    const s = css.indexOf(open), e = css.indexOf(close);
+    css = e > s ? css.slice(0, s) + css.slice(e + close.length) : css;
+  } else {
+    css += `\n${open}\n${effectCss.replace(/ID/g, elId)}\n${close}`;
+  }
+  fxStyle.textContent = css;
+  return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
+}
+
+function isElementEffectActive(html: string, elId: string, effectKey: string): boolean {
+  return html.includes(`/* [el-fx:${elId}:${effectKey}] */`);
+}
+
 // ── Premium effects ───────────────────────────────────────────────────────────
 
 const PREMIUM_EFFECTS: { key: string; label: string; emoji: string; css: string }[] = [
@@ -828,6 +902,7 @@ export default function TomasPage() {
   const [blockMode, setBlockMode]       = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [imagesOpen, setImagesOpen]     = useState(false);
+  const [elFxOpen, setElFxOpen]         = useState(false);
   const [replaceImgSrc, setReplaceImgSrc] = useState<string | null>(null);
   const [replaceImgVal, setReplaceImgVal] = useState("");
   const [replaceImgUploading, setReplaceImgUploading] = useState(false);
@@ -2004,21 +2079,26 @@ form.addEventListener('submit',function(e){
           {/* Mode toggle + templates button */}
           <div className="flex px-3 pb-2.5 gap-1.5 flex-wrap">
             {[{id: false, label: "Campos", icon: "✏️"}, {id: true, label: "Blocos", icon: "⊞"}].map(m => (
-              <button key={String(m.id)} onClick={() => { setBlockMode(m.id); setTemplatesOpen(false); setImagesOpen(false); }}
+              <button key={String(m.id)} onClick={() => { setBlockMode(m.id); setTemplatesOpen(false); setImagesOpen(false); setElFxOpen(false); }}
                 className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                style={{ background: blockMode === m.id && !templatesOpen && !imagesOpen ? "#B9FF4B22" : "#141420", border: `1px solid ${blockMode === m.id && !templatesOpen && !imagesOpen ? "#B9FF4B55" : "#2A2A3A"}`, color: blockMode === m.id && !templatesOpen && !imagesOpen ? "#B9FF4B" : "rgba(255,255,255,0.35)" }}>
+                style={{ background: blockMode === m.id && !templatesOpen && !imagesOpen && !elFxOpen ? "#B9FF4B22" : "#141420", border: `1px solid ${blockMode === m.id && !templatesOpen && !imagesOpen && !elFxOpen ? "#B9FF4B55" : "#2A2A3A"}`, color: blockMode === m.id && !templatesOpen && !imagesOpen && !elFxOpen ? "#B9FF4B" : "rgba(255,255,255,0.35)" }}>
                 <span>{m.icon}</span>{m.label}
               </button>
             ))}
-            <button onClick={() => { setTemplatesOpen(v => !v); setImagesOpen(false); }}
+            <button onClick={() => { setTemplatesOpen(v => !v); setImagesOpen(false); setElFxOpen(false); }}
               className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-semibold transition-all"
               style={{ background: templatesOpen ? "#B9FF4B22" : "#141420", border: `1px solid ${templatesOpen ? "#B9FF4B55" : "#2A2A3A"}`, color: templatesOpen ? "#B9FF4B" : "rgba(255,255,255,0.35)" }}>
               <span>📋</span>Seções
             </button>
-            <button onClick={() => { setImagesOpen(v => !v); setTemplatesOpen(false); }}
+            <button onClick={() => { setImagesOpen(v => !v); setTemplatesOpen(false); setElFxOpen(false); }}
               className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-semibold transition-all"
               style={{ background: imagesOpen ? "#B9FF4B22" : "#141420", border: `1px solid ${imagesOpen ? "#B9FF4B55" : "#2A2A3A"}`, color: imagesOpen ? "#B9FF4B" : "rgba(255,255,255,0.35)" }}>
               <span>🖼️</span>Imagens
+            </button>
+            <button onClick={() => { setElFxOpen(v => !v); setImagesOpen(false); setTemplatesOpen(false); if (!elFxOpen && markedHtml) setMarkedHtml(tagLPElements(markedHtml)); }}
+              className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-semibold transition-all"
+              style={{ background: elFxOpen ? "#B9FF4B22" : "#141420", border: `1px solid ${elFxOpen ? "#B9FF4B55" : "#2A2A3A"}`, color: elFxOpen ? "#B9FF4B" : "rgba(255,255,255,0.35)" }}>
+              <span>✨</span>Efeitos
             </button>
           </div>
         </div>
@@ -2103,6 +2183,75 @@ form.addEventListener('submit',function(e){
                   </div>
                 </div>
               ));
+            })()}
+          </div>
+        ) : elFxOpen ? (
+          /* ─── EFEITOS PANEL ──────────────────────────────────────────── */
+          <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-4">
+            {(() => {
+              const { cards, images } = getTaggedElements(markedHtml || "");
+              return (
+                <>
+                  {cards.length > 0 && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest font-semibold px-1 mb-2" style={{ color: "#444466" }}>Cards ({cards.length})</p>
+                      <div className="flex flex-col gap-2">
+                        {cards.map(card => (
+                          <div key={card.id} className="rounded-xl p-3" style={{ background: "#0D0D18", border: "1px solid #1E1E2E" }}>
+                            <p className="text-xs font-semibold mb-2 truncate" style={{ color: "rgba(255,255,255,0.7)" }}>{card.label || card.id}</p>
+                            <div className="flex flex-wrap gap-1.5">
+                              {EL_EFFECTS_CARD.map(fx => {
+                                const active = isElementEffectActive(markedHtml, card.id, fx.key);
+                                return (
+                                  <button key={fx.key}
+                                    onClick={() => setMarkedHtml(prev => toggleElementEffect(prev, card.id, fx.key, fx.css))}
+                                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold transition-all"
+                                    style={{ background: active ? "#B9FF4B22" : "#141420", border: `1px solid ${active ? "#B9FF4B55" : "#2A2A3A"}`, color: active ? "#B9FF4B" : "rgba(255,255,255,0.4)" }}>
+                                    {fx.emoji} {fx.label}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {images.length > 0 && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest font-semibold px-1 mb-2" style={{ color: "#444466" }}>Imagens ({images.length})</p>
+                      <div className="flex flex-col gap-2">
+                        {images.map(img => (
+                          <div key={img.id} className="rounded-xl overflow-hidden" style={{ background: "#0D0D18", border: "1px solid #1E1E2E" }}>
+                            <div className="w-full h-20 overflow-hidden" style={{ background: "#141420" }}>
+                              <img src={img.src} alt={img.alt} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                            </div>
+                            <div className="p-2.5">
+                              <p className="text-[10px] truncate mb-2" style={{ color: "#444466" }}>{img.alt || img.src.split("/").pop()?.slice(0, 35) || img.id}</p>
+                              <div className="flex flex-wrap gap-1.5">
+                                {EL_EFFECTS_IMG.map(fx => {
+                                  const active = isElementEffectActive(markedHtml, img.id, fx.key);
+                                  return (
+                                    <button key={fx.key}
+                                      onClick={() => setMarkedHtml(prev => toggleElementEffect(prev, img.id, fx.key, fx.css))}
+                                      className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold transition-all"
+                                      style={{ background: active ? "#B9FF4B22" : "#141420", border: `1px solid ${active ? "#B9FF4B55" : "#2A2A3A"}`, color: active ? "#B9FF4B" : "rgba(255,255,255,0.4)" }}>
+                                      {fx.emoji} {fx.label}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {cards.length === 0 && images.length === 0 && (
+                    <p className="text-sm text-center py-8" style={{ color: "#444466" }}>Nenhum card ou imagem detectado.<br/>Gere ou edite uma LP primeiro.</p>
+                  )}
+                </>
+              );
             })()}
           </div>
         ) : sections.length === 0 ? (
