@@ -631,6 +631,12 @@ export default function TomasPage() {
   const [formFields, setFormFields] = useState<("name" | "email" | "phone" | "message")[]>(["name", "email", "phone"]);
   const [formCta, setFormCta]       = useState("Quero me inscrever");
   const [formInjected, setFormInjected] = useState(false);
+  const [wpFormPreview, setWpFormPreview] = useState<{
+    name: string;
+    fields: Array<{ label: string; type: string; required: boolean; placeholder: string }>;
+    submit_text: string;
+  } | null>(null);
+  const [wpFormFetching, setWpFormFetching] = useState(false);
 
   // ── WordPress state ─────────────────────────────────────────────────────────
   const [wpUrl, setWpUrl]           = useState("");
@@ -1573,6 +1579,21 @@ form.addEventListener('submit',function(e){
     if (!forminatorId.trim()) { toast.error("Digite o ID do formulário Forminator"); return; }
 
     const fid = forminatorId.trim();
+
+    // Use real fetched fields or generic fallback
+    const previewFields = wpFormPreview?.fields?.length
+      ? wpFormPreview.fields
+      : [
+          { label: "Nome completo", type: "text", required: false, placeholder: "Nome completo" },
+          { label: "E-mail", type: "email", required: false, placeholder: "E-mail" },
+          { label: "WhatsApp", type: "tel", required: false, placeholder: "WhatsApp" },
+        ];
+    const submitText = wpFormPreview?.submit_text || "Quero me inscrever";
+
+    // Safely embed as JSON to avoid quote-escaping issues
+    const fieldsJson = JSON.stringify(previewFields).replace(/<\/script>/gi, "<\\/script>");
+    const submitJson = JSON.stringify(submitText).replace(/<\/script>/gi, "<\\/script>");
+
     const formSection = `
 <section id="form-inscricao" style="padding:80px 20px;background:var(--bg,#07080A);text-align:center;">
   <div style="max-width:600px;margin:0 auto;">
@@ -1583,15 +1604,23 @@ form.addEventListener('submit',function(e){
 </section>
 <script>(function(){
   if(typeof window.forminator_vars!=='undefined')return;
+  var fields=${fieldsJson};
+  var submitText=${submitJson};
   var w=document.querySelector('.calu-form-wrap');
   if(!w)return;
-  w.innerHTML='<div style="display:flex;flex-direction:column;gap:10px;text-align:left;">'
-    +'<input type="text" placeholder="Nome completo" disabled style="padding:12px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:#E0E0F0;font-size:14px;font-family:inherit;width:100%;box-sizing:border-box;"/>'
-    +'<input type="email" placeholder="E-mail" disabled style="padding:12px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:#E0E0F0;font-size:14px;font-family:inherit;width:100%;box-sizing:border-box;"/>'
-    +'<input type="tel" placeholder="WhatsApp" disabled style="padding:12px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:#E0E0F0;font-size:14px;font-family:inherit;width:100%;box-sizing:border-box;"/>'
-    +'<button disabled style="width:100%;padding:14px;border-radius:8px;background:var(--accent,#B9FF4B);color:#07080A;font-weight:700;font-size:15px;border:none;font-family:inherit;">Quero me inscrever</button>'
-    +'<p style="text-align:center;font-size:11px;opacity:0.4;color:inherit;margin:6px 0 0;">Formulário Forminator #${fid} — publicar no WordPress para ativar</p>'
-    +'</div>';
+  var st='padding:12px 16px;border-radius:8px;border:1px solid rgba(255,255,255,0.15);background:rgba(255,255,255,0.06);color:#E0E0F0;font-size:14px;font-family:inherit;width:100%;box-sizing:border-box;';
+  var html='<div style="display:flex;flex-direction:column;gap:10px;text-align:left;">';
+  fields.forEach(function(f){
+    var ph=(f.placeholder||f.label)+(f.required?' *':'');
+    var t=f.type==='email'?'email':f.type==='phone'||f.type==='tel'?'tel':f.type==='number'?'number':'text';
+    if(f.type==='textarea'){html+='<textarea placeholder="'+ph.replace(/"/g,"&quot;")+'" disabled rows="3" style="'+st+'resize:none;"></textarea>';}
+    else if(f.type==='select'){html+='<select disabled style="'+st+'"><option>'+ph.replace(/</g,"&lt;")+'</option></select>';}
+    else{html+='<input type="'+t+'" placeholder="'+ph.replace(/"/g,"&quot;")+'" disabled style="'+st+'" />';}
+  });
+  html+='<button disabled style="width:100%;padding:14px;border-radius:8px;background:var(--accent,#B9FF4B);color:#07080A;font-weight:700;font-size:15px;border:none;font-family:inherit;">'+submitText+'</button>';
+  html+='<p style="text-align:center;font-size:11px;opacity:0.4;color:inherit;margin:6px 0 0;">Formulário Forminator #${fid} — publicar no WordPress para ativar</p>';
+  html+='</div>';
+  w.innerHTML=html;
 })();<\/script>`;
 
     const newHtml = currentHtml.includes("</main>")
@@ -1605,8 +1634,35 @@ form.addEventListener('submit',function(e){
       setMarkedHtml(newMarked);
       setSections(newSections);
     }
-    toast.success(`Seção com formulário Forminator #${forminatorId.trim()} inserida na LP!`);
-  }, [htmlEditado, resultado, parcial.html, forminatorId, editorMode]);
+    toast.success(`Seção com formulário Forminator #${forminatorId.trim()} inserida!`);
+  }, [htmlEditado, resultado, parcial.html, forminatorId, editorMode, wpFormPreview]);
+
+  // ── fetchForminatorFields ─────────────────────────────────────────────────────
+  const fetchForminatorFields = useCallback(async (fid: string) => {
+    if (!fid.trim() || !wpUrl || !wpUser || !wpPassword) return;
+    setWpFormFetching(true);
+    setWpFormPreview(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? "";
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/fetch-wp-form`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({ wp_url: wpUrl, wp_user: wpUser, wp_password: wpPassword, form_id: fid }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setWpFormPreview(data);
+        toast.success(`${data.fields.length} campo(s) carregados do formulário "${data.form_name}"`);
+      } else {
+        toast.error(data.error ?? "Não foi possível buscar o formulário");
+      }
+    } catch (e: any) {
+      toast.error(e.message ?? "Erro ao buscar campos do formulário");
+    } finally {
+      setWpFormFetching(false);
+    }
+  }, [wpUrl, wpUser, wpPassword]);
 
   // ── addEditingToPreview (basic edit mode) ────────────────────────────────────
 
@@ -2649,19 +2705,62 @@ form.addEventListener('submit',function(e){
 
                 {formMode === "forminator" && (
                   <div className="flex flex-col gap-2">
-                    <input type="text" value={forminatorId} onChange={e => setForminatorId(e.target.value)}
-                      className="rounded-xl px-3 py-2 text-sm outline-none"
-                      style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0" }}
-                      placeholder="ID do formulário — Ex: 42"
-                      onFocus={e => e.currentTarget.style.borderColor = "#B9FF4B44"}
-                      onBlur={e => e.currentTarget.style.borderColor = "#2A2A3A"} />
+                    {/* ID + buscar */}
+                    <div className="flex gap-2">
+                      <input type="text" value={forminatorId}
+                        onChange={e => { setForminatorId(e.target.value); setWpFormPreview(null); }}
+                        className="flex-1 rounded-xl px-3 py-2 text-sm outline-none"
+                        style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0" }}
+                        placeholder="ID do formulário — Ex: 42"
+                        onFocus={e => e.currentTarget.style.borderColor = "#B9FF4B44"}
+                        onBlur={e => e.currentTarget.style.borderColor = "#2A2A3A"}
+                        onKeyDown={e => { if (e.key === "Enter" && forminatorId.trim()) fetchForminatorFields(forminatorId); }} />
+                      <button
+                        onClick={() => fetchForminatorFields(forminatorId)}
+                        disabled={wpFormFetching || !forminatorId.trim() || !wpUrl || !wpUser}
+                        title={!wpUrl || !wpUser ? "Configure as credenciais do WordPress primeiro" : "Buscar campos do formulário"}
+                        className="flex-shrink-0 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
+                        style={{ background: wpFormPreview ? "#B9FF4B22" : "#141420", border: `1px solid ${wpFormPreview ? "#B9FF4B55" : "#2A2A3A"}`, color: wpFormPreview ? "#B9FF4B" : "rgba(255,255,255,0.4)", opacity: (!forminatorId.trim() || !wpUrl || !wpUser) ? 0.4 : 1 }}>
+                        {wpFormFetching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : wpFormPreview ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Search className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+
+                    {/* Hint se creds não configuradas */}
+                    {(!wpUrl || !wpUser) && (
+                      <p className="text-[10px]" style={{ color: "#444466" }}>
+                        Configure URL e usuário do WordPress abaixo para carregar os campos reais.
+                      </p>
+                    )}
+
+                    {/* Campo chips preview */}
+                    {wpFormPreview && (
+                      <div className="rounded-xl p-3 flex flex-col gap-2" style={{ background: "#0D0D18", border: "1px solid #1E1E2E" }}>
+                        <p className="text-[10px] font-semibold" style={{ color: "#B9FF4B" }}>
+                          {wpFormPreview.name} — {wpFormPreview.fields.length} campo(s)
+                        </p>
+                        <div className="flex flex-wrap gap-1">
+                          {wpFormPreview.fields.map((f, i) => (
+                            <span key={i} className="text-[10px] px-2 py-0.5 rounded-full"
+                              style={{ background: "#1E1E2E", color: "rgba(255,255,255,0.5)", border: "1px solid #2A2A3A" }}>
+                              {f.label}{f.required ? " *" : ""}
+                            </span>
+                          ))}
+                        </div>
+                        <p className="text-[10px]" style={{ color: "#333355" }}>
+                          Botão: "{wpFormPreview.submit_text}"
+                        </p>
+                      </div>
+                    )}
+
                     <button onClick={injectForminatorForm} disabled={formInjected || !forminatorId.trim()}
                       className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all"
                       style={{ background: formInjected ? "#0E1A08" : "#B9FF4B22", border: `1px solid ${formInjected ? "#B9FF4B33" : "#B9FF4B55"}`, color: "#B9FF4B", opacity: (formInjected || !forminatorId.trim()) ? 0.6 : 1 }}>
                       {formInjected ? <><CheckCircle2 className="w-4 h-4" /> Formulário inserido</> : <><Wand2 className="w-4 h-4" /> Inserir na LP</>}
                     </button>
                     {formInjected && (
-                      <p className="text-[10px] text-center" style={{ color: "#444466" }}>Shortcode [forminator_form id="{forminatorId}"] inserido na seção de inscrição</p>
+                      <p className="text-[10px] text-center" style={{ color: "#444466" }}>
+                        Shortcode [forminator_form id="{forminatorId}"] inserido — os campos reais aparecem ao publicar no WordPress
+                      </p>
                     )}
                   </div>
                 )}
