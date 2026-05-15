@@ -459,6 +459,27 @@ function applyFieldUpdate(html: string, fieldId: string, newValue: string, field
   return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
 }
 
+function parseLPImages(html: string): { src: string; alt: string }[] {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const imgs = Array.from(doc.querySelectorAll("img"));
+  const seen = new Set<string>();
+  return imgs
+    .filter(img => {
+      const src = img.getAttribute("src") ?? "";
+      if (!src || src.startsWith("data:") || seen.has(src)) return false;
+      seen.add(src);
+      return true;
+    })
+    .map(img => ({ src: img.getAttribute("src")!, alt: img.getAttribute("alt") ?? "" }));
+}
+
+function applyImageReplace(html: string, oldSrc: string, newSrc: string): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  doc.querySelectorAll(`img[src="${CSS.escape ? CSS.escape(oldSrc) : oldSrc}"]`).forEach(img => img.setAttribute("src", newSrc));
+  // fallback: also replace via string (handles URL-encoded or complex srcs)
+  return ("<!DOCTYPE html>\n" + doc.documentElement.outerHTML).split(oldSrc).join(newSrc);
+}
+
 // ── Premium effects ───────────────────────────────────────────────────────────
 
 const PREMIUM_EFFECTS: { key: string; label: string; emoji: string; css: string }[] = [
@@ -806,6 +827,11 @@ export default function TomasPage() {
   // ── Block builder state ──────────────────────────────────────────────────────
   const [blockMode, setBlockMode]       = useState(false);
   const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [imagesOpen, setImagesOpen]     = useState(false);
+  const [replaceImgSrc, setReplaceImgSrc] = useState<string | null>(null);
+  const [replaceImgVal, setReplaceImgVal] = useState("");
+  const [replaceImgUploading, setReplaceImgUploading] = useState(false);
+  const replaceImgRef = useRef<HTMLInputElement>(null);
   const [blockInsertTarget, setBlockInsertTarget] = useState<{
     sectionId: string; colIdx: number; mode: "col" | "before" | "after" | "replace";
   } | null>(null);
@@ -1898,6 +1924,35 @@ form.addEventListener('submit',function(e){
     toast.success(`Seção "${template.name}" inserida!`);
   }, [markedHtml]);
 
+  // ── Image replace callbacks ───────────────────────────────────────────────────
+  const handleReplaceImageUpload = useCallback(async (file: File) => {
+    setReplaceImgUploading(true);
+    try {
+      const ext = file.name.split(".").pop() ?? "jpg";
+      const path = `lp-assets/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { data: upData, error: upErr } = await (supabase.storage as any)
+        .from("brand-assets").upload(path, file, { contentType: file.type, upsert: false });
+      if (upErr) { toast.error("Erro ao enviar: " + upErr.message); return; }
+      const { data: { publicUrl } } = (supabase.storage as any).from("brand-assets").getPublicUrl(upData.path);
+      setReplaceImgVal(publicUrl);
+    } catch (e: any) { toast.error(e.message); }
+    finally { setReplaceImgUploading(false); }
+  }, []);
+
+  const applyLpImageReplace = useCallback((oldSrc: string, newSrc: string) => {
+    if (!newSrc.trim()) { toast.error("Informe a URL ou faça upload"); return; }
+    setMarkedHtml(prev => {
+      const updated = applyImageReplace(prev, oldSrc, newSrc);
+      const { markedHtml: nm, sections: ns } = parseLPIntoSections(updated);
+      setSections(ns);
+      setHtmlEditado(stripEditorAttrs(updated));
+      return nm;
+    });
+    setReplaceImgSrc(null);
+    setReplaceImgVal("");
+    toast.success("Imagem substituída!");
+  }, []);
+
   // ── addEditingToPreview (basic edit mode) ────────────────────────────────────
 
   function addEditingToPreview(html: string): string {
@@ -1947,18 +2002,23 @@ form.addEventListener('submit',function(e){
             </div>
           </div>
           {/* Mode toggle + templates button */}
-          <div className="flex px-3 pb-2.5 gap-1.5">
+          <div className="flex px-3 pb-2.5 gap-1.5 flex-wrap">
             {[{id: false, label: "Campos", icon: "✏️"}, {id: true, label: "Blocos", icon: "⊞"}].map(m => (
-              <button key={String(m.id)} onClick={() => { setBlockMode(m.id); setTemplatesOpen(false); }}
+              <button key={String(m.id)} onClick={() => { setBlockMode(m.id); setTemplatesOpen(false); setImagesOpen(false); }}
                 className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                style={{ background: blockMode === m.id && !templatesOpen ? "#B9FF4B22" : "#141420", border: `1px solid ${blockMode === m.id && !templatesOpen ? "#B9FF4B55" : "#2A2A3A"}`, color: blockMode === m.id && !templatesOpen ? "#B9FF4B" : "rgba(255,255,255,0.35)" }}>
+                style={{ background: blockMode === m.id && !templatesOpen && !imagesOpen ? "#B9FF4B22" : "#141420", border: `1px solid ${blockMode === m.id && !templatesOpen && !imagesOpen ? "#B9FF4B55" : "#2A2A3A"}`, color: blockMode === m.id && !templatesOpen && !imagesOpen ? "#B9FF4B" : "rgba(255,255,255,0.35)" }}>
                 <span>{m.icon}</span>{m.label}
               </button>
             ))}
-            <button onClick={() => setTemplatesOpen(v => !v)}
+            <button onClick={() => { setTemplatesOpen(v => !v); setImagesOpen(false); }}
               className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-semibold transition-all"
               style={{ background: templatesOpen ? "#B9FF4B22" : "#141420", border: `1px solid ${templatesOpen ? "#B9FF4B55" : "#2A2A3A"}`, color: templatesOpen ? "#B9FF4B" : "rgba(255,255,255,0.35)" }}>
               <span>📋</span>Seções
+            </button>
+            <button onClick={() => { setImagesOpen(v => !v); setTemplatesOpen(false); }}
+              className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-semibold transition-all"
+              style={{ background: imagesOpen ? "#B9FF4B22" : "#141420", border: `1px solid ${imagesOpen ? "#B9FF4B55" : "#2A2A3A"}`, color: imagesOpen ? "#B9FF4B" : "rgba(255,255,255,0.35)" }}>
+              <span>🖼️</span>Imagens
             </button>
           </div>
         </div>
@@ -1987,6 +2047,63 @@ form.addEventListener('submit',function(e){
                 </div>
               );
             })}
+          </div>
+        ) : imagesOpen ? (
+          /* ─── IMAGES PANEL ───────────────────────────────────────────── */
+          <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-3">
+            <input ref={replaceImgRef} type="file" accept="image/*" className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) handleReplaceImageUpload(f); e.target.value = ""; }} />
+            {(() => {
+              const lpImgs = parseLPImages(markedHtml || "");
+              if (lpImgs.length === 0) return (
+                <p className="text-sm text-center py-8" style={{ color: "#444466" }}>Nenhuma imagem encontrada na LP</p>
+              );
+              return lpImgs.map((img, i) => (
+                <div key={i} className="rounded-xl overflow-hidden" style={{ background: "#0D0D18", border: "1px solid #1E1E2E" }}>
+                  {/* thumbnail */}
+                  <div className="w-full h-28 overflow-hidden" style={{ background: "#141420" }}>
+                    <img src={img.src} alt={img.alt} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                  </div>
+                  {/* info + actions */}
+                  <div className="p-2.5 flex flex-col gap-2">
+                    <p className="text-[10px] truncate" style={{ color: "#444466" }}>{img.alt || img.src.split("/").pop()?.slice(0, 40) || "sem nome"}</p>
+                    {replaceImgSrc === img.src ? (
+                      <div className="flex flex-col gap-1.5">
+                        <input
+                          type="text" value={replaceImgVal} onChange={e => setReplaceImgVal(e.target.value)}
+                          placeholder="Cole a URL da imagem..."
+                          className="w-full text-xs rounded-lg px-2.5 py-1.5 outline-none"
+                          style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0" }}
+                        />
+                        <div className="flex gap-1.5">
+                          <button onClick={() => replaceImgRef.current?.click()} disabled={replaceImgUploading}
+                            className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-semibold"
+                            style={{ background: "#141420", border: "1px solid #2A2A3A", color: "rgba(255,255,255,0.5)" }}>
+                            {replaceImgUploading ? "⏳" : "⬆️"} Upload
+                          </button>
+                          <button onClick={() => applyLpImageReplace(img.src, replaceImgVal)} disabled={replaceImgUploading}
+                            className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-semibold"
+                            style={{ background: "#B9FF4B22", border: "1px solid #B9FF4B55", color: "#B9FF4B" }}>
+                            ✓ Aplicar
+                          </button>
+                          <button onClick={() => { setReplaceImgSrc(null); setReplaceImgVal(""); }}
+                            className="px-2 py-1.5 rounded-lg text-xs"
+                            style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#444466" }}>
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button onClick={() => { setReplaceImgSrc(img.src); setReplaceImgVal(""); }}
+                        className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-semibold transition-all"
+                        style={{ background: "#141420", border: "1px solid #2A2A3A", color: "rgba(255,255,255,0.5)" }}>
+                        🔄 Trocar imagem
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ));
+            })()}
           </div>
         ) : sections.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
