@@ -880,7 +880,18 @@ function stripEditorAttrs(html: string): string {
   return html.replace(/ data-calu-(section|field)="[^"]*"/g, "");
 }
 
-function injectEditorScript(html: string, selectedId: string): string {
+function injectEditorScript(html: string, selectedId: string, elPickMode = false): string {
+  const elPickScript = elPickMode ? `
+// ── Element pick mode (Efeitos) ────────────────────────────────────────────
+var ps=document.createElement('style');
+ps.textContent='[data-calu-el]{cursor:crosshair!important;transition:outline .1s;}[data-calu-el]:hover{outline:2px dashed rgba(255,180,0,.7)!important;outline-offset:3px;}';
+document.head.appendChild(ps);
+document.querySelectorAll('[data-calu-el]').forEach(function(el){
+  el.addEventListener('click',function(e){
+    e.stopPropagation();e.preventDefault();
+    window.parent.postMessage({type:'calu-el-pick',elId:el.getAttribute('data-calu-el')},'*');
+  },true);
+});` : "";
   const script = `<script>(function(){
 var s=document.createElement('style');
 s.textContent='[data-calu-section]{cursor:pointer;transition:outline 0.15s;}[data-calu-section]:hover{outline:2px dashed rgba(185,255,75,0.35)!important;outline-offset:3px;}[data-calu-section="${selectedId}"]{outline:2px solid #B9FF4B!important;outline-offset:3px;}[data-calu-field]{cursor:pointer!important;transition:outline 0.1s;}[data-calu-field]:hover{outline:1px dashed rgba(96,165,250,0.7)!important;outline-offset:2px;}img[data-calu-field]:hover{outline:2px solid #60A5FA!important;outline-offset:2px;cursor:crosshair!important;}';
@@ -906,6 +917,7 @@ document.querySelectorAll('[data-calu-field]').forEach(function(el){
     },true);
   }
 });
+${elPickScript}
 })();<\/script>`;
   return html.includes("</body>") ? html.replace("</body>", script + "</body>") : html + script;
 }
@@ -3726,7 +3738,7 @@ form.addEventListener('submit',function(e){
                     style={{ width: previewMobile ? 390 : "95%", maxWidth: previewMobile ? 390 : 1280, border: "1px solid #2A2A3A" }}>
                     <iframe
                       srcDoc={editorMode
-                        ? injectEditorScript(htmlParaExibir, selectedSection?.id ?? "")
+                        ? injectEditorScript(htmlParaExibir, selectedSection?.id ?? "", elFxOpen)
                         : addEditingToPreview(htmlParaExibir)}
                       className="w-full"
                       style={{ height: "calc(100vh - 10rem)", border: "none" }}
