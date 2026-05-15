@@ -531,7 +531,7 @@ serve(async (req) => {
             },
             body: JSON.stringify({
               model: "claude-opus-4-7",
-              max_tokens: 16000,
+              max_tokens: 32000,
               stream: true,
               system: TOMAS_SYSTEM,
               messages: [{ role: "user", content: [{ type: "text", text: `Copy da Beatriz:\n${copy}\n\nEspecificação visual do Designer:\n${design}${skillContext}${imagensContext}\n\nCrie o HTML completo da landing page agora.` }] }],
@@ -593,6 +593,13 @@ serve(async (req) => {
           }
 
           if (!htmlFinal.startsWith("<")) throw new Error("HTML gerado inválido — tente novamente");
+
+          // Se o HTML foi truncado (sem </html>), fecha tags abertas para evitar CSS sem efeito
+          if (!htmlFinal.includes("</html>")) {
+            if (!htmlFinal.includes("</style>")) htmlFinal += "\n</style>";
+            if (!htmlFinal.includes("</body>")) htmlFinal += "\n</body>";
+            htmlFinal += "\n</html>";
+          }
 
           // Injeta override do IntersectionObserver para garantir que animações
           // scroll-reveal (opacity:0 + IO) disparem imediatamente ao carregar.
