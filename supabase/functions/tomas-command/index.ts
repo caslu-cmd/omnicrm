@@ -131,23 +131,33 @@ Regras:
     const data = await r.json();
     let raw = (data.content?.[0]?.text ?? "").trim();
 
-    // Remove markdown code fences se presentes
+    // Remove markdown code fences (```json, ```javascript, ``` plain)
     if (raw.startsWith("```")) {
-      raw = raw.split("\n").slice(1).join("\n");
-      if (raw.endsWith("```")) raw = raw.slice(0, -3).trimEnd();
+      raw = raw.replace(/^```[a-z]*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
     }
 
-    // Tenta parsear como JSON de changes
-    try {
-      const changes = JSON.parse(raw);
-      if (Array.isArray(changes)) {
-        return new Response(JSON.stringify({ changes }), {
-          headers: { ...cors, "Content-Type": "application/json" },
-        });
-      }
-    } catch { /* continua pro fallback */ }
+    // Helper para retornar changes
+    const okChanges = (changes: unknown[]) =>
+      new Response(JSON.stringify({ changes }), { headers: { ...cors, "Content-Type": "application/json" } });
 
-    // Fallback: modelo retornou HTML completo
+    // 1. Tenta parsear direto como JSON array
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) return okChanges(parsed);
+      // Claude às vezes envolve: {"changes": [...]}
+      if (parsed && Array.isArray((parsed as any).changes)) return okChanges((parsed as any).changes);
+    } catch { /* continua */ }
+
+    // 2. Extrai primeiro array JSON do texto (ignora texto antes/depois)
+    const arrayMatch = raw.match(/(\[\s*\{[\s\S]*?\}\s*\])/);
+    if (arrayMatch) {
+      try {
+        const parsed = JSON.parse(arrayMatch[1]);
+        if (Array.isArray(parsed) && parsed.length > 0) return okChanges(parsed);
+      } catch { /* continua */ }
+    }
+
+    // 3. Fallback: modelo retornou HTML completo
     if (raw.includes("<!DOCTYPE") || raw.includes("<html")) {
       return new Response(JSON.stringify({ new_html: raw }), {
         headers: { ...cors, "Content-Type": "application/json" },

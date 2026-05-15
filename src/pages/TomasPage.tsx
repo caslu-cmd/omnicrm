@@ -2969,30 +2969,30 @@ form.addEventListener('submit',function(e){
 
                 {formMode === "forminator" && (
                   <div className="flex flex-col gap-2">
-                    {/* ID + buscar */}
-                    <div className="flex gap-2">
+                    {/* ID input — auto-fetch no blur */}
+                    <div className="relative">
                       <input type="text" value={forminatorId}
                         onChange={e => { setForminatorId(e.target.value); setWpFormPreview(null); }}
-                        className="flex-1 rounded-xl px-3 py-2 text-sm outline-none"
+                        className="w-full rounded-xl px-3 py-2 text-sm outline-none pr-8"
                         style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0" }}
                         placeholder="ID do formulário — Ex: 42"
                         onFocus={e => e.currentTarget.style.borderColor = "#B9FF4B44"}
-                        onBlur={e => e.currentTarget.style.borderColor = "#2A2A3A"}
+                        onBlur={e => {
+                          e.currentTarget.style.borderColor = "#2A2A3A";
+                          if (forminatorId.trim() && wpUrl && wpUser) fetchForminatorFields(forminatorId);
+                        }}
                         onKeyDown={e => { if (e.key === "Enter" && forminatorId.trim()) fetchForminatorFields(forminatorId); }} />
-                      <button
-                        onClick={() => fetchForminatorFields(forminatorId)}
-                        disabled={wpFormFetching || !forminatorId.trim() || !wpUrl || !wpUser}
-                        title={!wpUrl || !wpUser ? "Configure as credenciais do WordPress primeiro" : "Buscar campos do formulário"}
-                        className="flex-shrink-0 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
-                        style={{ background: wpFormPreview ? "#B9FF4B22" : "#141420", border: `1px solid ${wpFormPreview ? "#B9FF4B55" : "#2A2A3A"}`, color: wpFormPreview ? "#B9FF4B" : "rgba(255,255,255,0.4)", opacity: (!forminatorId.trim() || !wpUrl || !wpUser) ? 0.4 : 1 }}>
-                        {wpFormFetching ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : wpFormPreview ? <CheckCircle2 className="w-3.5 h-3.5" /> : <Search className="w-3.5 h-3.5" />}
-                      </button>
+                      <div className="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none">
+                        {wpFormFetching ? <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "#B9FF4B" }} />
+                         : wpFormPreview ? <CheckCircle2 className="w-3.5 h-3.5" style={{ color: "#B9FF4B" }} />
+                         : null}
+                      </div>
                     </div>
 
                     {/* Hint se creds não configuradas */}
                     {(!wpUrl || !wpUser) && (
                       <p className="text-[10px]" style={{ color: "#444466" }}>
-                        Configure URL e usuário do WordPress abaixo para carregar os campos reais.
+                        Configure URL e usuário do WordPress abaixo para carregar os campos reais automaticamente.
                       </p>
                     )}
 
