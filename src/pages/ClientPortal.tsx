@@ -824,6 +824,46 @@ export default function ClientPortal() {
           </motion.div>
         )}
 
+        {/* ── Atualizações ─────────────────────────────────── */}
+        {(() => {
+          const allUpdates = demands
+            .flatMap(d => (d.activities ?? []).map(a => ({ ...a, demandTitle: d.title })))
+            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+          if (allUpdates.length === 0) return null;
+          return (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.19 }}>
+              <div className="rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.07)" }}>
+                <div className="px-6 py-5" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                  <h2 className="text-base font-bold mb-0.5" style={{ color: "#111" }}>Atualizações</h2>
+                  <p className="text-xs" style={{ color: "#888" }}>
+                    {allUpdates.length} atualização{allUpdates.length !== 1 ? "ões" : ""} da equipe
+                  </p>
+                </div>
+                <div className="divide-y" style={{ borderColor: "rgba(0,0,0,0.05)" }}>
+                  {allUpdates.slice(0, 15).map((act) => (
+                    <div key={act.id} className="px-5 py-4 flex items-start gap-3">
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0"
+                        style={{ background: `${act.agent_color}20`, border: `1.5px solid ${act.agent_color}40`, color: act.agent_color }}>
+                        {act.agent_name[0]}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                          <span className="text-xs font-semibold" style={{ color: "#111" }}>{act.agent_name}</span>
+                          <span className="text-[10px]" style={{ color: "#bbb" }}>{timeAgo(act.created_at)}</span>
+                        </div>
+                        <p className="text-xs leading-relaxed" style={{ color: "#444" }}>{act.content}</p>
+                        <p className="text-[10px] mt-1 font-medium" style={{ color: "#bbb" }}>
+                          em · {act.demandTitle}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          );
+        })()}
+
         {/* ── Demandas ─────────────────────────────────────── */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
           <div className="rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.07)" }}>

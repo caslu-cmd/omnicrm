@@ -185,7 +185,12 @@ const CampaignsPage = () => {
       if (result.canal === "whatsapp" || result.canal === "email") setComposeChannel(result.canal);
       if (result.assunto) setCampaignSubject(result.assunto);
       if (result.conteudo) setCampaignContent(result.conteudo);
-      toast.success("Campanha preenchida com IA! Revise e publique.");
+      toast.success("Campanha preenchida! Agora escolha o criativo da publicação.");
+      setTimeout(() => {
+        setShowCreativePicker(true);
+        setCreativeTab("posts");
+        loadPublishedPosts();
+      }, 600);
     } catch (err: unknown) {
       toast.error((err as Error).message || "Erro ao extrair briefing");
     } finally {
@@ -325,8 +330,8 @@ const CampaignsPage = () => {
             {/* Criar com IA — upload de arquivo */}
             <div className="rounded-xl border border-primary/30 bg-primary/5 p-4 flex items-center justify-between gap-4">
               <div>
-                <p className="text-sm font-semibold text-foreground flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /> Criar com IA</p>
-                <p className="text-xs text-muted-foreground mt-0.5">Envie um briefing, roteiro ou e-mail de referência e a IA preenche a campanha automaticamente.</p>
+                <p className="text-sm font-semibold text-foreground flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" /> Criar com Briefing</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Envie um arquivo de briefing e a IA extrai os dados, monta a campanha e abre o seletor de criativo automaticamente.</p>
               </div>
               <input ref={briefFileRef} type="file" accept=".pdf,.txt,.csv,.md,.docx" className="hidden" onChange={handleExtractBrief} />
               <button
@@ -335,7 +340,7 @@ const CampaignsPage = () => {
                 className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-60"
               >
                 {extracting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-                {extracting ? "Extraindo..." : "Enviar arquivo"}
+                {extracting ? "Extraindo..." : "Enviar briefing"}
               </button>
             </div>
 
@@ -389,7 +394,7 @@ const CampaignsPage = () => {
 
             {/* Criativo */}
             <div className="rounded-xl border border-border bg-card p-5 shadow-card space-y-4">
-              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><Globe className="h-4 w-4 text-primary" /> Criativo</h3>
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><Globe className="h-4 w-4 text-primary" /> Criativo da Campanha</h3>
               {selectedCreative ? (
                 <div className="space-y-3">
                   <div className="relative rounded-xl overflow-hidden border-2 border-primary" style={{ height: 160 }}>
@@ -417,7 +422,7 @@ const CampaignsPage = () => {
                   <button onClick={() => setShowCreativePicker(true)} className="w-full flex flex-col items-center gap-2 py-6 rounded-xl border-2 border-dashed border-border hover:border-primary/40 hover:bg-primary/5 transition-colors text-muted-foreground hover:text-primary">
                     <ImageIcon className="h-8 w-8" />
                     <span className="text-xs font-medium">Escolher criativo</span>
-                    <span className="text-[11px] opacity-70">Landing page, post publicado ou imagem</span>
+                    <span className="text-[11px] opacity-70">Publicação, landing page ou imagem</span>
                   </button>
                 </div>
               )}
@@ -463,7 +468,7 @@ const CampaignsPage = () => {
                 onClick={() => { setCreativeTab("posts"); loadPublishedPosts(); }}
                 className={cn("flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-colors", creativeTab === "posts" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:text-foreground hover:bg-muted")}
               >
-                <ImageLucide className="h-4 w-4" /> Posts Publicados
+                <ImageLucide className="h-4 w-4" /> Publicações
               </button>
               <button
                 onClick={() => setCreativeTab("upload")}
@@ -522,8 +527,8 @@ const CampaignsPage = () => {
                 ) : publishedPosts.length === 0 ? (
                   <div className="flex flex-col items-center gap-3 py-16 text-center text-muted-foreground">
                     <ImageLucide className="h-12 w-12 opacity-30" />
-                    <p className="text-sm font-medium">Nenhum post publicado encontrado</p>
-                    <p className="text-xs opacity-70">Posts com status "publicado" aparecerão aqui.</p>
+                    <p className="text-sm font-medium">Nenhuma publicação encontrada</p>
+                    <p className="text-xs opacity-70">Publique conteúdos na seção de agendamento e eles aparecerão aqui como criativo.</p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">

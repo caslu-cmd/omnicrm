@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import {
   GraduationCap, Plus, Users, Eye, X, Pencil, Trash2,
   Clock, BookOpen, Image, Upload, UserPlus, CheckCircle,
-  Send, Award, RefreshCw,
+  Send, Award, RefreshCw, UserCheck, FileSpreadsheet, AlertCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -70,7 +70,12 @@ const MembersPage = () => {
   const [courseImage, setCourseImage] = useState<File | null>(null);
   const [courseImagePreview, setCourseImagePreview] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [importPreview, setImportPreview] = useState<{ name: string; email: string; phone: string }[]>([]);
+  const [showImportModal, setShowImportModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const importFileRef = useRef<HTMLInputElement>(null);
 
   // Enrollment modal
   const [showNewEnrollment, setShowNewEnrollment] = useState(false);
@@ -189,6 +194,112 @@ const MembersPage = () => {
     toast.success("Curso excluído!"); fetchAll();
   };
 
+  const syncEnrollmentToContacts = async (name: string, email: string, phone: string, courseTitle: string) => {
+    // Busca contato existente por e-mail ou telefone
+    let existingId: string | null = null;
+    if (email) {
+      const { data } = await (supabase as any).from("contacts").select("id").eq("user_id", user!.id).eq("email", email).maybeSingle();
+      if (data) existingId = data.id;
+    }
+    if (!existingId && phone) {
+      const { data } = await (supabase as any).from("contacts").select("id").eq("user_id", user!.id).eq("phone", phone).maybeSingle();
+      if (data) existingId = data.id;
+    }
+
+    if (existingId) {
+      await (supabase as any).from("contacts").update({ last_interaction: `Inscrito em: ${courseTitle}` }).eq("id", existingId);
+    } else {
+      await (supabase as any).from("contacts").insert({
+        user_id: user!.id,
+        name,
+        email: email || null,
+        phone: phone || null,
+        source: "curso",
+        channel: "Curso",
+        status: "warm",
+        score: 50,
+        last_interaction: `Inscrito em: ${courseTitle}`,
+      });
+    }
+  };
+
+  const parseCSV = (text: string): { name: string; email: string; phone: string }[] => {
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) return [];
+    const header = lines[0].split(/[,;\t]/).map(h => h.trim().toLowerCase()
+      .normalize("NFD").replace(/[̀-ͯ]/g, "")
+      .replace(/[^a-z0-9]/g, ""));
+    const nameIdx  = header.findIndex(h => ["nome", "name", "aluno", "estudante", "participante"].includes(h));
+    const emailIdx = header.findIndex(h => ["email", "e-mail", "correio", "emailaddress"].includes(h));
+    const phoneIdx = header.findIndex(h => ["telefone", "celular", "fone", "whatsapp", "phone", "tel", "contato"].includes(h));
+    return lines.slice(1).map(line => {
+      const cols = line.split(/[,;\t]/).map(c => c.replace(/^"|"$/g, "").trim());
+      const phone = phoneIdx >= 0 ? (cols[phoneIdx] ?? "").replace(/\D/g, "") : "";
+      return {
+        name:  nameIdx  >= 0 ? cols[nameIdx]  ?? "" : cols[0] ?? "",
+        email: emailIdx >= 0 ? cols[emailIdx] ?? "" : "",
+        phone: phone.length >= 10 ? phone : "",
+      };
+    }).filter(r => r.name.trim().length > 1);
+  };
+
+  const handleImportFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (importFileRef.current) importFileRef.current.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const text = ev.target?.result as string ?? "";
+      const rows = parseCSV(text);
+      if (rows.length === 0) { toast.error("Nenhum aluno encontrado. Verifique se o arquivo tem colunas: nome, email, telefone"); return; }
+      setImportPreview(rows);
+      setShowImportModal(true);
+    };
+    reader.readAsText(file, "utf-8");
+  };
+
+  const handleConfirmImport = async () => {
+    if (!selectedCourse || !user || importPreview.length === 0) return;
+    setImporting(true);
+    let inserted = 0; let skipped = 0;
+    for (const row of importPreview) {
+      try {
+        const { error } = await supabase.from("course_enrollments").insert({
+          course_id: selectedCourse.id, user_id: user.id,
+          student_name: row.name,
+          student_email: row.email || null,
+          student_phone: row.phone || null,
+        });
+        if (!error) { inserted++; } else { skipped++; }
+      } catch { skipped++; }
+    }
+    setImporting(false);
+    setShowImportModal(false);
+    setImportPreview([]);
+    toast.success(`${inserted} aluno${inserted !== 1 ? "s" : ""} importado${inserted !== 1 ? "s" : ""} e sincronizados no CRM!${skipped > 0 ? ` (${skipped} ignorados)` : ""}`);
+    fetchAll();
+  };
+
+  const handleSyncAllToContacts = async () => {
+    if (!user || enrollments.length === 0) return;
+    setSyncing(true);
+    let synced = 0;
+    const courseMap = Object.fromEntries(courses.map(c => [c.id, c.title]));
+    for (const e of enrollments) {
+      try {
+        await syncEnrollmentToContacts(
+          e.student_name,
+          e.student_email ?? "",
+          e.student_phone ?? "",
+          courseMap[e.course_id] ?? "Curso"
+        );
+        synced++;
+      } catch {}
+    }
+    setSyncing(false);
+    toast.success(`${synced} aluno${synced !== 1 ? "s" : ""} sincronizado${synced !== 1 ? "s" : ""} no CRM!`);
+  };
+
   const handleAddEnrollment = async () => {
     if (!enrollName.trim() || !selectedCourse || !user) return;
     const { error } = await supabase.from("course_enrollments").insert({
@@ -198,7 +309,7 @@ const MembersPage = () => {
     });
     if (error) { toast.error("Erro ao inscrever aluno"); return; }
     setShowNewEnrollment(false); setEnrollName(""); setEnrollEmail(""); setEnrollPhone("");
-    toast.success(`${enrollName} inscrito(a)!`); fetchAll();
+    toast.success(`${enrollName} inscrito(a)! Sincronizado no CRM automaticamente.`); fetchAll();
   };
 
   const handleDeleteEnrollment = async (id: string) => {
@@ -361,9 +472,19 @@ const MembersPage = () => {
           <h1 className="text-xl md:text-2xl font-bold font-display text-foreground break-words">Cursos & Membros</h1>
           <p className="text-xs md:text-sm text-muted-foreground mt-1 break-words">{courses.length} cursos · {totalStudents} alunos</p>
         </div>
-        <button onClick={() => { resetCourseForm(); setShowNewCourse(true); }} className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">
-          <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Novo Curso</span><span className="sm:hidden">Novo</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleSyncAllToContacts}
+            disabled={syncing || enrollments.length === 0}
+            title="Sincronizar todos os inscritos com o CRM"
+            className="shrink-0 flex items-center gap-2 px-3 py-2.5 rounded-lg border border-border bg-card text-sm font-medium text-muted-foreground hover:text-foreground hover:border-primary/40 transition-colors disabled:opacity-50">
+            {syncing ? <RefreshCw className="h-4 w-4 animate-spin" /> : <UserCheck className="h-4 w-4" />}
+            <span className="hidden sm:inline">{syncing ? "Sincronizando..." : "Sync CRM"}</span>
+          </button>
+          <button onClick={() => { resetCourseForm(); setShowNewCourse(true); }} className="shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90">
+            <Plus className="h-4 w-4" /> <span className="hidden sm:inline">Novo Curso</span><span className="sm:hidden">Novo</span>
+          </button>
+        </div>
       </motion.div>
 
       {/* Stats */}
@@ -447,9 +568,15 @@ const MembersPage = () => {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <span className="text-xs text-muted-foreground">{courseEnrollments.length} inscritos</span>
-                      <button onClick={() => setShowNewEnrollment(true)} className="text-xs text-primary hover:underline flex items-center gap-1">
-                        <UserPlus className="h-3.5 w-3.5" /> Inscrever
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <input ref={importFileRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleImportFile} />
+                        <button onClick={() => importFileRef.current?.click()} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+                          <FileSpreadsheet className="h-3.5 w-3.5" /> Importar CSV
+                        </button>
+                        <button onClick={() => setShowNewEnrollment(true)} className="text-xs text-primary hover:underline flex items-center gap-1">
+                          <UserPlus className="h-3.5 w-3.5" /> Inscrever
+                        </button>
+                      </div>
                     </div>
                     {courseEnrollments.map(e => (
                       <div key={e.id} className="flex items-center justify-between p-3 rounded-lg border border-border hover:bg-muted/30">
@@ -623,6 +750,52 @@ const MembersPage = () => {
           )}
         </div>
       </div>
+
+      {/* ── Import CSV Modal ─────────────────────────────────── */}
+      {showImportModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+          <div className="w-full max-w-lg rounded-2xl border border-border bg-card p-6 shadow-elevated space-y-4 max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between shrink-0">
+              <div>
+                <h2 className="text-lg font-bold font-display text-foreground">Importar Alunos</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Curso: <strong>{selectedCourse?.title}</strong></p>
+              </div>
+              <button onClick={() => { setShowImportModal(false); setImportPreview([]); }} className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"><X className="h-4 w-4" /></button>
+            </div>
+
+            <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-primary/5 border border-primary/20 shrink-0">
+              <AlertCircle className="h-4 w-4 text-primary mt-0.5 shrink-0" />
+              <p className="text-xs text-muted-foreground">
+                <strong className="text-foreground">{importPreview.length} alunos</strong> encontrados no arquivo.
+                Eles serão adicionados ao curso e sincronizados automaticamente no CRM.
+              </p>
+            </div>
+
+            <div className="overflow-y-auto flex-1 space-y-1.5 pr-1">
+              {importPreview.map((r, i) => (
+                <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg border border-border bg-muted/20">
+                  <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-[11px] font-bold text-primary shrink-0">
+                    {r.name.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-medium text-foreground truncate">{r.name}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">
+                      {r.email || "sem e-mail"} · {r.phone || "⚠️ sem telefone"}
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex gap-3 pt-2 shrink-0">
+              <button onClick={() => { setShowImportModal(false); setImportPreview([]); }} className="flex-1 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground">Cancelar</button>
+              <button onClick={handleConfirmImport} disabled={importing} className="flex-1 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium disabled:opacity-50 flex items-center justify-center gap-2">
+                {importing ? <><RefreshCw className="h-4 w-4 animate-spin" /> Importando...</> : <><UserCheck className="h-4 w-4" /> Confirmar Import</>}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── New Course Modal ──────────────────────────────────── */}
       {showNewCourse && (

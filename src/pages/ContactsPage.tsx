@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import {
   Search, Filter, Download, Upload, Plus, MoreHorizontal,
   Mail, Phone, X, Pencil, Trash2, Instagram, Facebook,
-  Globe, Users, Linkedin, MessageCircle, Minus,
+  Globe, Users, Linkedin, MessageCircle, Minus, GraduationCap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -26,9 +26,10 @@ const SOURCES: Record<string, { label: string; Icon: React.ElementType; color: s
   linkedin:   { label: "LinkedIn",   Icon: Linkedin,       color: "#0A66C2", bg: "rgba(10,102,194,0.1)" },
   email:      { label: "E-mail",     Icon: Mail,           color: "#6B7280", bg: "rgba(107,114,128,0.1)" },
   outro:      { label: "Outro",      Icon: Minus,          color: "#9CA3AF", bg: "rgba(156,163,175,0.1)" },
+  Curso:      { label: "Curso",      Icon: GraduationCap,  color: "#B9FF4B", bg: "rgba(185,255,75,0.1)" },
 };
 
-const SOURCE_OPTIONS = ["instagram", "facebook", "whatsapp", "website", "indicacao", "linkedin", "email", "outro"];
+const SOURCE_OPTIONS = ["instagram", "facebook", "whatsapp", "website", "indicacao", "linkedin", "email", "Curso", "outro"];
 
 // ── Heat calculation ────────────────────────────────────────
 function getHeat(c: Contact): "hot" | "warm" | "cold" {

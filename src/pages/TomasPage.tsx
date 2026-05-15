@@ -141,7 +141,15 @@ function parseLPIntoSections(html: string): { markedHtml: string; sections: Pars
 
   // Strategy 1: semantic section tags
   const semantic = Array.from(doc.querySelectorAll("section"));
-  if (semantic.length >= 2) sectionEls = semantic;
+  if (semantic.length >= 2) {
+    // Also pick up <div class="hero"> or <header> that sits outside any <section>
+    const heroEl = doc.querySelector(".hero, header");
+    if (heroEl && heroEl.tagName !== "SECTION" && !heroEl.closest("section") && (heroEl.textContent?.trim().length ?? 0) > 25) {
+      sectionEls = [heroEl, ...semantic];
+    } else {
+      sectionEls = semantic;
+    }
+  }
 
   // Strategy 2: header + body groups + footer
   if (sectionEls.length < 2) {
@@ -197,6 +205,17 @@ function parseLPIntoSections(html: string): { markedHtml: string; sections: Pars
       const text = el.textContent?.trim() ?? "";
       if (text && text.length < 80 && text.length > 2) addField(el, btn++ === 0 ? "Botão CTA" : `Botão ${btn}`);
     });
+    // Badges, labels e social proof (spans fora de headings/p já capturados)
+    let badgeN = 0;
+    sectionEl.querySelectorAll("span, div").forEach(el => {
+      if (el.getAttribute("data-calu-field")) return;
+      if (el.querySelector("h1,h2,h3,h4,h5,h6,p,li,button,a,img,span,div")) return; // não capturar containers
+      const cls = (el.getAttribute("class") ?? "").toLowerCase();
+      const isBadge = cls.includes("badge") || cls.includes("label") || cls.includes("tag") || cls.includes("sp-text") || cls.includes("social-proof");
+      if (!isBadge) return;
+      const text = el.textContent?.trim() ?? "";
+      if (text && text.length > 2 && text.length < 150) addField(el, badgeN++ === 0 ? "Badge" : `Badge ${badgeN}`);
+    });
     sectionEl.querySelectorAll("img").forEach(el => {
       const src = el.getAttribute("src") ?? "";
       if (!src || src.startsWith("data:") || src.length < 2) return;
@@ -227,12 +246,12 @@ function parseLPIntoSections(html: string): { markedHtml: string; sections: Pars
     }
   });
 
-  // Rescue images in nav/header that fell outside all sections → add to first section (Hero)
+  // Rescue elements in nav/header that fell outside all sections → add to first section (Hero)
   if (sections.length > 0) {
-    const tagged = new Set(sections.flatMap(s => s.fields.map(f => f.id)));
     let extraFIdx = sections[0].fields.length;
+    // images
     doc.querySelectorAll("nav img, header img").forEach(el => {
-      if (el.getAttribute("data-calu-field")) return; // already tagged
+      if (el.getAttribute("data-calu-field")) return;
       const src = el.getAttribute("src") ?? "";
       if (!src || src.startsWith("data:") || src.length < 2) return;
       const fieldId = `s0-f${extraFIdx++}`;
@@ -241,6 +260,16 @@ function parseLPIntoSections(html: string): { markedHtml: string; sections: Pars
       const cls = (el.getAttribute("class") ?? "").toLowerCase();
       const label = cls.includes("logo") ? "Logo" : (alt || "Imagem (nav)");
       sections[0].fields.push({ id: fieldId, label, value: src, type: "image", src });
+    });
+    // nav logo text (when logo is text, not image)
+    doc.querySelectorAll("nav .nav-logo, nav .logo, nav [class*='logo']").forEach(el => {
+      if (el.getAttribute("data-calu-field")) return;
+      if (el.querySelector("img")) return; // skip if logo is an image
+      const text = el.textContent?.trim() ?? "";
+      if (!text || text.length < 2) return;
+      const fieldId = `s0-f${extraFIdx++}`;
+      el.setAttribute("data-calu-field", fieldId);
+      sections[0].fields.unshift({ id: fieldId, label: "Logo (texto)", value: text });
     });
   }
 
@@ -482,6 +511,22 @@ function applyImageReplace(html: string, oldSrc: string, newSrc: string): string
 
 // ── Element-level effects ──────────────────────────────────────────────────────
 
+const EL_EFFECTS_TEXT = [
+  { key: "gradient", label: "Gradiente", emoji: "🌈", css: `[data-calu-el="ID"]{background:var(--gh,linear-gradient(135deg,var(--p),var(--a)));-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:transparent;}` },
+  { key: "glow",     label: "Glow",      emoji: "✨", css: `[data-calu-el="ID"]{text-shadow:0 0 30px rgba(var(--rgb,185,255,75),.55),0 0 70px rgba(var(--rgb,185,255,75),.25);}` },
+  { key: "underline",label: "Sublinha",  emoji: "〰️", css: `[data-calu-el="ID"]{position:relative;display:inline-block;}[data-calu-el="ID"]::after{content:'';position:absolute;bottom:-4px;left:0;right:0;height:3px;background:var(--gc,linear-gradient(135deg,var(--p),var(--a)));border-radius:2px;}` },
+  { key: "highlight",label: "Highlight", emoji: "🔆", css: `[data-calu-el="ID"]{background:rgba(var(--rgb,185,255,75),.15);padding:2px 10px;border-radius:6px;display:inline-block;}` },
+  { key: "shake",    label: "Vibrar",    emoji: "💥", css: `[data-calu-el="ID"]{animation:el-shake 0.6s ease-in-out infinite;}@keyframes el-shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-4px)}40%,80%{transform:translateX(4px)}}` },
+  { key: "bounce",   label: "Bounce",    emoji: "🏀", css: `[data-calu-el="ID"]{display:inline-block;animation:el-bounce 1.2s ease-in-out infinite;}@keyframes el-bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}` },
+] as const;
+
+const EL_EFFECTS_BTN = [
+  { key: "pulse",    label: "Pulse",     emoji: "💓", css: `[data-calu-el="ID"]{animation:el-pulse 1.6s ease-in-out infinite;}@keyframes el-pulse{0%,100%{box-shadow:0 0 0 0 rgba(var(--rgb,185,255,75),.5)}70%{box-shadow:0 0 0 14px rgba(var(--rgb,185,255,75),0)}}` },
+  { key: "shimmer",  label: "Shimmer",   emoji: "🌟", css: `[data-calu-el="ID"]{position:relative;overflow:hidden;}[data-calu-el="ID"]::after{content:'';position:absolute;inset:0;background:linear-gradient(105deg,transparent 35%,rgba(255,255,255,.25) 50%,transparent 65%);animation:el-shimmer 2s ease-in-out infinite;}@keyframes el-shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(200%)}}` },
+  { key: "glow",     label: "Glow",      emoji: "✨", css: `[data-calu-el="ID"]{box-shadow:0 0 25px rgba(var(--rgb,185,255,75),.55),0 0 50px rgba(var(--rgb,185,255,75),.25)!important;}` },
+  { key: "zoom",     label: "Zoom",      emoji: "🔍", css: `[data-calu-el="ID"]{transition:transform .25s ease!important;}[data-calu-el="ID"]:hover{transform:scale(1.06)!important;}` },
+] as const;
+
 const EL_EFFECTS_CARD = [
   { key: "glow",    label: "Glow",    emoji: "✨", css: `[data-calu-el="ID"]{box-shadow:0 0 40px rgba(var(--rgb),.45),0 8px 32px rgba(var(--rgb),.2)!important;}` },
   { key: "glass",   label: "Glass",   emoji: "🪟", css: `[data-calu-el="ID"]{background:rgba(255,255,255,.05)!important;backdrop-filter:blur(20px)!important;-webkit-backdrop-filter:blur(20px)!important;border:1px solid rgba(255,255,255,.1)!important;}` },
@@ -512,6 +557,18 @@ function tagLPElements(html: string): string {
   }).forEach(img => {
     if (!img.getAttribute("data-calu-el")) img.setAttribute("data-calu-el", `img-${ii++}`);
   });
+  // Tag headings and paragraphs as text elements
+  let ti = 0;
+  doc.querySelectorAll("h1,h2,h3,h4,p").forEach(el => {
+    if (!el.getAttribute("data-calu-el") && (el.textContent?.trim().length ?? 0) > 3)
+      el.setAttribute("data-calu-el", `text-${ti++}`);
+  });
+  // Tag buttons/CTAs
+  let bi = 0;
+  doc.querySelectorAll("button,[class*='btn'],a[class]").forEach(el => {
+    if (!el.getAttribute("data-calu-el") && (el.textContent?.trim().length ?? 0) > 1)
+      el.setAttribute("data-calu-el", `btn-${bi++}`);
+  });
   if (!doc.querySelector("#calu-el-fx")) {
     const s = doc.createElement("style"); s.id = "calu-el-fx"; s.textContent = "";
     doc.head.appendChild(s);
@@ -519,7 +576,12 @@ function tagLPElements(html: string): string {
   return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
 }
 
-function getTaggedElements(html: string): { cards: {id:string;label:string}[]; images: {id:string;src:string;alt:string}[] } {
+function getTaggedElements(html: string): {
+  cards: {id:string;label:string}[];
+  images: {id:string;src:string;alt:string}[];
+  texts: {id:string;label:string;tag:string}[];
+  btns: {id:string;label:string}[];
+} {
   const doc = new DOMParser().parseFromString(html, "text/html");
   const cards = Array.from(doc.querySelectorAll("[data-calu-el^='card-']")).map(el => ({
     id: el.getAttribute("data-calu-el")!,
@@ -530,7 +592,16 @@ function getTaggedElements(html: string): { cards: {id:string;label:string}[]; i
     src: img.getAttribute("src")!,
     alt: img.getAttribute("alt") ?? "",
   }));
-  return { cards, images };
+  const texts = Array.from(doc.querySelectorAll("[data-calu-el^='text-']")).map(el => ({
+    id: el.getAttribute("data-calu-el")!,
+    label: (el.textContent?.trim().slice(0, 30) ?? el.getAttribute("data-calu-el")!) + (el.textContent!.trim().length > 30 ? "…" : ""),
+    tag: el.tagName.toLowerCase(),
+  }));
+  const btns = Array.from(doc.querySelectorAll("[data-calu-el^='btn-']")).map(el => ({
+    id: el.getAttribute("data-calu-el")!,
+    label: el.textContent?.trim().slice(0, 30) ?? el.getAttribute("data-calu-el")!,
+  }));
+  return { cards, images, texts, btns };
 }
 
 function toggleElementEffect(html: string, elId: string, effectKey: string, effectCss: string): string {
@@ -2034,18 +2105,36 @@ form.addEventListener('submit',function(e){
     if (!html || !previewEditMode) return html;
     const script = `<script>(function(){
   var banner=document.createElement('div');
-  banner.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#B9FF4B;color:#07080A;font-size:12px;font-weight:700;text-align:center;padding:7px;font-family:sans-serif;';
-  banner.textContent='\\u270F\\uFE0F Modo edição — clique em qualquer texto para editar';
+  banner.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#B9FF4B;color:#07080A;font-size:12px;font-weight:700;text-align:center;padding:7px;font-family:sans-serif;letter-spacing:.03em;';
+  banner.textContent='\\u270F\\uFE0F Clique em qualquer texto para editar — Enter para salvar, Esc para cancelar';
   document.body&&document.body.appendChild(banner);
-  document.addEventListener('click',function(e){
-    var TAGS=['P','H1','H2','H3','H4','H5','SPAN','LI','BUTTON','A','LABEL','TD','STRONG','EM','B','I'];
-    var el=e.target;if(!el||el===banner)return;
-    if(TAGS.indexOf(el.tagName)>-1&&el.contentEditable!=='true'){
-      e.preventDefault();el.contentEditable='true';el.style.outline='2px dashed #B9FF4B';el.style.outlineOffset='3px';el.focus();
-      function finish(){el.contentEditable='false';el.style.outline='';el.style.outlineOffset='';window.parent.postMessage({type:'calu-html-update',html:document.documentElement.outerHTML},'*');}
-      el.addEventListener('blur',finish,{once:true});
-      el.addEventListener('keydown',function(ev){if(ev.key==='Escape')el.blur();});
+  var INLINE_TAGS=['P','H1','H2','H3','H4','H5','H6','SPAN','LI','BUTTON','A','LABEL','TD','STRONG','EM','B','I','FIGCAPTION','BLOCKQUOTE','CITE','DT','DD'];
+  var BLOCK_TAGS=['DIV','SECTION','ARTICLE','ASIDE','MAIN','HEADER','FOOTER','NAV','FIGURE'];
+  function resolveTarget(el){
+    if(!el||el===banner||el===document.body||el===document.documentElement)return null;
+    if(INLINE_TAGS.indexOf(el.tagName)>-1)return el;
+    if(BLOCK_TAGS.indexOf(el.tagName)>-1){
+      // Make editable only if this block has no block-level children (leaf container)
+      var hasBlockChild=Array.from(el.children).some(function(c){return BLOCK_TAGS.indexOf(c.tagName)>-1||['P','H1','H2','H3','H4','H5','H6'].indexOf(c.tagName)>-1;});
+      if(!hasBlockChild&&(el.textContent||'').trim().length>0)return el;
     }
+    return null;
+  }
+  document.addEventListener('click',function(e){
+    var el=resolveTarget(e.target);
+    if(!el||el.contentEditable==='true')return;
+    e.preventDefault();e.stopPropagation();
+    el.contentEditable='true';el.style.outline='2px dashed #B9FF4B';el.style.outlineOffset='3px';el.focus();
+    function finish(){
+      if(el.contentEditable!=='true')return;
+      el.contentEditable='false';el.style.outline='';el.style.outlineOffset='';
+      window.parent.postMessage({type:'calu-html-update',html:document.documentElement.outerHTML},'*');
+    }
+    el.addEventListener('blur',finish,{once:true});
+    el.addEventListener('keydown',function(ev){
+      if(ev.key==='Enter'&&!ev.shiftKey){ev.preventDefault();el.blur();}
+      if(ev.key==='Escape'){el.contentEditable='false';el.style.outline='';el.style.outlineOffset='';el.removeEventListener('blur',finish);}
+    });
   },true);
 })();<\/script>`;
     return html.includes("</body>") ? html.replace("</body>", script + "</body>") : html + script;
