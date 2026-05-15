@@ -494,6 +494,222 @@ const PREMIUM_EFFECTS: { key: string; label: string; emoji: string; css: string 
   },
 ];
 
+// ── Section templates ──────────────────────────────────────────────────────────
+
+interface SectionTemplate {
+  id: string;
+  category: "Estrutura" | "Conversão" | "Prova Social" | "Premium";
+  name: string;
+  icon: string;
+  desc: string;
+  html: (uid: string) => string;
+}
+
+const SECTION_TEMPLATES: SectionTemplate[] = [
+  {
+    id: "faq",
+    category: "Estrutura",
+    name: "FAQ",
+    icon: "❓",
+    desc: "Perguntas frequentes em accordeon",
+    html: (u) => `<section id="faq-${u}" data-calu-section="faq-${u}" style="padding:80px 20px;background:var(--bg,#07080A);">
+  <div style="max-width:800px;margin:0 auto;">
+    <h2 style="font-size:clamp(1.6rem,4vw,2.4rem);font-weight:700;text-align:center;margin-bottom:40px;color:inherit;">Perguntas Frequentes</h2>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <details style="border:1px solid rgba(255,255,255,0.1);border-radius:12px;overflow:hidden;"><summary style="padding:20px 24px;cursor:pointer;font-weight:600;font-size:1rem;color:inherit;list-style:none;display:flex;justify-content:space-between;align-items:center;">Para quem é esse produto? <span style="opacity:0.4;">+</span></summary><p style="padding:0 24px 20px;opacity:0.7;line-height:1.6;color:inherit;">[Descreva o público ideal aqui]</p></details>
+      <details style="border:1px solid rgba(255,255,255,0.1);border-radius:12px;overflow:hidden;"><summary style="padding:20px 24px;cursor:pointer;font-weight:600;font-size:1rem;color:inherit;list-style:none;display:flex;justify-content:space-between;align-items:center;">Em quanto tempo vejo resultados? <span style="opacity:0.4;">+</span></summary><p style="padding:0 24px 20px;opacity:0.7;line-height:1.6;color:inherit;">[Descreva o prazo e o que pode esperar]</p></details>
+      <details style="border:1px solid rgba(255,255,255,0.1);border-radius:12px;overflow:hidden;"><summary style="padding:20px 24px;cursor:pointer;font-weight:600;font-size:1rem;color:inherit;list-style:none;display:flex;justify-content:space-between;align-items:center;">Tem garantia? <span style="opacity:0.4;">+</span></summary><p style="padding:0 24px 20px;opacity:0.7;line-height:1.6;color:inherit;">[Descreva a política de garantia]</p></details>
+      <details style="border:1px solid rgba(255,255,255,0.1);border-radius:12px;overflow:hidden;"><summary style="padding:20px 24px;cursor:pointer;font-weight:600;font-size:1rem;color:inherit;list-style:none;display:flex;justify-content:space-between;align-items:center;">Como funciona o acesso? <span style="opacity:0.4;">+</span></summary><p style="padding:0 24px 20px;opacity:0.7;line-height:1.6;color:inherit;">[Plataforma, duração do acesso, dispositivos, etc.]</p></details>
+    </div>
+  </div>
+</section>`,
+  },
+  {
+    id: "curriculum",
+    category: "Estrutura",
+    name: "Conteúdo Programático",
+    icon: "📚",
+    desc: "Módulos do curso em accordeon",
+    html: (u) => `<section id="curriculum-${u}" data-calu-section="curriculum-${u}" style="padding:80px 20px;background:var(--bg,#07080A);">
+  <div style="max-width:800px;margin:0 auto;">
+    <h2 style="font-size:clamp(1.6rem,4vw,2.4rem);font-weight:700;text-align:center;margin-bottom:12px;color:inherit;">O que você vai aprender</h2>
+    <p style="text-align:center;opacity:0.55;margin-bottom:48px;font-size:1.05rem;color:inherit;">[X módulos · XX aulas · XX horas de conteúdo]</p>
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <details style="border:1px solid rgba(255,255,255,0.1);border-radius:12px;overflow:hidden;"><summary style="padding:20px 24px;cursor:pointer;font-weight:600;font-size:1rem;color:inherit;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:16px;"><span><span style="color:var(--accent,#B9FF4B);font-weight:700;margin-right:10px;">01</span>[Módulo 1: Nome do módulo]</span><span style="opacity:0.4;font-size:0.85rem;flex-shrink:0;">[X aulas]</span></summary><div style="padding:0 24px 20px;"><ul style="list-style:none;padding:0;display:flex;flex-direction:column;gap:8px;opacity:0.7;color:inherit;"><li style="display:flex;align-items:center;gap:8px;"><span style="opacity:0.4;font-size:0.8rem;">▶</span>[Aula 1.1 — Título]</li><li style="display:flex;align-items:center;gap:8px;"><span style="opacity:0.4;font-size:0.8rem;">▶</span>[Aula 1.2 — Título]</li><li style="display:flex;align-items:center;gap:8px;"><span style="opacity:0.4;font-size:0.8rem;">▶</span>[Aula 1.3 — Título]</li></ul></div></details>
+      <details style="border:1px solid rgba(255,255,255,0.1);border-radius:12px;overflow:hidden;"><summary style="padding:20px 24px;cursor:pointer;font-weight:600;font-size:1rem;color:inherit;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:16px;"><span><span style="color:var(--accent,#B9FF4B);font-weight:700;margin-right:10px;">02</span>[Módulo 2: Nome do módulo]</span><span style="opacity:0.4;font-size:0.85rem;flex-shrink:0;">[X aulas]</span></summary><div style="padding:0 24px 20px;"><ul style="list-style:none;padding:0;display:flex;flex-direction:column;gap:8px;opacity:0.7;color:inherit;"><li style="display:flex;align-items:center;gap:8px;"><span style="opacity:0.4;font-size:0.8rem;">▶</span>[Aula 2.1 — Título]</li><li style="display:flex;align-items:center;gap:8px;"><span style="opacity:0.4;font-size:0.8rem;">▶</span>[Aula 2.2 — Título]</li></ul></div></details>
+      <details style="border:1px solid rgba(255,255,255,0.1);border-radius:12px;overflow:hidden;"><summary style="padding:20px 24px;cursor:pointer;font-weight:600;font-size:1rem;color:inherit;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:16px;"><span><span style="color:var(--accent,#B9FF4B);font-weight:700;margin-right:10px;">03</span>[Módulo 3: Nome do módulo]</span><span style="opacity:0.4;font-size:0.85rem;flex-shrink:0;">[X aulas]</span></summary><div style="padding:0 24px 20px;"><ul style="list-style:none;padding:0;display:flex;flex-direction:column;gap:8px;opacity:0.7;color:inherit;"><li style="display:flex;align-items:center;gap:8px;"><span style="opacity:0.4;font-size:0.8rem;">▶</span>[Aula 3.1 — Título]</li><li style="display:flex;align-items:center;gap:8px;"><span style="opacity:0.4;font-size:0.8rem;">▶</span>[Aula 3.2 — Título]</li></ul></div></details>
+    </div>
+  </div>
+</section>`,
+  },
+  {
+    id: "benefits",
+    category: "Estrutura",
+    name: "Benefícios",
+    icon: "✅",
+    desc: "Lista de benefícios com ícones",
+    html: (u) => `<section id="beneficios-${u}" data-calu-section="beneficios-${u}" style="padding:80px 20px;background:var(--bg,#07080A);">
+  <div style="max-width:700px;margin:0 auto;">
+    <h2 style="font-size:clamp(1.6rem,4vw,2.4rem);font-weight:700;margin-bottom:40px;color:inherit;">Por que escolher [produto]?</h2>
+    <div style="display:flex;flex-direction:column;gap:24px;">
+      <div style="display:flex;align-items:flex-start;gap:16px;"><div style="width:48px;height:48px;flex-shrink:0;border-radius:14px;background:rgba(185,255,75,0.08);border:1px solid rgba(185,255,75,0.2);display:flex;align-items:center;justify-content:center;font-size:1.4rem;">🎯</div><div><p style="font-weight:700;font-size:1rem;margin-bottom:4px;color:inherit;">[Benefício 1 — título direto]</p><p style="opacity:0.6;line-height:1.6;font-size:0.95rem;color:inherit;">[Explicação objetiva orientada ao resultado]</p></div></div>
+      <div style="display:flex;align-items:flex-start;gap:16px;"><div style="width:48px;height:48px;flex-shrink:0;border-radius:14px;background:rgba(185,255,75,0.08);border:1px solid rgba(185,255,75,0.2);display:flex;align-items:center;justify-content:center;font-size:1.4rem;">⚡</div><div><p style="font-weight:700;font-size:1rem;margin-bottom:4px;color:inherit;">[Benefício 2 — título direto]</p><p style="opacity:0.6;line-height:1.6;font-size:0.95rem;color:inherit;">[Explicação objetiva orientada ao resultado]</p></div></div>
+      <div style="display:flex;align-items:flex-start;gap:16px;"><div style="width:48px;height:48px;flex-shrink:0;border-radius:14px;background:rgba(185,255,75,0.08);border:1px solid rgba(185,255,75,0.2);display:flex;align-items:center;justify-content:center;font-size:1.4rem;">🚀</div><div><p style="font-weight:700;font-size:1rem;margin-bottom:4px;color:inherit;">[Benefício 3 — título direto]</p><p style="opacity:0.6;line-height:1.6;font-size:0.95rem;color:inherit;">[Explicação objetiva orientada ao resultado]</p></div></div>
+      <div style="display:flex;align-items:flex-start;gap:16px;"><div style="width:48px;height:48px;flex-shrink:0;border-radius:14px;background:rgba(185,255,75,0.08);border:1px solid rgba(185,255,75,0.2);display:flex;align-items:center;justify-content:center;font-size:1.4rem;">💡</div><div><p style="font-weight:700;font-size:1rem;margin-bottom:4px;color:inherit;">[Benefício 4 — título direto]</p><p style="opacity:0.6;line-height:1.6;font-size:0.95rem;color:inherit;">[Explicação objetiva orientada ao resultado]</p></div></div>
+    </div>
+  </div>
+</section>`,
+  },
+  {
+    id: "pricing",
+    category: "Conversão",
+    name: "Tabela de Preços",
+    icon: "💰",
+    desc: "2 planos com destaque no Pro",
+    html: (u) => `<section id="precos-${u}" data-calu-section="precos-${u}" style="padding:80px 20px;background:var(--bg,#07080A);">
+  <div style="max-width:860px;margin:0 auto;text-align:center;">
+    <h2 style="font-size:clamp(1.6rem,4vw,2.4rem);font-weight:700;margin-bottom:12px;color:inherit;">Escolha seu plano</h2>
+    <p style="opacity:0.55;margin-bottom:48px;font-size:1.05rem;color:inherit;">[Subtítulo — ex: Investimento único, acesso vitalício]</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:24px;text-align:left;">
+      <div style="border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:36px 28px;">
+        <p style="font-size:0.8rem;font-weight:700;opacity:0.45;text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;color:inherit;">Básico</p>
+        <p style="font-size:2.8rem;font-weight:800;line-height:1;color:inherit;">R$ XXX<span style="font-size:1rem;font-weight:400;opacity:0.45;">/mês</span></p>
+        <ul style="list-style:none;padding:0;margin:24px 0;display:flex;flex-direction:column;gap:10px;color:inherit;">
+          <li style="display:flex;align-items:center;gap:8px;"><span style="color:var(--accent,#B9FF4B);">✓</span>[Benefício 1]</li>
+          <li style="display:flex;align-items:center;gap:8px;"><span style="color:var(--accent,#B9FF4B);">✓</span>[Benefício 2]</li>
+          <li style="display:flex;align-items:center;gap:8px;"><span style="color:var(--accent,#B9FF4B);">✓</span>[Benefício 3]</li>
+        </ul>
+        <a href="#form-inscricao" style="display:block;text-align:center;padding:14px;border-radius:10px;background:rgba(255,255,255,0.06);color:inherit;text-decoration:none;font-weight:600;">Começar</a>
+      </div>
+      <div style="border:2px solid var(--accent,#B9FF4B);border-radius:20px;padding:36px 28px;position:relative;">
+        <div style="position:absolute;top:-14px;left:50%;transform:translateX(-50%);background:var(--accent,#B9FF4B);color:#07080A;font-size:11px;font-weight:800;padding:4px 18px;border-radius:100px;white-space:nowrap;letter-spacing:.05em;">MAIS POPULAR</div>
+        <p style="font-size:0.8rem;font-weight:700;opacity:0.45;text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px;color:inherit;">Pro</p>
+        <p style="font-size:2.8rem;font-weight:800;line-height:1;color:inherit;">R$ XXX<span style="font-size:1rem;font-weight:400;opacity:0.45;">/mês</span></p>
+        <ul style="list-style:none;padding:0;margin:24px 0;display:flex;flex-direction:column;gap:10px;color:inherit;">
+          <li style="display:flex;align-items:center;gap:8px;"><span style="color:var(--accent,#B9FF4B);">✓</span>Tudo do Básico</li>
+          <li style="display:flex;align-items:center;gap:8px;"><span style="color:var(--accent,#B9FF4B);">✓</span>[Benefício extra 1]</li>
+          <li style="display:flex;align-items:center;gap:8px;"><span style="color:var(--accent,#B9FF4B);">✓</span>[Benefício extra 2]</li>
+          <li style="display:flex;align-items:center;gap:8px;"><span style="color:var(--accent,#B9FF4B);">✓</span>[Suporte prioritário]</li>
+        </ul>
+        <a href="#form-inscricao" style="display:block;text-align:center;padding:14px;border-radius:10px;background:var(--accent,#B9FF4B);color:#07080A;text-decoration:none;font-weight:700;">Quero o Pro</a>
+      </div>
+    </div>
+  </div>
+</section>`,
+  },
+  {
+    id: "offer-cta",
+    category: "Conversão",
+    name: "Oferta / CTA",
+    icon: "⚡",
+    desc: "Preço riscado + botão de compra",
+    html: (u) => `<section id="oferta-cta-${u}" data-calu-section="oferta-cta-${u}" style="padding:80px 20px;background:var(--bg,#07080A);">
+  <div style="max-width:680px;margin:0 auto;text-align:center;">
+    <p style="font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--accent,#B9FF4B);margin-bottom:16px;">⚡ Oferta por tempo limitado</p>
+    <h2 style="font-size:clamp(1.8rem,5vw,3rem);font-weight:800;line-height:1.15;margin-bottom:20px;color:inherit;">[Headline da oferta — forte e direta]</h2>
+    <p style="font-size:1.1rem;opacity:0.65;margin-bottom:36px;line-height:1.6;color:inherit;">[Reforce o valor e a urgência da oferta]</p>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:10px;margin-bottom:32px;">
+      <p style="font-size:1rem;opacity:0.45;text-decoration:line-through;color:inherit;">De R$ XXX</p>
+      <p style="font-size:3.8rem;font-weight:800;color:var(--accent,#B9FF4B);line-height:1;">R$ XXX</p>
+      <p style="font-size:0.9rem;opacity:0.45;color:inherit;">ou X× de R$ XX sem juros</p>
+    </div>
+    <a href="#form-inscricao" style="display:inline-block;padding:18px 52px;border-radius:100px;background:var(--accent,#B9FF4B);color:#07080A;text-decoration:none;font-size:1.1rem;font-weight:800;letter-spacing:.02em;">[CTA — ex: Quero garantir minha vaga]</a>
+    <p style="margin-top:20px;font-size:0.82rem;opacity:0.38;color:inherit;">🔒 Compra 100% segura · Garantia de X dias</p>
+  </div>
+</section>`,
+  },
+  {
+    id: "testimonials",
+    category: "Prova Social",
+    name: "Depoimentos",
+    icon: "⭐",
+    desc: "3 depoimentos com estrelas",
+    html: (u) => `<section id="depoimentos-${u}" data-calu-section="depoimentos-${u}" style="padding:80px 20px;background:var(--bg,#07080A);">
+  <div style="max-width:900px;margin:0 auto;">
+    <h2 style="font-size:clamp(1.6rem,4vw,2.4rem);font-weight:700;text-align:center;margin-bottom:48px;color:inherit;">O que dizem nossos alunos</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:20px;">
+      <div style="border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:28px;"><p style="color:var(--accent,#B9FF4B);font-size:1.1rem;margin-bottom:14px;">★★★★★</p><p style="opacity:0.8;line-height:1.65;font-style:italic;margin-bottom:22px;color:inherit;">"[Depoimento real — seja específico, mencione resultado concreto]"</p><div style="display:flex;align-items:center;gap:12px;"><div style="width:42px;height:42px;border-radius:50%;background:rgba(185,255,75,0.1);display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">👤</div><div><p style="font-weight:600;font-size:0.9rem;color:inherit;">[Nome]</p><p style="font-size:0.8rem;opacity:0.45;color:inherit;">[Cargo / Cidade]</p></div></div></div>
+      <div style="border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:28px;"><p style="color:var(--accent,#B9FF4B);font-size:1.1rem;margin-bottom:14px;">★★★★★</p><p style="opacity:0.8;line-height:1.65;font-style:italic;margin-bottom:22px;color:inherit;">"[Depoimento real 2 — resultado concreto]"</p><div style="display:flex;align-items:center;gap:12px;"><div style="width:42px;height:42px;border-radius:50%;background:rgba(185,255,75,0.1);display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">👤</div><div><p style="font-weight:600;font-size:0.9rem;color:inherit;">[Nome 2]</p><p style="font-size:0.8rem;opacity:0.45;color:inherit;">[Cargo / Cidade]</p></div></div></div>
+      <div style="border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:28px;"><p style="color:var(--accent,#B9FF4B);font-size:1.1rem;margin-bottom:14px;">★★★★★</p><p style="opacity:0.8;line-height:1.65;font-style:italic;margin-bottom:22px;color:inherit;">"[Depoimento real 3 — resultado concreto]"</p><div style="display:flex;align-items:center;gap:12px;"><div style="width:42px;height:42px;border-radius:50%;background:rgba(185,255,75,0.1);display:flex;align-items:center;justify-content:center;font-size:1.2rem;flex-shrink:0;">👤</div><div><p style="font-weight:600;font-size:0.9rem;color:inherit;">[Nome 3]</p><p style="font-size:0.8rem;opacity:0.45;color:inherit;">[Cargo / Cidade]</p></div></div></div>
+    </div>
+  </div>
+</section>`,
+  },
+  {
+    id: "countdown",
+    category: "Premium",
+    name: "Countdown Timer",
+    icon: "⏱️",
+    desc: "Timer regressivo de urgência",
+    html: (u) => `<section id="countdown-${u}" data-calu-section="countdown-${u}" style="padding:48px 20px;background:rgba(0,0,0,0.35);border-top:1px solid rgba(255,255,255,0.06);border-bottom:1px solid rgba(255,255,255,0.06);">
+  <div style="max-width:560px;margin:0 auto;text-align:center;">
+    <p style="font-size:0.8rem;font-weight:700;opacity:0.55;text-transform:uppercase;letter-spacing:.1em;margin-bottom:18px;color:inherit;">⏱ Oferta encerra em</p>
+    <div id="calu-cd-${u}" style="display:flex;justify-content:center;gap:20px;align-items:flex-start;">
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;"><span class="calu-cd-h" style="font-size:3.2rem;font-weight:800;color:var(--accent,#B9FF4B);line-height:1;font-variant-numeric:tabular-nums;">24</span><span style="font-size:0.65rem;opacity:0.4;color:inherit;text-transform:uppercase;letter-spacing:.06em;">horas</span></div>
+      <span style="font-size:3rem;font-weight:800;opacity:0.25;color:inherit;margin-top:4px;">:</span>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;"><span class="calu-cd-m" style="font-size:3.2rem;font-weight:800;color:var(--accent,#B9FF4B);line-height:1;font-variant-numeric:tabular-nums;">00</span><span style="font-size:0.65rem;opacity:0.4;color:inherit;text-transform:uppercase;letter-spacing:.06em;">minutos</span></div>
+      <span style="font-size:3rem;font-weight:800;opacity:0.25;color:inherit;margin-top:4px;">:</span>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:4px;"><span class="calu-cd-s" style="font-size:3.2rem;font-weight:800;color:var(--accent,#B9FF4B);line-height:1;font-variant-numeric:tabular-nums;">00</span><span style="font-size:0.65rem;opacity:0.4;color:inherit;text-transform:uppercase;letter-spacing:.06em;">segundos</span></div>
+    </div>
+  </div>
+  <script>(function(){var end=new Date(Date.now()+24*3600*1000);function tick(){var d=end-Date.now(),s=document.getElementById('calu-cd-${u}');if(!s||d<=0)return;var h=Math.floor(d/3600000),m=Math.floor((d%3600000)/60000),ss=Math.floor((d%60000)/1000);var p=function(n){return String(n).padStart(2,'0');};s.querySelector('.calu-cd-h').textContent=p(h);s.querySelector('.calu-cd-m').textContent=p(m);s.querySelector('.calu-cd-s').textContent=p(ss);}tick();setInterval(tick,1000);})();<\/script>
+</section>`,
+  },
+  {
+    id: "guarantee",
+    category: "Premium",
+    name: "Garantia",
+    icon: "🛡️",
+    desc: "Caixa de garantia com badge",
+    html: (u) => `<section id="garantia-${u}" data-calu-section="garantia-${u}" style="padding:60px 20px;background:var(--bg,#07080A);">
+  <div style="max-width:640px;margin:0 auto;">
+    <div style="border:1px solid rgba(255,255,255,0.1);border-radius:20px;padding:40px;display:flex;align-items:center;gap:28px;flex-wrap:wrap;">
+      <div style="flex-shrink:0;width:88px;height:88px;border-radius:50%;background:var(--accent,#B9FF4B);display:flex;align-items:center;justify-content:center;font-size:2.4rem;">🛡️</div>
+      <div style="flex:1;min-width:200px;">
+        <p style="font-size:1.35rem;font-weight:800;margin-bottom:10px;color:inherit;">Garantia de X dias</p>
+        <p style="opacity:0.65;line-height:1.65;color:inherit;">[Se você não ficar 100% satisfeito dentro de X dias após a compra, devolvemos cada centavo do seu investimento. Sem perguntas, sem burocracia.]</p>
+      </div>
+    </div>
+  </div>
+</section>`,
+  },
+  {
+    id: "logo-strip",
+    category: "Prova Social",
+    name: "Faixa de Logos",
+    icon: "🏢",
+    desc: "Logos de parceiros / imprensa / clientes",
+    html: (u) => `<section id="logos-${u}" data-calu-section="logos-${u}" style="padding:48px 20px;background:var(--bg,#07080A);border-top:1px solid rgba(255,255,255,0.05);border-bottom:1px solid rgba(255,255,255,0.05);">
+  <div style="max-width:860px;margin:0 auto;text-align:center;">
+    <p style="font-size:0.75rem;font-weight:700;opacity:0.35;text-transform:uppercase;letter-spacing:.12em;margin-bottom:28px;color:inherit;">[Como visto em / Parceiros / Clientes]</p>
+    <div style="display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:36px;">
+      <span style="font-size:1.3rem;font-weight:800;opacity:0.25;color:inherit;letter-spacing:-.02em;">[LOGO 1]</span>
+      <span style="font-size:1.3rem;font-weight:800;opacity:0.25;color:inherit;letter-spacing:-.02em;">[LOGO 2]</span>
+      <span style="font-size:1.3rem;font-weight:800;opacity:0.25;color:inherit;letter-spacing:-.02em;">[LOGO 3]</span>
+      <span style="font-size:1.3rem;font-weight:800;opacity:0.25;color:inherit;letter-spacing:-.02em;">[LOGO 4]</span>
+      <span style="font-size:1.3rem;font-weight:800;opacity:0.25;color:inherit;letter-spacing:-.02em;">[LOGO 5]</span>
+    </div>
+  </div>
+</section>`,
+  },
+  {
+    id: "video",
+    category: "Estrutura",
+    name: "Vídeo de Vendas",
+    icon: "▶️",
+    desc: "Embed de vídeo centralizado",
+    html: (u) => `<section id="video-${u}" data-calu-section="video-${u}" style="padding:80px 20px;background:var(--bg,#07080A);text-align:center;">
+  <div style="max-width:800px;margin:0 auto;">
+    <h2 style="font-size:clamp(1.4rem,3.5vw,2.2rem);font-weight:700;margin-bottom:12px;color:inherit;">[Headline acima do vídeo]</h2>
+    <p style="opacity:0.55;margin-bottom:32px;color:inherit;">[Subtítulo — convide a assistir o vídeo]</p>
+    <div style="position:relative;padding-bottom:56.25%;height:0;border-radius:16px;overflow:hidden;background:#000;border:1px solid rgba(255,255,255,0.1);">
+      <iframe src="https://www.youtube.com/embed/[VIDEO_ID]" style="position:absolute;top:0;left:0;width:100%;height:100%;border:0;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen title="Vídeo de vendas"></iframe>
+    </div>
+  </div>
+</section>`,
+  },
+];
+
 function stripEditorAttrs(html: string): string {
   return html.replace(/ data-calu-(section|field)="[^"]*"/g, "");
 }
@@ -589,6 +805,7 @@ export default function TomasPage() {
 
   // ── Block builder state ──────────────────────────────────────────────────────
   const [blockMode, setBlockMode]       = useState(false);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
   const [blockInsertTarget, setBlockInsertTarget] = useState<{
     sectionId: string; colIdx: number; mode: "col" | "before" | "after" | "replace";
   } | null>(null);
@@ -1664,6 +1881,23 @@ form.addEventListener('submit',function(e){
     }
   }, [wpUrl, wpUser, wpPassword]);
 
+  // ── insertTemplate ────────────────────────────────────────────────────────────
+  const insertTemplate = useCallback((template: SectionTemplate) => {
+    const currentHtml = markedHtml;
+    if (!currentHtml) { toast.error("Gere ou abra uma LP primeiro"); return; }
+    const uid = Date.now().toString(36);
+    const sectionHtml = template.html(uid);
+    const newHtml = currentHtml.includes("</main>")
+      ? currentHtml.replace("</main>", sectionHtml + "\n</main>")
+      : currentHtml.replace("</body>", sectionHtml + "\n</body>");
+    const { markedHtml: nm, sections: ns } = parseLPIntoSections(newHtml);
+    setMarkedHtml(nm);
+    setSections(ns);
+    setHtmlEditado(stripEditorAttrs(newHtml));
+    setTemplatesOpen(false);
+    toast.success(`Seção "${template.name}" inserida!`);
+  }, [markedHtml]);
+
   // ── addEditingToPreview (basic edit mode) ────────────────────────────────────
 
   function addEditingToPreview(html: string): string {
@@ -1712,19 +1946,49 @@ form.addEventListener('submit',function(e){
               <span className="text-sm font-bold" style={{ color: "#F0F0F0" }}>Editor Visual</span>
             </div>
           </div>
-          {/* Mode toggle */}
+          {/* Mode toggle + templates button */}
           <div className="flex px-3 pb-2.5 gap-1.5">
             {[{id: false, label: "Campos", icon: "✏️"}, {id: true, label: "Blocos", icon: "⊞"}].map(m => (
-              <button key={String(m.id)} onClick={() => setBlockMode(m.id)}
+              <button key={String(m.id)} onClick={() => { setBlockMode(m.id); setTemplatesOpen(false); }}
                 className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-semibold transition-all"
-                style={{ background: blockMode === m.id ? "#B9FF4B22" : "#141420", border: `1px solid ${blockMode === m.id ? "#B9FF4B55" : "#2A2A3A"}`, color: blockMode === m.id ? "#B9FF4B" : "rgba(255,255,255,0.35)" }}>
+                style={{ background: blockMode === m.id && !templatesOpen ? "#B9FF4B22" : "#141420", border: `1px solid ${blockMode === m.id && !templatesOpen ? "#B9FF4B55" : "#2A2A3A"}`, color: blockMode === m.id && !templatesOpen ? "#B9FF4B" : "rgba(255,255,255,0.35)" }}>
                 <span>{m.icon}</span>{m.label}
               </button>
             ))}
+            <button onClick={() => setTemplatesOpen(v => !v)}
+              className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-xs font-semibold transition-all"
+              style={{ background: templatesOpen ? "#B9FF4B22" : "#141420", border: `1px solid ${templatesOpen ? "#B9FF4B55" : "#2A2A3A"}`, color: templatesOpen ? "#B9FF4B" : "rgba(255,255,255,0.35)" }}>
+              <span>📋</span>Seções
+            </button>
           </div>
         </div>
 
-        {sections.length === 0 ? (
+        {templatesOpen ? (
+          /* ─── TEMPLATES PANEL ────────────────────────────────────────── */
+          <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-4">
+            {(["Estrutura", "Conversão", "Prova Social", "Premium"] as const).map(cat => {
+              const items = SECTION_TEMPLATES.filter(t => t.category === cat);
+              return (
+                <div key={cat}>
+                  <p className="text-[10px] uppercase tracking-widest font-semibold px-1 mb-2" style={{ color: "#444466" }}>{cat}</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {items.map(t => (
+                      <button key={t.id} onClick={() => insertTemplate(t)}
+                        className="flex flex-col items-start gap-1.5 p-3 rounded-xl text-left transition-all"
+                        style={{ background: "#0D0D18", border: "1px solid #1E1E2E" }}
+                        onMouseEnter={e => { e.currentTarget.style.borderColor = "#B9FF4B55"; e.currentTarget.style.background = "#0D1A0A"; }}
+                        onMouseLeave={e => { e.currentTarget.style.borderColor = "#1E1E2E"; e.currentTarget.style.background = "#0D0D18"; }}>
+                        <span className="text-xl leading-none">{t.icon}</span>
+                        <span className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.8)" }}>{t.name}</span>
+                        <span className="text-[10px] leading-tight" style={{ color: "#444466" }}>{t.desc}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : sections.length === 0 ? (
           <div className="flex-1 flex items-center justify-center">
             <p className="text-sm" style={{ color: "#444466" }}>Nenhuma seção detectada</p>
           </div>
