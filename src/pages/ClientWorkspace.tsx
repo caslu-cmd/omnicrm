@@ -2944,12 +2944,26 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
     setImportingCsv(true);
     let inserted = 0; let skipped = 0;
 
+    // Deduplicate CSV rows by email then phone then name
+    const seen = new Set<string>();
+    const uniqueRows = importCsvPreview.filter(row => {
+      const key = (row.email || row.phone || row.name).toLowerCase().trim();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
     const isGroup = importCsvCourseId.startsWith("grp-");
 
     if (isGroup) {
       const groupId = importCsvCourseId.replace(/^grp-/, "");
-      for (const row of importCsvPreview) {
-        // Upsert contact
+
+      // Load existing group member contact IDs to skip duplicates
+      const { data: existingMembers } = await (supabase as any)
+        .from("contact_group_members").select("contact_id").eq("group_id", groupId);
+      const existingIds = new Set((existingMembers ?? []).map((m: any) => m.contact_id));
+
+      for (const row of uniqueRows) {
         let contactId: string | null = null;
         if (row.email) {
           const { data: existing } = await (supabase as any).from("contacts")
@@ -2975,14 +2989,24 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
           if (cErr) { skipped++; continue; }
           contactId = newContact.id;
         }
-        // Link to group
+        // Skip if already in group
+        if (existingIds.has(contactId)) { skipped++; continue; }
         const { error: mErr } = await (supabase as any).from("contact_group_members")
-          .insert({ group_id: groupId, contact_id: contactId })
-          .select();
-        if (!mErr) inserted++; else skipped++;
+          .insert({ group_id: groupId, contact_id: contactId });
+        if (!mErr) { inserted++; existingIds.add(contactId!); } else skipped++;
       }
     } else {
-      for (const row of importCsvPreview) {
+      // Load existing enrollments for this course to skip duplicates
+      const { data: existing } = await (supabase as any)
+        .from("course_enrollments").select("student_email, student_phone")
+        .eq("course_id", importCsvCourseId);
+      const existingEmails = new Set((existing ?? []).map((e: any) => e.student_email).filter(Boolean));
+      const existingPhones = new Set((existing ?? []).map((e: any) => e.student_phone).filter(Boolean));
+
+      for (const row of uniqueRows) {
+        if ((row.email && existingEmails.has(row.email)) || (row.phone && existingPhones.has(row.phone))) {
+          skipped++; continue;
+        }
         const { error } = await (supabase as any).from("course_enrollments").insert({
           course_id: importCsvCourseId,
           user_id: session.user.id,
@@ -2990,7 +3014,8 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
           student_email: row.email || null,
           student_phone: row.phone || null,
         });
-        if (!error) inserted++; else skipped++;
+        if (!error) { inserted++; if (row.email) existingEmails.add(row.email); if (row.phone) existingPhones.add(row.phone); }
+        else skipped++;
       }
     }
 
@@ -2998,7 +3023,7 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
     setImportCsvCourseId(null);
     setImportCsvPreview([]);
     loadDbCourses();
-    toast.success(`${inserted} aluno${inserted !== 1 ? "s" : ""} importado${inserted !== 1 ? "s" : ""} e sincronizados no CRM!${skipped > 0 ? ` (${skipped} ignorados)` : ""}`);
+    toast.success(`${inserted} importado${inserted !== 1 ? "s" : ""}${skipped > 0 ? `, ${skipped} duplicado${skipped !== 1 ? "s" : ""} ignorado${skipped !== 1 ? "s" : ""}` : ""}`);
   };
 
   const handleDeleteCourse = async (courseId: string) => {
