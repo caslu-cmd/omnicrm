@@ -2496,7 +2496,7 @@ form.addEventListener('submit',function(e){
           <div className="flex flex-col flex-1 overflow-hidden">
 
             {/* Sections list */}
-            <div className="px-3 pt-3 pb-1 flex-shrink-0">
+            <div className="px-3 pt-3 pb-1 flex-shrink-0 overflow-y-auto" style={{ maxHeight: "42%" }}>
               <p className="text-[10px] uppercase tracking-widest font-semibold px-1 mb-2" style={{ color: "#444466" }}>Seções</p>
               <div className="flex flex-col gap-0.5">
                 {sections.map((s, i) => (
