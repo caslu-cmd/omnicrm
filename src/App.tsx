@@ -56,6 +56,7 @@ import WordPressPage from "@/pages/WordPressPage";
 import AttendancePage from "@/pages/AttendancePage";
 import PagesPage from "@/pages/PagesPage";
 import PropostaPage from "@/pages/PropostaPage";
+import PropostasPage from "@/pages/PropostasPage";
 
 const queryClient = new QueryClient();
 
@@ -118,6 +119,7 @@ const ProtectedRoutes = () => {
           <Route path="/apostila" element={<ApostilaPage />} />
           <Route path="/wordpress" element={<WordPressPage />} />
           <Route path="/pages" element={<PagesPage />} />
+          <Route path="/propostas" element={<PropostasPage />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>

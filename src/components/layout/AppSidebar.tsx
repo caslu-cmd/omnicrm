@@ -33,6 +33,7 @@ const crmItems = [
   { to: "/groups",   icon: BookUser,     label: "Grupos" },
   { to: "/contacts", icon: Users,        label: "Contatos" },
   { to: "/pipelines", icon: GitBranch, label: "Pipelines" },
+  { to: "/propostas", icon: FileText, label: "Propostas" },
   { to: "/automations", icon: Zap, label: "Automações" },
   { to: "/campaigns", icon: Send, label: "Campanhas" },
   { to: "/scheduling", icon: Calendar, label: "Agendamentos" },
