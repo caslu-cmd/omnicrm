@@ -107,8 +107,8 @@ Regras:
 
     let r: Response | null = null;
     let lastErr = "";
-    for (let attempt = 0; attempt < 4; attempt++) {
-      if (attempt > 0) await new Promise(res => setTimeout(res, 1500 * attempt));
+    for (let attempt = 0; attempt < 3; attempt++) {
+      if (attempt > 0) await new Promise(res => setTimeout(res, 800));
       const res = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
@@ -117,8 +117,8 @@ Regras:
           "anthropic-version": "2023-06-01",
         },
         body: JSON.stringify({
-          model: "claude-sonnet-4-6",
-          max_tokens: 16000,
+          model: "claude-haiku-4-5-20251001",
+          max_tokens: 8000,
           messages: [{ role: "user", content: messageContent }],
         }),
       });
