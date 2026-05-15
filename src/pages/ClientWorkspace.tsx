@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { QRCodeSVG } from "qrcode.react";
+import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
@@ -981,6 +981,9 @@ export default function ClientWorkspace() {
   const [emailBlastBody, setEmailBlastBody] = useState("");
   const [emailBlastPrompt, setEmailBlastPrompt] = useState("");
   const [emailBlasting, setEmailBlasting] = useState(false);
+  const [wpContactModal, setWpContactModal] = useState<any>(null);
+  const [wpContactBody, setWpContactBody] = useState("");
+  const [wpContactSending, setWpContactSending] = useState(false);
   // WordPress credentials per client (for Tomás LP publishing)
   const [clientWpCreds, setClientWpCreds] = useState({ wp_url: "", wp_user: "", wp_password: "" });
   const [clientWpCredsSaving, setClientWpCredsSaving] = useState(false);
@@ -1013,6 +1016,11 @@ export default function ClientWorkspace() {
   const [importingCsv, setImportingCsv] = useState(false);
   const csvFileRef = useRef<HTMLInputElement>(null);
   const csvTargetCourseRef = useRef<string | null>(null);
+  // Bulk contact selection
+  const [selectedContacts, setSelectedContacts] = useState<{ id: string; name: string; phone: string; email: string }[]>([]);
+  const [bulkEmailModal, setBulkEmailModal] = useState(false);
+  const [bulkEmailSubject, setBulkEmailSubject] = useState("");
+  const [bulkEmailText, setBulkEmailText] = useState("");
   // Certificate emission
   const [certCourseId, setCertCourseId] = useState<string | null>(null);
   const [certTemplate, setCertTemplate] = useState<string | null>(null);
@@ -2689,6 +2697,24 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
     }
   };
 
+  const sendWhatsAppToContact = async () => {
+    if (!wpContactModal || !wpContactBody.trim()) return;
+    if (!wpCreds?.zapi_instance) { toast.error("WhatsApp não configurado para este cliente"); return; }
+    setWpContactSending(true);
+    const personalized = wpContactBody.replace(/\{nome\}/gi, wpContactModal.name?.split(" ")[0] ?? wpContactModal.name ?? "");
+    try {
+      const res = await wpInvoke({ action: "send", phone: wpContactModal.phone, message: personalized });
+      if (res.error) throw res.error;
+      toast.success("Mensagem enviada!");
+      setWpContactModal(null);
+      setWpContactBody("");
+    } catch {
+      toast.error("Erro ao enviar mensagem");
+    } finally {
+      setWpContactSending(false);
+    }
+  };
+
   const loadAgentChannelConfig = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
@@ -2923,6 +2949,20 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
     }).filter(r => r.name.trim().length > 1);
   };
 
+  const toggleContact = (c: { id: string; name: string; phone: string; email: string }) =>
+    setSelectedContacts(prev => prev.some(x => x.id === c.id) ? prev.filter(x => x.id !== c.id) : [...prev, c]);
+  const isContactSelected = (id: string) => selectedContacts.some(x => x.id === id);
+  const toggleAllStudents = (students: any[]) => {
+    const allSel = students.every(s => isContactSelected(s.id));
+    if (allSel) setSelectedContacts(prev => prev.filter(x => !students.some(s => s.id === x.id)));
+    else setSelectedContacts(prev => [...prev, ...students.filter(s => !isContactSelected(s.id)).map(s => ({ id: s.id, name: s.student_name, phone: s.student_phone || "", email: s.student_email || "" }))]);
+  };
+  const toggleAllMembers = (members: any[]) => {
+    const allSel = members.every(m => isContactSelected(m.id));
+    if (allSel) setSelectedContacts(prev => prev.filter(x => !members.some(m => m.id === x.id)));
+    else setSelectedContacts(prev => [...prev, ...members.filter(m => !isContactSelected(m.id)).map(m => ({ id: m.id, name: m.name, phone: m.phone || "", email: m.email || "" }))]);
+  };
+
   const handleCsvFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (csvFileRef.current) csvFileRef.current.value = "";
@@ -3131,7 +3171,7 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
       try {
         if (channel === "whatsapp") {
           if (!wpCreds?.zapi_instance) throw new Error("WhatsApp não configurado");
-          await wpInvoke({ action: "send_message", phone: s.student_phone, message: personalized });
+          await wpInvoke({ action: "send", phone: s.student_phone, message: personalized });
         } else {
           await supabase.functions.invoke("send-email", {
             body: { to: s.student_email, subject: subject || "Mensagem do curso", html: `<p>${personalized.replace(/\n/g, "<br>")}</p>` },
@@ -5277,7 +5317,7 @@ Regras:
                       style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
                       {/* Header */}
                       <div className="grid px-5 py-2.5 text-[10px] uppercase tracking-wider font-medium"
-                        style={{ gridTemplateColumns: "2fr 1.2fr 1fr 1fr 0.8fr 60px", color: "rgba(255,255,255,0.25)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                        style={{ gridTemplateColumns: "2fr 1.2fr 1fr 1fr 0.8fr 88px", color: "rgba(255,255,255,0.25)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                         <span>Lead</span><span>Empresa</span><span>Origem</span>
                         <span>Temperatura</span><span>Score</span><span></span>
                       </div>
@@ -5304,7 +5344,7 @@ Regras:
                             initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: i * 0.03 }}
                             className="grid px-5 py-3.5 items-center transition-colors cursor-pointer"
-                            style={{ gridTemplateColumns: "2fr 1.2fr 1fr 1fr 0.8fr 60px", borderBottom: i < filteredDbContacts.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}
+                            style={{ gridTemplateColumns: "2fr 1.2fr 1fr 1fr 0.8fr 88px", borderBottom: i < filteredDbContacts.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}
                             onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
                             onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                             onClick={() => setActiveContact(contact)}>
@@ -5336,6 +5376,15 @@ Regras:
                               <span className="text-[10px] font-medium" style={{ color: "rgba(255,255,255,0.4)" }}>{contact.score ?? 0}</span>
                             </div>
                             <div className="flex justify-end items-center gap-1">
+                              {contact.phone && (
+                                <button onClick={(e) => { e.stopPropagation(); setWpContactModal(contact); setWpContactBody(""); }}
+                                  title="Enviar WhatsApp" className="p-1.5 rounded-lg transition-all"
+                                  style={{ color: "rgba(255,255,255,0.25)", background: "transparent" }}
+                                  onMouseEnter={e => (e.currentTarget.style.color = "#25D366")}
+                                  onMouseLeave={e => (e.currentTarget.style.color = "rgba(255,255,255,0.25)")}>
+                                  <MessageCircle className="w-3.5 h-3.5" />
+                                </button>
+                              )}
                               {contact.email && (
                                 <button onClick={(e) => { e.stopPropagation(); setEmailBlastContact(contact); setEmailBlastSubject(""); setEmailBlastBody(""); setEmailBlastPrompt(""); }}
                                   title="Enviar e-mail" className="p-1.5 rounded-lg transition-all"
@@ -5353,6 +5402,52 @@ Regras:
                         );
                       })}
                     </div>
+
+                    {/* WhatsApp individual modal */}
+                    <AnimatePresence>
+                      {wpContactModal && (
+                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                          style={{ background: "rgba(0,0,0,0.7)" }}
+                          onClick={() => setWpContactModal(null)}>
+                          <motion.div initial={{ scale: 0.95, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95, y: 10 }}
+                            className="w-full max-w-lg rounded-2xl p-6 space-y-4"
+                            style={{ background: "#12141A", border: "1px solid rgba(37,211,102,0.3)" }}
+                            onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center justify-between flex-wrap gap-4">
+                              <div className="flex items-center gap-2">
+                                <MessageCircle className="w-4 h-4" style={{ color: "#25D366" }} />
+                                <span className="text-sm font-semibold" style={{ color: "#F0F0F0" }}>
+                                  WhatsApp para {wpContactModal.name}
+                                </span>
+                                <span className="text-[10px] px-2 py-0.5 rounded-full" style={{ background: "rgba(37,211,102,0.1)", color: "#25D366" }}>
+                                  {wpContactModal.phone}
+                                </span>
+                              </div>
+                              <button onClick={() => setWpContactModal(null)} style={{ color: "rgba(255,255,255,0.3)" }}>
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+
+                            <textarea value={wpContactBody} onChange={e => setWpContactBody(e.target.value)}
+                              rows={5} placeholder="Digite a mensagem… Use {nome} para personalizar com o nome do contato."
+                              className="w-full px-3 py-2.5 rounded-lg text-sm resize-none focus:outline-none"
+                              style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.8)" }} />
+
+                            <p className="text-[9px]" style={{ color: "rgba(255,255,255,0.2)" }}>
+                              Use <span style={{ color: "#25D366" }}>{"{nome}"}</span> para inserir o primeiro nome automaticamente
+                            </p>
+
+                            <button onClick={sendWhatsAppToContact}
+                              disabled={wpContactSending || !wpContactBody.trim()}
+                              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-40"
+                              style={{ background: "#25D366", color: "#07080A" }}>
+                              {wpContactSending ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Enviando…</> : <><Send className="w-3.5 h-3.5" /> Enviar WhatsApp</>}
+                            </button>
+                          </motion.div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
 
                     {/* Email blast modal */}
                     <AnimatePresence>
@@ -9576,42 +9671,57 @@ Regras:
                                 </div>
                               ) : (
                                 <div className="space-y-2">
-                                  <div className="grid grid-cols-4 gap-2 px-1 pb-1">
-                                    {["Nome", "E-mail", "WhatsApp", ""].map(h => (
-                                      <div key={h} className="text-[9px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.25)" }}>{h}</div>
-                                    ))}
+                                  {/* Header row */}
+                                  <div className="flex items-center gap-2 px-1 pb-1">
+                                    <input type="checkbox"
+                                      checked={students.length > 0 && students.every(s => isContactSelected(s.id))}
+                                      onChange={() => toggleAllStudents(students)}
+                                      className="w-3.5 h-3.5 rounded cursor-pointer flex-shrink-0 accent-[#B9FF4B]" />
+                                    <div className="grid grid-cols-4 gap-2 flex-1 min-w-0">
+                                      {["Nome", "E-mail", "WhatsApp", ""].map(h => (
+                                        <div key={h || "act"} className="text-[9px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.25)" }}>{h}</div>
+                                      ))}
+                                    </div>
                                   </div>
-                                  {students.map((s: any) => (
-                                    <div key={s.id} className="grid grid-cols-4 gap-2 items-center px-1 py-2 rounded-xl"
-                                      style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                                      <div className="flex items-center gap-2">
-                                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
-                                          style={{ background: `${client.color}20`, color: client.color }}>
-                                          {s.student_name.charAt(0).toUpperCase()}
+                                  {students.map((s: any) => {
+                                    const sel = isContactSelected(s.id);
+                                    return (
+                                    <div key={s.id} className="flex items-center gap-2 px-1 py-2 rounded-xl transition-colors"
+                                      style={{ background: sel ? "rgba(185,255,75,0.06)" : "rgba(255,255,255,0.03)", border: `1px solid ${sel ? "rgba(185,255,75,0.22)" : "rgba(255,255,255,0.06)"}` }}>
+                                      <input type="checkbox" checked={sel}
+                                        onChange={() => toggleContact({ id: s.id, name: s.student_name, phone: s.student_phone || "", email: s.student_email || "" })}
+                                        className="w-3.5 h-3.5 rounded cursor-pointer flex-shrink-0 accent-[#B9FF4B]" />
+                                      <div className="grid grid-cols-4 gap-2 flex-1 min-w-0 items-center">
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                                            style={{ background: `${client.color}20`, color: client.color }}>
+                                            {s.student_name.charAt(0).toUpperCase()}
+                                          </div>
+                                          <span className="text-[11px] font-medium truncate" style={{ color: "rgba(255,255,255,0.8)" }}>{s.student_name}</span>
                                         </div>
-                                        <span className="text-[11px] font-medium truncate" style={{ color: "rgba(255,255,255,0.8)" }}>{s.student_name}</span>
-                                      </div>
-                                      <span className="text-[11px] truncate" style={{ color: "rgba(255,255,255,0.4)" }}>{s.student_email || "—"}</span>
-                                      <span className="text-[11px]" style={{ color: s.student_phone ? "#25D366" : "rgba(255,255,255,0.25)" }}>
-                                        {s.student_phone || "—"}
-                                      </span>
-                                      <div className="flex justify-end gap-1">
-                                        {s.student_phone && wpStatus === "connected" && (
-                                          <button
-                                            onClick={() => { setWpMessage(""); setWpSelectedContacts([s.student_phone]); setWpTargetTab("contatos"); setCrmView("whatsapp"); }}
-                                            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold"
-                                            style={{ background: "rgba(37,211,102,0.1)", color: "#25D366", border: "1px solid rgba(37,211,102,0.2)" }}>
-                                            <MessageCircle className="w-2.5 h-2.5" /> WA
+                                        <span className="text-[11px] truncate" style={{ color: "rgba(255,255,255,0.4)" }}>{s.student_email || "—"}</span>
+                                        <span className="text-[11px]" style={{ color: s.student_phone ? "#25D366" : "rgba(255,255,255,0.25)" }}>
+                                          {s.student_phone || "—"}
+                                        </span>
+                                        <div className="flex justify-end gap-1">
+                                          {s.student_phone && wpStatus === "connected" && (
+                                            <button
+                                              onClick={() => { setWpMessage(""); setWpSelectedContacts([s.student_phone]); setWpTargetTab("contatos"); setCrmView("whatsapp"); }}
+                                              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-semibold"
+                                              style={{ background: "rgba(37,211,102,0.1)", color: "#25D366", border: "1px solid rgba(37,211,102,0.2)" }}>
+                                              <MessageCircle className="w-2.5 h-2.5" /> WA
+                                            </button>
+                                          )}
+                                          <button onClick={() => handleDeleteEnrollment(s.id, course.id)}
+                                            className="w-6 h-6 flex items-center justify-center rounded-lg"
+                                            style={{ color: "rgba(248,113,113,0.4)" }}>
+                                            <X className="w-3 h-3" />
                                           </button>
-                                        )}
-                                        <button onClick={() => handleDeleteEnrollment(s.id, course.id)}
-                                          className="w-6 h-6 flex items-center justify-center rounded-lg"
-                                          style={{ color: "rgba(248,113,113,0.4)" }}>
-                                          <X className="w-3 h-3" />
-                                        </button>
+                                        </div>
                                       </div>
                                     </div>
-                                  ))}
+                                    );
+                                  })}
                                 </div>
                               )}
                             </div>
@@ -10219,6 +10329,7 @@ Regras:
                                     QR Code para alunos
                                   </label>
                                   <div className="flex flex-col items-center gap-3 p-4 rounded-xl" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                                    <QRCodeCanvas id={`qr-canvas-${course.id}`} value={presencaUrl} size={400} bgColor="#ffffff" fgColor="#000000" style={{ display: "none" }} />
                                     <div className="p-3 rounded-xl" style={{ background: "white" }}>
                                       <QRCodeSVG value={presencaUrl} size={140} />
                                     </div>
@@ -10231,6 +10342,50 @@ Regras:
                                       style={{ background: "rgba(52,211,153,0.1)", color: "#34D399", border: "1px solid rgba(52,211,153,0.2)" }}>
                                       <Link2 className="w-3 h-3" /> Copiar link
                                     </button>
+                                    <div className="flex gap-2 w-full">
+                                      <button
+                                        onClick={() => {
+                                          const src = document.getElementById(`qr-canvas-${course.id}`) as HTMLCanvasElement;
+                                          if (!src) return;
+                                          const pad = 24;
+                                          const out = document.createElement("canvas");
+                                          out.width = src.width + pad * 2;
+                                          out.height = src.height + pad * 2;
+                                          const ctx = out.getContext("2d")!;
+                                          ctx.fillStyle = "#ffffff";
+                                          ctx.fillRect(0, 0, out.width, out.height);
+                                          ctx.drawImage(src, pad, pad);
+                                          const a = document.createElement("a");
+                                          a.download = `qrcode-presenca-${course.id}.png`;
+                                          a.href = out.toDataURL("image/png");
+                                          a.click();
+                                        }}
+                                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-semibold flex-1 justify-center"
+                                        style={{ background: "rgba(99,102,241,0.1)", color: "#818cf8", border: "1px solid rgba(99,102,241,0.2)" }}>
+                                        <Download className="w-3 h-3" /> Baixar PNG
+                                      </button>
+                                      <button
+                                        onClick={() => {
+                                          const src = document.getElementById(`qr-canvas-${course.id}`) as HTMLCanvasElement;
+                                          if (!src) return;
+                                          const pad = 24;
+                                          const out = document.createElement("canvas");
+                                          out.width = src.width + pad * 2;
+                                          out.height = src.height + pad * 2;
+                                          const ctx = out.getContext("2d")!;
+                                          ctx.fillStyle = "#ffffff";
+                                          ctx.fillRect(0, 0, out.width, out.height);
+                                          ctx.drawImage(src, pad, pad);
+                                          const a = document.createElement("a");
+                                          a.download = `qrcode-presenca-${course.id}.jpg`;
+                                          a.href = out.toDataURL("image/jpeg", 0.92);
+                                          a.click();
+                                        }}
+                                        className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-semibold flex-1 justify-center"
+                                        style={{ background: "rgba(251,146,60,0.1)", color: "#fb923c", border: "1px solid rgba(251,146,60,0.2)" }}>
+                                        <Download className="w-3 h-3" /> Baixar JPEG
+                                      </button>
+                                    </div>
                                   </div>
                                   {attending.length > 0 && (
                                     <p className="text-[10px] text-center" style={{ color: "rgba(52,211,153,0.7)" }}>
@@ -10365,26 +10520,41 @@ Regras:
                                     </p>
                                   ) : (
                                     <div className="space-y-2">
-                                      <div className="grid grid-cols-4 gap-2 px-1 pb-1">
-                                        {["Nome", "E-mail", "WhatsApp", "Status"].map(h => (
-                                          <div key={h} className="text-[9px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.25)" }}>{h}</div>
-                                        ))}
-                                      </div>
-                                      {members.map((m: any) => (
-                                        <div key={m.id} className="grid grid-cols-4 gap-2 items-center px-1 py-2 rounded-xl"
-                                          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                                          <div className="flex items-center gap-2">
-                                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
-                                              style={{ background: `${group.color}20`, color: group.color }}>
-                                              {m.name?.charAt(0)?.toUpperCase() ?? "?"}
-                                            </div>
-                                            <span className="text-[11px] font-medium truncate" style={{ color: "rgba(255,255,255,0.8)" }}>{m.name}</span>
-                                          </div>
-                                          <span className="text-[11px] truncate" style={{ color: "rgba(255,255,255,0.4)" }}>{m.email || "—"}</span>
-                                          <span className="text-[11px]" style={{ color: m.phone ? "#25D366" : "rgba(255,255,255,0.25)" }}>{m.phone || "—"}</span>
-                                          <span className="text-[10px] px-2 py-0.5 rounded-full w-fit" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)" }}>{m.status || "—"}</span>
+                                      {/* Header row */}
+                                      <div className="flex items-center gap-2 px-1 pb-1">
+                                        <input type="checkbox"
+                                          checked={members.length > 0 && members.every(m => isContactSelected(m.id))}
+                                          onChange={() => toggleAllMembers(members)}
+                                          className="w-3.5 h-3.5 rounded cursor-pointer flex-shrink-0 accent-[#B9FF4B]" />
+                                        <div className="grid grid-cols-4 gap-2 flex-1 min-w-0">
+                                          {["Nome", "E-mail", "WhatsApp", "Status"].map(h => (
+                                            <div key={h} className="text-[9px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.25)" }}>{h}</div>
+                                          ))}
                                         </div>
-                                      ))}
+                                      </div>
+                                      {members.map((m: any) => {
+                                        const sel = isContactSelected(m.id);
+                                        return (
+                                        <div key={m.id} className="flex items-center gap-2 px-1 py-2 rounded-xl transition-colors"
+                                          style={{ background: sel ? "rgba(185,255,75,0.06)" : "rgba(255,255,255,0.03)", border: `1px solid ${sel ? "rgba(185,255,75,0.22)" : "rgba(255,255,255,0.06)"}` }}>
+                                          <input type="checkbox" checked={sel}
+                                            onChange={() => toggleContact({ id: m.id, name: m.name, phone: m.phone || "", email: m.email || "" })}
+                                            className="w-3.5 h-3.5 rounded cursor-pointer flex-shrink-0 accent-[#B9FF4B]" />
+                                          <div className="grid grid-cols-4 gap-2 flex-1 min-w-0 items-center">
+                                            <div className="flex items-center gap-2">
+                                              <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                                                style={{ background: `${group.color}20`, color: group.color }}>
+                                                {m.name?.charAt(0)?.toUpperCase() ?? "?"}
+                                              </div>
+                                              <span className="text-[11px] font-medium truncate" style={{ color: "rgba(255,255,255,0.8)" }}>{m.name}</span>
+                                            </div>
+                                            <span className="text-[11px] truncate" style={{ color: "rgba(255,255,255,0.4)" }}>{m.email || "—"}</span>
+                                            <span className="text-[11px]" style={{ color: m.phone ? "#25D366" : "rgba(255,255,255,0.25)" }}>{m.phone || "—"}</span>
+                                            <span className="text-[10px] px-2 py-0.5 rounded-full w-fit" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)" }}>{m.status || "—"}</span>
+                                          </div>
+                                        </div>
+                                        );
+                                      })}
                                     </div>
                                   )}
                                 </div>
@@ -11219,6 +11389,118 @@ Regras:
                       {importingCsv
                         ? <><RefreshCw className="w-4 h-4 animate-spin" /> Importando...</>
                         : <><FileSpreadsheet className="w-4 h-4" /> Confirmar</>}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── Floating bulk-action bar ── */}
+            {selectedContacts.length > 0 && (
+              <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[999] flex items-center gap-3 px-5 py-3 rounded-2xl shadow-2xl"
+                style={{ background: "rgba(15,16,18,0.97)", border: "1px solid rgba(185,255,75,0.25)", backdropFilter: "blur(16px)" }}>
+                <span className="text-sm font-bold" style={{ color: "#B9FF4B" }}>{selectedContacts.length}</span>
+                <span className="text-sm" style={{ color: "rgba(255,255,255,0.55)" }}>selecionado{selectedContacts.length !== 1 ? "s" : ""}</span>
+                <div className="w-px h-5" style={{ background: "rgba(255,255,255,0.1)" }} />
+                {/* WhatsApp */}
+                <button
+                  onClick={() => {
+                    const phones = selectedContacts.map(c => c.phone).filter(Boolean);
+                    if (phones.length === 0) { toast.error("Nenhum selecionado tem WhatsApp"); return; }
+                    if (wpStatus === "connected") {
+                      setWpMessage(""); setWpSelectedContacts(phones); setWpTargetTab("contatos"); setCrmView("whatsapp");
+                      setSelectedContacts([]);
+                    } else {
+                      toast.error("Conecte o WhatsApp primeiro (aba WhatsApp)");
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
+                  style={{ background: "rgba(37,211,102,0.12)", color: "#25D366", border: "1px solid rgba(37,211,102,0.25)" }}>
+                  <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+                </button>
+                {/* E-mail */}
+                <button
+                  onClick={() => { setBulkEmailSubject(""); setBulkEmailText(""); setBulkEmailModal(true); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
+                  style={{ background: "rgba(248,113,113,0.1)", color: "#F87171", border: "1px solid rgba(248,113,113,0.22)" }}>
+                  <Mail className="w-3.5 h-3.5" /> E-mail
+                </button>
+                {/* Clear */}
+                <button onClick={() => setSelectedContacts([])}
+                  className="w-7 h-7 flex items-center justify-center rounded-xl"
+                  style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)" }}>
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            {/* ── Bulk email modal ── */}
+            {bulkEmailModal && (
+              <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4"
+                style={{ background: "rgba(0,0,0,0.7)", backdropFilter: "blur(8px)" }}>
+                <div className="w-full max-w-lg rounded-2xl p-6 space-y-4"
+                  style={{ background: "#0F1012", border: "1px solid rgba(248,113,113,0.25)" }}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Mail className="w-4 h-4" style={{ color: "#F87171" }} />
+                      <p className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.9)" }}>
+                        Enviar e-mail — {selectedContacts.filter(c => c.email).length} destinatário{selectedContacts.filter(c => c.email).length !== 1 ? "s" : ""}
+                      </p>
+                    </div>
+                    <button onClick={() => setBulkEmailModal(false)}
+                      className="w-7 h-7 flex items-center justify-center rounded-lg"
+                      style={{ color: "rgba(255,255,255,0.35)" }}>
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  {/* Recipients list */}
+                  <div className="max-h-28 overflow-y-auto rounded-xl p-3 space-y-1"
+                    style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                    {selectedContacts.filter(c => c.email).length === 0
+                      ? <p className="text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Nenhum contato selecionado tem e-mail cadastrado.</p>
+                      : selectedContacts.filter(c => c.email).map(c => (
+                        <div key={c.id} className="flex items-center gap-2">
+                          <div className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold flex-shrink-0"
+                            style={{ background: "rgba(248,113,113,0.15)", color: "#F87171" }}>
+                            {c.name.charAt(0).toUpperCase()}
+                          </div>
+                          <span className="text-[11px] truncate" style={{ color: "rgba(255,255,255,0.55)" }}>{c.name}</span>
+                          <span className="text-[11px] truncate" style={{ color: "rgba(255,255,255,0.3)" }}>· {c.email}</span>
+                        </div>
+                      ))
+                    }
+                  </div>
+                  <input
+                    placeholder="Assunto"
+                    value={bulkEmailSubject}
+                    onChange={e => setBulkEmailSubject(e.target.value)}
+                    className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none"
+                    style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#F0F0F0" }} />
+                  <textarea
+                    placeholder="Corpo do e-mail…"
+                    value={bulkEmailText}
+                    onChange={e => setBulkEmailText(e.target.value)}
+                    rows={5}
+                    className="w-full rounded-xl px-4 py-2.5 text-sm focus:outline-none resize-none"
+                    style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#F0F0F0" }} />
+                  <div className="flex gap-2 justify-end">
+                    <button onClick={() => setBulkEmailModal(false)}
+                      className="px-4 py-2 rounded-xl text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>
+                      Cancelar
+                    </button>
+                    <button
+                      disabled={selectedContacts.filter(c => c.email).length === 0 || !bulkEmailSubject.trim()}
+                      onClick={() => {
+                        const emails = selectedContacts.filter(c => c.email).map(c => c.email).join(",");
+                        const url = `mailto:${emails}?subject=${encodeURIComponent(bulkEmailSubject)}&body=${encodeURIComponent(bulkEmailText)}`;
+                        window.open(url, "_blank");
+                        setBulkEmailModal(false);
+                        setSelectedContacts([]);
+                        toast.success("Cliente de e-mail aberto!");
+                      }}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold disabled:opacity-40"
+                      style={{ background: "#F87171", color: "#07080A" }}>
+                      <Send className="w-3.5 h-3.5" /> Abrir no e-mail
                     </button>
                   </div>
                 </div>
