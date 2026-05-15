@@ -36,7 +36,13 @@ serve(async (req) => {
       const r    = await fetch(`${BASE}/status`, { headers: HEADERS });
       const data = await r.json();
       if (!r.ok) return Response.json({ connected: false, error: data?.error }, { headers: cors });
-      return Response.json({ connected: data.connected ?? false, phone: data.phone }, { headers: cors });
+      // Z-API may return { connected: true } or { value: "CONNECTED" } depending on version
+      const connected =
+        data.connected === true ||
+        data.connected === "true" ||
+        String(data.value ?? "").toUpperCase() === "CONNECTED" ||
+        String(data.status ?? "").toUpperCase() === "CONNECTED";
+      return Response.json({ connected, phone: data.phone ?? data.number ?? null, raw: data }, { headers: cors });
     }
 
     // ── QR Code ────────────────────────────────────────────────
