@@ -38,6 +38,20 @@ serve(async (req) => {
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!apiKey) throw new Error("ANTHROPIC_API_KEY não configurada");
 
+    // Truncate very large HTML: keep full <head> (CSS vars) + truncate <body> if needed
+    const MAX_BODY = 20_000;
+    let htmlTrimmed = html;
+    if (html.length > 30_000) {
+      const bodyStart = html.indexOf("<body");
+      if (bodyStart > 0) {
+        const head = html.slice(0, bodyStart);
+        const body = html.slice(bodyStart);
+        htmlTrimmed = head + (body.length > MAX_BODY ? body.slice(0, MAX_BODY) + "\n</body></html><!-- [truncado] -->" : body);
+      } else {
+        htmlTrimmed = html.slice(0, 30_000) + "\n<!-- [truncado] -->";
+      }
+    }
+
     // Fetch content from reference URLs
     let urlsContext = "";
     if (Array.isArray(source_urls) && source_urls.length > 0) {
@@ -61,7 +75,7 @@ COMANDO:
 ${command}
 
 HTML ATUAL:
-${html}
+${htmlTrimmed}
 
 Identifique quais seções/elementos precisam mudar para executar o comando.
 Retorne SOMENTE um JSON array (sem markdown, sem explicação):
@@ -118,7 +132,8 @@ Regras:
         },
         body: JSON.stringify({
           model: "claude-haiku-4-5-20251001",
-          max_tokens: 8000,
+          max_tokens: 16000,
+          system: "Você é um editor de HTML de landing pages. RESPONDA APENAS com um JSON array válido, sem texto antes ou depois, sem markdown, sem code fences. Formato exato: [{\"selector\":\"...\",\"outerHTML\":\"...\"}]. Escape todas as aspas dentro de strings JSON com \\\".",
           messages: [{ role: "user", content: messageContent }],
         }),
       });
