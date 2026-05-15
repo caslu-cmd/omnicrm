@@ -14,6 +14,7 @@ import {
   Paperclip, X, Palette, PenLine, BarChart3, Layout, Table2, AtSign,
   Target, ArrowRight, Repeat2, MousePointerClick, Filter, Trash2, Mic, MicOff, StopCircle,
   Save, Settings2, Award, Download, Loader2, Sparkles, ListChecks, Code2, Upload,
+  FileSpreadsheet, AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
@@ -1007,6 +1008,11 @@ export default function ClientWorkspace() {
   const [showAddStudent, setShowAddStudent] = useState<string | null>(null);
   const [newStudentForm, setNewStudentForm] = useState({ student_name: "", student_email: "", student_phone: "" });
   const [addingStudent, setAddingStudent] = useState(false);
+  const [importCsvCourseId, setImportCsvCourseId] = useState<string | null>(null);
+  const [importCsvPreview, setImportCsvPreview] = useState<{ name: string; email: string; phone: string }[]>([]);
+  const [importingCsv, setImportingCsv] = useState(false);
+  const csvFileRef = useRef<HTMLInputElement>(null);
+  const csvTargetCourseRef = useRef<string | null>(null);
   // Certificate emission
   const [certCourseId, setCertCourseId] = useState<string | null>(null);
   const [certTemplate, setCertTemplate] = useState<string | null>(null);
@@ -2895,6 +2901,104 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
   const handleDeleteEnrollment = async (enrollmentId: string, courseId: string) => {
     await (supabase as any).from("course_enrollments").delete().eq("id", enrollmentId);
     setDbEnrollments(prev => ({ ...prev, [courseId]: (prev[courseId] ?? []).filter((e: any) => e.id !== enrollmentId) }));
+  };
+
+  const parseCsvText = (text: string): { name: string; email: string; phone: string }[] => {
+    const lines = text.split(/\r?\n/).filter(l => l.trim());
+    if (lines.length < 2) return [];
+    const clean = (h: string) => h.trim().toLowerCase()
+      .replace(/[^a-z0-9]/g, "");
+    const header = lines[0].split(/[,;\t]/).map(clean);
+    const nameIdx  = header.findIndex(h => ["nome","name","aluno","estudante","participante"].some(k => h.includes(k)));
+    const emailIdx = header.findIndex(h => ["email","mail","correio"].some(k => h.includes(k)));
+    const phoneIdx = header.findIndex(h => ["telefone","celular","fone","whatsapp","phone","tel","contato"].some(k => h.includes(k)));
+    return lines.slice(1).map(line => {
+      const cols = line.split(/[,;\t]/).map(c => c.replace(/^"|"$/g, "").trim());
+      const rawPhone = phoneIdx >= 0 ? (cols[phoneIdx] ?? "").replace(/\D/g, "") : "";
+      return {
+        name:  nameIdx  >= 0 ? (cols[nameIdx]  ?? "") : (cols[0] ?? ""),
+        email: emailIdx >= 0 ? (cols[emailIdx] ?? "") : "",
+        phone: rawPhone.length >= 10 ? rawPhone : "",
+      };
+    }).filter(r => r.name.trim().length > 1);
+  };
+
+  const handleCsvFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (csvFileRef.current) csvFileRef.current.value = "";
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const rows = parseCsvText(ev.target?.result as string ?? "");
+      if (rows.length === 0) { toast.error("Nenhum aluno encontrado. O CSV precisa ter colunas: nome, email, telefone"); return; }
+      setImportCsvPreview(rows);
+      setImportCsvCourseId(csvTargetCourseRef.current);
+    };
+    reader.readAsText(file, "utf-8");
+  };
+
+  const handleConfirmCsvImport = async () => {
+    if (!importCsvCourseId || importCsvPreview.length === 0) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    setImportingCsv(true);
+    let inserted = 0; let skipped = 0;
+
+    const isGroup = importCsvCourseId.startsWith("grp-");
+
+    if (isGroup) {
+      const groupId = importCsvCourseId.replace(/^grp-/, "");
+      for (const row of importCsvPreview) {
+        // Upsert contact
+        let contactId: string | null = null;
+        if (row.email) {
+          const { data: existing } = await (supabase as any).from("contacts")
+            .select("id").eq("user_id", session.user.id).eq("email", row.email).maybeSingle();
+          if (existing) contactId = existing.id;
+        }
+        if (!contactId && row.phone) {
+          const { data: existing } = await (supabase as any).from("contacts")
+            .select("id").eq("user_id", session.user.id).eq("phone", row.phone).maybeSingle();
+          if (existing) contactId = existing.id;
+        }
+        if (!contactId) {
+          const { data: newContact, error: cErr } = await (supabase as any).from("contacts").insert({
+            user_id: session.user.id,
+            name: row.name,
+            email: row.email || null,
+            phone: row.phone || null,
+            channel: "Curso",
+            source: "curso",
+            status: "warm",
+            score: 50,
+          }).select("id").single();
+          if (cErr) { skipped++; continue; }
+          contactId = newContact.id;
+        }
+        // Link to group
+        const { error: mErr } = await (supabase as any).from("contact_group_members")
+          .insert({ group_id: groupId, contact_id: contactId })
+          .select();
+        if (!mErr) inserted++; else skipped++;
+      }
+    } else {
+      for (const row of importCsvPreview) {
+        const { error } = await (supabase as any).from("course_enrollments").insert({
+          course_id: importCsvCourseId,
+          user_id: session.user.id,
+          student_name: row.name,
+          student_email: row.email || null,
+          student_phone: row.phone || null,
+        });
+        if (!error) inserted++; else skipped++;
+      }
+    }
+
+    setImportingCsv(false);
+    setImportCsvCourseId(null);
+    setImportCsvPreview([]);
+    loadDbCourses();
+    toast.success(`${inserted} aluno${inserted !== 1 ? "s" : ""} importado${inserted !== 1 ? "s" : ""} e sincronizados no CRM!${skipped > 0 ? ` (${skipped} ignorados)` : ""}`);
   };
 
   const handleDeleteCourse = async (courseId: string) => {
@@ -9289,6 +9393,9 @@ Regras:
                   accept=".pdf,.doc,.docx,.txt,.md,.csv,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg"
                   className="hidden" onChange={handleCourseFileUpload} />
 
+                {/* Hidden file input for CSV import */}
+                <input ref={csvFileRef} type="file" accept=".csv,.txt" className="hidden" onChange={handleCsvFileSelect} />
+
                 {/* Course list */}
                 {!coursesLoading && dbCourses.map((course) => {
                   const students = dbEnrollments[course.id] ?? [];
@@ -9361,6 +9468,12 @@ Regras:
                             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold transition-all"
                             style={{ background: `${client.color}10`, color: client.color, border: `1px solid ${client.color}25` }}>
                             <Plus className="w-3 h-3" /> Aluno
+                          </button>
+                          <button
+                            onClick={() => { csvTargetCourseRef.current = course.id; csvFileRef.current?.click(); }}
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold transition-all"
+                            style={{ background: "rgba(185,255,75,0.08)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.2)" }}>
+                            <FileSpreadsheet className="w-3.5 h-3.5" /> CSV
                           </button>
                           <button onClick={() => handleDeleteCourse(course.id)}
                             className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
@@ -10187,6 +10300,14 @@ Regras:
                                 : { background: "rgba(250,204,21,0.08)", color: "#FBBF24", border: "1px solid rgba(250,204,21,0.2)" }}>
                               <Award className="w-3.5 h-3.5" /> Certificados
                             </button>
+
+                            {/* CSV import button for CRM groups */}
+                            <button
+                              onClick={() => { csvTargetCourseRef.current = `grp-${group.id}`; csvFileRef.current?.click(); }}
+                              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold transition-all flex-shrink-0"
+                              style={{ background: "rgba(185,255,75,0.08)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.2)" }}>
+                              <FileSpreadsheet className="w-3.5 h-3.5" /> CSV
+                            </button>
                           </div>
 
                           {/* Member list */}
@@ -10996,6 +11117,72 @@ Regras:
               </div>
             )}
 
+            {/* ── Modal: Importar CSV de alunos ─────────────────── */}
+            {importCsvCourseId && importCsvPreview.length > 0 && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center p-4"
+                style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(6px)" }}>
+                <div className="w-full max-w-md rounded-2xl flex flex-col max-h-[85vh]"
+                  style={{ background: "#0F0F18", border: "1px solid rgba(185,255,75,0.2)" }}>
+                  {/* Header */}
+                  <div className="flex items-center justify-between px-5 py-4 shrink-0"
+                    style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                    <div>
+                      <p className="text-sm font-bold" style={{ color: "#fff" }}>Importar Alunos via CSV</p>
+                      <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>
+                        {importCsvPreview.length} aluno{importCsvPreview.length !== 1 ? "s" : ""} encontrado{importCsvPreview.length !== 1 ? "s" : ""} — serão salvos no curso e no CRM
+                      </p>
+                    </div>
+                    <button onClick={() => { setImportCsvCourseId(null); setImportCsvPreview([]); }}
+                      className="w-7 h-7 rounded-lg flex items-center justify-center"
+                      style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.4)" }}>
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                  {/* Alert */}
+                  <div className="mx-5 mt-4 flex items-start gap-2.5 px-3 py-2.5 rounded-xl shrink-0"
+                    style={{ background: "rgba(185,255,75,0.07)", border: "1px solid rgba(185,255,75,0.18)" }}>
+                    <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" style={{ color: "#B9FF4B" }} />
+                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>
+                      Ao confirmar, cada aluno é inserido no curso e o banco sincroniza automaticamente com o CRM.
+                    </p>
+                  </div>
+                  {/* List */}
+                  <div className="overflow-y-auto flex-1 px-5 py-3 space-y-1.5">
+                    {importCsvPreview.map((r, i) => (
+                      <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-xl"
+                        style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                        <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
+                          style={{ background: "rgba(185,255,75,0.12)", color: "#B9FF4B" }}>
+                          {r.name.slice(0, 2).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-xs font-medium truncate" style={{ color: "rgba(255,255,255,0.85)" }}>{r.name}</p>
+                          <p className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.3)" }}>
+                            {r.email || "sem e-mail"} · {r.phone || "⚠️ sem telefone"}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {/* Actions */}
+                  <div className="flex gap-3 px-5 py-4 shrink-0" style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+                    <button onClick={() => { setImportCsvCourseId(null); setImportCsvPreview([]); }}
+                      className="flex-1 py-2.5 rounded-xl text-sm font-medium"
+                      style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.45)", border: "1px solid rgba(255,255,255,0.09)" }}>
+                      Cancelar
+                    </button>
+                    <button onClick={handleConfirmCsvImport} disabled={importingCsv}
+                      className="flex-1 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50"
+                      style={{ background: "#B9FF4B", color: "#07080A" }}>
+                      {importingCsv
+                        ? <><RefreshCw className="w-4 h-4 animate-spin" /> Importando...</>
+                        : <><FileSpreadsheet className="w-4 h-4" /> Confirmar</>}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* ══════════════════════════════════════════════════════
                 PORTAL DO CLIENTE — VISÃO DA AGÊNCIA
             ══════════════════════════════════════════════════════ */}
@@ -11585,11 +11772,20 @@ Regras:
                                       style={{ background: "#fff", border: "1px solid rgba(91,173,47,0.4)", color: "#111" }}
                                     />
                                   ) : (
-                                    <p className="text-sm cursor-pointer hover:text-[#5BAD2F] transition-colors"
-                                      style={{ color: d.status === "completed" ? "#aaa" : "#111", textDecoration: d.status === "completed" ? "line-through" : "none" }}
-                                      onClick={() => setEditingDemand({ id: d.id, field: "title", value: d.title })}>
-                                      {d.title}
-                                    </p>
+                                    <div className="flex items-center gap-1 group">
+                                      <p className="text-sm cursor-pointer hover:text-[#5BAD2F] transition-colors"
+                                        style={{ color: d.status === "completed" ? "#aaa" : "#111", textDecoration: d.status === "completed" ? "line-through" : "none" }}
+                                        onClick={() => setEditingDemand({ id: d.id, field: "title", value: d.title })}>
+                                        {d.title}
+                                      </p>
+                                      <button
+                                        onClick={() => setEditingDemand({ id: d.id, field: "title", value: d.title })}
+                                        className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded"
+                                        style={{ color: "#bbb" }}
+                                        title="Editar título">
+                                        <Pencil className="w-3 h-3" />
+                                      </button>
+                                    </div>
                                   )}
                                   {/* Description — show/click to edit */}
                                   {editingDemand?.id === d.id && editingDemand.field === "description" ? (
