@@ -179,16 +179,14 @@ async function executeMetaTool(
       if (input.genders === "male") targeting.genders = [1];
       else if (input.genders === "female") targeting.genders = [2];
 
-      // billing_event must match optimization_goal
       const optGoal: string = input.optimization_goal || "LINK_CLICKS";
-      const billingEvent = optGoal === "LINK_CLICKS" ? "LINK_CLICKS" : "IMPRESSIONS";
 
       const adsetRes = await fetch(`${GRAPH}/${accountId}/adsets`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: `${input.name} — Conjunto`, campaign_id: campData.id,
           daily_budget: Math.round((parseFloat(input.daily_budget_brl) || 30) * 100),
-          billing_event: billingEvent,
+          billing_event: "IMPRESSIONS",
           optimization_goal: optGoal,
           targeting, status: input.activate ? "ACTIVE" : "PAUSED",
           access_token: token,
@@ -1254,14 +1252,12 @@ JSON esperado:
       else if (c.genders === "female") targeting.genders = [2];
 
       // 3. Ad Set
-      const campOptGoal: string = c.optimization_goal || "LINK_CLICKS";
-      const campBillingEvent = campOptGoal === "LINK_CLICKS" ? "LINK_CLICKS" : "IMPRESSIONS";
       const adsetBody: Record<string, unknown> = {
         name: `${c.name || "Ad Set"} — Conjunto`,
         campaign_id: campData.id,
         daily_budget: dailyBudget,
-        billing_event: campBillingEvent,
-        optimization_goal: campOptGoal,
+        billing_event: "IMPRESSIONS",
+        optimization_goal: c.optimization_goal || "LINK_CLICKS",
         targeting,
         status: c.activate ? "ACTIVE" : "PAUSED",
         access_token: token,
