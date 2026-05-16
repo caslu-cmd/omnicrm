@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Loader2, RefreshCw, Pause, Play, AlertCircle,
   Sparkles, Plus, CheckCircle, X, Zap, BarChart2,
+  Paperclip, FileText, ImageIcon, Send,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -117,17 +118,55 @@ function CampaignModal({
 }) {
   const [step, setStep] = useState<"briefing" | "configure" | "done">("briefing");
   const [briefing, setBriefing] = useState("");
+  const [briefingFiles, setBriefingFiles] = useState<File[]>([]);
   const [parsing, setParsing] = useState(false);
   const [draft, setDraft] = useState<CampaignDraft>(DEFAULT_DRAFT);
+  const [activate, setActivate] = useState(false);
+  const [creativeMode, setCreativeMode] = useState<"none" | "image_url" | "existing_post">("none");
+  const [pagePosts, setPagePosts] = useState<{ id: string; message: string; image_url: string | null; created_time: string }[]>([]);
+  const [loadingPosts, setLoadingPosts] = useState(false);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [result, setResult] = useState<{ campaign_id: string; adset_id: string; has_creative: boolean } | null>(null);
+  const [result, setResult] = useState<{ campaign_id: string; adset_id: string; has_creative: boolean; activated?: boolean } | null>(null);
   const s = (o: number) => `rgba(255,255,255,${o})`;
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const loadPagePosts = async (pageId: string) => {
+    if (!pageId.trim()) { toast.error("Preencha o ID da Página do Facebook primeiro"); return; }
+    setLoadingPosts(true);
+    try {
+      const data = await callFn({ action: "list-page-posts", client_id: clientId, page_id: pageId });
+      setPagePosts(data.posts ?? []);
+      if ((data.posts ?? []).length === 0) toast.info("Nenhuma publicação encontrada nessa página");
+    } catch (e: any) {
+      toast.error(e.message ?? "Erro ao buscar publicações");
+    } finally {
+      setLoadingPosts(false);
+    }
+  };
 
   const parseBriefing = async () => {
-    if (!briefing.trim()) return;
+    if (!briefing.trim() && briefingFiles.length === 0) return;
     setParsing(true);
     try {
-      const data = await callFn({ action: "parse-campaign-briefing", briefing });
+      // Read files
+      const files: { name: string; base64: string; media_type: string }[] = [];
+      await Promise.all(briefingFiles.map(file => new Promise<void>(resolve => {
+        if (file.type === "text/plain" || file.type === "text/markdown") {
+          // For plain text, append to briefing instead
+          resolve();
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          const b64 = (reader.result as string).split(",")[1];
+          files.push({ name: file.name, base64: b64, media_type: file.type });
+          resolve();
+        };
+        reader.readAsDataURL(file);
+      })));
+
+      const data = await callFn({ action: "parse-campaign-briefing", briefing, ...(files.length > 0 && { files }) });
       if (data.parsed) {
         setDraft((prev) => ({ ...prev, ...data.parsed }));
         setStep("configure");
@@ -144,13 +183,19 @@ function CampaignModal({
   const createCampaign = async () => {
     setCreating(true);
     try {
-      const data = await callFn({ action: "create-meta-campaign", client_id: clientId, campaign: draft });
+      const campaignData = {
+        ...draft,
+        activate,
+        ...(creativeMode === "existing_post" && selectedPostId ? { post_id: selectedPostId } : {}),
+        ...(creativeMode === "image_url" ? {} : creativeMode === "existing_post" ? {} : { image_url: "" }),
+      };
+      const data = await callFn({ action: "create-meta-campaign", client_id: clientId, campaign: campaignData });
       if (data.reconnect_required) {
         toast.error("Token sem permissão ads_management. Vá em Redes Sociais → Anúncios → Reconectar Meta Ads.");
         setCreating(false);
         return;
       }
-      setResult({ campaign_id: data.campaign_id, adset_id: data.adset_id, has_creative: data.has_creative });
+      setResult({ campaign_id: data.campaign_id, adset_id: data.adset_id, has_creative: data.has_creative, activated: activate });
       setStep("done");
       onCreated();
     } catch (e: any) {
@@ -226,15 +271,59 @@ function CampaignModal({
               value={briefing}
               onChange={(e) => setBriefing(e.target.value)}
               placeholder="Ex: Campanha para captar leads de pessoas entre 25-40 anos interessadas em cursos de marketing. Orçamento de R$50/dia. Foco em mulheres de São Paulo."
-              rows={5}
+              rows={4}
               className="w-full rounded-xl px-3 py-3 text-xs resize-none outline-none"
               style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: s(0.8) }}
             />
+
+            {/* File upload */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.md"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                const newFiles = Array.from(e.target.files ?? []);
+                setBriefingFiles(prev => [...prev, ...newFiles]);
+                e.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full py-2 rounded-xl text-[11px] flex items-center justify-center gap-2 transition-all"
+              style={{ border: "1px dashed rgba(255,255,255,0.15)", color: s(0.4), background: "transparent" }}
+            >
+              <Paperclip className="w-3.5 h-3.5" />
+              Anexar arquivo de referência (PDF, imagem, texto)
+            </button>
+            {briefingFiles.length > 0 && (
+              <div className="space-y-1.5">
+                {briefingFiles.map((f, i) => (
+                  <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.04)" }}>
+                    {f.type.startsWith("image/") ? (
+                      <ImageIcon className="w-3 h-3 shrink-0" style={{ color: s(0.4) }} />
+                    ) : (
+                      <FileText className="w-3 h-3 shrink-0" style={{ color: s(0.4) }} />
+                    )}
+                    <span className="text-[10px] flex-1 truncate" style={{ color: s(0.6) }}>{f.name}</span>
+                    <button onClick={() => setBriefingFiles(prev => prev.filter((_, j) => j !== i))} className="p-0.5">
+                      <X className="w-3 h-3" style={{ color: s(0.3) }} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
             <button
               onClick={parseBriefing}
-              disabled={!briefing.trim() || parsing}
+              disabled={(!briefing.trim() && briefingFiles.length === 0) || parsing}
               className="w-full py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all"
-              style={{ background: briefing.trim() ? clientColor : "rgba(255,255,255,0.06)", color: briefing.trim() ? "#000" : s(0.3) }}
+              style={{
+                background: (briefing.trim() || briefingFiles.length > 0) ? clientColor : "rgba(255,255,255,0.06)",
+                color: (briefing.trim() || briefingFiles.length > 0) ? "#000" : s(0.3),
+              }}
             >
               {parsing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
               {parsing ? "Interpretando…" : "Interpretar com IA"}
@@ -314,10 +403,110 @@ function CampaignModal({
               )}
             </div>
 
-            <div className="rounded-xl p-3 text-[11px]"
-              style={{ background: "rgba(185,255,75,0.06)", border: "1px solid rgba(185,255,75,0.15)", color: s(0.5) }}>
-              A campanha será criada como <strong style={{ color: s(0.7) }}>PAUSADA</strong> — revise no Meta Ads Manager antes de ativar.
+            {/* Creative mode */}
+            <div className="space-y-2">
+              <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: s(0.4) }}>Criativo do anúncio</span>
+              <div className="flex gap-2 flex-wrap">
+                {([
+                  { value: "none", label: "Sem imagem" },
+                  { value: "image_url", label: "URL da imagem" },
+                  { value: "existing_post", label: "Publicação existente" },
+                ] as const).map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => { setCreativeMode(opt.value); setSelectedPostId(null); }}
+                    className="px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all"
+                    style={{
+                      background: creativeMode === opt.value ? clientColor : "rgba(255,255,255,0.06)",
+                      color: creativeMode === opt.value ? "#000" : s(0.45),
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              {creativeMode === "image_url" && (
+                <div className="mt-2">
+                  {field("URL da imagem",
+                    <input className={inputCls} style={inputStyle} value={draft.image_url}
+                      onChange={(e) => setDraft({ ...draft, image_url: e.target.value })}
+                      placeholder="https://..." />
+                  )}
+                </div>
+              )}
+
+              {creativeMode === "existing_post" && (
+                <div className="mt-2 space-y-2">
+                  <button
+                    type="button"
+                    onClick={() => loadPagePosts(draft.page_id)}
+                    disabled={loadingPosts}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold transition-all"
+                    style={{ background: "rgba(255,255,255,0.07)", color: s(0.6) }}
+                  >
+                    {loadingPosts ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                    {loadingPosts ? "Buscando…" : "Carregar publicações da página"}
+                  </button>
+                  {pagePosts.length > 0 && (
+                    <div className="grid grid-cols-2 gap-2 max-h-48 overflow-y-auto rounded-xl p-1">
+                      {pagePosts.map((post) => (
+                        <button
+                          key={post.id}
+                          type="button"
+                          onClick={() => setSelectedPostId(post.id === selectedPostId ? null : post.id)}
+                          className="text-left p-2 rounded-xl space-y-1.5 transition-all"
+                          style={{
+                            background: selectedPostId === post.id ? "rgba(185,255,75,0.1)" : "rgba(255,255,255,0.04)",
+                            border: `1px solid ${selectedPostId === post.id ? "rgba(185,255,75,0.35)" : "rgba(255,255,255,0.07)"}`,
+                          }}
+                        >
+                          {post.image_url && (
+                            <img src={post.image_url} alt="" className="w-full h-14 object-cover rounded-lg" />
+                          )}
+                          <p className="text-[9px] line-clamp-2" style={{ color: s(0.55) }}>
+                            {post.message || "(sem legenda)"}
+                          </p>
+                          <p className="text-[9px]" style={{ color: s(0.25) }}>
+                            {new Date(post.created_time).toLocaleDateString("pt-BR")}
+                          </p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
+
+            {/* Publicar imediatamente */}
+            <label className="flex items-center gap-3 cursor-pointer select-none">
+              <div
+                className="w-8 h-4 rounded-full relative transition-all shrink-0"
+                style={{ background: activate ? clientColor : "rgba(255,255,255,0.12)" }}
+                onClick={() => setActivate(v => !v)}
+              >
+                <div
+                  className="absolute top-0.5 w-3 h-3 rounded-full transition-all"
+                  style={{ background: "#fff", left: activate ? "calc(100% - 14px)" : "2px" }}
+                />
+              </div>
+              <span className="text-[11px]" style={{ color: s(0.65) }}>
+                Publicar imediatamente (status <strong style={{ color: activate ? "#34D399" : s(0.65) }}>ATIVA</strong>)
+              </span>
+            </label>
+
+            {activate ? (
+              <div className="rounded-xl p-3 text-[11px]"
+                style={{ background: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.2)", color: s(0.5) }}>
+                A campanha será criada como <strong style={{ color: "#34D399" }}>ATIVA</strong> — o investimento começa imediatamente após a criação.
+              </div>
+            ) : (
+              <div className="rounded-xl p-3 text-[11px]"
+                style={{ background: "rgba(185,255,75,0.06)", border: "1px solid rgba(185,255,75,0.15)", color: s(0.5) }}>
+                A campanha será criada como <strong style={{ color: s(0.7) }}>PAUSADA</strong> — revise no Meta Ads Manager antes de ativar.
+              </div>
+            )}
 
             <div className="flex gap-2">
               <button onClick={() => setStep("briefing")}
@@ -362,11 +551,15 @@ function CampaignModal({
               </div>
               <div className="flex justify-between text-[11px]">
                 <span style={{ color: s(0.4) }}>Status inicial</span>
-                <span style={{ color: "#FBBF24" }}>PAUSADA</span>
+                <span style={{ color: result.activated ? "#34D399" : "#FBBF24" }}>
+                  {result.activated ? "ATIVA" : "PAUSADA"}
+                </span>
               </div>
             </div>
             <p className="text-[11px]" style={{ color: s(0.4) }}>
-              Acesse o Meta Ads Manager para revisar e ativar a campanha.
+              {result.activated
+                ? "A campanha já está ativa. Acompanhe o desempenho no Meta Ads Manager."
+                : "Acesse o Meta Ads Manager para revisar e ativar a campanha."}
             </p>
             <button onClick={onClose}
               className="w-full py-2.5 rounded-xl text-xs font-semibold"
