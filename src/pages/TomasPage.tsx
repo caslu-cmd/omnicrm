@@ -189,11 +189,15 @@ function parseLPIntoSections(html: string): { markedHtml: string; sections: Pars
       fields.push({ id: fieldId, label, value: text });
     };
 
-    let h1n = 0, h2n = 0, h3n = 0, h4n = 0, pn = 0, liN = 0, btn = 0, imgn = 0;
+    let h1n = 0, h2n = 0, h3n = 0, h4n = 0, summaryN = 0, pn = 0, liN = 0, btn = 0, imgn = 0;
     sectionEl.querySelectorAll("h1").forEach(el => addField(el, h1n++ === 0 ? "Título Principal" : `Título ${h1n}`));
     sectionEl.querySelectorAll("h2").forEach(el => addField(el, h2n++ === 0 ? "Título" : `Título ${h2n}`));
     sectionEl.querySelectorAll("h3").forEach(el => addField(el, h3n++ === 0 ? "Subtítulo" : `Subtítulo ${h3n}`));
     sectionEl.querySelectorAll("h4,h5,h6").forEach(el => addField(el, `Subtítulo ${++h4n}`));
+    sectionEl.querySelectorAll("summary").forEach(el => {
+      const text = el.textContent?.trim() ?? "";
+      if (text.length > 2) addField(el, summaryN++ === 0 ? "Tópico" : `Tópico ${summaryN}`);
+    });
     sectionEl.querySelectorAll("p").forEach(el => {
       if ((el.textContent?.trim().length ?? 0) > 8) addField(el, pn++ === 0 ? "Texto" : `Texto ${pn}`);
     });
@@ -894,28 +898,49 @@ document.querySelectorAll('[data-calu-el]').forEach(function(el){
 });` : "";
   const script = `<script>(function(){
 var s=document.createElement('style');
-s.textContent='[data-calu-section]{cursor:pointer;transition:outline 0.15s;}[data-calu-section]:hover{outline:2px dashed rgba(185,255,75,0.35)!important;outline-offset:3px;}[data-calu-section="${selectedId}"]{outline:2px solid #B9FF4B!important;outline-offset:3px;}[data-calu-field]{cursor:pointer!important;transition:outline 0.1s;}[data-calu-field]:hover{outline:1px dashed rgba(96,165,250,0.7)!important;outline-offset:2px;}img[data-calu-field]:hover{outline:2px solid #60A5FA!important;outline-offset:2px;cursor:crosshair!important;}';
+s.textContent='[data-calu-section]{cursor:pointer;transition:outline 0.15s;}[data-calu-section]:hover{outline:2px dashed rgba(185,255,75,0.35)!important;outline-offset:3px;}[data-calu-section="${selectedId}"]{outline:2px solid #B9FF4B!important;outline-offset:3px;}[data-calu-field]{cursor:text!important;transition:outline 0.1s;}[data-calu-field]:hover{outline:2px dashed rgba(96,165,250,0.8)!important;outline-offset:3px;}img[data-calu-field]{cursor:crosshair!important;}img[data-calu-field]:hover{outline:2px solid #60A5FA!important;}';
 document.head.appendChild(s);
+// ── Inline text editing for all [data-calu-field] text elements ─────────────
+var TEXT_TAGS=['P','H1','H2','H3','H4','H5','H6','SPAN','LI','A','BUTTON','STRONG','EM','DIV','LABEL','SUMMARY'];
+document.querySelectorAll('[data-calu-field]').forEach(function(el){
+  var isImg=el.tagName==='IMG'||!!el.querySelector('img');
+  if(isImg)return;
+  if(TEXT_TAGS.indexOf(el.tagName)<0)return;
+  var fid=el.getAttribute('data-calu-field');
+  var sid=(el.closest('[data-calu-section]')||{getAttribute:function(){return 's0';}}).getAttribute('data-calu-section');
+  el.addEventListener('click',function(e){
+    e.stopPropagation();e.preventDefault();
+    // notify panel to select this field
+    window.parent.postMessage({type:'calu-field-click',fieldId:fid,sectionId:sid},'*');
+    if(el.contentEditable==='true')return;
+    // enable inline edit
+    el.contentEditable='true';
+    el.style.outline='2px solid rgba(96,165,250,0.9)';el.style.outlineOffset='3px';
+    el.style.borderRadius='3px';el.focus();
+    // place caret at end
+    var range=document.createRange();range.selectNodeContents(el);range.collapse(false);
+    var sel=window.getSelection();if(sel){sel.removeAllRanges();sel.addRange(range);}
+    function finish(){
+      if(el.contentEditable!=='true')return;
+      el.contentEditable='false';el.style.outline='';el.style.outlineOffset='';el.style.borderRadius='';
+      window.parent.postMessage({type:'calu-field-inline-edit',fieldId:fid,value:el.textContent||''},'*');
+    }
+    el.addEventListener('blur',finish,{once:true});
+    el.addEventListener('keydown',function(ev){
+      if(ev.key==='Enter'&&!ev.shiftKey){ev.preventDefault();el.blur();}
+      if(ev.key==='Escape'){el.contentEditable='false';el.style.outline='';el.removeEventListener('blur',finish);}
+    },{once:false});
+  },true);
+});
+// section click (only when not clicking a field)
 document.querySelectorAll('[data-calu-section]').forEach(function(sec){
   sec.addEventListener('click',function(e){
     var fieldEl=e.target.closest('[data-calu-field]');
-    if(fieldEl){
-      e.stopPropagation();
-      window.parent.postMessage({type:'calu-field-click',fieldId:fieldEl.getAttribute('data-calu-field'),sectionId:sec.getAttribute('data-calu-section')},'*');
-    } else {
+    if(!fieldEl){
       e.preventDefault();e.stopPropagation();
       window.parent.postMessage({type:'calu-section-click',sectionId:sec.getAttribute('data-calu-section')},'*');
     }
   },true);
-});
-// Also catch fields outside a data-calu-section (nav images, etc.)
-document.querySelectorAll('[data-calu-field]').forEach(function(el){
-  if(!el.closest('[data-calu-section]')){
-    el.addEventListener('click',function(e){
-      e.stopPropagation();
-      window.parent.postMessage({type:'calu-field-click',fieldId:el.getAttribute('data-calu-field'),sectionId:'s0'},'*');
-    },true);
-  }
 });
 ${elPickScript}
 })();<\/script>`;
@@ -943,6 +968,7 @@ export default function TomasPage() {
   const [imgDragOver, setImgDragOver] = useState(false);
   const [extracting, setExtracting] = useState(false);
   const [autoFilled, setAutoFilled] = useState(false);
+  const [sectionsFromFile, setSectionsFromFile] = useState<string[]>([]);
 
   // ── Generation state ────────────────────────────────────────────────────────
   const [etapa, setEtapa]         = useState<Etapa>("idle");
@@ -958,6 +984,8 @@ export default function TomasPage() {
   const cancelledRef    = useRef(false);
   const fileInputRef    = useRef<HTMLInputElement>(null);
   const imgFileInputRef = useRef<HTMLInputElement>(null);
+  const undoStack       = useRef<string[]>([]);
+  const htmlEditadoRef  = useRef("");
 
   // ── Editor Visual state ─────────────────────────────────────────────────────
   const [editorMode, setEditorMode]               = useState(false);
@@ -986,6 +1014,7 @@ export default function TomasPage() {
   const [templatesOpen, setTemplatesOpen] = useState(false);
   const [imagesOpen, setImagesOpen]     = useState(false);
   const [elFxOpen, setElFxOpen]         = useState(false);
+  const [pickedElId, setPickedElId]     = useState<string | null>(null);
   const [replaceImgSrc, setReplaceImgSrc] = useState<string | null>(null);
   const [replaceImgVal, setReplaceImgVal] = useState("");
   const [replaceImgUploading, setReplaceImgUploading] = useState(false);
@@ -1087,6 +1116,7 @@ export default function TomasPage() {
       setHtmlEditado(data.html_content);
       setEtapa("concluido");
       setAbaAtiva("preview");
+      setPreviewEditMode(true);
       toast.success(`"${data.title}" carregada para edição`);
     })();
   }, [pageId]);
@@ -1094,7 +1124,10 @@ export default function TomasPage() {
   // ── iframe messages (basic edit + editor section/field click) ───────────────
   useEffect(() => {
     const handler = (e: MessageEvent) => {
-      if (e.data?.type === "calu-html-update") setHtmlEditado(e.data.html);
+      if (e.data?.type === "calu-html-update") {
+        if (htmlEditadoRef.current) undoStack.current = [...undoStack.current.slice(-49), htmlEditadoRef.current];
+        setHtmlEditado(e.data.html);
+      }
       if (e.data?.type === "calu-section-click") {
         const idx = sections.findIndex(s => s.id === e.data.sectionId);
         if (idx >= 0) setSelectedSectionIdx(idx);
@@ -1109,7 +1142,6 @@ export default function TomasPage() {
           const field = sec.fields.find(f => f.id === e.data.fieldId);
           if (field) {
             if (field.type === "image") {
-              // For images, just scroll to / highlight — the button is in FieldEditor
               setDirectEditField(null);
             } else {
               setDirectEditField(field.id);
@@ -1120,10 +1152,31 @@ export default function TomasPage() {
           }
         }
       }
+      if (e.data?.type === "calu-el-pick") {
+        setPickedElId(e.data.elId ?? null);
+      }
+      if (e.data?.type === "calu-field-inline-edit") {
+        const { fieldId, value } = e.data;
+        if (fieldId && value !== undefined) {
+          if (htmlEditadoRef.current) undoStack.current = [...undoStack.current.slice(-49), htmlEditadoRef.current];
+          setSections(prev => prev.map(s => ({
+            ...s,
+            fields: s.fields.map(f => f.id === fieldId ? { ...f, value } : f),
+          })));
+          setMarkedHtml(prev => {
+            const updated = applyFieldUpdate(prev, fieldId, value);
+            setHtmlEditado(stripEditorAttrs(updated));
+            return updated;
+          });
+        }
+      }
     };
     window.addEventListener("message", handler);
     return () => window.removeEventListener("message", handler);
   }, [sections]);
+
+  // ── Sync htmlEditadoRef ───────────────────────────────────────────────────────
+  useEffect(() => { htmlEditadoRef.current = htmlEditado; }, [htmlEditado]);
 
   // ── Derived ──────────────────────────────────────────────────────────────────
   const gerandoAtivo      = etapa !== "idle" && etapa !== "concluido" && etapa !== "erro";
@@ -1177,6 +1230,9 @@ export default function TomasPage() {
       if (data.tom && TONS.includes(data.tom)) setTom(data.tom);
       if (data.cores)    setCores(data.cores);
       if (data.extras)   setExtras(data.extras);
+      if (data.sections_sugeridas && Array.isArray(data.sections_sugeridas)) {
+        setSectionsFromFile(data.sections_sugeridas.slice(0, 10));
+      }
 
       setAutoFilled(true);
       toast.success("Briefing extraído do arquivo!");
@@ -1194,6 +1250,7 @@ export default function TomasPage() {
     setResultado(prev => ({ copy: prev?.copy ?? "", design: prev?.design ?? "", html }));
     setHtmlEditado(html);
     setAbaAtiva("preview");
+    setPreviewEditMode(true);
     try {
       const stored = JSON.parse(localStorage.getItem("calu_pages") ?? "[]");
       stored.unshift({ id: Date.now(), name: produto || "Landing Page", html, savedAt: new Date().toISOString() });
@@ -1237,7 +1294,35 @@ export default function TomasPage() {
     setAlteracaoInput("");
     setAlteracaoLoading(false);
     setSeoApplied(false);
+    setSectionsFromFile([]);
+    undoStack.current = [];
   }, []);
+
+  const undo = useCallback(() => {
+    if (!undoStack.current.length) { toast.info("Nada para desfazer"); return; }
+    const prev = undoStack.current[undoStack.current.length - 1];
+    undoStack.current = undoStack.current.slice(0, -1);
+    setHtmlEditado(prev);
+    if (editorMode) {
+      const { markedHtml: nm, sections: ns } = parseLPIntoSections(prev);
+      setMarkedHtml(nm);
+      setSections(ns);
+    }
+    toast.info("↩ Desfeito");
+  }, [editorMode]);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "z" && !e.shiftKey) {
+        const active = document.activeElement;
+        if (active && (active.tagName === "TEXTAREA" || active.tagName === "INPUT" || (active as HTMLElement).isContentEditable)) return;
+        e.preventDefault();
+        undo();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [undo]);
 
   // ── Editor Visual ──────────────────────────────────────────────────────────
 
@@ -1274,6 +1359,7 @@ export default function TomasPage() {
   }, []);
 
   const deleteSection = useCallback((sectionId: string) => {
+    if (htmlEditadoRef.current) undoStack.current = [...undoStack.current.slice(-49), htmlEditadoRef.current];
     setSections(prev => {
       const filtered = prev.filter(s => s.id !== sectionId);
       setSelectedSectionIdx(idx => Math.min(idx, Math.max(0, filtered.length - 1)));
@@ -1288,7 +1374,25 @@ export default function TomasPage() {
     toast.success("Seção removida!");
   }, []);
 
+  const deleteFieldById = useCallback((fieldId: string) => {
+    if (htmlEditadoRef.current) undoStack.current = [...undoStack.current.slice(-49), htmlEditadoRef.current];
+    setMarkedHtml(prev => {
+      const doc = new DOMParser().parseFromString(prev, "text/html");
+      const el = doc.querySelector(`[data-calu-field="${fieldId}"]`);
+      if (el) el.remove();
+      const updated = "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
+      setHtmlEditado(stripEditorAttrs(updated));
+      return updated;
+    });
+    setSections(prev => prev.map(s => ({
+      ...s,
+      fields: s.fields.filter(f => f.id !== fieldId),
+    })));
+    toast.success("Item removido!");
+  }, []);
+
   const duplicateSection = useCallback((sectionId: string) => {
+    if (htmlEditadoRef.current) undoStack.current = [...undoStack.current.slice(-49), htmlEditadoRef.current];
     const newHtml = applyDuplicateSection(markedHtml, sectionId);
     const { markedHtml: nm, sections: ns } = parseLPIntoSections(newHtml);
     setMarkedHtml(nm);
@@ -1317,6 +1421,7 @@ export default function TomasPage() {
     if (!blockInsertTarget || !blockType) return;
     const currentHtml = editorMode ? markedHtml : (htmlEditado || resultado?.html || "");
     if (!currentHtml) return;
+    if (htmlEditadoRef.current) undoStack.current = [...undoStack.current.slice(-49), htmlEditadoRef.current];
     let blockHtml = "";
     if (blockType === "image") {
       const src = blockVal.trim();
@@ -1412,6 +1517,7 @@ export default function TomasPage() {
     const effect = PREMIUM_EFFECTS.find(e => e.key === effectKey);
     if (!effect) return;
     const marker = `[calu-effect:${effectKey}]`;
+    if (htmlEditadoRef.current) undoStack.current = [...undoStack.current.slice(-49), htmlEditadoRef.current];
     setMarkedHtml(prev => {
       let newHtml: string;
       if (prev.includes(marker)) {
@@ -1542,6 +1648,7 @@ export default function TomasPage() {
       } else {
         throw new Error("Resposta inválida do Tomás");
       }
+      if (htmlEditadoRef.current) undoStack.current = [...undoStack.current.slice(-49), htmlEditadoRef.current];
       setHtmlEditado(newHtml);
 
       if (editorMode) {
@@ -1649,6 +1756,7 @@ export default function TomasPage() {
       } else {
         throw new Error("Resposta inválida do Tomás");
       }
+      if (htmlEditadoRef.current) undoStack.current = [...undoStack.current.slice(-49), htmlEditadoRef.current];
       setHtmlEditado(newHtml);
       if (editorMode) {
         const { markedHtml: newMarked, sections: newSections } = parseLPIntoSections(newHtml);
@@ -1702,6 +1810,7 @@ Retorne o HTML completo com as otimizações aplicadas no <head>.`;
       } else {
         throw new Error("Resposta inválida");
       }
+      if (htmlEditadoRef.current) undoStack.current = [...undoStack.current.slice(-49), htmlEditadoRef.current];
       setHtmlEditado(newHtml);
       setSeoApplied(true);
       if (editorMode) {
@@ -1783,6 +1892,7 @@ Retorne o HTML completo com as otimizações aplicadas no <head>.`;
         `Objetivo da LP: ${objetivo}`,
         `Tom de voz: ${tom}`,
         cores.trim() ? `Cores da marca: ${cores}` : null,
+        sectionsFromFile.length > 0 ? `\nESTRUTURA SUGERIDA — inclua TODAS estas seções na LP nesta ordem: ${sectionsFromFile.join(" → ")}` : null,
         extras.trim() ? `\nInformações adicionais:\n${extras}` : null,
       ].filter(Boolean).join("\n");
 
@@ -1818,7 +1928,8 @@ Retorne o HTML completo com as otimizações aplicadas no <head>.`;
             setResultado({ ...parcialLocal });
             setHtmlEditado(parcialLocal.html);
             setAbaAtiva("preview");
-            toast.success("Landing page gerada! Clique em 'Editor Visual' para editar campo a campo.");
+            setPreviewEditMode(true);
+            toast.success("Landing page gerada! Clique nos textos para editar.");
             // Salva LP no localStorage para o picker de criativos das campanhas
             try {
               const stored = JSON.parse(localStorage.getItem("calu_pages") ?? "[]");
@@ -1868,6 +1979,7 @@ Retorne o HTML completo com as otimizações aplicadas no <head>.`;
           setResultado({ ...parcialLocal });
           setHtmlEditado(parcialLocal.html);
           setAbaAtiva("preview");
+          setPreviewEditMode(true);
           toast.success("Landing page gerada!");
           try {
             const stored = JSON.parse(localStorage.getItem("calu_pages") ?? "[]");
@@ -1893,7 +2005,7 @@ Retorne o HTML completo com as otimizações aplicadas no <head>.`;
       setStatusMsg(err?.message ?? "Erro desconhecido");
       toast.error("Falha ao gerar a landing page.");
     }
-  }, [produto, publico, objetivo, tom, cores, extras, arquivos, clientName]);
+  }, [produto, publico, objetivo, tom, cores, extras, sectionsFromFile, arquivos, clientName]);
 
   const publicar = useCallback(async () => {
     const htmlFinal = stripEditorAttrs(editorMode ? markedHtml : (htmlEditado || resultado?.html || ""));
@@ -2069,6 +2181,7 @@ form.addEventListener('submit',function(e){
   const insertTemplate = useCallback((template: SectionTemplate) => {
     const currentHtml = markedHtml;
     if (!currentHtml) { toast.error("Gere ou abra uma LP primeiro"); return; }
+    if (htmlEditadoRef.current) undoStack.current = [...undoStack.current.slice(-49), htmlEditadoRef.current];
     const uid = Date.now().toString(36);
     const sectionHtml = template.html(uid);
     const newHtml = currentHtml.includes("</main>")
@@ -2099,6 +2212,7 @@ form.addEventListener('submit',function(e){
 
   const applyLpImageReplace = useCallback((oldSrc: string, newSrc: string) => {
     if (!newSrc.trim()) { toast.error("Informe a URL ou faça upload"); return; }
+    if (htmlEditadoRef.current) undoStack.current = [...undoStack.current.slice(-49), htmlEditadoRef.current];
     setMarkedHtml(prev => {
       const updated = applyImageReplace(prev, oldSrc, newSrc);
       const { markedHtml: nm, sections: ns } = parseLPIntoSections(updated);
@@ -2118,9 +2232,9 @@ form.addEventListener('submit',function(e){
     const script = `<script>(function(){
   var banner=document.createElement('div');
   banner.style.cssText='position:fixed;top:0;left:0;right:0;z-index:99999;background:#B9FF4B;color:#07080A;font-size:12px;font-weight:700;text-align:center;padding:7px;font-family:sans-serif;letter-spacing:.03em;';
-  banner.textContent='\\u270F\\uFE0F Clique em qualquer texto para editar — Enter para salvar, Esc para cancelar';
+  banner.textContent='\\u270F\\uFE0F Clique em qualquer texto para editar — Enter para salvar, Esc para cancelar | Ctrl+Z desfaz';
   document.body&&document.body.appendChild(banner);
-  var INLINE_TAGS=['P','H1','H2','H3','H4','H5','H6','SPAN','LI','BUTTON','A','LABEL','TD','STRONG','EM','B','I','FIGCAPTION','BLOCKQUOTE','CITE','DT','DD'];
+  var INLINE_TAGS=['P','H1','H2','H3','H4','H5','H6','SPAN','LI','BUTTON','A','LABEL','TD','STRONG','EM','B','I','FIGCAPTION','BLOCKQUOTE','CITE','DT','DD','SUMMARY'];
   var BLOCK_TAGS=['DIV','SECTION','ARTICLE','ASIDE','MAIN','HEADER','FOOTER','NAV','FIGURE'];
   function resolveTarget(el){
     if(!el||el===banner||el===document.body||el===document.documentElement)return null;
@@ -2289,67 +2403,131 @@ form.addEventListener('submit',function(e){
         ) : elFxOpen ? (
           /* ─── EFEITOS PANEL ──────────────────────────────────────────── */
           <div className="flex-1 overflow-y-auto px-3 py-3 flex flex-col gap-4">
+            {/* Hint: click on preview to pick element */}
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ background: "#0D1A08", border: "1px dashed #B9FF4B44" }}>
+              <span className="text-base">👆</span>
+              <p className="text-[11px] leading-tight" style={{ color: "rgba(185,255,75,0.7)" }}>
+                Clique em qualquer elemento na preview para aplicar efeito só nele
+              </p>
+            </div>
             {(() => {
-              const { cards, images } = getTaggedElements(markedHtml || "");
+              const { cards, images, texts, btns } = getTaggedElements(markedHtml || "");
+
+              const effectsFor = (elId: string) => {
+                if (elId.startsWith("card-")) return EL_EFFECTS_CARD as unknown as readonly {key:string;label:string;emoji:string;css:string}[];
+                if (elId.startsWith("img-"))  return EL_EFFECTS_IMG as unknown as readonly {key:string;label:string;emoji:string;css:string}[];
+                if (elId.startsWith("btn-"))  return EL_EFFECTS_BTN as unknown as readonly {key:string;label:string;emoji:string;css:string}[];
+                return EL_EFFECTS_TEXT as unknown as readonly {key:string;label:string;emoji:string;css:string}[];
+              };
+
+              const renderFxButtons = (elId: string) => (
+                <div className="flex flex-wrap gap-1.5">
+                  {effectsFor(elId).map(fx => {
+                    const active = isElementEffectActive(markedHtml, elId, fx.key);
+                    return (
+                      <button key={fx.key}
+                        onClick={() => setMarkedHtml(prev => toggleElementEffect(prev, elId, fx.key, fx.css))}
+                        className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold transition-all"
+                        style={{ background: active ? "#B9FF4B22" : "#141420", border: `1px solid ${active ? "#B9FF4B55" : "#2A2A3A"}`, color: active ? "#B9FF4B" : "rgba(255,255,255,0.4)" }}>
+                        {fx.emoji} {fx.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+
               return (
                 <>
+                  {/* Picked element first */}
+                  {pickedElId && (
+                    <div className="rounded-xl p-3" style={{ background: "#0D1A08", border: "1px solid #B9FF4B44" }}>
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#B9FF4B" }}>✨ Elemento selecionado</p>
+                        <button onClick={() => setPickedElId(null)} className="text-[10px]" style={{ color: "#555577" }}>× limpar</button>
+                      </div>
+                      <p className="text-xs mb-2 truncate font-medium" style={{ color: "rgba(255,255,255,0.6)" }}>
+                        {[...texts, ...btns, ...cards.map(c=>({id:c.id,label:c.label})), ...images.map(i=>({id:i.id,label:i.alt||i.id}))].find(e=>e.id===pickedElId)?.label ?? pickedElId}
+                      </p>
+                      {renderFxButtons(pickedElId)}
+                    </div>
+                  )}
+
+                  {/* Texts */}
+                  {texts.length > 0 && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest font-semibold px-1 mb-2" style={{ color: "#444466" }}>Textos ({texts.length})</p>
+                      <div className="flex flex-col gap-2">
+                        {texts.map(t => (
+                          <div key={t.id} className="rounded-xl p-3 cursor-pointer transition-all"
+                            onClick={() => setPickedElId(t.id)}
+                            style={{ background: pickedElId === t.id ? "#0D1A08" : "#0D0D18", border: `1px solid ${pickedElId === t.id ? "#B9FF4B44" : "#1E1E2E"}` }}>
+                            <p className="text-[10px] uppercase tracking-widest mb-1" style={{ color: "#444466" }}>{t.tag}</p>
+                            <p className="text-xs font-semibold mb-2 truncate" style={{ color: "rgba(255,255,255,0.7)" }}>{t.label}</p>
+                            {renderFxButtons(t.id)}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Buttons */}
+                  {btns.length > 0 && (
+                    <div>
+                      <p className="text-[10px] uppercase tracking-widest font-semibold px-1 mb-2" style={{ color: "#444466" }}>Botões ({btns.length})</p>
+                      <div className="flex flex-col gap-2">
+                        {btns.map(b => (
+                          <div key={b.id} className="rounded-xl p-3 cursor-pointer transition-all"
+                            onClick={() => setPickedElId(b.id)}
+                            style={{ background: pickedElId === b.id ? "#0D1A08" : "#0D0D18", border: `1px solid ${pickedElId === b.id ? "#B9FF4B44" : "#1E1E2E"}` }}>
+                            <p className="text-xs font-semibold mb-2 truncate" style={{ color: "rgba(255,255,255,0.7)" }}>{b.label}</p>
+                            {renderFxButtons(b.id)}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Cards */}
                   {cards.length > 0 && (
                     <div>
                       <p className="text-[10px] uppercase tracking-widest font-semibold px-1 mb-2" style={{ color: "#444466" }}>Cards ({cards.length})</p>
                       <div className="flex flex-col gap-2">
                         {cards.map(card => (
-                          <div key={card.id} className="rounded-xl p-3" style={{ background: "#0D0D18", border: "1px solid #1E1E2E" }}>
+                          <div key={card.id} className="rounded-xl p-3 cursor-pointer transition-all"
+                            onClick={() => setPickedElId(card.id)}
+                            style={{ background: pickedElId === card.id ? "#0D1A08" : "#0D0D18", border: `1px solid ${pickedElId === card.id ? "#B9FF4B44" : "#1E1E2E"}` }}>
                             <p className="text-xs font-semibold mb-2 truncate" style={{ color: "rgba(255,255,255,0.7)" }}>{card.label || card.id}</p>
-                            <div className="flex flex-wrap gap-1.5">
-                              {EL_EFFECTS_CARD.map(fx => {
-                                const active = isElementEffectActive(markedHtml, card.id, fx.key);
-                                return (
-                                  <button key={fx.key}
-                                    onClick={() => setMarkedHtml(prev => toggleElementEffect(prev, card.id, fx.key, fx.css))}
-                                    className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold transition-all"
-                                    style={{ background: active ? "#B9FF4B22" : "#141420", border: `1px solid ${active ? "#B9FF4B55" : "#2A2A3A"}`, color: active ? "#B9FF4B" : "rgba(255,255,255,0.4)" }}>
-                                    {fx.emoji} {fx.label}
-                                  </button>
-                                );
-                              })}
-                            </div>
+                            {renderFxButtons(card.id)}
                           </div>
                         ))}
                       </div>
                     </div>
                   )}
+
+                  {/* Images */}
                   {images.length > 0 && (
                     <div>
                       <p className="text-[10px] uppercase tracking-widest font-semibold px-1 mb-2" style={{ color: "#444466" }}>Imagens ({images.length})</p>
                       <div className="flex flex-col gap-2">
                         {images.map(img => (
-                          <div key={img.id} className="rounded-xl overflow-hidden" style={{ background: "#0D0D18", border: "1px solid #1E1E2E" }}>
+                          <div key={img.id} className="rounded-xl overflow-hidden cursor-pointer transition-all"
+                            onClick={() => setPickedElId(img.id)}
+                            style={{ background: "#0D0D18", border: `1px solid ${pickedElId === img.id ? "#B9FF4B44" : "#1E1E2E"}` }}>
                             <div className="w-full h-20 overflow-hidden" style={{ background: "#141420" }}>
                               <img src={img.src} alt={img.alt} className="w-full h-full object-cover" onError={e => { (e.target as HTMLImageElement).style.display = "none"; }} />
                             </div>
                             <div className="p-2.5">
                               <p className="text-[10px] truncate mb-2" style={{ color: "#444466" }}>{img.alt || img.src.split("/").pop()?.slice(0, 35) || img.id}</p>
-                              <div className="flex flex-wrap gap-1.5">
-                                {EL_EFFECTS_IMG.map(fx => {
-                                  const active = isElementEffectActive(markedHtml, img.id, fx.key);
-                                  return (
-                                    <button key={fx.key}
-                                      onClick={() => setMarkedHtml(prev => toggleElementEffect(prev, img.id, fx.key, fx.css))}
-                                      className="flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-semibold transition-all"
-                                      style={{ background: active ? "#B9FF4B22" : "#141420", border: `1px solid ${active ? "#B9FF4B55" : "#2A2A3A"}`, color: active ? "#B9FF4B" : "rgba(255,255,255,0.4)" }}>
-                                      {fx.emoji} {fx.label}
-                                    </button>
-                                  );
-                                })}
-                              </div>
+                              {renderFxButtons(img.id)}
                             </div>
                           </div>
                         ))}
                       </div>
                     </div>
                   )}
-                  {cards.length === 0 && images.length === 0 && (
-                    <p className="text-sm text-center py-8" style={{ color: "#444466" }}>Nenhum card ou imagem detectado.<br/>Gere ou edite uma LP primeiro.</p>
+
+                  {cards.length === 0 && images.length === 0 && texts.length === 0 && btns.length === 0 && (
+                    <p className="text-sm text-center py-8" style={{ color: "#444466" }}>Nenhum elemento detectado.<br/>Gere ou edite uma LP primeiro.</p>
                   )}
                 </>
               );
@@ -2720,6 +2898,7 @@ form.addEventListener('submit',function(e){
                       onConfirmDirectEdit={confirmDirectEdit}
                       onCancelDirectEdit={() => { setDirectEditField(null); setDirectEditValue(""); }}
                       onReplaceImage={(file) => replaceImage(field.id, file)}
+                      onDeleteField={() => deleteFieldById(field.id)}
                     />
                   ))}
                 </div>
@@ -2836,7 +3015,9 @@ form.addEventListener('submit',function(e){
     setSavedPageId(lp.id);
     setEtapa("concluido");
     setAbaAtiva("preview");
+    setPreviewEditMode(true);
     setLibraryOpen(false);
+    undoStack.current = [];
     toast.success(`"${lp.title}" aberta!`);
   }, []);
 
@@ -3091,6 +3272,41 @@ form.addEventListener('submit',function(e){
                   onFocus={e => e.currentTarget.style.borderColor = "#B9FF4B44"}
                   onBlur={e => e.currentTarget.style.borderColor = "#2A2A3A"} />
               </div>
+
+              {/* Seções detectadas no arquivo */}
+              {sectionsFromFile.length > 0 && (
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center justify-between">
+                    <label className="text-[10px] uppercase tracking-widest" style={{ color: "#555577" }}>
+                      Seções detectadas no arquivo
+                    </label>
+                    <button onClick={() => setSectionsFromFile([])} className="text-[10px] transition-colors"
+                      style={{ color: "#444466" }}
+                      onMouseEnter={e => e.currentTarget.style.color = "#FF4466"}
+                      onMouseLeave={e => e.currentTarget.style.color = "#444466"}>
+                      limpar
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {sectionsFromFile.map((s, i) => (
+                      <span key={i} className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-medium"
+                        style={{ background: "#B9FF4B15", border: "1px solid #B9FF4B33", color: "#B9FF4B" }}>
+                        {s}
+                        <button
+                          onClick={() => setSectionsFromFile(prev => prev.filter((_, j) => j !== i))}
+                          style={{ color: "rgba(185,255,75,0.5)", lineHeight: 1 }}
+                          onMouseEnter={e => e.currentTarget.style.color = "#B9FF4B"}
+                          onMouseLeave={e => e.currentTarget.style.color = "rgba(185,255,75,0.5)"}>
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-[10px]" style={{ color: "#444466" }}>
+                    O Tomás construirá a LP com essas seções na ordem indicada. Clique em × para remover alguma.
+                  </p>
+                </div>
+              )}
 
               {/* Páginas de referência */}
               <div className="flex flex-col gap-2">
@@ -3943,6 +4159,7 @@ interface FieldEditorProps {
   onConfirmDirectEdit: () => void;
   onCancelDirectEdit: () => void;
   onReplaceImage: (file: File) => void;
+  onDeleteField: () => void;
 }
 
 function FieldEditor({
@@ -3951,13 +4168,25 @@ function FieldEditor({
   onOpenAiEdit, onCancelAiEdit, onSetInstruction, onRunAiRewrite,
   onApplySuggestion, onDiscardSuggestion,
   onStartDirectEdit, onDirectEditChange, onConfirmDirectEdit, onCancelDirectEdit,
-  onReplaceImage,
+  onReplaceImage, onDeleteField,
 }: FieldEditorProps) {
   const imgInputRef = useRef<HTMLInputElement>(null);
+  const [hovered, setHovered] = useState(false);
   return (
-    <div className="flex flex-col gap-2 p-3 rounded-xl" style={{ background: "#141420", border: "1px solid #1E1E2E" }}>
-      {/* Label */}
-      <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#555577" }}>{field.label}</p>
+    <div className="flex flex-col gap-2 p-3 rounded-xl" style={{ background: "#141420", border: "1px solid #1E1E2E" }}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}>
+      {/* Label + delete button */}
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#555577" }}>{field.label}</p>
+        <button
+          onClick={onDeleteField}
+          title="Remover este elemento da LP"
+          className="flex items-center justify-center w-5 h-5 rounded transition-all"
+          style={{ color: hovered ? "#FF4466" : "transparent", opacity: hovered ? 1 : 0 }}>
+          <Trash2 className="w-3 h-3" />
+        </button>
+      </div>
 
       {/* IMAGE FIELD */}
       {field.type === "image" ? (
@@ -3996,7 +4225,14 @@ function FieldEditor({
               onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onConfirmDirectEdit(); } if (e.key === "Escape") onCancelDirectEdit(); }}
             />
           ) : (
-            <p className="text-xs leading-relaxed" style={{ color: "rgba(255,255,255,0.6)" }}>
+            <p
+              className="text-xs leading-relaxed cursor-text rounded px-1 -mx-1 transition-colors"
+              style={{ color: "rgba(255,255,255,0.6)" }}
+              onClick={onStartDirectEdit}
+              title="Clique para editar"
+              onMouseEnter={e => { e.currentTarget.style.color = "rgba(255,255,255,0.9)"; e.currentTarget.style.background = "rgba(255,255,255,0.04)"; }}
+              onMouseLeave={e => { e.currentTarget.style.color = "rgba(255,255,255,0.6)"; e.currentTarget.style.background = "transparent"; }}
+            >
               {field.value.length > 120 ? field.value.slice(0, 120) + "…" : field.value}
             </p>
           )}

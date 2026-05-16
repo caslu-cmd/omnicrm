@@ -40,7 +40,14 @@ serve(async (req) => {
 
     content.push({
       type: "text",
-      text: `Com base nos materiais acima, extraia as informações necessárias para criar uma landing page de alta conversão.
+      text: `Você é um especialista em marketing digital e landing pages de alta conversão. Analise profundamente os materiais acima.
+
+Sua tarefa é dupla:
+1. Extrair as informações do briefing
+2. Identificar quais seções a landing page deve ter com base no conteúdo real do material
+
+SEÇÕES POSSÍVEIS (escolha apenas as que fazem sentido para o conteúdo):
+Hero, Benefícios, Sobre/Quem Somos, Depoimentos, FAQ, Preços, Garantia, CTA, Módulos/Conteúdo Programático, Bônus, Cronograma, Resultados/Cases, Palestrante/Especialista, Como Funciona, Para Quem É
 
 Retorne SOMENTE um JSON válido neste formato exato (sem markdown, sem explicações):
 {
@@ -49,8 +56,11 @@ Retorne SOMENTE um JSON válido neste formato exato (sem markdown, sem explicaç
   "objetivo": "um dos: Capturar leads | Vender direto | Divulgar evento | Apresentar empresa | Lançar produto | Agendar consulta",
   "tom": "um dos: Direto e persuasivo | Inspirador | Profissional | Amigável | Luxo e exclusivo",
   "cores": "cores da marca mencionadas (hex ou nome) — deixe vazio se não houver",
-  "extras": "informações adicionais úteis: diferenciais únicos, preço, garantia, urgência, provas sociais, depoimentos, dados de resultado — tudo que não cabe nos campos acima"
-}`,
+  "extras": "informações adicionais úteis: diferenciais únicos, preço, garantia, urgência, provas sociais, depoimentos, dados de resultado — tudo que não cabe nos campos acima",
+  "sections_sugeridas": ["Hero", "Benefícios", "..."]
+}
+
+Para sections_sugeridas: liste de 4 a 8 seções em ordem lógica de apresentação, baseando-se no conteúdo real do arquivo. Inclua Hero sempre como primeira e CTA sempre como penúltima seção.`,
     });
 
     const resp = await fetch("https://api.anthropic.com/v1/messages", {
@@ -62,8 +72,8 @@ Retorne SOMENTE um JSON válido neste formato exato (sem markdown, sem explicaç
         "anthropic-beta": "pdfs-2024-09-25",
       },
       body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 1200,
+        model: "claude-sonnet-4-6",
+        max_tokens: 1600,
         messages: [{ role: "user", content }],
       }),
     });
