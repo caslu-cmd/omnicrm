@@ -509,20 +509,35 @@ function applyAddColumnToGrid(html: string, sectionId: string, gridIdx: number):
   const doc = new DOMParser().parseFromString(html, "text/html");
   const sec = doc.querySelector(`[data-calu-section="${sectionId}"]`);
   if (!sec) return html;
-  const grids = Array.from(sec.querySelectorAll('[class*="grid-cols"]'));
+  // Collect both Tailwind class-based and inline-style grids (mirrors iframe findSectionGrids)
+  const seen = new Set<Element>();
+  const grids: Element[] = [];
+  const add = (el: Element) => { if (el.children.length >= 2 && !seen.has(el)) { seen.add(el); grids.push(el); } };
+  sec.querySelectorAll('[class*="grid-cols"]').forEach(add);
+  sec.querySelectorAll('[style]').forEach(el => { if (/grid-template-columns/i.test(el.getAttribute('style') ?? '')) add(el); });
   const grid = grids[gridIdx] as HTMLElement | undefined;
   if (!grid) return html;
   const lastCol = grid.children[grid.children.length - 1];
   if (!lastCol) return html;
   const newCol = lastCol.cloneNode(true) as Element;
-  // Clear data-calu-field ids in clone to avoid duplicates
   newCol.querySelectorAll("[data-calu-field]").forEach(el => el.removeAttribute("data-calu-field"));
   grid.appendChild(newCol);
-  // Bump grid-cols-N class
-  const m = grid.className.match(/grid-cols-(\d+)/);
-  if (m) {
-    const n = Math.min(parseInt(m[1]) + 1, 6);
+  // Bump Tailwind grid-cols-N class
+  const clsMatch = grid.className.match(/grid-cols-(\d+)/);
+  if (clsMatch) {
+    const n = Math.min(parseInt(clsMatch[1]) + 1, 6);
     grid.className = grid.className.replace(/grid-cols-\d+/, `grid-cols-${n}`);
+  }
+  // Bump inline-style grid-template-columns
+  const style = grid.getAttribute("style") ?? "";
+  if (style) {
+    const repeatMatch = style.match(/grid-template-columns:\s*repeat\((\d+)/i);
+    if (repeatMatch) {
+      const n = Math.min(parseInt(repeatMatch[1]) + 1, 6);
+      grid.setAttribute("style", style.replace(/grid-template-columns:\s*repeat\(\d+/i, `grid-template-columns:repeat(${n}`));
+    } else if (/grid-template-columns/i.test(style)) {
+      grid.setAttribute("style", style.replace(/grid-template-columns:\s*([^;]+)/i, (_: string, cols: string) => `grid-template-columns:${cols.trim()} 1fr`));
+    }
   }
   return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
 }
@@ -1247,31 +1262,41 @@ document.querySelectorAll('[data-calu-section]').forEach(function(sec){
 (function(){
 var acb=document.createElement('button');acb.id='calu-add-col-btn';
 var acs=document.createElement('style');
-acs.textContent='#calu-add-col-btn{position:fixed;z-index:2147483644;display:none;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;background:#B9FF4B;color:#07080A;font-size:18px;font-weight:900;border:none;cursor:pointer;box-shadow:0 2px 10px rgba(0,0,0,.6);transition:transform .15s;}#calu-add-col-btn:hover{transform:scale(1.18);}';
+acs.textContent='#calu-add-col-btn{position:fixed;z-index:2147483644;display:none;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:#B9FF4B;color:#07080A;font-size:20px;font-weight:900;border:none;cursor:pointer;box-shadow:0 2px 12px rgba(0,0,0,.7);transition:transform .15s,opacity .15s;}#calu-add-col-btn:hover{transform:scale(1.18);}';
 document.head.appendChild(acs);
 acb.innerHTML='+';acb.title='Adicionar coluna';
-var curGrid=null,curGridSid=null,curGridIdx=null,acbTimer=null;
 document.body.appendChild(acb);
-var gridsInSections=[];
+var curGridSid=null,curGridIdx=null,acbTimer=null;
+// Detect grids: class-based (Tailwind) OR inline style grid-template-columns
+function findSectionGrids(sec){
+  var seen=new Set();var list=[];
+  function add(el){if(el.children.length>=2&&!seen.has(el)){seen.add(el);list.push(el);}}
+  sec.querySelectorAll('[class*="grid-cols"]').forEach(add);
+  sec.querySelectorAll('[style]').forEach(function(el){
+    var s=el.getAttribute('style')||'';
+    if(/grid-template-columns/i.test(s))add(el);
+  });
+  return list;
+}
 document.querySelectorAll('[data-calu-section]').forEach(function(sec){
   var sid=sec.getAttribute('data-calu-section');
-  sec.querySelectorAll('[class*="grid-cols"]').forEach(function(grid,gi){
-    gridsInSections.push({grid:grid,sid:sid,gi:gi});
-    grid.addEventListener('mouseenter',function(e){
+  var grids=findSectionGrids(sec);
+  grids.forEach(function(grid,gi){
+    grid.addEventListener('mouseenter',function(){
       if(acbTimer)clearTimeout(acbTimer);
-      curGrid=grid;curGridSid=sid;curGridIdx=gi;
+      curGridSid=sid;curGridIdx=gi;
       var r=grid.getBoundingClientRect();
-      acb.style.top=(r.top+r.height/2-13)+'px';
-      acb.style.left=Math.min(r.right+6,document.documentElement.clientWidth-30)+'px';
+      acb.style.top=(r.top+r.height/2-14)+'px';
+      acb.style.left=Math.min(r.right+8,document.documentElement.clientWidth-34)+'px';
       acb.style.display='flex';
     });
-    grid.addEventListener('mouseleave',function(e){
-      acbTimer=setTimeout(function(){if(!acb.matches(':hover')){acb.style.display='none';curGrid=null;}},150);
+    grid.addEventListener('mouseleave',function(){
+      acbTimer=setTimeout(function(){if(!acb.matches(':hover')){acb.style.display='none';}},180);
     });
   });
 });
 acb.addEventListener('mouseenter',function(){if(acbTimer)clearTimeout(acbTimer);});
-acb.addEventListener('mouseleave',function(){acb.style.display='none';curGrid=null;});
+acb.addEventListener('mouseleave',function(){acb.style.display='none';});
 acb.addEventListener('click',function(e){
   e.stopPropagation();e.preventDefault();
   if(curGridSid!==null&&curGridIdx!==null){
