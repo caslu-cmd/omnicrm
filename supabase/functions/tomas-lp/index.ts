@@ -466,7 +466,7 @@ serve(async (req) => {
       }
     }
     const skillContext = skillTexts.length > 0
-      ? `\n\n--- Referências de estilo e técnicas adicionais (use como inspiração e guia) ---\n${skillTexts.join("\n\n")}`
+      ? `\n\n--- Materiais e conteúdo do cliente (use os dados reais presentes aqui no HTML) ---\n${skillTexts.join("\n\n")}`
       : "";
 
     // Imagens enviadas pelo cliente — URLs reais para usar no HTML
@@ -497,7 +497,7 @@ serve(async (req) => {
             },
           ];
 
-          // Injeta apenas PDFs como document blocks para Beatriz (TXT/MD são skill files — somente skillContext)
+          // Injeta todos os arquivos para Beatriz: PDFs como document blocks, TXT/MD como texto
           for (const arq of arquivos) {
             if (!arq.base64) continue;
             if (arq.media_type === "application/pdf" || arq.name?.toLowerCase().endsWith(".pdf")) {
@@ -506,11 +506,19 @@ serve(async (req) => {
                 source: { type: "base64", media_type: "application/pdf", data: arq.base64 },
                 title: arq.name ?? "documento",
               });
+            } else if (/\.(txt|md)$/i.test(arq.name ?? "")) {
+              try {
+                const decoded = atob(arq.base64);
+                beatrizContent.push({
+                  type: "text",
+                  text: `\n\n--- Conteúdo do arquivo: ${arq.name} ---\n${decoded}`,
+                });
+              } catch { /* ignora erro de decode */ }
             }
           }
 
           const copy = await streamClaude(
-            apiKey, BEATRIZ_SYSTEM, beatrizContent, 2000,
+            apiKey, BEATRIZ_SYSTEM, beatrizContent, 4000,
             "claude-haiku-4-5-20251001", ctrl, "copy", "Beatriz escrevendo...", 300,
           );
           sse(ctrl, { etapa: "copy", status: "Copy finalizado ✓", conteudo: copy });
