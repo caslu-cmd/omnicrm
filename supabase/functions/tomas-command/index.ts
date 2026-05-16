@@ -28,17 +28,131 @@ async function fetchUrlContent(url: string): Promise<string> {
   }
 }
 
+type ContentBlock =
+  | { type: "text"; text: string }
+  | { type: "image"; source: { type: "base64"; media_type: string; data: string } }
+  | { type: "document"; source: { type: "base64"; media_type: "application/pdf"; data: string }; title: string };
+
+async function callClaude(
+  apiKey: string,
+  model: string,
+  system: string,
+  content: ContentBlock[],
+  maxTokens: number,
+  hasPdfs: boolean,
+): Promise<string> {
+  let r: Response | null = null;
+  let lastErr = "";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await new Promise(res => setTimeout(res, 800));
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        ...(hasPdfs ? { "anthropic-beta": "pdfs-2024-09-25" } : {}),
+      },
+      body: JSON.stringify({
+        model,
+        max_tokens: maxTokens,
+        system,
+        messages: [{ role: "user", content }],
+      }),
+    });
+    if (res.status === 529) { lastErr = await res.text(); continue; }
+    r = res; break;
+  }
+  if (!r) throw new Error(`Claude sobrecarregado, tente novamente. (${lastErr})`);
+  if (!r.ok) throw new Error(`Claude ${r.status}: ${await r.text()}`);
+  const data = await r.json();
+  return (data.content?.[0]?.text ?? "").trim();
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {
-    const { html, command, lp_context, images, source_urls } = await req.json();
-    if (!html || !command) throw new Error("html e command são obrigatórios");
+    const { html, command, lp_context, images, source_urls, section_html, files } = await req.json();
+    if (!command) throw new Error("command é obrigatório");
+    if (!html && !section_html) throw new Error("html ou section_html é obrigatório");
 
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!apiKey) throw new Error("ANTHROPIC_API_KEY não configurada");
 
-    // Truncate very large HTML: keep full <head> (CSS vars) + truncate <body> if needed
+    // Fetch URL context
+    let urlsContext = "";
+    if (Array.isArray(source_urls) && source_urls.length > 0) {
+      const contents = await Promise.all(source_urls.map(fetchUrlContent));
+      urlsContext = "\n\nCONTEÚDO DAS PÁGINAS DE REFERÊNCIA (use estas informações na LP):\n" +
+        source_urls.map((url: string, i: number) => `--- ${url} ---\n${contents[i]}`).join("\n\n");
+    }
+
+    // Build shared content blocks (PDFs + images first)
+    const sharedBlocks: ContentBlock[] = [];
+    if (Array.isArray(files)) {
+      for (const file of files) {
+        if (file.media_type === "application/pdf" && file.base64) {
+          sharedBlocks.push({
+            type: "document",
+            source: { type: "base64", media_type: "application/pdf", data: file.base64 },
+            title: file.name ?? "documento",
+          });
+        }
+      }
+    }
+    if (Array.isArray(images)) {
+      for (const img of images) {
+        if (img.base64 && img.mimeType) {
+          sharedBlocks.push({
+            type: "image",
+            source: { type: "base64", media_type: img.mimeType, data: img.base64 },
+          });
+        }
+      }
+    }
+    const hasPdfs = sharedBlocks.some(b => b.type === "document");
+    const hasFiles = sharedBlocks.length > 0;
+
+    // ── MODO SEÇÃO: edita apenas uma seção e retorna o HTML dela ─────────────
+    if (section_html) {
+      const prompt = `Você é o Tomás, especialista em landing pages da Calu Agência.
+
+CONTEXTO DA LP:
+${lp_context || "Landing page comercial em português brasileiro"}${urlsContext}
+${hasFiles ? "\nO usuário enviou arquivos/imagens de referência acima — use as informações deles no comando." : ""}
+
+⚠️ REGRA CRÍTICA:
+- Use EXCLUSIVAMENTE os dados do CONTEXTO e dos arquivos fornecidos
+- Jamais invente preços, nomes, depoimentos, dados específicos — use [INSERIR DADO]
+
+COMANDO: ${command}
+
+HTML ATUAL DA SEÇÃO:
+${section_html}
+
+Retorne SOMENTE o HTML da seção modificada, sem explicações, sem markdown, sem code fences.
+Preserve o CSS, variáveis e estrutura. Escreva em português brasileiro.`;
+
+      const messageContent: ContentBlock[] = [...sharedBlocks, { type: "text", text: prompt }];
+      let raw = await callClaude(
+        apiKey,
+        "claude-sonnet-4-6",
+        "Você é um editor de HTML de landing pages. Retorne APENAS o HTML da seção modificada, sem texto extra, sem markdown, sem code fences.",
+        messageContent,
+        8000,
+        hasPdfs,
+      );
+      // Remove code fences if present
+      if (raw.startsWith("```")) {
+        raw = raw.replace(/^```[a-z]*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
+      }
+      return new Response(JSON.stringify({ section_html: raw }), {
+        headers: { ...cors, "Content-Type": "application/json" },
+      });
+    }
+
+    // ── MODO COMPLETO: retorna JSON array de changes ──────────────────────────
     const MAX_BODY = 20_000;
     let htmlTrimmed = html;
     if (html.length > 30_000) {
@@ -52,18 +166,11 @@ serve(async (req) => {
       }
     }
 
-    // Fetch content from reference URLs
-    let urlsContext = "";
-    if (Array.isArray(source_urls) && source_urls.length > 0) {
-      const contents = await Promise.all(source_urls.map(fetchUrlContent));
-      urlsContext = "\n\nCONTEÚDO DAS PÁGINAS DE REFERÊNCIA (use estas informações na LP):\n" +
-        source_urls.map((url: string, i: number) => `--- ${url} ---\n${contents[i]}`).join("\n\n");
-    }
-
     const promptText = `Você é o Tomás, especialista em landing pages da Calu Agência.
 
 CONTEXTO:
 ${lp_context || "Landing page comercial em português brasileiro"}${urlsContext}
+${hasFiles ? "\nO usuário enviou arquivos/imagens de referência acima." : ""}
 
 ⚠️ REGRA CRÍTICA — NUNCA INVENTE INFORMAÇÕES:
 - Use EXCLUSIVAMENTE os dados do CONTEXTO, ARQUIVOS DE REFERÊNCIA e CONTEÚDO DAS PÁGINAS acima
@@ -87,7 +194,6 @@ Seletores válidos: "nav", "header#hero", "section#beneficios", "section#depoime
 Para inserir nova seção: { "insertAfter": "section#oferta", "outerHTML": "...nova seção completa..." }
 Para remover uma seção: { "selector": "section#xxx", "remove": true }
 Para mudanças globais de cor ou tipografia: use "head style" com o <style> inteiro atualizado.
-${images && images.length > 0 ? `\nIMPORTANTE: O usuário enviou ${images.length} imagem(ns) de referência. Use-as para guiar a substituição de logos, fotos ou identidade visual conforme o comando.` : ""}
 
 Regras:
 - Inclua APENAS os elementos que realmente mudam
@@ -97,73 +203,30 @@ Regras:
 - Para trocar FONTE: no "head style" adicione @import do Google Fonts e atualize font-family no body/h1/h2/etc.
 - Para trocar LOGO: substitua o elemento <img> com novo src mantendo todas as classes e atributos`;
 
-    // Build multimodal message content if images present
-    type ContentBlock =
-      | { type: "text"; text: string }
-      | { type: "image"; source: { type: "base64"; media_type: string; data: string } };
+    const messageContent: ContentBlock[] = [...sharedBlocks, { type: "text", text: promptText }];
+    let raw = await callClaude(
+      apiKey,
+      "claude-haiku-4-5-20251001",
+      "Você é um editor de HTML de landing pages. RESPONDA APENAS com um JSON array válido, sem texto antes ou depois, sem markdown, sem code fences. Formato exato: [{\"selector\":\"...\",\"outerHTML\":\"...\"}]. Escape todas as aspas dentro de strings JSON com \\\".",
+      messageContent,
+      16000,
+      hasPdfs,
+    );
 
-    const messageContent: ContentBlock[] = [];
-
-    if (images && Array.isArray(images) && images.length > 0) {
-      for (const img of images) {
-        if (!img.base64 || !img.mimeType) continue;
-        messageContent.push({
-          type: "image",
-          source: {
-            type: "base64",
-            media_type: img.mimeType,
-            data: img.base64,
-          },
-        });
-      }
-    }
-    messageContent.push({ type: "text", text: promptText });
-
-    let r: Response | null = null;
-    let lastErr = "";
-    for (let attempt = 0; attempt < 3; attempt++) {
-      if (attempt > 0) await new Promise(res => setTimeout(res, 800));
-      const res = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model: "claude-haiku-4-5-20251001",
-          max_tokens: 16000,
-          system: "Você é um editor de HTML de landing pages. RESPONDA APENAS com um JSON array válido, sem texto antes ou depois, sem markdown, sem code fences. Formato exato: [{\"selector\":\"...\",\"outerHTML\":\"...\"}]. Escape todas as aspas dentro de strings JSON com \\\".",
-          messages: [{ role: "user", content: messageContent }],
-        }),
-      });
-      if (res.status === 529) { lastErr = await res.text(); continue; }
-      r = res; break;
-    }
-    if (!r) throw new Error(`Claude sobrecarregado, tente novamente em instantes. (${lastErr})`);
-    if (!r.ok) throw new Error(`Claude ${r.status}: ${await r.text()}`);
-
-    const data = await r.json();
-    let raw = (data.content?.[0]?.text ?? "").trim();
-
-    // Remove markdown code fences (```json, ```javascript, ``` plain)
+    // Remove markdown code fences
     if (raw.startsWith("```")) {
       raw = raw.replace(/^```[a-z]*\n?/i, "").replace(/\n?```\s*$/i, "").trim();
     }
 
-    // Helper para retornar changes
     const okChanges = (changes: unknown[]) =>
       new Response(JSON.stringify({ changes }), { headers: { ...cors, "Content-Type": "application/json" } });
 
-    // 1. Tenta parsear direto como JSON array
     try {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) return okChanges(parsed);
-      // Claude às vezes envolve: {"changes": [...]}
       if (parsed && Array.isArray((parsed as any).changes)) return okChanges((parsed as any).changes);
     } catch { /* continua */ }
 
-    // 2. Extrai primeiro array JSON do texto (ignora texto antes/depois)
     const arrayMatch = raw.match(/(\[\s*\{[\s\S]*?\}\s*\])/);
     if (arrayMatch) {
       try {
@@ -172,7 +235,6 @@ Regras:
       } catch { /* continua */ }
     }
 
-    // 3. Fallback: modelo retornou HTML completo
     if (raw.includes("<!DOCTYPE") || raw.includes("<html")) {
       return new Response(JSON.stringify({ new_html: raw }), {
         headers: { ...cors, "Content-Type": "application/json" },

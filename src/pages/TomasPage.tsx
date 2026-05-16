@@ -1040,6 +1040,7 @@ export default function TomasPage() {
   const [sectionAiModal, setSectionAiModal] = useState<{ sectionId: string; name: string } | null>(null);
   const [sectionAiCmd, setSectionAiCmd]     = useState("");
   const [sectionAiLoading, setSectionAiLoading] = useState(false);
+  const [sectionAiFiles, setSectionAiFiles] = useState<File[]>([]);
 
   // ── Source URLs state ────────────────────────────────────────────────────────
   const [sourceUrls, setSourceUrls]     = useState<string[]>([]);
@@ -1731,7 +1732,6 @@ export default function TomasPage() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token ?? "";
-      const currentHtml = stripEditorAttrs(markedHtml || htmlEditado || resultado?.html || "");
       const lpContext = [
         `Produto/Serviço: ${produto}`,
         `Público-alvo: ${publico}`,
@@ -1739,26 +1739,90 @@ export default function TomasPage() {
         `Tom de voz: ${tom}`,
         clientName ? `Cliente: ${clientName}` : null,
       ].filter(Boolean).join("\n");
+
+      // Extrai o HTML exato da seção alvo para edição focada
+      const baseHtml = markedHtml || htmlEditado || resultado?.html || "";
+      const fullDoc = new DOMParser().parseFromString(baseHtml, "text/html");
+      const sectionEl = fullDoc.querySelector(`[data-calu-section="${sectionAiModal.sectionId}"]`);
+      let sectionHtml: string | undefined;
+      if (sectionEl) {
+        const tmp = document.createElement("div");
+        tmp.innerHTML = sectionEl.outerHTML;
+        tmp.querySelectorAll("[data-calu-section],[data-calu-field]").forEach(el => {
+          el.removeAttribute("data-calu-section");
+          el.removeAttribute("data-calu-field");
+        });
+        sectionHtml = tmp.innerHTML;
+      }
+
+      // Processa arquivos anexados ao modal
+      const images: { base64: string; mimeType: string }[] = [];
+      const files: { name: string; base64: string; media_type: string }[] = [];
+      let extraText = "";
+      await Promise.all(sectionAiFiles.map(file => new Promise<void>(resolve => {
+        const reader = new FileReader();
+        if (file.type === "application/pdf") {
+          reader.onload = () => {
+            const b64 = (reader.result as string).split(",")[1];
+            files.push({ name: file.name, base64: b64, media_type: "application/pdf" });
+            resolve();
+          };
+          reader.readAsDataURL(file);
+        } else if (file.type.startsWith("image/")) {
+          reader.onload = () => {
+            const b64 = (reader.result as string).split(",")[1];
+            images.push({ base64: b64, mimeType: file.type });
+            resolve();
+          };
+          reader.readAsDataURL(file);
+        } else {
+          reader.onload = () => {
+            extraText += `\n\n--- Arquivo: ${file.name} ---\n${reader.result as string}`;
+            resolve();
+          };
+          reader.readAsText(file);
+        }
+      })));
+
+      const commandFull = `${sectionAiCmd}${extraText ? `\n\nCONTEÚDO DOS ARQUIVOS ENVIADOS:\n${extraText}` : ""}`;
+      const currentHtml = stripEditorAttrs(baseHtml);
+
       const resp = await fetch(`${SUPABASE_URL}/functions/v1/tomas-command`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
         body: JSON.stringify({
           html: currentHtml,
-          command: `Edite APENAS a seção "${sectionAiModal.name}": ${sectionAiCmd}`,
+          ...(sectionHtml && { section_html: sectionHtml }),
+          command: commandFull,
           lp_context: lpContext,
           source_urls: sourceUrls,
+          ...(images.length > 0 && { images }),
+          ...(files.length > 0 && { files }),
         }),
       });
       const data = await resp.json();
       if (!resp.ok) throw new Error(data.error || `Erro ${resp.status}`);
+
       let newHtml: string;
-      if (data.changes && Array.isArray(data.changes)) {
+      if (data.section_html && sectionEl) {
+        // Substitui apenas a seção alvo no HTML completo
+        const tmp = document.createElement("div");
+        tmp.innerHTML = data.section_html;
+        const newSectionEl = tmp.firstElementChild;
+        if (newSectionEl) {
+          sectionEl.replaceWith(newSectionEl);
+        } else {
+          sectionEl.innerHTML = data.section_html;
+        }
+        newHtml = stripEditorAttrs("<!DOCTYPE html>\n" + fullDoc.documentElement.outerHTML);
+      } else if (data.changes && Array.isArray(data.changes)) {
         newHtml = applyChanges(currentHtml, data.changes);
       } else if (data.new_html) {
         newHtml = data.new_html as string;
       } else {
         throw new Error("Resposta inválida");
       }
+
       if (htmlEditadoRef.current) undoStack.current = [...undoStack.current.slice(-49), htmlEditadoRef.current];
       setHtmlEditado(newHtml);
       const { markedHtml: nm, sections: ns } = parseLPIntoSections(newHtml);
@@ -1766,6 +1830,7 @@ export default function TomasPage() {
       setSections(ns);
       setSectionAiModal(null);
       setSectionAiCmd("");
+      setSectionAiFiles([]);
       toast.success(`Seção "${sectionAiModal.name}" atualizada!`);
     } catch (e: any) {
       toast.error(e.message || "Erro ao editar seção");
@@ -4284,8 +4349,49 @@ form.addEventListener('submit',function(e){
                 onFocus={e => e.currentTarget.style.borderColor = "#B9FF4B88"}
                 onBlur={e => e.currentTarget.style.borderColor = "#B9FF4B44"}
               />
+
+              {/* File attachments */}
+              <div>
+                <label
+                  className="flex items-center gap-2 w-full cursor-pointer rounded-xl px-3 py-2 text-xs transition-colors"
+                  style={{ background: "#141420", border: "1px dashed rgba(185,255,75,0.25)", color: "#888899" }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = "rgba(185,255,75,0.5)"; e.currentTarget.style.color = "#B9FF4B"; }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = "rgba(185,255,75,0.25)"; e.currentTarget.style.color = "#888899"; }}>
+                  <Paperclip className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span>Anexar arquivo de referência (PDF, imagem, txt, md)</span>
+                  <input
+                    type="file"
+                    multiple
+                    accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.txt,.md,.docx"
+                    className="hidden"
+                    onChange={e => {
+                      const newFiles = Array.from(e.target.files ?? []);
+                      setSectionAiFiles(prev => [...prev, ...newFiles]);
+                      e.target.value = "";
+                    }}
+                  />
+                </label>
+                {sectionAiFiles.length > 0 && (
+                  <div className="flex flex-col gap-1 mt-2">
+                    {sectionAiFiles.map((f, i) => (
+                      <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-xs"
+                        style={{ background: "#0D0D18", border: "1px solid rgba(255,255,255,0.07)" }}>
+                        <FileText className="w-3 h-3 flex-shrink-0" style={{ color: "#B9FF4B" }} />
+                        <span className="flex-1 truncate" style={{ color: "#C0C0D0" }}>{f.name}</span>
+                        <button onClick={() => setSectionAiFiles(prev => prev.filter((_, j) => j !== i))}
+                          style={{ color: "#555577" }}
+                          onMouseEnter={e => e.currentTarget.style.color = "#FF4466"}
+                          onMouseLeave={e => e.currentTarget.style.color = "#555577"}>
+                          <X className="w-3 h-3" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div className="flex gap-2">
-                <button onClick={() => setSectionAiModal(null)}
+                <button onClick={() => { setSectionAiModal(null); setSectionAiFiles([]); }}
                   className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors"
                   style={{ background: "#1E1E2E", color: "#888899" }}
                   onMouseEnter={e => e.currentTarget.style.background = "#252535"}
