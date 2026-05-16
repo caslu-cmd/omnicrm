@@ -811,7 +811,7 @@ export default function MetaAdsCampaignsSection({
           </button>
 
           <a
-            href="https://adsmanager.facebook.com/"
+            href="https://www.facebook.com/adsmanager/"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all"
