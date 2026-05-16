@@ -89,7 +89,7 @@ export default function EditorialCalendarPanel({
 
   const generate = async () => {
     setGenerating(true);
-    toast("📅 Agente Pedro acionado", { description: "Calendário Editorial — planejamento multicanal", duration: 3000 });
+    const _pedroTid = toast.loading("Acionando agente Pedro…", { description: "Calendário Editorial — planejamento multicanal" });
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Sessão expirada");
@@ -162,6 +162,7 @@ Gere entre 8 e 15 itens. Distribua as datas de forma realista, sem amontoar tudo
     } catch (e: any) {
       toast.error(e?.message || "Falha ao gerar calendário");
     }
+    toast.dismiss(_pedroTid);
     setGenerating(false);
   };
 

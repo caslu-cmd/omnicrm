@@ -206,7 +206,7 @@ function CampaignModal({
     setAttachedFiles([]);
     setChatLoading(true);
 
-    toast("💡 Agente Calu acionado", { description: "Configurando campanha no Meta Ads", duration: 3000 });
+    const _caluTid = toast.loading("Acionando agente Calu…", { description: "Configurando campanha no Meta Ads" });
     try {
       const data = await callFn({ action: "campaign-agent", messages: newApiMessages });
       if (data.done && data.parsed) {
@@ -219,6 +219,7 @@ function CampaignModal({
     } catch (e: any) {
       toast.error(e.message ?? "Erro no agente");
     } finally {
+      toast.dismiss(_caluTid);
       setChatLoading(false);
     }
   };

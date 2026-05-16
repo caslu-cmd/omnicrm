@@ -502,7 +502,7 @@ export default function SocialMediaTab({
 
   const generateBatchCaption = async (itemId: string) => {
     setBatchItems((prev) => prev.map((i) => i.id === itemId ? { ...i, generating: true } : i));
-    toast("✍️ Agente Beatriz acionada", { description: "Gerando legenda para Instagram", duration: 3000 });
+    const _beatrizTid = toast.loading("Acionando agente Beatriz…", { description: "Gerando legenda para Instagram" });
     try {
       const { data } = await supabase.functions.invoke("chat-ai", {
         body: {
@@ -515,6 +515,8 @@ export default function SocialMediaTab({
     } catch {
       setBatchItems((prev) => prev.map((i) => i.id === itemId ? { ...i, generating: false } : i));
       toast.error("Erro ao gerar legenda.");
+    } finally {
+      toast.dismiss(_beatrizTid);
     }
   };
 

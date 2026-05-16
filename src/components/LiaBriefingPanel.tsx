@@ -529,7 +529,7 @@ export default function LiaBriefingPanel({ clientId, clientName, clientIndustry,
     if (!pasteText.trim()) return;
     setPasteLoading(true);
     setPasteError(null);
-    toast("🔍 Agente Lia acionada", { description: "Analisando briefing colado", duration: 3000 });
+    const _pasteTid = toast.loading("Acionando agente Lia…", { description: "Analisando briefing colado" });
     try {
       const prompt = `Você recebeu o briefing completo do cliente "${clientName}". Analise todo o conteúdo e gere um diagnóstico estratégico de marketing detalhado.
 
@@ -591,6 +591,7 @@ Com base neste briefing, gere agora o diagnóstico completo em markdown, seguind
     } catch (e) {
       setPasteError(e instanceof Error ? e.message : String(e));
     } finally {
+      toast.dismiss(_pasteTid);
       setPasteLoading(false);
     }
   };
@@ -610,7 +611,7 @@ Com base neste briefing, gere agora o diagnóstico completo em markdown, seguind
   const generate = async () => {
     setLoading(true);
     setError(null);
-    toast("🔍 Agente Lia acionada", { description: "Diagnóstico estratégico de marketing", duration: 3000 });
+    const _liaTid = toast.loading("Acionando agente Lia…", { description: "Diagnóstico estratégico de marketing" });
     try {
       const prompt = buildDiagnosisPrompt(data, clientName);
       const { data: res, error: err } = await supabase.functions.invoke("chat-ai", {
@@ -635,6 +636,7 @@ Com base neste briefing, gere agora o diagnóstico completo em markdown, seguind
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
+      toast.dismiss(_liaTid);
       setLoading(false);
     }
   };
@@ -741,7 +743,7 @@ Retorne SOMENTE um JSON válido, sem markdown, sem explicação. Array com 3 a 5
     const newHistory = [...panelChatHistory, { role: "user" as const, content: msg }];
     setPanelChatHistory(newHistory);
     setPanelChatLoading(true);
-    toast(`Agente ${pickedPanelAgent.name} acionado`, { description: pickedPanelAgent.specialty, duration: 3000 });
+    const _panelTid = toast.loading(`Acionando agente ${pickedPanelAgent.name}…`, { description: pickedPanelAgent.specialty });
     try {
       const { data: res } = await supabase.functions.invoke("chat-ai", {
         body: {
@@ -754,6 +756,7 @@ Retorne SOMENTE um JSON válido, sem markdown, sem explicação. Array com 3 a 5
     } catch {
       setPanelChatHistory(prev => [...prev, { role: "assistant", content: "Erro técnico. Tente novamente." }]);
     } finally {
+      toast.dismiss(_panelTid);
       setPanelChatLoading(false);
       setTimeout(() => panelChatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     }

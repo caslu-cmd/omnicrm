@@ -1253,7 +1253,7 @@ export default function ClientWorkspace() {
       }
 
       setAiraLiveText("Transcrevendo e resumindo...");
-      toast("🎙️ Agente Aira acionado", { description: "Transcrição e resumo de reunião", duration: 3000 });
+      const _airaTid = toast.loading("Acionando agente Aira…", { description: "Transcrição e resumo de reunião" });
 
       const { data, error } = await supabase.functions.invoke("aira-meeting", {
         body: {
@@ -1277,11 +1277,13 @@ export default function ClientWorkspace() {
         throw new Error(detail);
       }
       if (data?.error) throw new Error(data.error);
+      toast.dismiss(_airaTid);
       setAiraSummary(data?.summary || "Resumo nao disponivel.");
       setAiraStatus("done");
       setAiraLiveText("");
       if (audioUrl) supabase.storage.from("aira-recordings").remove([audioPath]).catch(() => {});
     } catch (e: any) {
+      toast.dismiss(_airaTid);
       setAiraError("Erro ao processar a reuniao: " + (e?.message || e));
       setAiraStatus("idle");
       setAiraLiveText("");
@@ -1585,7 +1587,7 @@ export default function ClientWorkspace() {
     if (!instruction.trim()) return;
     const agent = MARKETING_TEAM.find((a) => a.id === agentId);
     if (!agent) return;
-    toast(`${agent.initial} Agente ${agent.name} acionado`, { description: agent.role, duration: 3000 });
+    const _agentTid = toast.loading(`Acionando agente ${agent.name}…`, { description: agent.role });
     const ts = () => new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
     // User message
     addConvMsgs([{ id: `u-${Date.now()}`, from: "user", to: agentId, content: instruction, timestamp: ts(), status: "done" }]);
@@ -1636,6 +1638,7 @@ export default function ClientWorkspace() {
     } catch (e) {
       updateConvMsg(typingId, { content: `Erro: ${e instanceof Error ? e.message : String(e)}`, action: "respond", status: "error" });
     } finally {
+      toast.dismiss(_agentTid);
       setAriaLoading(false);
     }
   };
@@ -1654,7 +1657,7 @@ export default function ClientWorkspace() {
     if (!msg || agentChatLoading) return;
     setAgentChatInput("");
     const agent = MARKETING_TEAM.find((a) => a.id === agentId);
-    if (agent) toast(`${agent.initial} Agente ${agent.name} acionado`, { description: agent.role, duration: 3000 });
+    const _chatTid = agent ? toast.loading(`Acionando agente ${agent.name}…`, { description: agent.role }) : undefined;
     const history = agentChats[agentId] ?? [];
     const newHistory: {role:"user"|"assistant"; content:string}[] = [...history, { role: "user", content: msg }];
     updateAgentChat(agentId, newHistory);
@@ -1710,6 +1713,7 @@ Cliente: ${client.name} | Segmento: ${segmento}${client.teamInstructions ? `\nIn
     } catch (e) {
       updateAgentChat(agentId, [...newHistory, { role: "assistant", content: `Erro: ${e instanceof Error ? e.message : String(e)}` }]);
     } finally {
+      if (_chatTid !== undefined) toast.dismiss(_chatTid);
       setAgentChatLoading(false);
       setTimeout(() => agentChatEndRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
     }
@@ -1880,8 +1884,8 @@ Responda APENAS JSON válido, sem markdown, sem texto extra:
 
       for (const agentId of agents) {
         // (a) marca como trabalhando
-        const _notifyAgent = MARKETING_TEAM.find((a) => a.id === agentId);
-        if (_notifyAgent) toast(`${_notifyAgent.initial} Agente ${_notifyAgent.name} acionado`, { description: _notifyAgent.role, duration: 3000 });
+        const _loopAgent = MARKETING_TEAM.find((a) => a.id === agentId);
+        const _loopTid = _loopAgent ? toast.loading(`Acionando agente ${_loopAgent.name}…`, { description: _loopAgent.role }) : undefined;
         const workingTasks = { ...client.agentTasks, ...baseTasks };
         workingTasks[agentId] = {
           current: ARIA_DELEGATIONS[agentId] ?? "Trabalhando…",
@@ -2014,6 +2018,8 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
         } catch (e) {
           outputText = `*${agentId} não respondeu a tempo — tente novamente ou reduza a demanda: ${e instanceof Error ? e.message : String(e)}*`;
         }
+
+        if (_loopTid !== undefined) toast.dismiss(_loopTid);
 
         // (c) salva output completo
         accumulated[agentId] = outputText;

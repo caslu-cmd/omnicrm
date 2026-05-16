@@ -314,7 +314,7 @@ export default function BriefingPage() {
 
   const startChat = async () => {
     setPhase("chat");
-    toast("🔍 Agente Lia acionada", { description: "Consultora de onboarding da Calu Agência", duration: 3000 });
+    const _liaTid = toast.loading("Acionando agente Lia…", { description: "Consultora de onboarding da Calu Agência" });
     setLiaLoading(true);
     const trigger: LiaMsg = { id: "t", role: "user", content: "iniciar", ts: now() };
     try {
@@ -324,6 +324,7 @@ export default function BriefingPage() {
     } catch {
       setLiaMsgs([{ id: "a0", role: "assistant", content: "Olá! Sou a Lia, consultora da Calu Agência. 😊 Para começar: qual é o seu nome completo?", ts: now() }]);
     } finally {
+      toast.dismiss(_liaTid);
       setLiaLoading(false);
       setTimeout(() => inputRef.current?.focus(), 100);
     }
@@ -373,7 +374,7 @@ export default function BriefingPage() {
 
     for (const agent of PROPOSAL_AGENTS) {
       setCurrentAgent(agent.id);
-      toast(`${agent.initial} Agente ${agent.name} acionado`, { description: agent.role, duration: 3000 });
+      const _agTid = toast.loading(`Acionando agente ${agent.name}…`, { description: agent.role });
 
       // Typing indicator
       const typingId = `${agent.id}-typing`;
@@ -400,6 +401,8 @@ export default function BriefingPage() {
         setAgentMsgs((prev) =>
           prev.map((m) => m.id === typingId ? { ...m, content: "Análise em andamento...", typing: false } : m)
         );
+      } finally {
+        toast.dismiss(_agTid);
       }
     }
 
