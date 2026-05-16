@@ -380,6 +380,56 @@ function applyMoveSection(html: string, sectionId: string, dir: "up" | "down"): 
   return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
 }
 
+function applyDuplicateSection(html: string, sectionId: string): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const el = doc.querySelector(`[data-calu-section="${sectionId}"]`);
+  if (!el?.parentNode) return html;
+  const clone = el.cloneNode(true) as Element;
+  // Give the clone a new unique section ID
+  const newId = sectionId + "_copy_" + Date.now().toString(36);
+  clone.setAttribute("data-calu-section", newId);
+  clone.querySelectorAll("[data-calu-field]").forEach((f, i) => f.setAttribute("data-calu-field", newId + "_f" + i));
+  el.after(clone);
+  return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
+}
+
+function applySplitColumns(html: string, sectionId: string, cols: 2 | 3): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const el = doc.querySelector(`[data-calu-section="${sectionId}"]`);
+  if (!el) return html;
+  // Find the main content container inside the section (first div with children, or body of section)
+  const container = el.querySelector("div > div, section > div, .container, .wrapper") || el.querySelector("div") || el;
+  const gridCls = cols === 2 ? "grid grid-cols-2 gap-8" : "grid grid-cols-3 gap-6";
+  const children = Array.from(container.children);
+  if (children.length >= cols) {
+    // Wrap existing children in a grid
+    const grid = doc.createElement("div");
+    grid.className = gridCls;
+    grid.setAttribute("style", "align-items:start;");
+    children.forEach(child => grid.appendChild(child.cloneNode(true)));
+    container.innerHTML = "";
+    container.appendChild(grid);
+  } else {
+    // Wrap content + add empty columns to fill
+    const grid = doc.createElement("div");
+    grid.className = gridCls;
+    grid.setAttribute("style", "align-items:start;");
+    if (children.length > 0) {
+      const col1 = doc.createElement("div");
+      children.forEach(child => col1.appendChild(child.cloneNode(true)));
+      grid.appendChild(col1);
+    }
+    for (let i = grid.children.length; i < cols; i++) {
+      const col = doc.createElement("div");
+      col.innerHTML = `<p style="opacity:0.4;font-style:italic;">[Coluna ${i + 1}]</p>`;
+      grid.appendChild(col);
+    }
+    container.innerHTML = "";
+    container.appendChild(grid);
+  }
+  return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
+}
+
 function deleteBlockFromColumn(html: string, sectionId: string, columnIndex: number, type: "image" | "form" | "text"): string {
   const doc = new DOMParser().parseFromString(html, "text/html");
   const sec = doc.querySelector(`[data-calu-section="${sectionId}"]`);
@@ -951,18 +1001,37 @@ bs.textContent=
   '#calu-sec-bar button{display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:100px;cursor:pointer;font-family:sans-serif;font-size:11px;font-weight:700;letter-spacing:.02em;white-space:nowrap;border:none;outline:none;transition:background .15s;}'+
   '#calu-sec-bar .btn-ai{background:rgba(185,255,75,0.15);color:#B9FF4B;}#calu-sec-bar .btn-ai:hover{background:rgba(185,255,75,0.28);}'+
   '#calu-sec-bar .btn-mv{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.6);padding:5px 8px;}#calu-sec-bar .btn-mv:hover{background:rgba(255,255,255,0.15);color:#fff;}'+
+  '#calu-sec-bar .btn-dup{background:rgba(100,160,255,0.13);color:#7EB8FF;}#calu-sec-bar .btn-dup:hover{background:rgba(100,160,255,0.25);}'+
+  '#calu-sec-bar .btn-col{background:rgba(180,120,255,0.13);color:#C89FFF;}#calu-sec-bar .btn-col:hover{background:rgba(180,120,255,0.25);}'+
   '#calu-sec-bar .btn-del{background:rgba(255,68,102,0.12);color:#FF4466;}#calu-sec-bar .btn-del:hover{background:rgba(255,68,102,0.25);}'+
-  '#calu-sec-bar .sep{width:1px;height:18px;background:rgba(255,255,255,0.1);margin:0 2px;}';
+  '#calu-sec-bar .sep{width:1px;height:18px;background:rgba(255,255,255,0.1);margin:0 2px;}'+
+  '#calu-col-menu{position:fixed;z-index:2147483646;display:none;flex-direction:column;gap:3px;padding:6px;border-radius:12px;background:rgba(10,10,20,0.95);border:1px solid rgba(255,255,255,0.1);backdrop-filter:blur(12px);box-shadow:0 8px 32px rgba(0,0,0,.7);}'+
+  '#calu-col-menu button{display:flex;align-items:center;gap:6px;padding:6px 12px;border-radius:8px;cursor:pointer;font-size:11px;font-weight:700;border:none;background:rgba(180,120,255,0.12);color:#C89FFF;white-space:nowrap;}'+
+  '#calu-col-menu button:hover{background:rgba(180,120,255,0.25);}';
 document.head.appendChild(bs);
 var bar=document.createElement('div');bar.id='calu-sec-bar';
+var colMenu=document.createElement('div');colMenu.id='calu-col-menu';
 var curSid=null,curSec=null;
 function mkBtn(cls,html,fn){var b=document.createElement('button');b.className=cls;b.innerHTML=html;b.addEventListener('click',function(e){e.stopPropagation();e.preventDefault();fn();},true);return b;}
 bar.appendChild(mkBtn('btn-ai','✨ Editar com IA',function(){if(curSid)window.parent.postMessage({type:'calu-section-ai-edit',sectionId:curSid},'*');}));
 var sep1=document.createElement('div');sep1.className='sep';bar.appendChild(sep1);
 bar.appendChild(mkBtn('btn-mv','↑',function(){if(curSid)window.parent.postMessage({type:'calu-section-move',sectionId:curSid,dir:'up'},'*');}));
 bar.appendChild(mkBtn('btn-mv','↓',function(){if(curSid)window.parent.postMessage({type:'calu-section-move',sectionId:curSid,dir:'down'},'*');}));
+var sep3=document.createElement('div');sep3.className='sep';bar.appendChild(sep3);
+bar.appendChild(mkBtn('btn-dup','⧉ Duplicar',function(){if(curSid)window.parent.postMessage({type:'calu-section-duplicate',sectionId:curSid},'*');}));
+bar.appendChild(mkBtn('btn-col','⊞ Colunas',function(e){
+  if(!curSid)return;
+  var br=bar.getBoundingClientRect();
+  colMenu.style.top=(br.bottom+4)+'px';
+  colMenu.style.left=br.left+'px';
+  colMenu.style.display=colMenu.style.display==='flex'?'none':'flex';
+}));
 var sep2=document.createElement('div');sep2.className='sep';bar.appendChild(sep2);
 bar.appendChild(mkBtn('btn-del','🗑 Excluir',function(){if(curSid&&window.confirm('Excluir esta seção?'))window.parent.postMessage({type:'calu-section-delete',sectionId:curSid},'*');}));
+colMenu.appendChild(mkBtn('','⊡ 2 colunas',function(){if(curSid){window.parent.postMessage({type:'calu-section-columns',sectionId:curSid,cols:2},'*');colMenu.style.display='none';}}));
+colMenu.appendChild(mkBtn('','⊞ 3 colunas',function(){if(curSid){window.parent.postMessage({type:'calu-section-columns',sectionId:curSid,cols:3},'*');colMenu.style.display='none';}}));
+document.body.appendChild(colMenu);
+document.addEventListener('click',function(){colMenu.style.display='none';},true);
 document.body.appendChild(bar);
 function posBar(sec){var r=sec.getBoundingClientRect();bar.style.top=(r.top+8)+'px';bar.style.right=(document.documentElement.clientWidth-r.right+8)+'px';bar.style.left='auto';bar.style.display='flex';}
 document.querySelectorAll('[data-calu-section]').forEach(function(sec){
@@ -1209,6 +1278,28 @@ export default function TomasPage() {
           setHtmlEditado(stripEditorAttrs(newHtml));
           return nm;
         });
+      }
+      if (e.data?.type === "calu-section-duplicate") {
+        const { sectionId } = e.data;
+        setMarkedHtml(prev => {
+          const newHtml = applyDuplicateSection(prev, sectionId);
+          const { markedHtml: nm, sections: ns } = parseLPIntoSections(newHtml);
+          setSections(ns);
+          setHtmlEditado(stripEditorAttrs(newHtml));
+          return nm;
+        });
+        toast.success("Seção duplicada!");
+      }
+      if (e.data?.type === "calu-section-columns") {
+        const { sectionId, cols } = e.data;
+        setMarkedHtml(prev => {
+          const newHtml = applySplitColumns(prev, sectionId, cols as 2 | 3);
+          const { markedHtml: nm, sections: ns } = parseLPIntoSections(newHtml);
+          setSections(ns);
+          setHtmlEditado(stripEditorAttrs(newHtml));
+          return nm;
+        });
+        toast.success(`Seção dividida em ${cols} colunas!`);
       }
       if (e.data?.type === "calu-field-inline-edit") {
         const { fieldId, value } = e.data;
