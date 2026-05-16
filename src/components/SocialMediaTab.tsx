@@ -502,6 +502,7 @@ export default function SocialMediaTab({
 
   const generateBatchCaption = async (itemId: string) => {
     setBatchItems((prev) => prev.map((i) => i.id === itemId ? { ...i, generating: true } : i));
+    toast("✍️ Agente Beatriz acionada", { description: "Gerando legenda para Instagram", duration: 3000 });
     try {
       const { data } = await supabase.functions.invoke("chat-ai", {
         body: {

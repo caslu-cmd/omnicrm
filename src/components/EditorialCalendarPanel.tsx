@@ -89,6 +89,7 @@ export default function EditorialCalendarPanel({
 
   const generate = async () => {
     setGenerating(true);
+    toast("📅 Agente Pedro acionado", { description: "Calendário Editorial — planejamento multicanal", duration: 3000 });
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Sessão expirada");

@@ -206,6 +206,7 @@ function CampaignModal({
     setAttachedFiles([]);
     setChatLoading(true);
 
+    toast("💡 Agente Calu acionado", { description: "Configurando campanha no Meta Ads", duration: 3000 });
     try {
       const data = await callFn({ action: "campaign-agent", messages: newApiMessages });
       if (data.done && data.parsed) {

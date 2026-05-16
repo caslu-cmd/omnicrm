@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Zap, Sparkles, Download, Users, ArrowRight, Paperclip } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 const LIME = "#B9FF4B";
 const BG = "#07080A";
@@ -313,6 +314,7 @@ export default function BriefingPage() {
 
   const startChat = async () => {
     setPhase("chat");
+    toast("🔍 Agente Lia acionada", { description: "Consultora de onboarding da Calu Agência", duration: 3000 });
     setLiaLoading(true);
     const trigger: LiaMsg = { id: "t", role: "user", content: "iniciar", ts: now() };
     try {
@@ -371,6 +373,7 @@ export default function BriefingPage() {
 
     for (const agent of PROPOSAL_AGENTS) {
       setCurrentAgent(agent.id);
+      toast(`${agent.initial} Agente ${agent.name} acionado`, { description: agent.role, duration: 3000 });
 
       // Typing indicator
       const typingId = `${agent.id}-typing`;

@@ -2,6 +2,7 @@ import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/integrations/supabase/client";
 import { ChevronRight, Download, RefreshCw, X, CheckCircle2, Users, Paperclip, ClipboardPaste, Send, MessageSquare } from "lucide-react";
+import { toast } from "sonner";
 
 const LIA_COLOR = "#38BDF8";
 const CALU_GREEN = "#B9FF4B";
@@ -528,6 +529,7 @@ export default function LiaBriefingPanel({ clientId, clientName, clientIndustry,
     if (!pasteText.trim()) return;
     setPasteLoading(true);
     setPasteError(null);
+    toast("🔍 Agente Lia acionada", { description: "Analisando briefing colado", duration: 3000 });
     try {
       const prompt = `Você recebeu o briefing completo do cliente "${clientName}". Analise todo o conteúdo e gere um diagnóstico estratégico de marketing detalhado.
 
@@ -608,6 +610,7 @@ Com base neste briefing, gere agora o diagnóstico completo em markdown, seguind
   const generate = async () => {
     setLoading(true);
     setError(null);
+    toast("🔍 Agente Lia acionada", { description: "Diagnóstico estratégico de marketing", duration: 3000 });
     try {
       const prompt = buildDiagnosisPrompt(data, clientName);
       const { data: res, error: err } = await supabase.functions.invoke("chat-ai", {
@@ -738,6 +741,7 @@ Retorne SOMENTE um JSON válido, sem markdown, sem explicação. Array com 3 a 5
     const newHistory = [...panelChatHistory, { role: "user" as const, content: msg }];
     setPanelChatHistory(newHistory);
     setPanelChatLoading(true);
+    toast(`Agente ${pickedPanelAgent.name} acionado`, { description: pickedPanelAgent.specialty, duration: 3000 });
     try {
       const { data: res } = await supabase.functions.invoke("chat-ai", {
         body: {

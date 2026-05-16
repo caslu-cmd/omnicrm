@@ -1253,6 +1253,7 @@ export default function ClientWorkspace() {
       }
 
       setAiraLiveText("Transcrevendo e resumindo...");
+      toast("🎙️ Agente Aira acionado", { description: "Transcrição e resumo de reunião", duration: 3000 });
 
       const { data, error } = await supabase.functions.invoke("aira-meeting", {
         body: {
@@ -1584,6 +1585,7 @@ export default function ClientWorkspace() {
     if (!instruction.trim()) return;
     const agent = MARKETING_TEAM.find((a) => a.id === agentId);
     if (!agent) return;
+    toast(`${agent.initial} Agente ${agent.name} acionado`, { description: agent.role, duration: 3000 });
     const ts = () => new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
     // User message
     addConvMsgs([{ id: `u-${Date.now()}`, from: "user", to: agentId, content: instruction, timestamp: ts(), status: "done" }]);
@@ -1652,6 +1654,7 @@ export default function ClientWorkspace() {
     if (!msg || agentChatLoading) return;
     setAgentChatInput("");
     const agent = MARKETING_TEAM.find((a) => a.id === agentId);
+    if (agent) toast(`${agent.initial} Agente ${agent.name} acionado`, { description: agent.role, duration: 3000 });
     const history = agentChats[agentId] ?? [];
     const newHistory: {role:"user"|"assistant"; content:string}[] = [...history, { role: "user", content: msg }];
     updateAgentChat(agentId, newHistory);
@@ -1877,6 +1880,8 @@ Responda APENAS JSON válido, sem markdown, sem texto extra:
 
       for (const agentId of agents) {
         // (a) marca como trabalhando
+        const _notifyAgent = MARKETING_TEAM.find((a) => a.id === agentId);
+        if (_notifyAgent) toast(`${_notifyAgent.initial} Agente ${_notifyAgent.name} acionado`, { description: _notifyAgent.role, duration: 3000 });
         const workingTasks = { ...client.agentTasks, ...baseTasks };
         workingTasks[agentId] = {
           current: ARIA_DELEGATIONS[agentId] ?? "Trabalhando…",
