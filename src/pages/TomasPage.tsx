@@ -505,6 +505,39 @@ function applySectionReorder(html: string, sectionIds: string[], fromIdx: number
   return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
 }
 
+function applySwapColumns(html: string, sectionId: string, fromIdx: number, toIdx: number): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const sec = doc.querySelector(`[data-calu-section="${sectionId}"]`);
+  if (!sec) return html;
+
+  let gridEl: Element | null = sec.querySelector('[class*="grid-cols"]');
+  if (!gridEl) {
+    const flexEl = sec.querySelector('[class*="flex"]:not([class*="flex-col"])');
+    if (flexEl) {
+      const kids = Array.from(flexEl.children).filter(el => (el.textContent?.trim().length ?? 0) > 0 || el.querySelector("img"));
+      if (kids.length >= 2) gridEl = flexEl;
+    }
+  }
+  if (!gridEl && sec.children.length === 1) {
+    const w = sec.children[0];
+    if (Array.from(w.children).filter(el => (el.textContent?.trim().length ?? 0) > 0 || el.querySelector("img")).length >= 2) gridEl = w;
+  }
+  if (!gridEl) return html;
+
+  const cols = Array.from(gridEl.children);
+  if (fromIdx < 0 || toIdx < 0 || fromIdx >= cols.length || toIdx >= cols.length) return html;
+
+  const fromEl = cols[fromIdx];
+  const toEl   = cols[toIdx];
+  const ph     = doc.createComment("sw");
+  fromEl.parentNode!.insertBefore(ph, fromEl);
+  toEl.parentNode!.insertBefore(fromEl, toEl);
+  ph.parentNode!.insertBefore(toEl, ph);
+  ph.parentNode!.removeChild(ph);
+
+  return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
+}
+
 function applyInsertSectionAt(html: string, sectionId: string, pos: "before" | "after", newHtml: string): string {
   const doc = new DOMParser().parseFromString(html, "text/html");
   const el = doc.querySelector(`[data-calu-section="${sectionId}"]`);
@@ -1616,6 +1649,18 @@ export default function TomasPage() {
       fields: s.fields.filter(f => f.id !== fieldId),
     })));
     toast.success("Item removido!");
+  }, []);
+
+  const moveColumn = useCallback((sectionId: string, fromIdx: number, toIdx: number) => {
+    if (htmlEditadoRef.current) undoStack.current = [...undoStack.current.slice(-49), htmlEditadoRef.current];
+    setMarkedHtml(prev => {
+      const newHtml = applySwapColumns(prev, sectionId, fromIdx, toIdx);
+      const { markedHtml: nm, sections: ns } = parseLPIntoSections(newHtml);
+      setSections(ns);
+      setHtmlEditado(stripEditorAttrs(newHtml));
+      return nm;
+    });
+    toast.success("Coluna movida!");
   }, []);
 
   const duplicateSection = useCallback((sectionId: string) => {
@@ -2975,10 +3020,40 @@ form.addEventListener('submit',function(e){
                     </div>
 
                     {/* Columns */}
-                    <div className={`grid gap-px ${cols.length >= 3 ? "grid-cols-3" : cols.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}
+                    <div className={`grid gap-px ${cols.length >= 4 ? "grid-cols-4" : cols.length === 3 ? "grid-cols-3" : cols.length === 2 ? "grid-cols-2" : "grid-cols-1"}`}
                       style={{ background: "#1A1A2A" }}>
                       {cols.map((col) => (
                         <div key={col.index} className="flex flex-col gap-1 p-2" style={{ background: "#0D0D18", minHeight: 64 }}>
+                          {/* Column header: label + move arrows */}
+                          {cols.length > 1 && (
+                            <div className="flex items-center justify-between mb-0.5">
+                              <span className="text-[9px] font-semibold" style={{ color: "#333355" }}>Col {col.index + 1}</span>
+                              <div className="flex gap-0.5">
+                                {col.index > 0 && (
+                                  <button
+                                    title="Mover coluna para esquerda"
+                                    onClick={() => moveColumn(sec.id, col.index, col.index - 1)}
+                                    className="w-4 h-4 flex items-center justify-center rounded transition-colors"
+                                    style={{ background: "#1E1E2E", color: "#8888BB", fontSize: 10 }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = "#B9FF4B22"; e.currentTarget.style.color = "#B9FF4B"; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = "#1E1E2E"; e.currentTarget.style.color = "#8888BB"; }}>
+                                    ←
+                                  </button>
+                                )}
+                                {col.index < cols.length - 1 && (
+                                  <button
+                                    title="Mover coluna para direita"
+                                    onClick={() => moveColumn(sec.id, col.index, col.index + 1)}
+                                    className="w-4 h-4 flex items-center justify-center rounded transition-colors"
+                                    style={{ background: "#1E1E2E", color: "#8888BB", fontSize: 10 }}
+                                    onMouseEnter={e => { e.currentTarget.style.background = "#B9FF4B22"; e.currentTarget.style.color = "#B9FF4B"; }}
+                                    onMouseLeave={e => { e.currentTarget.style.background = "#1E1E2E"; e.currentTarget.style.color = "#8888BB"; }}>
+                                    →
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          )}
                           {/* Chips: clica no emoji = substituir, clica no ✕ = excluir */}
                           <div className="flex flex-wrap gap-1 min-h-[18px]">
                             {col.hasText && (
