@@ -4397,6 +4397,7 @@ function FieldEditor({
               value={directEditValue}
               onChange={e => onDirectEditChange(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onConfirmDirectEdit(); } if (e.key === "Escape") onCancelDirectEdit(); }}
+              onBlur={onConfirmDirectEdit}
             />
           ) : (
             <p
@@ -4414,12 +4415,12 @@ function FieldEditor({
           {/* Direct edit action buttons */}
           {isDirectEditing && (
             <div className="flex gap-2">
-              <button onClick={onCancelDirectEdit}
+              <button onMouseDown={e => e.preventDefault()} onClick={onCancelDirectEdit}
                 className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px]"
                 style={{ background: "#1E1E2E", color: "#888899" }}>
                 <X className="w-3 h-3" /> Cancelar
               </button>
-              <button onClick={onConfirmDirectEdit}
+              <button onMouseDown={e => e.preventDefault()} onClick={onConfirmDirectEdit}
                 className="flex-1 flex items-center justify-center gap-1 py-1.5 rounded-lg text-[11px] font-semibold"
                 style={{ background: "#B9FF4B22", border: "1px solid #B9FF4B55", color: "#B9FF4B" }}>
                 <Check className="w-3 h-3" /> Aplicar
