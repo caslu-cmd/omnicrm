@@ -396,23 +396,53 @@ function applySplitColumns(html: string, sectionId: string, cols: 2 | 3 | 4): st
   const doc = new DOMParser().parseFromString(html, "text/html");
   const el = doc.querySelector(`[data-calu-section="${sectionId}"]`);
   if (!el) return html;
-  // Find the main content container inside the section (first div with children, or body of section)
+
+  // Detect existing grid (Tailwind class or inline style) — mirrors findSectionGrids in iframe
+  let existingGrid: HTMLElement | null = el.querySelector('[class*="grid-cols"]') as HTMLElement | null;
+  if (!existingGrid) {
+    (el.querySelectorAll<HTMLElement>('[style]')).forEach(e => {
+      if (!existingGrid && /grid-template-columns/i.test(e.getAttribute('style') ?? '') && e.children.length >= 2)
+        existingGrid = e;
+    });
+  }
+
+  if (existingGrid) {
+    const currentCount = existingGrid.children.length;
+    // Add columns by cloning the last child
+    for (let i = currentCount; i < cols; i++) {
+      const clone = existingGrid.children[existingGrid.children.length - 1].cloneNode(true) as Element;
+      clone.querySelectorAll("[data-calu-field]").forEach(f => f.removeAttribute("data-calu-field"));
+      existingGrid.appendChild(clone);
+    }
+    // Remove excess columns from the end
+    for (let i = existingGrid.children.length - 1; i >= cols; i--) {
+      existingGrid.children[i]?.remove();
+    }
+    // Bump Tailwind class if present
+    const clsMatch = existingGrid.className.match(/grid-cols-(\d+)/);
+    if (clsMatch) existingGrid.className = existingGrid.className.replace(/grid-cols-\d+/, `grid-cols-${cols}`);
+    // Bump inline style if present
+    const st = existingGrid.getAttribute("style") ?? "";
+    if (st) {
+      if (/repeat\(\d+/i.test(st)) {
+        existingGrid.setAttribute("style", st.replace(/repeat\(\d+/i, `repeat(${cols}`));
+      } else if (/grid-template-columns/i.test(st)) {
+        existingGrid.setAttribute("style", st.replace(/grid-template-columns:\s*[^;]+/i, `grid-template-columns:${Array(cols).fill("1fr").join(" ")}`));
+      }
+    }
+    return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
+  }
+
+  // No existing grid — create one from the section content
   const container = el.querySelector("div > div, section > div, .container, .wrapper") || el.querySelector("div") || el;
   const gridCls = cols === 2 ? "grid grid-cols-2 gap-8" : cols === 3 ? "grid grid-cols-3 gap-6" : "grid grid-cols-4 gap-4";
   const children = Array.from(container.children);
+  const grid = doc.createElement("div");
+  grid.className = gridCls;
+  grid.setAttribute("style", "align-items:start;");
   if (children.length >= cols) {
-    // Wrap existing children in a grid
-    const grid = doc.createElement("div");
-    grid.className = gridCls;
-    grid.setAttribute("style", "align-items:start;");
     children.forEach(child => grid.appendChild(child.cloneNode(true)));
-    container.innerHTML = "";
-    container.appendChild(grid);
   } else {
-    // Wrap content + add empty columns to fill
-    const grid = doc.createElement("div");
-    grid.className = gridCls;
-    grid.setAttribute("style", "align-items:start;");
     if (children.length > 0) {
       const col1 = doc.createElement("div");
       children.forEach(child => col1.appendChild(child.cloneNode(true)));
@@ -423,9 +453,9 @@ function applySplitColumns(html: string, sectionId: string, cols: 2 | 3 | 4): st
       col.innerHTML = `<p style="opacity:0.4;font-style:italic;">[Coluna ${i + 1}]</p>`;
       grid.appendChild(col);
     }
-    container.innerHTML = "";
-    container.appendChild(grid);
   }
+  container.innerHTML = "";
+  container.appendChild(grid);
   return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
 }
 
