@@ -957,6 +957,63 @@ const SECTION_TEMPLATES: SectionTemplate[] = [
 </section>`,
   },
   {
+    id: "speakers-2",
+    category: "Estrutura",
+    name: "2 Palestrantes",
+    icon: "🎤",
+    desc: "Dois palestrantes lado a lado",
+    html: (u) => `<section id="spk2-${u}" data-calu-section="spk2-${u}" style="padding:80px 20px;background:var(--bg,#07080A);">
+  <div style="max-width:1100px;margin:0 auto;">
+    <h2 style="font-size:clamp(1.6rem,4vw,2.4rem);font-weight:700;text-align:center;margin-bottom:12px;color:inherit;">Quem vai te ensinar</h2>
+    <p style="text-align:center;opacity:0.55;margin-bottom:56px;color:inherit;">[Subtítulo opcional]</p>
+    <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:40px;">
+      <div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:16px;">
+        <div style="width:160px;height:160px;border-radius:50%;overflow:hidden;border:3px solid rgba(255,255,255,0.1);background:#1E1E2E;flex-shrink:0;"><img src="" alt="Palestrante 1" style="width:100%;height:100%;object-fit:cover;" /></div>
+        <div><h3 style="font-size:1.25rem;font-weight:700;margin:0 0 6px;color:inherit;">[Nome do Palestrante]</h3><p style="opacity:0.55;font-size:0.9rem;color:inherit;">[Cargo / Especialidade]</p></div>
+        <p style="opacity:0.7;font-size:0.95rem;line-height:1.65;color:inherit;">[Mini bio do palestrante — 2 a 3 linhas sobre experiência e resultados]</p>
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:16px;">
+        <div style="width:160px;height:160px;border-radius:50%;overflow:hidden;border:3px solid rgba(255,255,255,0.1);background:#1E1E2E;flex-shrink:0;"><img src="" alt="Palestrante 2" style="width:100%;height:100%;object-fit:cover;" /></div>
+        <div><h3 style="font-size:1.25rem;font-weight:700;margin:0 0 6px;color:inherit;">[Nome do Palestrante]</h3><p style="opacity:0.55;font-size:0.9rem;color:inherit;">[Cargo / Especialidade]</p></div>
+        <p style="opacity:0.7;font-size:0.95rem;line-height:1.65;color:inherit;">[Mini bio do palestrante — 2 a 3 linhas sobre experiência e resultados]</p>
+      </div>
+    </div>
+  </div>
+</section>`,
+  },
+  {
+    id: "speakers-3",
+    category: "Estrutura",
+    name: "3 Palestrantes",
+    icon: "🎤",
+    desc: "Três palestrantes em grade",
+    html: (u) => `<section id="spk3-${u}" data-calu-section="spk3-${u}" style="padding:80px 20px;background:var(--bg,#07080A);">
+  <div style="max-width:1100px;margin:0 auto;">
+    <h2 style="font-size:clamp(1.6rem,4vw,2.4rem);font-weight:700;text-align:center;margin-bottom:12px;color:inherit;">Quem vai te ensinar</h2>
+    <p style="text-align:center;opacity:0.55;margin-bottom:56px;color:inherit;">[Subtítulo opcional]</p>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:32px;">
+      ${[1,2,3].map(n => `<div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:14px;"><div style="width:130px;height:130px;border-radius:50%;overflow:hidden;border:3px solid rgba(255,255,255,0.1);background:#1E1E2E;flex-shrink:0;"><img src="" alt="Palestrante ${n}" style="width:100%;height:100%;object-fit:cover;" /></div><div><h3 style="font-size:1.1rem;font-weight:700;margin:0 0 4px;color:inherit;">[Nome ${n}]</h3><p style="opacity:0.55;font-size:0.85rem;color:inherit;">[Cargo / Especialidade]</p></div><p style="opacity:0.7;font-size:0.9rem;line-height:1.6;color:inherit;">[Mini bio]</p></div>`).join('')}
+    </div>
+  </div>
+</section>`,
+  },
+  {
+    id: "speakers-4",
+    category: "Estrutura",
+    name: "4 Palestrantes",
+    icon: "🎤",
+    desc: "Quatro palestrantes em grade",
+    html: (u) => `<section id="spk4-${u}" data-calu-section="spk4-${u}" style="padding:80px 20px;background:var(--bg,#07080A);">
+  <div style="max-width:1200px;margin:0 auto;">
+    <h2 style="font-size:clamp(1.6rem,4vw,2.4rem);font-weight:700;text-align:center;margin-bottom:12px;color:inherit;">Quem vai te ensinar</h2>
+    <p style="text-align:center;opacity:0.55;margin-bottom:56px;color:inherit;">[Subtítulo opcional]</p>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:24px;">
+      ${[1,2,3,4].map(n => `<div style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:12px;"><div style="width:110px;height:110px;border-radius:50%;overflow:hidden;border:3px solid rgba(255,255,255,0.1);background:#1E1E2E;flex-shrink:0;"><img src="" alt="Palestrante ${n}" style="width:100%;height:100%;object-fit:cover;" /></div><div><h3 style="font-size:1rem;font-weight:700;margin:0 0 4px;color:inherit;">[Nome ${n}]</h3><p style="opacity:0.55;font-size:0.8rem;color:inherit;">[Cargo]</p></div></div>`).join('')}
+    </div>
+  </div>
+</section>`,
+  },
+  {
     id: "video",
     category: "Estrutura",
     name: "Vídeo de Vendas",
@@ -978,15 +1035,14 @@ function insertImageIntoSection(html: string, sectionId: string, imgSrc: string)
   const doc = new DOMParser().parseFromString(html, "text/html");
   const el = doc.querySelector(`[data-calu-section="${sectionId}"]`);
   if (!el) return html;
-  const container = el.querySelector(".container, .wrapper") || el.querySelector("div") || el;
   const wrap = doc.createElement("div");
-  wrap.style.cssText = "padding:12px 0;text-align:center;";
+  wrap.style.cssText = "padding:20px;text-align:center;width:100%;box-sizing:border-box;";
   const img = doc.createElement("img");
   img.src = imgSrc;
   img.alt = "";
-  img.style.cssText = "max-width:100%;height:auto;border-radius:8px;";
+  img.style.cssText = "max-width:100%;max-height:320px;height:auto;border-radius:10px;display:block;margin:0 auto;";
   wrap.appendChild(img);
-  container.appendChild(wrap);
+  el.appendChild(wrap);
   return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
 }
 
@@ -1124,6 +1180,46 @@ document.querySelectorAll('[data-calu-section]').forEach(function(sec){
 });
 bar.addEventListener('mouseleave',function(e){if(!e.relatedTarget||!e.relatedTarget.closest('[data-calu-section]')){bar.style.display='none';curSid=null;curSec=null;}});
 document.addEventListener('scroll',function(){if(curSec)posBar(curSec);},true);
+})();
+// ── Drag-and-drop section reorder ─────────────────────────────────────────────
+(function(){
+var draggingSid=null;
+var SKIP_TAGS=['A','BUTTON','INPUT','TEXTAREA','SELECT','LABEL','IMG'];
+var ds=document.createElement('style');
+ds.textContent='[data-calu-section][draggable=true]{cursor:grab;}[data-calu-section].calu-dragging{opacity:0.35;outline:2px dashed rgba(185,255,75,0.5)!important;}[data-calu-section].calu-drag-over{box-shadow:inset 0 4px 0 0 #B9FF4B!important;}';
+document.head.appendChild(ds);
+document.querySelectorAll('[data-calu-section]').forEach(function(sec){
+  sec.setAttribute('draggable','true');
+  sec.addEventListener('dragstart',function(e){
+    if(SKIP_TAGS.indexOf(e.target.tagName)>-1){e.preventDefault();return;}
+    draggingSid=sec.getAttribute('data-calu-section');
+    e.dataTransfer.effectAllowed='move';
+    setTimeout(function(){sec.classList.add('calu-dragging');},0);
+  },false);
+  sec.addEventListener('dragend',function(){
+    sec.classList.remove('calu-dragging');
+    document.querySelectorAll('[data-calu-section]').forEach(function(s){s.classList.remove('calu-drag-over');});
+    draggingSid=null;
+  },false);
+  sec.addEventListener('dragover',function(e){
+    if(!draggingSid||draggingSid===sec.getAttribute('data-calu-section'))return;
+    e.preventDefault();e.dataTransfer.dropEffect='move';
+    document.querySelectorAll('[data-calu-section]').forEach(function(s){s.classList.remove('calu-drag-over');});
+    sec.classList.add('calu-drag-over');
+  },false);
+  sec.addEventListener('dragleave',function(e){
+    if(!sec.contains(e.relatedTarget))sec.classList.remove('calu-drag-over');
+  },false);
+  sec.addEventListener('drop',function(e){
+    e.preventDefault();
+    sec.classList.remove('calu-drag-over');
+    var toSid=sec.getAttribute('data-calu-section');
+    if(draggingSid&&draggingSid!==toSid){
+      window.parent.postMessage({type:'calu-section-reorder-drop',fromId:draggingSid,toId:toSid},'*');
+    }
+    draggingSid=null;
+  },false);
+});
 })();
 // ── Per-element floating delete bar ───────────────────────────────────────────
 (function(){
@@ -1380,6 +1476,24 @@ export default function TomasPage() {
       }
       if (e.data?.type === "calu-field-delete") {
         deleteFieldById(e.data.fieldId);
+      }
+      if (e.data?.type === "calu-section-reorder-drop") {
+        const { fromId, toId } = e.data;
+        setSections(prev => {
+          const fromIdx = prev.findIndex(s => s.id === fromId);
+          const toIdx   = prev.findIndex(s => s.id === toId);
+          if (fromIdx < 0 || toIdx < 0) return prev;
+          setMarkedHtml(html => {
+            const ids = prev.map(s => s.id);
+            const newHtml = applySectionReorder(html, ids, fromIdx, toIdx);
+            const { markedHtml: nm, sections: ns } = parseLPIntoSections(newHtml);
+            setTimeout(() => setSections(ns), 0);
+            setHtmlEditado(stripEditorAttrs(newHtml));
+            return nm;
+          });
+          return prev;
+        });
+        toast.success("Seção reordenada!");
       }
       if (e.data?.type === "calu-section-move") {
         const { sectionId, dir } = e.data;
