@@ -206,7 +206,7 @@ function CampaignModal({
     setAttachedFiles([]);
     setChatLoading(true);
 
-    const _caluTid = toast.loading("Acionando agente Calu…", { description: "Configurando campanha no Meta Ads" });
+    const _caluTid = toast.loading("Acionando agente Rafaela…", { description: "Gestão de Tráfego — Meta Ads" });
     try {
       const data = await callFn({ action: "campaign-agent", messages: newApiMessages });
       if (data.done && data.parsed) {

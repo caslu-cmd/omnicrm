@@ -4082,12 +4082,16 @@ Português brasileiro. Máximo 200 palavras.`,
 Analise o briefing do cliente e distribua as demandas do próximo ciclo (30 dias) entre os agentes especialistas do time.
 
 Agentes disponíveis e suas especialidades:
-- queila: estratégia de conteúdo, copywriting, pauta editorial, posicionamento de marca
-- beatriz: design gráfico, identidade visual, criação de artes e peças visuais
-- rafaela: tráfego pago, campanhas Meta Ads / Google Ads, performance
-- marina: social media, publicação orgânica, gestão de redes sociais
-- lia: diagnóstico, automações, inteligência artificial, relatórios
-- luna: orquestração geral, planejamento estratégico, onboarding`;
+- queila: estratégia de marketing, posicionamento de marca, planejamento estratégico, pauta editorial
+- beatriz: copywriting, redação de copy para anúncios, legendas, artigos, roteiros, e-mail marketing
+- marcela: design gráfico, identidade visual, criação de artes, peças visuais, banners
+- rafaela: tráfego pago, campanhas Meta Ads, Google Ads, gestão de performance e CPA
+- marina: social media orgânico, publicação de posts, gestão de redes sociais, engajamento
+- pedro: calendário editorial, planejamento de conteúdo, cronograma de publicações
+- lucas: análise de dados, relatórios de métricas, BI, acompanhamento de resultados
+- teo: criação e edição de sites, landing pages, SEO técnico, editor WordPress
+- bobby: edição de vídeo, reels, stories em vídeo, cortes, legendas animadas
+- luna: orquestração geral, onboarding, tarefas transversais sem especialista definido`;
 
     const userMsg = `${clientCtx}${briefingBlock}
 
@@ -4105,7 +4109,7 @@ Retorne SOMENTE um array JSON válido, sem texto antes ou depois:
 ]
 
 Regras:
-- agent: use exatamente um dos IDs: queila, beatriz, rafaela, marina, lia, luna
+- agent: use exatamente um dos IDs: queila, beatriz, marcela, rafaela, marina, pedro, lucas, teo, bobby, luna
 - Atribua cada tarefa ao agente cuja especialidade melhor se encaixa
 - due_days: prazo realista em dias corridos a partir de hoje
 - priority: "low", "medium" ou "high"
@@ -4150,9 +4154,13 @@ Regras:
     { id: "luna",    name: "Luna",    color: "#B9FF4B" },
     { id: "queila",  name: "Queila",  color: "#FBBF24" },
     { id: "beatriz", name: "Beatriz", color: "#A78BFA" },
-    { id: "marina",  name: "Marina",  color: "#60A5FA" },
+    { id: "marcela", name: "Marcela", color: "#D946EF" },
     { id: "rafaela", name: "Rafaela", color: "#F97316" },
-    { id: "lia",     name: "Lia",     color: "#38BDF8" },
+    { id: "marina",  name: "Marina",  color: "#60A5FA" },
+    { id: "pedro",   name: "Pedro",   color: "#2DD4BF" },
+    { id: "lucas",   name: "Lucas",   color: "#34D399" },
+    { id: "teo",     name: "Teo",     color: "#06B6D4" },
+    { id: "bobby",   name: "Bobby",   color: "#B9FF4B" },
   ];
 
   const loadDemandActivities = async (demandId: string) => {
