@@ -943,40 +943,35 @@ document.querySelectorAll('[data-calu-section]').forEach(function(sec){
     }
   },true);
 });
-// ── Section floating action bar ───────────────────────────────────────────────
+// ── Section floating action bar (body-level, avoids overflow:hidden) ─────────
 (function(){
 var bs=document.createElement('style');
 bs.textContent=
-  '.calu-sec-bar{position:absolute;top:10px;right:10px;z-index:99998;display:none;align-items:center;gap:6px;}'+
-  '.calu-sec-btn{display:flex;align-items:center;gap:5px;padding:5px 11px;border-radius:100px;cursor:pointer;font-family:sans-serif;font-size:11px;font-weight:700;letter-spacing:.02em;white-space:nowrap;border:none;outline:none;backdrop-filter:blur(8px);box-shadow:0 4px 20px rgba(0,0,0,.5);transition:background .15s;}'+
-  '.calu-sec-btn-ai{background:rgba(20,20,32,0.95);border:1px solid rgba(185,255,75,0.5)!important;color:#B9FF4B;}'+
-  '.calu-sec-btn-ai:hover{background:rgba(185,255,75,0.18)!important;}'+
-  '.calu-sec-btn-del{background:rgba(20,20,32,0.95);border:1px solid rgba(255,68,102,0.4)!important;color:#FF4466;}'+
-  '.calu-sec-btn-del:hover{background:rgba(255,68,102,0.18)!important;}';
+  '#calu-sec-bar{position:fixed;z-index:2147483647;display:none;align-items:center;gap:5px;padding:4px;border-radius:100px;background:rgba(10,10,20,0.92);border:1px solid rgba(255,255,255,0.1);backdrop-filter:blur(12px);box-shadow:0 8px 32px rgba(0,0,0,.7);}'+
+  '#calu-sec-bar button{display:flex;align-items:center;gap:4px;padding:5px 10px;border-radius:100px;cursor:pointer;font-family:sans-serif;font-size:11px;font-weight:700;letter-spacing:.02em;white-space:nowrap;border:none;outline:none;transition:background .15s;}'+
+  '#calu-sec-bar .btn-ai{background:rgba(185,255,75,0.15);color:#B9FF4B;}#calu-sec-bar .btn-ai:hover{background:rgba(185,255,75,0.28);}'+
+  '#calu-sec-bar .btn-mv{background:rgba(255,255,255,0.07);color:rgba(255,255,255,0.6);padding:5px 8px;}#calu-sec-bar .btn-mv:hover{background:rgba(255,255,255,0.15);color:#fff;}'+
+  '#calu-sec-bar .btn-del{background:rgba(255,68,102,0.12);color:#FF4466;}#calu-sec-bar .btn-del:hover{background:rgba(255,68,102,0.25);}'+
+  '#calu-sec-bar .sep{width:1px;height:18px;background:rgba(255,255,255,0.1);margin:0 2px;}';
 document.head.appendChild(bs);
+var bar=document.createElement('div');bar.id='calu-sec-bar';
+var curSid=null,curSec=null;
+function mkBtn(cls,html,fn){var b=document.createElement('button');b.className=cls;b.innerHTML=html;b.addEventListener('click',function(e){e.stopPropagation();e.preventDefault();fn();},true);return b;}
+bar.appendChild(mkBtn('btn-ai','✨ Editar com IA',function(){if(curSid)window.parent.postMessage({type:'calu-section-ai-edit',sectionId:curSid},'*');}));
+var sep1=document.createElement('div');sep1.className='sep';bar.appendChild(sep1);
+bar.appendChild(mkBtn('btn-mv','↑',function(){if(curSid)window.parent.postMessage({type:'calu-section-move',sectionId:curSid,dir:'up'},'*');}));
+bar.appendChild(mkBtn('btn-mv','↓',function(){if(curSid)window.parent.postMessage({type:'calu-section-move',sectionId:curSid,dir:'down'},'*');}));
+var sep2=document.createElement('div');sep2.className='sep';bar.appendChild(sep2);
+bar.appendChild(mkBtn('btn-del','🗑 Excluir',function(){if(curSid&&window.confirm('Excluir esta seção?'))window.parent.postMessage({type:'calu-section-delete',sectionId:curSid},'*');}));
+document.body.appendChild(bar);
+function posBar(sec){var r=sec.getBoundingClientRect();bar.style.top=(r.top+8)+'px';bar.style.right=(document.documentElement.clientWidth-r.right+8)+'px';bar.style.left='auto';bar.style.display='flex';}
 document.querySelectorAll('[data-calu-section]').forEach(function(sec){
-  var cs=window.getComputedStyle(sec);
-  if(cs.position==='static')sec.style.position='relative';
-  var bar=document.createElement('div');
-  bar.className='calu-sec-bar';
-  var sid=sec.getAttribute('data-calu-section');
-  var btnAi=document.createElement('button');
-  btnAi.className='calu-sec-btn calu-sec-btn-ai';
-  btnAi.innerHTML='<span style="font-size:13px;">✨</span>Editar com IA';
-  btnAi.addEventListener('click',function(e){e.stopPropagation();e.preventDefault();window.parent.postMessage({type:'calu-section-ai-edit',sectionId:sid},'*');},true);
-  var btnDel=document.createElement('button');
-  btnDel.className='calu-sec-btn calu-sec-btn-del';
-  btnDel.innerHTML='<span style="font-size:13px;">🗑</span>Excluir';
-  btnDel.addEventListener('click',function(e){
-    e.stopPropagation();e.preventDefault();
-    if(window.confirm('Excluir esta seção?')){window.parent.postMessage({type:'calu-section-delete',sectionId:sid},'*');}
-  },true);
-  bar.appendChild(btnAi);
-  bar.appendChild(btnDel);
-  sec.appendChild(bar);
-  sec.addEventListener('mouseenter',function(){bar.style.display='flex';});
-  sec.addEventListener('mouseleave',function(){bar.style.display='none';});
+  sec.addEventListener('mouseenter',function(){curSid=sec.getAttribute('data-calu-section');curSec=sec;posBar(sec);});
+  sec.addEventListener('mouseleave',function(e){if(!bar.contains(e.relatedTarget)){bar.style.display='none';curSid=null;curSec=null;}});
+  sec.addEventListener('scroll',function(){if(curSec===sec)posBar(sec);},true);
 });
+bar.addEventListener('mouseleave',function(e){if(!e.relatedTarget||!e.relatedTarget.closest('[data-calu-section]')){bar.style.display='none';curSid=null;curSec=null;}});
+document.addEventListener('scroll',function(){if(curSec)posBar(curSec);},true);
 })();
 ${elPickScript}
 })();<\/script>`;
@@ -1203,6 +1198,16 @@ export default function TomasPage() {
       }
       if (e.data?.type === "calu-section-delete") {
         deleteSection(e.data.sectionId);
+      }
+      if (e.data?.type === "calu-section-move") {
+        const { sectionId, dir } = e.data;
+        setMarkedHtml(prev => {
+          const newHtml = applyMoveSection(prev, sectionId, dir);
+          const { markedHtml: nm, sections: ns } = parseLPIntoSections(newHtml);
+          setSections(ns);
+          setHtmlEditado(stripEditorAttrs(newHtml));
+          return nm;
+        });
       }
       if (e.data?.type === "calu-field-inline-edit") {
         const { fieldId, value } = e.data;
