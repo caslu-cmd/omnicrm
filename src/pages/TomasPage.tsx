@@ -936,12 +936,48 @@ document.querySelectorAll('[data-calu-field]').forEach(function(el){
 document.querySelectorAll('[data-calu-section]').forEach(function(sec){
   sec.addEventListener('click',function(e){
     var fieldEl=e.target.closest('[data-calu-field]');
-    if(!fieldEl){
+    var barEl=e.target.closest('.calu-sec-bar');
+    if(!fieldEl&&!barEl){
       e.preventDefault();e.stopPropagation();
       window.parent.postMessage({type:'calu-section-click',sectionId:sec.getAttribute('data-calu-section')},'*');
     }
   },true);
 });
+// ── Section floating action bar ───────────────────────────────────────────────
+(function(){
+var bs=document.createElement('style');
+bs.textContent=
+  '.calu-sec-bar{position:absolute;top:10px;right:10px;z-index:99998;display:none;align-items:center;gap:6px;}'+
+  '.calu-sec-btn{display:flex;align-items:center;gap:5px;padding:5px 11px;border-radius:100px;cursor:pointer;font-family:sans-serif;font-size:11px;font-weight:700;letter-spacing:.02em;white-space:nowrap;border:none;outline:none;backdrop-filter:blur(8px);box-shadow:0 4px 20px rgba(0,0,0,.5);transition:background .15s;}'+
+  '.calu-sec-btn-ai{background:rgba(20,20,32,0.95);border:1px solid rgba(185,255,75,0.5)!important;color:#B9FF4B;}'+
+  '.calu-sec-btn-ai:hover{background:rgba(185,255,75,0.18)!important;}'+
+  '.calu-sec-btn-del{background:rgba(20,20,32,0.95);border:1px solid rgba(255,68,102,0.4)!important;color:#FF4466;}'+
+  '.calu-sec-btn-del:hover{background:rgba(255,68,102,0.18)!important;}';
+document.head.appendChild(bs);
+document.querySelectorAll('[data-calu-section]').forEach(function(sec){
+  var cs=window.getComputedStyle(sec);
+  if(cs.position==='static')sec.style.position='relative';
+  var bar=document.createElement('div');
+  bar.className='calu-sec-bar';
+  var sid=sec.getAttribute('data-calu-section');
+  var btnAi=document.createElement('button');
+  btnAi.className='calu-sec-btn calu-sec-btn-ai';
+  btnAi.innerHTML='<span style="font-size:13px;">✨</span>Editar com IA';
+  btnAi.addEventListener('click',function(e){e.stopPropagation();e.preventDefault();window.parent.postMessage({type:'calu-section-ai-edit',sectionId:sid},'*');},true);
+  var btnDel=document.createElement('button');
+  btnDel.className='calu-sec-btn calu-sec-btn-del';
+  btnDel.innerHTML='<span style="font-size:13px;">🗑</span>Excluir';
+  btnDel.addEventListener('click',function(e){
+    e.stopPropagation();e.preventDefault();
+    if(window.confirm('Excluir esta seção?')){window.parent.postMessage({type:'calu-section-delete',sectionId:sid},'*');}
+  },true);
+  bar.appendChild(btnAi);
+  bar.appendChild(btnDel);
+  sec.appendChild(bar);
+  sec.addEventListener('mouseenter',function(){bar.style.display='flex';});
+  sec.addEventListener('mouseleave',function(){bar.style.display='none';});
+});
+})();
 ${elPickScript}
 })();<\/script>`;
   return html.includes("</body>") ? html.replace("</body>", script + "</body>") : html + script;
@@ -1004,6 +1040,11 @@ export default function TomasPage() {
   // ── Tomas command state ──────────────────────────────────────────────────────
   const [tomasCmd, setTomasCmd]         = useState("");
   const [tomasCmdLoading, setTomasCmdLoading] = useState(false);
+
+  // ── Section AI edit modal state ───────────────────────────────────────────────
+  const [sectionAiModal, setSectionAiModal] = useState<{ sectionId: string; name: string } | null>(null);
+  const [sectionAiCmd, setSectionAiCmd]     = useState("");
+  const [sectionAiLoading, setSectionAiLoading] = useState(false);
 
   // ── Source URLs state ────────────────────────────────────────────────────────
   const [sourceUrls, setSourceUrls]     = useState<string[]>([]);
@@ -1154,6 +1195,14 @@ export default function TomasPage() {
       }
       if (e.data?.type === "calu-el-pick") {
         setPickedElId(e.data.elId ?? null);
+      }
+      if (e.data?.type === "calu-section-ai-edit") {
+        const sec = sections.find(s => s.id === e.data.sectionId);
+        setSectionAiModal({ sectionId: e.data.sectionId, name: sec?.name ?? "Seção" });
+        setSectionAiCmd("");
+      }
+      if (e.data?.type === "calu-section-delete") {
+        deleteSection(e.data.sectionId);
       }
       if (e.data?.type === "calu-field-inline-edit") {
         const { fieldId, value } = e.data;
@@ -1667,6 +1716,56 @@ export default function TomasPage() {
       setTomasCmd(cmdText);
     } finally {
       setTomasCmdLoading(false);
+    }
+  };
+
+  // ── Section AI edit ──────────────────────────────────────────────────────────
+  const runSectionAiEdit = async () => {
+    if (!sectionAiModal || !sectionAiCmd.trim() || sectionAiLoading) return;
+    setSectionAiLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token ?? "";
+      const currentHtml = stripEditorAttrs(markedHtml || htmlEditado || resultado?.html || "");
+      const lpContext = [
+        `Produto/Serviço: ${produto}`,
+        `Público-alvo: ${publico}`,
+        `Objetivo: ${objetivo}`,
+        `Tom de voz: ${tom}`,
+        clientName ? `Cliente: ${clientName}` : null,
+      ].filter(Boolean).join("\n");
+      const resp = await fetch(`${SUPABASE_URL}/functions/v1/tomas-command`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
+        body: JSON.stringify({
+          html: currentHtml,
+          command: `Edite APENAS a seção "${sectionAiModal.name}": ${sectionAiCmd}`,
+          lp_context: lpContext,
+          source_urls: sourceUrls,
+        }),
+      });
+      const data = await resp.json();
+      if (!resp.ok) throw new Error(data.error || `Erro ${resp.status}`);
+      let newHtml: string;
+      if (data.changes && Array.isArray(data.changes)) {
+        newHtml = applyChanges(currentHtml, data.changes);
+      } else if (data.new_html) {
+        newHtml = data.new_html as string;
+      } else {
+        throw new Error("Resposta inválida");
+      }
+      if (htmlEditadoRef.current) undoStack.current = [...undoStack.current.slice(-49), htmlEditadoRef.current];
+      setHtmlEditado(newHtml);
+      const { markedHtml: nm, sections: ns } = parseLPIntoSections(newHtml);
+      setMarkedHtml(nm);
+      setSections(ns);
+      setSectionAiModal(null);
+      setSectionAiCmd("");
+      toast.success(`Seção "${sectionAiModal.name}" atualizada!`);
+    } catch (e: any) {
+      toast.error(e.message || "Erro ao editar seção");
+    } finally {
+      setSectionAiLoading(false);
     }
   };
 
@@ -4134,6 +4233,76 @@ form.addEventListener('submit',function(e){
           </div>
         )}
       </div>
+
+      {/* ── Section AI Edit Modal ─────────────────────────────────────────── */}
+      <AnimatePresence>
+        {sectionAiModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 flex items-center justify-center z-[9999]"
+            style={{ background: "rgba(0,0,0,0.65)", backdropFilter: "blur(4px)" }}
+            onClick={e => { if (e.target === e.currentTarget) setSectionAiModal(null); }}>
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0, y: 8 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.95, opacity: 0, y: 8 }}
+              transition={{ duration: 0.15 }}
+              className="flex flex-col gap-4 p-5 rounded-2xl w-full max-w-md mx-4"
+              style={{ background: "#0D0D18", border: "1px solid rgba(185,255,75,0.3)", boxShadow: "0 24px 80px rgba(0,0,0,.8)" }}>
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center text-base flex-shrink-0"
+                  style={{ background: "#B9FF4B22", border: "1px solid #B9FF4B44" }}>✨</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold" style={{ color: "#F0F0F0" }}>Editar seção com IA</p>
+                  <p className="text-[11px] truncate" style={{ color: "#B9FF4B", opacity: 0.7 }}>{sectionAiModal.name}</p>
+                </div>
+                <button onClick={() => setSectionAiModal(null)} style={{ color: "#555577" }}
+                  onMouseEnter={e => e.currentTarget.style.color = "#FF4466"}
+                  onMouseLeave={e => e.currentTarget.style.color = "#555577"}>
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              <textarea
+                autoFocus
+                rows={3}
+                value={sectionAiCmd}
+                onChange={e => setSectionAiCmd(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); runSectionAiEdit(); }
+                  if (e.key === "Escape") setSectionAiModal(null);
+                }}
+                placeholder='Ex: "Torne mais urgente" / "Adicione 2 benefícios" / "Reescreva em tom mais formal"'
+                className="resize-none rounded-xl px-3 py-2.5 text-sm outline-none w-full"
+                style={{ background: "#141420", border: "1px solid #B9FF4B44", color: "#E0E0F0", fontFamily: "inherit", lineHeight: 1.6 }}
+                onFocus={e => e.currentTarget.style.borderColor = "#B9FF4B88"}
+                onBlur={e => e.currentTarget.style.borderColor = "#B9FF4B44"}
+              />
+              <div className="flex gap-2">
+                <button onClick={() => setSectionAiModal(null)}
+                  className="flex-1 py-2.5 rounded-xl text-sm font-medium transition-colors"
+                  style={{ background: "#1E1E2E", color: "#888899" }}
+                  onMouseEnter={e => e.currentTarget.style.background = "#252535"}
+                  onMouseLeave={e => e.currentTarget.style.background = "#1E1E2E"}>
+                  Cancelar
+                </button>
+                <button onClick={runSectionAiEdit}
+                  disabled={!sectionAiCmd.trim() || sectionAiLoading}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all"
+                  style={{
+                    background: sectionAiCmd.trim() && !sectionAiLoading ? "#B9FF4B" : "#1E1E2E",
+                    color: sectionAiCmd.trim() && !sectionAiLoading ? "#07080A" : "#444466",
+                    cursor: sectionAiCmd.trim() && !sectionAiLoading ? "pointer" : "not-allowed",
+                  }}>
+                  {sectionAiLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  {sectionAiLoading ? "Editando..." : "Aplicar com IA"}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
