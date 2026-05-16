@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Loader2, RefreshCw, Pause, Play, AlertCircle,
   Sparkles, Plus, CheckCircle, X, Zap, BarChart2,
-  Send, ExternalLink,
+  Send, ExternalLink, Paperclip, FileText, ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -117,12 +117,15 @@ function CampaignModal({
   onCreated: () => void;
 }) {
   const [step, setStep] = useState<"briefing" | "configure" | "done">("briefing");
-  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
-    { role: "assistant", content: "Olá! Vou te ajudar a criar a campanha no Meta Ads. O que você vai anunciar? Pode ser um produto, serviço, evento ou promoção." },
+  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string; files?: string[] }[]>([
+    { role: "assistant", content: "Olá! Vou te ajudar a criar a campanha no Meta Ads. Pode me contar o que você vai anunciar ou anexar um arquivo de briefing." },
   ]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatFileRef = useRef<HTMLInputElement>(null);
+  const apiMessagesRef = useRef<{ role: "user" | "assistant"; content: unknown }[]>([]);
   const [draft, setDraft] = useState<CampaignDraft>(DEFAULT_DRAFT);
   const [activate, setActivate] = useState(false);
   const [creativeMode, setCreativeMode] = useState<"none" | "image_url" | "existing_post">("none");
@@ -153,23 +156,63 @@ function CampaignModal({
 
   const sendChatMessage = async () => {
     const text = chatInput.trim();
-    if (!text || chatLoading) return;
-    const newMessages: { role: "user" | "assistant"; content: string }[] = [
-      ...chatMessages,
-      { role: "user", content: text },
-    ];
-    setChatMessages(newMessages);
+    if ((!text && attachedFiles.length === 0) || chatLoading) return;
+
+    // Read files into base64 blocks
+    type Block =
+      | { type: "text"; text: string }
+      | { type: "image"; source: { type: "base64"; media_type: string; data: string } }
+      | { type: "document"; source: { type: "base64"; media_type: "application/pdf"; data: string }; title: string };
+
+    const fileBlocks: Block[] = [];
+    const textFileContents: string[] = [];
+    for (const file of attachedFiles) {
+      if (file.type === "text/plain" || file.type === "text/markdown" || file.name.endsWith(".md")) {
+        const txt = await file.text();
+        textFileContents.push(`--- ${file.name} ---\n${txt}`);
+      } else {
+        const b64 = await new Promise<string>((resolve) => {
+          const r = new FileReader();
+          r.onload = () => resolve((r.result as string).split(",")[1]);
+          r.readAsDataURL(file);
+        });
+        if (file.type === "application/pdf") {
+          fileBlocks.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: b64 }, title: file.name });
+        } else if (file.type.startsWith("image/")) {
+          fileBlocks.push({ type: "image", source: { type: "base64", media_type: file.type, data: b64 } });
+        }
+      }
+    }
+
+    const fullText = [
+      ...(textFileContents.length > 0 ? [textFileContents.join("\n\n")] : []),
+      text || (attachedFiles.length > 0 ? "Analise os materiais acima e monte a campanha com base neles." : ""),
+    ].join("\n\n").trim();
+
+    // Build API content (multimodal if files present)
+    const apiContent: unknown = fileBlocks.length > 0
+      ? [...fileBlocks, { type: "text", text: fullText }]
+      : fullText;
+
+    // Update API messages history
+    const newApiMessages = [...apiMessagesRef.current, { role: "user", content: apiContent }];
+    apiMessagesRef.current = newApiMessages;
+
+    // Update display messages
+    const displayText = text || "📎 Arquivo enviado para análise";
+    const fileNames = attachedFiles.map((f) => f.name);
+    setChatMessages((prev) => [...prev, { role: "user", content: displayText, files: fileNames }]);
     setChatInput("");
+    setAttachedFiles([]);
     setChatLoading(true);
+
     try {
-      const data = await callFn({
-        action: "campaign-agent",
-        messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
-      });
+      const data = await callFn({ action: "campaign-agent", messages: newApiMessages });
       if (data.done && data.parsed) {
         setDraft((prev) => ({ ...prev, ...data.parsed }));
         setStep("configure");
       } else if (data.message) {
+        apiMessagesRef.current = [...newApiMessages, { role: "assistant", content: data.message }];
         setChatMessages((prev) => [...prev, { role: "assistant", content: data.message }]);
       }
     } catch (e: any) {
@@ -277,14 +320,25 @@ function CampaignModal({
                     </div>
                   )}
                   <div
-                    className="max-w-[82%] px-3 py-2 text-xs leading-relaxed"
+                    className="max-w-[82%] px-3 py-2 text-xs leading-relaxed space-y-1.5"
                     style={{
                       background: msg.role === "user" ? clientColor : "rgba(255,255,255,0.07)",
                       color: msg.role === "user" ? "#000" : s(0.85),
                       borderRadius: msg.role === "user" ? "14px 14px 4px 14px" : "4px 14px 14px 14px",
                     }}
                   >
-                    {msg.content}
+                    <span>{msg.content}</span>
+                    {msg.files && msg.files.length > 0 && (
+                      <div className="flex flex-wrap gap-1 pt-0.5">
+                        {msg.files.map((name, j) => (
+                          <div key={j} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-medium"
+                            style={{ background: "rgba(0,0,0,0.15)", color: "rgba(0,0,0,0.6)" }}>
+                            {name.endsWith(".pdf") ? <FileText className="w-2.5 h-2.5" /> : <ImageIcon className="w-2.5 h-2.5" />}
+                            {name.length > 18 ? name.slice(0, 16) + "…" : name}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -307,23 +361,59 @@ function CampaignModal({
             </div>
 
             {/* Input */}
+            <input
+              ref={chatFileRef}
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.md"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                const newFiles = Array.from(e.target.files ?? []);
+                setAttachedFiles((prev) => [...prev, ...newFiles]);
+                e.target.value = "";
+              }}
+            />
+            {attachedFiles.length > 0 && (
+              <div className="flex flex-wrap gap-1.5">
+                {attachedFiles.map((f, i) => (
+                  <div key={i} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px]"
+                    style={{ background: "rgba(255,255,255,0.07)", color: s(0.7) }}>
+                    {f.type.startsWith("image/") ? <ImageIcon className="w-3 h-3 shrink-0" /> : <FileText className="w-3 h-3 shrink-0" />}
+                    <span className="max-w-[120px] truncate">{f.name}</span>
+                    <button onClick={() => setAttachedFiles((prev) => prev.filter((_, j) => j !== i))} className="ml-0.5">
+                      <X className="w-3 h-3" style={{ color: s(0.4) }} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
             <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => chatFileRef.current?.click()}
+                disabled={chatLoading}
+                className="px-3 py-2.5 rounded-xl flex items-center justify-center shrink-0 transition-all"
+                style={{ background: "rgba(255,255,255,0.06)", color: s(0.45) }}
+                title="Anexar arquivo"
+              >
+                <Paperclip className="w-3.5 h-3.5" />
+              </button>
               <input
                 value={chatInput}
                 onChange={(e) => setChatInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChatMessage(); } }}
-                placeholder="Digite sua resposta…"
+                placeholder={attachedFiles.length > 0 ? "Adicione uma mensagem (opcional)…" : "Digite sua resposta…"}
                 className="flex-1 rounded-xl px-3 py-2.5 text-xs outline-none"
                 style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: s(0.85) }}
                 disabled={chatLoading}
               />
               <button
                 onClick={sendChatMessage}
-                disabled={!chatInput.trim() || chatLoading}
-                className="px-3.5 py-2.5 rounded-xl flex items-center justify-center transition-all"
+                disabled={(!chatInput.trim() && attachedFiles.length === 0) || chatLoading}
+                className="px-3.5 py-2.5 rounded-xl flex items-center justify-center transition-all shrink-0"
                 style={{
-                  background: chatInput.trim() && !chatLoading ? clientColor : "rgba(255,255,255,0.06)",
-                  color: chatInput.trim() && !chatLoading ? "#000" : s(0.25),
+                  background: (chatInput.trim() || attachedFiles.length > 0) && !chatLoading ? clientColor : "rgba(255,255,255,0.06)",
+                  color: (chatInput.trim() || attachedFiles.length > 0) && !chatLoading ? "#000" : s(0.25),
                 }}
               >
                 <Send className="w-3.5 h-3.5" />

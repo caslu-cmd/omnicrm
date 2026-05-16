@@ -392,13 +392,13 @@ function applyDuplicateSection(html: string, sectionId: string): string {
   return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
 }
 
-function applySplitColumns(html: string, sectionId: string, cols: 2 | 3): string {
+function applySplitColumns(html: string, sectionId: string, cols: 2 | 3 | 4): string {
   const doc = new DOMParser().parseFromString(html, "text/html");
   const el = doc.querySelector(`[data-calu-section="${sectionId}"]`);
   if (!el) return html;
   // Find the main content container inside the section (first div with children, or body of section)
   const container = el.querySelector("div > div, section > div, .container, .wrapper") || el.querySelector("div") || el;
-  const gridCls = cols === 2 ? "grid grid-cols-2 gap-8" : "grid grid-cols-3 gap-6";
+  const gridCls = cols === 2 ? "grid grid-cols-2 gap-8" : cols === 3 ? "grid grid-cols-3 gap-6" : "grid grid-cols-4 gap-4";
   const children = Array.from(container.children);
   if (children.length >= cols) {
     // Wrap existing children in a grid
@@ -929,6 +929,22 @@ const SECTION_TEMPLATES: SectionTemplate[] = [
   },
 ];
 
+function insertImageIntoSection(html: string, sectionId: string, imgSrc: string): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const el = doc.querySelector(`[data-calu-section="${sectionId}"]`);
+  if (!el) return html;
+  const container = el.querySelector(".container, .wrapper") || el.querySelector("div") || el;
+  const wrap = doc.createElement("div");
+  wrap.style.cssText = "padding:12px 0;text-align:center;";
+  const img = doc.createElement("img");
+  img.src = imgSrc;
+  img.alt = "";
+  img.style.cssText = "max-width:100%;height:auto;border-radius:8px;";
+  wrap.appendChild(img);
+  container.appendChild(wrap);
+  return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
+}
+
 function stripEditorAttrs(html: string): string {
   return html.replace(/ data-calu-(section|field)="[^"]*"/g, "");
 }
@@ -1041,6 +1057,7 @@ var sep2=document.createElement('div');sep2.className='sep';bar.appendChild(sep2
 bar.appendChild(mkBtn('btn-del','🗑 Excluir',function(){if(curSid&&window.confirm('Excluir esta seção?'))window.parent.postMessage({type:'calu-section-delete',sectionId:curSid},'*');}));
 colMenu.appendChild(mkBtn('','⊡ 2 colunas',function(){if(curSid){window.parent.postMessage({type:'calu-section-columns',sectionId:curSid,cols:2},'*');colMenu.style.display='none';}}));
 colMenu.appendChild(mkBtn('','⊞ 3 colunas',function(){if(curSid){window.parent.postMessage({type:'calu-section-columns',sectionId:curSid,cols:3},'*');colMenu.style.display='none';}}));
+colMenu.appendChild(mkBtn('','⊟ 4 colunas',function(){if(curSid){window.parent.postMessage({type:'calu-section-columns',sectionId:curSid,cols:4},'*');colMenu.style.display='none';}}));
 document.body.appendChild(colMenu);
 document.addEventListener('click',function(){colMenu.style.display='none';},true);
 document.body.appendChild(bar);
@@ -1052,6 +1069,25 @@ document.querySelectorAll('[data-calu-section]').forEach(function(sec){
 });
 bar.addEventListener('mouseleave',function(e){if(!e.relatedTarget||!e.relatedTarget.closest('[data-calu-section]')){bar.style.display='none';curSid=null;curSec=null;}});
 document.addEventListener('scroll',function(){if(curSec)posBar(curSec);},true);
+})();
+// ── Per-element floating delete bar ───────────────────────────────────────────
+(function(){
+var eb=document.createElement('div');eb.id='calu-el-del-bar';
+var ebs=document.createElement('style');
+ebs.textContent='#calu-el-del-bar{position:fixed;z-index:2147483645;display:none;align-items:center;padding:2px 3px;border-radius:100px;background:rgba(10,10,20,0.9);border:1px solid rgba(255,68,102,0.4);backdrop-filter:blur(8px);box-shadow:0 4px 12px rgba(0,0,0,.7);}#calu-el-del-bar button{display:flex;align-items:center;gap:3px;padding:3px 8px;border-radius:100px;cursor:pointer;font-size:10px;font-weight:700;white-space:nowrap;border:none;outline:none;background:transparent;color:#FF4466;transition:background .15s;}#calu-el-del-bar button:hover{background:rgba(255,68,102,0.2);}';
+document.head.appendChild(ebs);
+var delbtn=document.createElement('button');delbtn.innerHTML='🗑 Excluir';
+var curFid=null,curElTimer=null;
+delbtn.addEventListener('click',function(e){e.stopPropagation();e.preventDefault();if(curFid){window.parent.postMessage({type:'calu-field-delete',fieldId:curFid},'*');}eb.style.display='none';curFid=null;},true);
+eb.appendChild(delbtn);
+document.body.appendChild(eb);
+function posEl(el){var r=el.getBoundingClientRect();var top=r.top-28;if(top<4)top=r.bottom+4;eb.style.top=top+'px';eb.style.left=Math.max(4,r.left)+'px';eb.style.display='flex';}
+document.querySelectorAll('[data-calu-field]').forEach(function(el){
+  el.addEventListener('mouseenter',function(e){e.stopPropagation();if(curElTimer)clearTimeout(curElTimer);curFid=el.getAttribute('data-calu-field');posEl(el);});
+  el.addEventListener('mouseleave',function(e){curElTimer=setTimeout(function(){if(!eb.matches(':hover')){eb.style.display='none';curFid=null;}},120);});
+});
+eb.addEventListener('mouseenter',function(){if(curElTimer)clearTimeout(curElTimer);});
+eb.addEventListener('mouseleave',function(){eb.style.display='none';curFid=null;});
 })();
 ${elPickScript}
 })();<\/script>`;
@@ -1153,6 +1189,8 @@ export default function TomasPage() {
   const [blockImgPrev, setBlockImgPrev] = useState("");
   const [blockUploading, setBlockUploading] = useState(false);
   const blockImgRef                     = useRef<HTMLInputElement>(null);
+  const insertImgRef                    = useRef<HTMLInputElement>(null);
+  const [insertImgUploading, setInsertImgUploading] = useState(false);
   const [dragFromIdx, setDragFromIdx]   = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx]   = useState<number | null>(null);
 
@@ -1285,6 +1323,9 @@ export default function TomasPage() {
       if (e.data?.type === "calu-section-delete") {
         deleteSection(e.data.sectionId);
       }
+      if (e.data?.type === "calu-field-delete") {
+        deleteFieldById(e.data.fieldId);
+      }
       if (e.data?.type === "calu-section-move") {
         const { sectionId, dir } = e.data;
         setMarkedHtml(prev => {
@@ -1309,7 +1350,7 @@ export default function TomasPage() {
       if (e.data?.type === "calu-section-columns") {
         const { sectionId, cols } = e.data;
         setMarkedHtml(prev => {
-          const newHtml = applySplitColumns(prev, sectionId, cols as 2 | 3);
+          const newHtml = applySplitColumns(prev, sectionId, cols as 2 | 3 | 4);
           const { markedHtml: nm, sections: ns } = parseLPIntoSections(newHtml);
           setSections(ns);
           setHtmlEditado(stripEditorAttrs(newHtml));
@@ -1588,19 +1629,22 @@ export default function TomasPage() {
   }, [markedHtml]);
 
   // ── Block builder handlers ────────────────────────────────────────────────
-  const handleBlockImageFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleBlockImageFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
     e.target.value = "";
     setBlockUploading(true);
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const dataUrl = ev.target?.result as string;
-      setBlockImgPrev(dataUrl);
-      setBlockVal(dataUrl);
-      setBlockUploading(false);
-    };
-    reader.readAsDataURL(file);
+    try {
+      const ext = file.name.split(".").pop() ?? "jpg";
+      const path = `lp-assets/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { data: upData, error: upErr } = await (supabase.storage as any)
+        .from("brand-assets").upload(path, file, { contentType: file.type, upsert: false });
+      if (upErr) { toast.error("Erro ao enviar imagem: " + upErr.message); return; }
+      const { data: { publicUrl } } = (supabase.storage as any).from("brand-assets").getPublicUrl(upData.path);
+      setBlockImgPrev(publicUrl);
+      setBlockVal(publicUrl);
+    } catch (err: any) { toast.error(err.message); }
+    finally { setBlockUploading(false); }
   };
 
   const handleApplyBlockInsert = () => {
@@ -1729,6 +1773,28 @@ export default function TomasPage() {
     };
     reader.readAsDataURL(file);
   }, [updateFieldValue]);
+
+  const handleInsertImage = useCallback(async (file: File, sectionId: string) => {
+    setInsertImgUploading(true);
+    try {
+      const ext = file.name.split(".").pop() ?? "jpg";
+      const path = `lp-assets/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+      const { data: upData, error: upErr } = await (supabase.storage as any)
+        .from("brand-assets").upload(path, file, { contentType: file.type, upsert: false });
+      if (upErr) { toast.error("Erro ao enviar imagem: " + upErr.message); return; }
+      const { data: { publicUrl } } = (supabase.storage as any).from("brand-assets").getPublicUrl(upData.path);
+      if (htmlEditadoRef.current) undoStack.current = [...undoStack.current.slice(-49), htmlEditadoRef.current];
+      setMarkedHtml(prev => {
+        const newHtml = insertImageIntoSection(prev, sectionId, publicUrl);
+        const { markedHtml: nm, sections: ns } = parseLPIntoSections(newHtml);
+        setSections(ns);
+        setHtmlEditado(stripEditorAttrs(newHtml));
+        return nm;
+      });
+      toast.success("Imagem inserida!");
+    } catch (err: any) { toast.error(err.message); }
+    finally { setInsertImgUploading(false); }
+  }, []);
 
   const startDirectEdit = (field: ParsedField) => {
     setDirectEditField(field.id);
@@ -3255,6 +3321,28 @@ form.addEventListener('submit',function(e){
                       onClearActive={() => setActiveFieldId(null)}
                     />
                   ))}
+                  {/* Insert new image into this section */}
+                  <input
+                    ref={insertImgRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={e => {
+                      const f = e.target.files?.[0];
+                      if (f && selectedSection) { handleInsertImage(f, selectedSection.id); }
+                      e.target.value = "";
+                    }}
+                  />
+                  <button
+                    onClick={() => insertImgRef.current?.click()}
+                    disabled={insertImgUploading}
+                    className="w-full flex items-center justify-center gap-1.5 py-2 rounded-xl text-[11px] font-medium transition-all"
+                    style={{ background: "transparent", border: "1px dashed #2A2A3A", color: "#555577" }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = "#B9FF4B44"; e.currentTarget.style.color = "#B9FF4B"; }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = "#2A2A3A"; e.currentTarget.style.color = "#555577"; }}>
+                    <ImagePlus className="w-3.5 h-3.5" />
+                    {insertImgUploading ? "Enviando..." : "Inserir imagem na seção"}
+                  </button>
                 </div>
                 )}
               </div>
