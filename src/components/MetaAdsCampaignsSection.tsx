@@ -113,9 +113,11 @@ type ApiBlock =
 type ApiMsg = { role: "user" | "assistant"; content: string | ApiBlock[] };
 
 function RafaelaEditModal({
+  clientId,
   clientColor,
   onClose,
 }: {
+  clientId: string;
   clientColor: string;
   onClose: () => void;
 }) {
@@ -187,7 +189,7 @@ function RafaelaEditModal({
     setLoading(true);
     const _tid = toast.loading("Acionando agente Rafaela…", { description: "Gestão de Tráfego — Meta Ads" });
     try {
-      const data = await callFn({ action: "rafaela-agent", messages: newApiMsgs });
+      const data = await callFn({ action: "rafaela-agent", messages: newApiMsgs, client_id: clientId });
       const reply = data.message ?? "Pronto!";
       apiMsgsRef.current = [...newApiMsgs, { role: "assistant", content: reply }];
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
@@ -1166,6 +1168,7 @@ export default function MetaAdsCampaignsSection({
 
       {showRafaela && (
         <RafaelaEditModal
+          clientId={clientId}
           clientColor={clientColor}
           onClose={() => { setShowRafaela(false); loadCampaigns(); }}
         />
