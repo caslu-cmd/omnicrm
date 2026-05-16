@@ -1459,13 +1459,41 @@ JSON esperado:
 
     // ── Rafaela Agent — conversational Meta Ads editor ───────────
     if (action === "rafaela-agent") {
-      const { messages } = body;
+      const { messages, client_id: rafaelaClientId } = body;
       const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
       const globalToken = Deno.env.get("META_ACCESS_TOKEN") ?? "";
       const globalAccountId = Deno.env.get("META_AD_ACCOUNT_ID") ?? "";
       if (!anthropicKey) return respond({ error: "ANTHROPIC_API_KEY não configurado" });
       if (!globalToken || !globalAccountId) return respond({ error: "META_ACCESS_TOKEN ou META_AD_ACCOUNT_ID não configurados" });
       if (!Array.isArray(messages) || messages.length === 0) return respond({ error: "messages obrigatório" });
+
+      // Fetch connected Facebook page and Meta Ads account for this client
+      let connectedPageId = "";
+      let connectedPageName = "";
+      let connectedAdAccountId = globalAccountId;
+      if (rafaelaClientId) {
+        const { data: fbConn } = await supabase
+          .from("social_connections")
+          .select("account_id,account_name")
+          .eq("user_id", userId)
+          .eq("client_id", rafaelaClientId)
+          .eq("platform", "facebook")
+          .eq("connected", true)
+          .maybeSingle();
+        if (fbConn) {
+          connectedPageId = fbConn.account_id ?? "";
+          connectedPageName = fbConn.account_name ?? "";
+        }
+        const { data: adsConn } = await supabase
+          .from("social_connections")
+          .select("account_id")
+          .eq("user_id", userId)
+          .eq("client_id", rafaelaClientId)
+          .eq("platform", "meta_ads")
+          .eq("connected", true)
+          .maybeSingle();
+        if (adsConn?.account_id) connectedAdAccountId = adsConn.account_id;
+      }
 
       const tools = [
         {
