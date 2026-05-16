@@ -134,6 +134,27 @@ async function executeMetaTool(
       if (data.error) return { error: data.error.message };
       return { ads: data.data ?? [] };
     }
+    case "list_page_posts": {
+      const pageId: string = input.page_id;
+      if (!pageId) return { error: "page_id obrigatório" };
+      // Exchange user token for page token
+      const pageTokenRes = await fetch(`${GRAPH}/${pageId}?fields=access_token&access_token=${token}`);
+      const pageTokenData = await pageTokenRes.json();
+      const pageToken: string = pageTokenData.access_token ?? token;
+      const feedRes = await fetch(
+        `${GRAPH}/${pageId}/feed?fields=id,message,created_time,full_picture,attachments{media_url,type}&limit=20&access_token=${pageToken}`
+      );
+      const feedData = await feedRes.json();
+      if (feedData.error) return { error: feedData.error.message };
+      return {
+        posts: (feedData.data ?? []).map((p: any) => ({
+          id: p.id,
+          message: p.message ?? "(sem legenda)",
+          created_time: p.created_time,
+          image_url: p.full_picture ?? p.attachments?.data?.[0]?.media_url ?? null,
+        })),
+      };
+    }
     case "create_campaign": {
       const campRes = await fetch(`${GRAPH}/${accountId}/campaigns`, {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -169,37 +190,46 @@ async function executeMetaTool(
       // Create creative + ad if page_id provided
       let creativeId: string | null = null;
       let adId: string | null = null;
-      if (input.page_id && (input.image_url || input.destination_url)) {
-        const linkData: Record<string, unknown> = {
-          link: input.destination_url || "https://facebook.com",
-          message: input.body_text || "",
-          name: input.headline || input.name,
+      if (input.page_id) {
+        const creativeBody: Record<string, unknown> = {
+          name: `${input.name} — Criativo`,
+          access_token: token,
         };
-        if (input.image_url) linkData.image_url = input.image_url;
-        if (input.call_to_action) linkData.call_to_action = { type: input.call_to_action };
-        const creativeRes = await fetch(`${GRAPH}/${accountId}/adcreatives`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: `${input.name} — Criativo`,
-            object_story_spec: { page_id: input.page_id, link_data: linkData },
-            access_token: token,
-          }),
-        });
-        const creativeData = await creativeRes.json();
-        if (!creativeData.error) {
-          creativeId = creativeData.id;
-          const adRes = await fetch(`${GRAPH}/${accountId}/ads`, {
+        if (input.post_id) {
+          // Use existing page post as creative
+          const numericPostId = input.post_id.replace(/^.*_/, "");
+          creativeBody.object_story_id = `${input.page_id}_${numericPostId}`;
+        } else if (input.image_url || input.destination_url) {
+          const linkData: Record<string, unknown> = {
+            link: input.destination_url || "https://facebook.com",
+            message: input.body_text || "",
+            name: input.headline || input.name,
+          };
+          if (input.image_url) linkData.image_url = input.image_url;
+          if (input.call_to_action) linkData.call_to_action = { type: input.call_to_action };
+          creativeBody.object_story_spec = { page_id: input.page_id, link_data: linkData };
+        }
+        if (creativeBody.object_story_id || creativeBody.object_story_spec) {
+          const creativeRes = await fetch(`${GRAPH}/${accountId}/adcreatives`, {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              name: `${input.name} — Anúncio`,
-              adset_id: adsetData.id,
-              creative: { creative_id: creativeId },
-              status: input.activate ? "ACTIVE" : "PAUSED",
-              access_token: token,
-            }),
+            body: JSON.stringify(creativeBody),
           });
-          const adData = await adRes.json();
-          if (!adData.error) adId = adData.id;
+          const creativeData = await creativeRes.json();
+          if (!creativeData.error) {
+            creativeId = creativeData.id;
+            const adRes = await fetch(`${GRAPH}/${accountId}/ads`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: `${input.name} — Anúncio`,
+                adset_id: adsetData.id,
+                creative: { creative_id: creativeId },
+                status: input.activate ? "ACTIVE" : "PAUSED",
+                access_token: token,
+              }),
+            });
+            const adData = await adRes.json();
+            if (!adData.error) adId = adData.id;
+          }
         }
       }
 
@@ -1510,8 +1540,19 @@ JSON esperado:
           },
         },
         {
+          name: "list_page_posts",
+          description: "Lista publicações recentes de uma Página do Facebook para escolher uma como criativo do anúncio.",
+          input_schema: {
+            type: "object",
+            properties: {
+              page_id: { type: "string", description: "ID numérico da Página do Facebook" },
+            },
+            required: ["page_id"],
+          },
+        },
+        {
           name: "create_campaign",
-          description: "Cria nova campanha + conjunto de anúncios. Se page_id e image_url forem fornecidos, cria também o criativo e o anúncio.",
+          description: "Cria nova campanha + conjunto de anúncios. Se page_id for fornecido junto com post_id (publicação existente) OU image_url, cria também o criativo e o anúncio.",
           input_schema: {
             type: "object",
             properties: {
@@ -1524,7 +1565,8 @@ JSON esperado:
               genders: { type: "string", enum: ["all", "male", "female"] },
               activate: { type: "boolean", description: "true = ATIVA imediatamente" },
               page_id: { type: "string", description: "ID da Página do Facebook — necessário para criar criativo" },
-              image_url: { type: "string", description: "URL pública da imagem do anúncio (use a URL do Supabase Storage enviada pelo usuário)" },
+              post_id: { type: "string", description: "ID de uma publicação existente da Página para usar como criativo (obtido via list_page_posts). Tem prioridade sobre image_url." },
+              image_url: { type: "string", description: "URL pública da imagem do anúncio. Use a URL do Supabase Storage quando o usuário enviar uma imagem." },
               headline: { type: "string", description: "Título do anúncio (máx 40 chars)" },
               body_text: { type: "string", description: "Texto principal do anúncio (máx 125 chars)" },
               destination_url: { type: "string", description: "URL de destino do clique" },
