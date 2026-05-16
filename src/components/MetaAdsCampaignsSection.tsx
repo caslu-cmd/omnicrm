@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import {
   Loader2, RefreshCw, Pause, Play, AlertCircle,
   Sparkles, Plus, CheckCircle, X, Zap, BarChart2,
-  Paperclip, FileText, ImageIcon, Send,
+  Send, ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -117,9 +117,12 @@ function CampaignModal({
   onCreated: () => void;
 }) {
   const [step, setStep] = useState<"briefing" | "configure" | "done">("briefing");
-  const [briefing, setBriefing] = useState("");
-  const [briefingFiles, setBriefingFiles] = useState<File[]>([]);
-  const [parsing, setParsing] = useState(false);
+  const [chatMessages, setChatMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
+    { role: "assistant", content: "Olá! Vou te ajudar a criar a campanha no Meta Ads. O que você vai anunciar? Pode ser um produto, serviço, evento ou promoção." },
+  ]);
+  const [chatInput, setChatInput] = useState("");
+  const [chatLoading, setChatLoading] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState<CampaignDraft>(DEFAULT_DRAFT);
   const [activate, setActivate] = useState(false);
   const [creativeMode, setCreativeMode] = useState<"none" | "image_url" | "existing_post">("none");
@@ -129,7 +132,6 @@ function CampaignModal({
   const [creating, setCreating] = useState(false);
   const [result, setResult] = useState<{ campaign_id: string; adset_id: string; has_creative: boolean; activated?: boolean } | null>(null);
   const s = (o: number) => `rgba(255,255,255,${o})`;
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadPagePosts = async (pageId: string) => {
     if (!pageId.trim()) { toast.error("Preencha o ID da Página do Facebook primeiro"); return; }
@@ -145,38 +147,35 @@ function CampaignModal({
     }
   };
 
-  const parseBriefing = async () => {
-    if (!briefing.trim() && briefingFiles.length === 0) return;
-    setParsing(true);
-    try {
-      // Read files
-      const files: { name: string; base64: string; media_type: string }[] = [];
-      await Promise.all(briefingFiles.map(file => new Promise<void>(resolve => {
-        if (file.type === "text/plain" || file.type === "text/markdown") {
-          // For plain text, append to briefing instead
-          resolve();
-          return;
-        }
-        const reader = new FileReader();
-        reader.onload = () => {
-          const b64 = (reader.result as string).split(",")[1];
-          files.push({ name: file.name, base64: b64, media_type: file.type });
-          resolve();
-        };
-        reader.readAsDataURL(file);
-      })));
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages, chatLoading]);
 
-      const data = await callFn({ action: "parse-campaign-briefing", briefing, ...(files.length > 0 && { files }) });
-      if (data.parsed) {
+  const sendChatMessage = async () => {
+    const text = chatInput.trim();
+    if (!text || chatLoading) return;
+    const newMessages: { role: "user" | "assistant"; content: string }[] = [
+      ...chatMessages,
+      { role: "user", content: text },
+    ];
+    setChatMessages(newMessages);
+    setChatInput("");
+    setChatLoading(true);
+    try {
+      const data = await callFn({
+        action: "campaign-agent",
+        messages: newMessages.map((m) => ({ role: m.role, content: m.content })),
+      });
+      if (data.done && data.parsed) {
         setDraft((prev) => ({ ...prev, ...data.parsed }));
         setStep("configure");
-      } else {
-        toast.error(data.error ?? "Não foi possível interpretar o briefing");
+      } else if (data.message) {
+        setChatMessages((prev) => [...prev, { role: "assistant", content: data.message }]);
       }
     } catch (e: any) {
-      toast.error(e.message ?? "Erro ao interpretar briefing");
+      toast.error(e.message ?? "Erro no agente");
     } finally {
-      setParsing(false);
+      setChatLoading(false);
     }
   };
 
@@ -232,7 +231,7 @@ function CampaignModal({
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4" style={{ color: clientColor }} />
             <span className="text-sm font-semibold" style={{ color: s(0.9) }}>
-              {step === "briefing" ? "Briefing da Campanha" : step === "configure" ? "Configurar Campanha" : "Campanha Criada!"}
+              {step === "briefing" ? "Agente de Campanhas" : step === "configure" ? "Configurar Campanha" : "Campanha Criada!"}
             </span>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.06)" }}>
@@ -254,80 +253,82 @@ function CampaignModal({
                 {stepIndex[step] > i ? "✓" : i + 1}
               </div>
               <span className="text-[10px]" style={{ color: step === st ? s(0.7) : s(0.3) }}>
-                {st === "briefing" ? "Briefing" : st === "configure" ? "Configurar" : "Concluído"}
+                {st === "briefing" ? "Agente IA" : st === "configure" ? "Configurar" : "Concluído"}
               </span>
               {i < 2 && <div className="w-6 h-px" style={{ background: "rgba(255,255,255,0.1)" }} />}
             </div>
           ))}
         </div>
 
-        {/* Briefing */}
+        {/* Agente conversacional */}
         {step === "briefing" && (
-          <div className="space-y-4">
-            <p className="text-[11px]" style={{ color: s(0.45) }}>
-              Descreva a campanha em linguagem natural. A IA vai interpretar o objetivo, orçamento, público e gerar os parâmetros automaticamente.
-            </p>
-            <textarea
-              value={briefing}
-              onChange={(e) => setBriefing(e.target.value)}
-              placeholder="Ex: Campanha para captar leads de pessoas entre 25-40 anos interessadas em cursos de marketing. Orçamento de R$50/dia. Foco em mulheres de São Paulo."
-              rows={4}
-              className="w-full rounded-xl px-3 py-3 text-xs resize-none outline-none"
-              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: s(0.8) }}
-            />
-
-            {/* File upload */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.md"
-              multiple
-              className="hidden"
-              onChange={(e) => {
-                const newFiles = Array.from(e.target.files ?? []);
-                setBriefingFiles(prev => [...prev, ...newFiles]);
-                e.target.value = "";
-              }}
-            />
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full py-2 rounded-xl text-[11px] flex items-center justify-center gap-2 transition-all"
-              style={{ border: "1px dashed rgba(255,255,255,0.15)", color: s(0.4), background: "transparent" }}
+          <div className="flex flex-col gap-3">
+            {/* Messages */}
+            <div
+              className="overflow-y-auto flex flex-col gap-2.5 pr-0.5"
+              style={{ height: "320px" }}
             >
-              <Paperclip className="w-3.5 h-3.5" />
-              Anexar arquivo de referência (PDF, imagem, texto)
-            </button>
-            {briefingFiles.length > 0 && (
-              <div className="space-y-1.5">
-                {briefingFiles.map((f, i) => (
-                  <div key={i} className="flex items-center gap-2 px-3 py-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.04)" }}>
-                    {f.type.startsWith("image/") ? (
-                      <ImageIcon className="w-3 h-3 shrink-0" style={{ color: s(0.4) }} />
-                    ) : (
-                      <FileText className="w-3 h-3 shrink-0" style={{ color: s(0.4) }} />
-                    )}
-                    <span className="text-[10px] flex-1 truncate" style={{ color: s(0.6) }}>{f.name}</span>
-                    <button onClick={() => setBriefingFiles(prev => prev.filter((_, j) => j !== i))} className="p-0.5">
-                      <X className="w-3 h-3" style={{ color: s(0.3) }} />
-                    </button>
+              {chatMessages.map((msg, i) => (
+                <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+                  {msg.role === "assistant" && (
+                    <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mr-2 mt-0.5"
+                      style={{ background: clientColor }}>
+                      <Sparkles className="w-2.5 h-2.5" style={{ color: "#000" }} />
+                    </div>
+                  )}
+                  <div
+                    className="max-w-[82%] px-3 py-2 text-xs leading-relaxed"
+                    style={{
+                      background: msg.role === "user" ? clientColor : "rgba(255,255,255,0.07)",
+                      color: msg.role === "user" ? "#000" : s(0.85),
+                      borderRadius: msg.role === "user" ? "14px 14px 4px 14px" : "4px 14px 14px 14px",
+                    }}
+                  >
+                    {msg.content}
                   </div>
-                ))}
-              </div>
-            )}
+                </div>
+              ))}
+              {chatLoading && (
+                <div className="flex justify-start">
+                  <div className="w-5 h-5 rounded-full flex items-center justify-center shrink-0 mr-2 mt-0.5"
+                    style={{ background: clientColor }}>
+                    <Sparkles className="w-2.5 h-2.5" style={{ color: "#000" }} />
+                  </div>
+                  <div className="px-3 py-2 rounded-2xl" style={{ background: "rgba(255,255,255,0.07)" }}>
+                    <div className="flex gap-1 items-center h-4">
+                      <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: "rgba(255,255,255,0.35)", animationDelay: "0ms" }} />
+                      <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: "rgba(255,255,255,0.35)", animationDelay: "150ms" }} />
+                      <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: "rgba(255,255,255,0.35)", animationDelay: "300ms" }} />
+                    </div>
+                  </div>
+                </div>
+              )}
+              <div ref={chatEndRef} />
+            </div>
 
-            <button
-              onClick={parseBriefing}
-              disabled={(!briefing.trim() && briefingFiles.length === 0) || parsing}
-              className="w-full py-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-2 transition-all"
-              style={{
-                background: (briefing.trim() || briefingFiles.length > 0) ? clientColor : "rgba(255,255,255,0.06)",
-                color: (briefing.trim() || briefingFiles.length > 0) ? "#000" : s(0.3),
-              }}
-            >
-              {parsing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-              {parsing ? "Interpretando…" : "Interpretar com IA"}
-            </button>
+            {/* Input */}
+            <div className="flex gap-2">
+              <input
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChatMessage(); } }}
+                placeholder="Digite sua resposta…"
+                className="flex-1 rounded-xl px-3 py-2.5 text-xs outline-none"
+                style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: s(0.85) }}
+                disabled={chatLoading}
+              />
+              <button
+                onClick={sendChatMessage}
+                disabled={!chatInput.trim() || chatLoading}
+                className="px-3.5 py-2.5 rounded-xl flex items-center justify-center transition-all"
+                style={{
+                  background: chatInput.trim() && !chatLoading ? clientColor : "rgba(255,255,255,0.06)",
+                  color: chatInput.trim() && !chatLoading ? "#000" : s(0.25),
+                }}
+              >
+                <Send className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         )}
 
@@ -718,6 +719,17 @@ export default function MetaAdsCampaignsSection({
             style={{ background: "rgba(255,255,255,0.05)" }}>
             <RefreshCw className={cn("w-3.5 h-3.5", loading && "animate-spin")} style={{ color: s(0.4) }} />
           </button>
+
+          <a
+            href="https://adsmanager.facebook.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all"
+            style={{ background: "rgba(255,255,255,0.05)", color: s(0.5) }}
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+            Meta Ads Manager
+          </a>
 
           <button onClick={() => setShowModal(true)}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-all"
