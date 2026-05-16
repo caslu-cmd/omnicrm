@@ -104,6 +104,144 @@ const OPT_GOALS = [
 
 const CTAS = ["LEARN_MORE","SIGN_UP","CONTACT_US","GET_OFFER","BUY_NOW"];
 
+// ── Rafaela Edit Modal ────────────────────────────────────────
+function RafaelaEditModal({
+  clientColor,
+  onClose,
+}: {
+  clientColor: string;
+  onClose: () => void;
+}) {
+  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
+    { role: "assistant", content: "Olá! Sou a Rafaela. Tenho acesso direto à conta de anúncios da Calu Agência. O que você quer fazer? Posso listar campanhas, editar orçamentos, pausar/ativar campanhas, criar novas, verificar métricas…" },
+  ]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const apiMsgsRef = useRef<{ role: "user" | "assistant"; content: string }[]>([]);
+  const endRef = useRef<HTMLDivElement>(null);
+  const s = (o: number) => `rgba(255,255,255,${o})`;
+
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
+
+  const send = async () => {
+    const text = input.trim();
+    if (!text || loading) return;
+    const newApiMsgs = [...apiMsgsRef.current, { role: "user" as const, content: text }];
+    apiMsgsRef.current = newApiMsgs;
+    setMessages((prev) => [...prev, { role: "user", content: text }]);
+    setInput("");
+    setLoading(true);
+    const _tid = toast.loading("Acionando agente Rafaela…", { description: "Gestão de Tráfego — Meta Ads" });
+    try {
+      const data = await callFn({ action: "rafaela-agent", messages: newApiMsgs });
+      const reply = data.message ?? "Pronto!";
+      apiMsgsRef.current = [...newApiMsgs, { role: "assistant", content: reply }];
+      setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+    } catch (e: any) {
+      toast.error(e.message ?? "Erro ao falar com Rafaela");
+    } finally {
+      toast.dismiss(_tid);
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <div
+        className="w-full max-w-lg flex flex-col rounded-2xl overflow-hidden"
+        style={{ height: "600px", background: "#0d0d16", border: "1px solid rgba(255,255,255,0.1)" }}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-5 py-4"
+          style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full flex items-center justify-center"
+              style={{ background: clientColor }}>
+              <Sparkles className="w-4 h-4" style={{ color: "#000" }} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold" style={{ color: s(0.9) }}>Rafaela</p>
+              <p className="text-[10px]" style={{ color: s(0.35) }}>Gestora de Tráfego · Meta Ads</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.06)" }}>
+            <X className="w-3.5 h-3.5" style={{ color: s(0.5) }} />
+          </button>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto px-5 py-4 flex flex-col gap-3">
+          {messages.map((msg, i) => (
+            <div key={i} className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}>
+              {msg.role === "assistant" && (
+                <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 mr-2 mt-0.5"
+                  style={{ background: clientColor }}>
+                  <Sparkles className="w-3 h-3" style={{ color: "#000" }} />
+                </div>
+              )}
+              <div
+                className="max-w-[82%] px-3.5 py-2.5 text-xs leading-relaxed whitespace-pre-wrap"
+                style={{
+                  background: msg.role === "user" ? clientColor : "rgba(255,255,255,0.07)",
+                  color: msg.role === "user" ? "#000" : s(0.85),
+                  borderRadius: msg.role === "user" ? "14px 14px 4px 14px" : "4px 14px 14px 14px",
+                }}
+              >
+                {msg.content}
+              </div>
+            </div>
+          ))}
+          {loading && (
+            <div className="flex justify-start">
+              <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0 mr-2 mt-0.5"
+                style={{ background: clientColor }}>
+                <Sparkles className="w-3 h-3" style={{ color: "#000" }} />
+              </div>
+              <div className="px-3.5 py-2.5 rounded-2xl" style={{ background: "rgba(255,255,255,0.07)" }}>
+                <div className="flex gap-1 items-center h-4">
+                  <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: "rgba(255,255,255,0.35)", animationDelay: "0ms" }} />
+                  <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: "rgba(255,255,255,0.35)", animationDelay: "150ms" }} />
+                  <span className="w-1.5 h-1.5 rounded-full animate-bounce" style={{ background: "rgba(255,255,255,0.35)", animationDelay: "300ms" }} />
+                </div>
+              </div>
+            </div>
+          )}
+          <div ref={endRef} />
+        </div>
+
+        {/* Input */}
+        <div className="px-5 py-4 flex gap-2"
+          style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
+            placeholder="Ex: pause a campanha X, aumente o orçamento de Y para R$50…"
+            className="flex-1 rounded-xl px-3 py-2.5 text-xs outline-none"
+            style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: s(0.85) }}
+            disabled={loading}
+          />
+          <button
+            onClick={send}
+            disabled={!input.trim() || loading}
+            className="px-3.5 py-2.5 rounded-xl flex items-center justify-center transition-all shrink-0"
+            style={{
+              background: input.trim() && !loading ? clientColor : "rgba(255,255,255,0.06)",
+              color: input.trim() && !loading ? "#000" : s(0.25),
+            }}
+          >
+            <Send className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Campaign Creator Modal ────────────────────────────────────
 function CampaignModal({
   clientId,
@@ -681,6 +819,7 @@ export default function MetaAdsCampaignsSection({
   const [loading, setLoading] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [showRafaela, setShowRafaela] = useState(false);
   const [lastRefreshTs, setLastRefreshTs] = useState<number | null>(null);
   const autoRefreshRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const s = (o: number) => `rgba(255,255,255,${o})`;
@@ -823,6 +962,15 @@ export default function MetaAdsCampaignsSection({
             Meta Ads Manager
           </a>
 
+          <button
+            onClick={() => setShowRafaela(true)}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold transition-all"
+            style={{ background: "rgba(249,115,22,0.15)", color: "#F97316", border: "1px solid rgba(249,115,22,0.25)" }}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Rafaela
+          </button>
+
           <button onClick={() => setShowModal(true)}
             className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-all"
             style={{ background: clientColor, color: "#000" }}>
@@ -913,6 +1061,13 @@ export default function MetaAdsCampaignsSection({
           Para criar campanhas é necessário ter o Meta Ads conectado com permissão <strong>ads_management</strong>. Se aparecer erro de permissão, reconecte em Redes Sociais → Anúncios.
         </p>
       </div>
+
+      {showRafaela && (
+        <RafaelaEditModal
+          clientColor={clientColor}
+          onClose={() => { setShowRafaela(false); loadCampaigns(); }}
+        />
+      )}
 
       {showModal && (
         <CampaignModal

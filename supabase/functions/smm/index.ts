@@ -32,6 +32,145 @@ function deobfuscate(encoded: string, key: string): string {
 }
 
 const GRAPH = "https://graph.facebook.com/v22.0";
+
+// ── Meta API tool executor (for Rafaela agentic loop) ────────────
+async function executeMetaTool(
+  toolName: string,
+  input: Record<string, any>,
+  token: string,
+  accountId: string,
+): Promise<unknown> {
+  switch (toolName) {
+    case "list_campaigns": {
+      const statusFilter: string = input.status_filter ?? "ALL";
+      const datePreset = normalizeMetaDatePreset(input.date_preset ?? "last_30d");
+      let url = `${GRAPH}/${accountId}/campaigns?fields=id,name,status,objective&limit=50&access_token=${token}`;
+      if (statusFilter !== "ALL") url += `&effective_status=["${statusFilter}"]`;
+      const [campRes, insRes] = await Promise.all([
+        fetch(url),
+        fetch(`${GRAPH}/${accountId}/insights?fields=campaign_id,spend,impressions,clicks,ctr,cpc,reach&level=campaign&date_preset=${datePreset}&access_token=${token}`),
+      ]);
+      const campData = await campRes.json();
+      const insData = await insRes.json();
+      if (campData.error) return { error: campData.error.message };
+      const insMap: Record<string, any> = {};
+      for (const item of insData.data ?? []) insMap[item.campaign_id] = item;
+      return {
+        campaigns: (campData.data ?? []).map((c: any) => {
+          const ins = insMap[c.id] ?? {};
+          return {
+            id: c.id, name: c.name, status: c.status, objective: c.objective,
+            spend: parseFloat(ins.spend ?? "0"),
+            impressions: parseInt(ins.impressions ?? "0"),
+            clicks: parseInt(ins.clicks ?? "0"),
+            ctr: parseFloat(ins.ctr ?? "0"),
+            cpc: parseFloat(ins.cpc ?? "0"),
+            reach: parseInt(ins.reach ?? "0"),
+          };
+        }),
+      };
+    }
+    case "get_campaign_insights": {
+      const datePreset = normalizeMetaDatePreset(input.date_preset ?? "last_30d");
+      const res = await fetch(`${GRAPH}/${input.campaign_id}/insights?fields=campaign_name,spend,impressions,clicks,ctr,cpc,cpm,reach,actions,frequency&date_preset=${datePreset}&access_token=${token}`);
+      const data = await res.json();
+      if (data.error) return { error: data.error.message };
+      return data.data?.[0] ?? { message: "Sem dados para o período selecionado" };
+    }
+    case "update_campaign": {
+      const updates: Record<string, unknown> = { access_token: token };
+      if (input.name) updates.name = input.name;
+      if (input.status) updates.status = input.status;
+      const res = await fetch(`${GRAPH}/${input.campaign_id}`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      const data = await res.json();
+      if (data.error) return { error: data.error.message };
+      return { success: true, campaign_id: input.campaign_id, updated_fields: Object.keys(updates).filter(k => k !== "access_token") };
+    }
+    case "list_adsets": {
+      const res = await fetch(`${GRAPH}/${input.campaign_id}/adsets?fields=id,name,status,daily_budget,start_time,end_time,targeting,optimization_goal&access_token=${token}`);
+      const data = await res.json();
+      if (data.error) return { error: data.error.message };
+      return {
+        adsets: (data.data ?? []).map((a: any) => ({
+          id: a.id, name: a.name, status: a.status,
+          daily_budget_brl: parseFloat(a.daily_budget ?? "0") / 100,
+          start_time: a.start_time, end_time: a.end_time,
+          optimization_goal: a.optimization_goal,
+          age_min: a.targeting?.age_min, age_max: a.targeting?.age_max,
+          genders: a.targeting?.genders,
+        })),
+      };
+    }
+    case "update_adset": {
+      const updates: Record<string, unknown> = { access_token: token };
+      if (input.daily_budget_brl != null) updates.daily_budget = Math.round(parseFloat(input.daily_budget_brl) * 100);
+      if (input.status) updates.status = input.status;
+      if (input.end_time) updates.end_time = input.end_time;
+      if (input.start_time) updates.start_time = input.start_time;
+      if (input.age_min != null || input.age_max != null) {
+        const curRes = await fetch(`${GRAPH}/${input.adset_id}?fields=targeting&access_token=${token}`);
+        const curData = await curRes.json();
+        const cur = curData.targeting ?? {};
+        updates.targeting = {
+          ...cur,
+          ...(input.age_min != null ? { age_min: input.age_min } : {}),
+          ...(input.age_max != null ? { age_max: input.age_max } : {}),
+        };
+      }
+      const res = await fetch(`${GRAPH}/${input.adset_id}`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      });
+      const data = await res.json();
+      if (data.error) return { error: data.error.message };
+      return { success: true, adset_id: input.adset_id, updated_fields: Object.keys(updates).filter(k => k !== "access_token") };
+    }
+    case "list_ads": {
+      const res = await fetch(`${GRAPH}/${input.adset_id}/ads?fields=id,name,status,creative{id,name}&access_token=${token}`);
+      const data = await res.json();
+      if (data.error) return { error: data.error.message };
+      return { ads: data.data ?? [] };
+    }
+    case "create_campaign": {
+      const campRes = await fetch(`${GRAPH}/${accountId}/campaigns`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: input.name, objective: input.objective || "OUTCOME_TRAFFIC",
+          status: input.activate ? "ACTIVE" : "PAUSED",
+          special_ad_categories: [], access_token: token,
+        }),
+      });
+      const campData = await campRes.json();
+      if (campData.error) return { error: campData.error.message };
+      const targeting: Record<string, unknown> = {
+        age_min: input.age_min || 18, age_max: input.age_max || 65,
+        geo_locations: { countries: ["BR"] },
+      };
+      if (input.genders === "male") targeting.genders = [1];
+      else if (input.genders === "female") targeting.genders = [2];
+      const adsetRes = await fetch(`${GRAPH}/${accountId}/adsets`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: `${input.name} — Conjunto`, campaign_id: campData.id,
+          daily_budget: Math.round((parseFloat(input.daily_budget_brl) || 30) * 100),
+          billing_event: "IMPRESSIONS",
+          optimization_goal: input.optimization_goal || "LINK_CLICKS",
+          bid_strategy: "LOWEST_COST_WITHOUT_CAP",
+          targeting, status: input.activate ? "ACTIVE" : "PAUSED",
+          access_token: token,
+        }),
+      });
+      const adsetData = await adsetRes.json();
+      if (adsetData.error) return { error: adsetData.error.message, campaign_id: campData.id };
+      return { success: true, campaign_id: campData.id, adset_id: adsetData.id, activated: !!input.activate };
+    }
+    default:
+      return { error: `Ferramenta desconhecida: ${toolName}` };
+  }
+}
 const LINKEDIN_API = "https://api.linkedin.com/v2";
 
 function normalizeMetaDatePreset(value: unknown): string {
@@ -823,15 +962,75 @@ Deno.serve(async (req) => {
       return respond({ success: true });
     }
 
+    // ── Campaign Agent (conversational setup) ────────────────────
+    if (action === "campaign-agent") {
+      const { messages } = body;
+      const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
+      if (!anthropicKey) return respond({ error: "ANTHROPIC_API_KEY não configurado" });
+      if (!Array.isArray(messages) || messages.length === 0) return respond({ error: "messages obrigatório" });
+
+      // Detect PDFs in any message content block
+      const hasPdfs = messages.some((m: any) =>
+        Array.isArray(m.content) && m.content.some((b: any) => b.type === "document")
+      );
+
+      const system = `Você é Rafaela, Gestora de Tráfego da Calu Agência, especialista em Meta Ads. Configure campanhas conversando em português brasileiro de forma direta e amigável.
+
+Se o usuário enviar arquivos (PDF, imagem, documento), extraia TODAS as informações relevantes deles para montar a campanha: produto, objetivo, público, orçamento, textos, URLs, etc.
+
+Colete estas informações (UMA pergunta por vez, máximo 2 frases por resposta):
+1. Produto/serviço anunciado
+2. Objetivo: tráfego | leads | vendas | reconhecimento | engajamento
+3. Orçamento diário (R$, mínimo R$6)
+4. Público: faixa etária e gênero (todos/homens/mulheres)
+5. Texto/título do anúncio — opcional
+6. URL de destino — opcional
+7. ID da Página do Facebook — opcional
+
+Se os arquivos já tiverem informações suficientes (produto, objetivo, orçamento), vá direto para o PRONTO sem fazer perguntas.
+
+Quando tiver produto, objetivo e orçamento, responda EXATAMENTE assim (sem mais texto antes ou depois):
+PRONTO:{"name":"[nome curto da campanha]","objective":"OUTCOME_TRAFFIC|OUTCOME_LEADS|OUTCOME_AWARENESS|OUTCOME_ENGAGEMENT|OUTCOME_SALES","optimization_goal":"LINK_CLICKS|LEAD_GENERATION|REACH|POST_ENGAGEMENT|OFFSITE_CONVERSIONS","daily_budget_brl":[número],"age_min":[número],"age_max":[número],"genders":"all|male|female","headline":"[máx 40 chars ou vazio]","body_text":"[máx 125 chars ou vazio]","call_to_action":"LEARN_MORE","destination_url":"[url ou vazio]","page_id":""}
+
+Mapeamento objetivo → optimization_goal: tráfego→OUTCOME_TRAFFIC/LINK_CLICKS, leads→OUTCOME_LEADS/LEAD_GENERATION, vendas→OUTCOME_SALES/OFFSITE_CONVERSIONS, reconhecimento→OUTCOME_AWARENESS/REACH, engajamento→OUTCOME_ENGAGEMENT/POST_ENGAGEMENT`;
+
+      const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "x-api-key": anthropicKey,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+          ...(hasPdfs ? { "anthropic-beta": "pdfs-2024-09-25" } : {}),
+        },
+        body: JSON.stringify({
+          model: hasPdfs ? "claude-sonnet-4-6" : "claude-haiku-4-5-20251001",
+          max_tokens: 1024,
+          system,
+          messages,
+        }),
+      });
+      const aiData = await aiRes.json();
+      const text = (aiData.content?.[0]?.text ?? "").trim();
+
+      if (text.startsWith("PRONTO:")) {
+        try {
+          const parsed = JSON.parse(text.slice(7).trim());
+          return respond({ done: true, parsed });
+        } catch { /* fall through to plain message */ }
+      }
+      return respond({ done: false, message: text });
+    }
+
     // ── Parse Campaign Briefing with Claude ──────────────────────
     if (action === "parse-campaign-briefing") {
-      const { briefing } = body;
-      if (!briefing) return respond({ error: "briefing obrigatório" }, 400);
+      const { briefing, files } = body;
+      // files: Array<{ name, base64, media_type }> — PDFs e imagens enviados pelo usuário
       const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
       if (!anthropicKey) return respond({ parsed: null, error: "ANTHROPIC_API_KEY não configurado" });
-      const prompt = `Você é especialista em Meta Ads. Analise o briefing e extraia parâmetros para criar uma campanha. Retorne APENAS JSON válido, sem explicações.
 
-Briefing: ${briefing}
+      const prompt = `Você é especialista em Meta Ads. Analise o briefing e os arquivos fornecidos e extraia parâmetros para criar uma campanha. Retorne APENAS JSON válido, sem explicações.
+
+Briefing: ${briefing || "(sem texto — analise os arquivos acima)"}
 
 JSON esperado:
 {
@@ -846,10 +1045,34 @@ JSON esperado:
   "body_text": "texto do anúncio (máx 125 chars)",
   "call_to_action": "LEARN_MORE|SIGN_UP|CONTACT_US|GET_OFFER|BUY_NOW"
 }`;
+
+      type Block =
+        | { type: "text"; text: string }
+        | { type: "image"; source: { type: "base64"; media_type: string; data: string } }
+        | { type: "document"; source: { type: "base64"; media_type: "application/pdf"; data: string }; title: string };
+
+      const content: Block[] = [];
+      const hasPdfs = Array.isArray(files) && files.some((f: any) => f.media_type === "application/pdf");
+
+      if (Array.isArray(files)) {
+        for (const f of files as any[]) {
+          if (!f.base64) continue;
+          if (f.media_type === "application/pdf") {
+            content.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: f.base64 }, title: f.name ?? "briefing" });
+          } else if (f.media_type?.startsWith("image/")) {
+            content.push({ type: "image", source: { type: "base64", media_type: f.media_type, data: f.base64 } });
+          }
+        }
+      }
+      content.push({ type: "text", text: prompt });
+
       const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
-        headers: { "x-api-key": anthropicKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
-        body: JSON.stringify({ model: "claude-haiku-4-5-20251001", max_tokens: 1024, messages: [{ role: "user", content: prompt }] }),
+        headers: {
+          "x-api-key": anthropicKey, "anthropic-version": "2023-06-01", "content-type": "application/json",
+          ...(hasPdfs ? { "anthropic-beta": "pdfs-2024-09-25" } : {}),
+        },
+        body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 1024, messages: [{ role: "user", content }] }),
       });
       const aiData = await aiRes.json();
       try {
@@ -860,6 +1083,42 @@ JSON esperado:
       } catch {
         return respond({ parsed: null, error: "Falha ao interpretar resposta da IA" });
       }
+    }
+
+    // ── List Facebook Page Posts ──────────────────────────────────
+    if (action === "list-page-posts") {
+      const { client_id, page_id } = body;
+      if (!client_id || !page_id) return respond({ error: "client_id e page_id obrigatórios" }, 400);
+
+      // Prefer social facebook connection (has page token scope)
+      const { data: conn } = await supabase.from("social_connections")
+        .select("account_id,access_token")
+        .eq("user_id", userId).eq("client_id", client_id)
+        .in("platform", ["facebook", "meta_ads"]).eq("connected", true)
+        .order("platform").limit(1).maybeSingle();
+      if (!conn) return respond({ error: "Conexão Meta não encontrada" }, 400);
+
+      const userToken = deobfuscate(conn.access_token, encKey);
+
+      // Exchange for page access token
+      const pageTokenRes = await fetch(`${GRAPH}/${page_id}?fields=access_token&access_token=${userToken}`);
+      const pageTokenData = await pageTokenRes.json();
+      const pageToken = pageTokenData.access_token ?? userToken;
+
+      const feedRes = await fetch(
+        `${GRAPH}/${page_id}/feed?fields=id,message,created_time,full_picture,attachments{media_url,type,title}&limit=20&access_token=${pageToken}`
+      );
+      const feedData = await feedRes.json();
+      if (feedData.error) return respond({ error: feedData.error.message }, 400);
+
+      const posts = (feedData.data ?? []).map((p: any) => ({
+        id: p.id,
+        message: p.message ?? "",
+        created_time: p.created_time,
+        image_url: p.full_picture ?? p.attachments?.data?.[0]?.media_url ?? null,
+        type: p.attachments?.data?.[0]?.type ?? "text",
+      }));
+      return respond({ posts });
     }
 
     // ── Create Meta Campaign (Campaign + Ad Set + optional Creative + Ad) ──
@@ -882,7 +1141,7 @@ JSON esperado:
         body: JSON.stringify({
           name: c.name || "Campanha criada pela IA",
           objective: c.objective || "OUTCOME_TRAFFIC",
-          status: "PAUSED",
+          status: c.activate ? "ACTIVE" : "PAUSED",
           special_ad_categories: [],
           access_token: token,
         }),
@@ -910,7 +1169,7 @@ JSON esperado:
         optimization_goal: c.optimization_goal || "LINK_CLICKS",
         bid_strategy: "LOWEST_COST_WITHOUT_CAP",
         targeting,
-        status: "PAUSED",
+        status: c.activate ? "ACTIVE" : "PAUSED",
         access_token: token,
       };
       if (c.start_time) adsetBody.start_time = c.start_time;
@@ -924,40 +1183,50 @@ JSON esperado:
       if (adsetData.error) return respond({ error: adsetData.error.message, campaign_id: campData.id }, 400);
 
       // 4. Creative + Ad (optional — requires page_id)
+      const campaignStatus = c.activate ? "ACTIVE" : "PAUSED";
+      const adStatus = campaignStatus;
       let creativeId: string | null = null;
       let adId: string | null = null;
-      if (c.page_id && (c.image_url || c.destination_url)) {
-        const linkData: Record<string, unknown> = {
-          link: c.destination_url || "https://facebook.com",
-          message: c.body_text || "",
-          name: c.headline || c.name,
-        };
-        if (c.image_url) linkData.image_url = c.image_url;
-        if (c.call_to_action) linkData.call_to_action = { type: c.call_to_action };
 
-        const creativeRes = await fetch(`${GRAPH}/${conn.account_id}/adcreatives`, {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: `${c.name} — Criativo`,
-            object_story_spec: { page_id: c.page_id, link_data: linkData },
-            access_token: token,
-          }),
-        });
-        const creativeData = await creativeRes.json();
-        if (!creativeData.error) {
-          creativeId = creativeData.id;
-          const adRes = await fetch(`${GRAPH}/${conn.account_id}/ads`, {
+      if (c.page_id) {
+        let creativeBody: Record<string, unknown> = { name: `${c.name} — Criativo`, access_token: token };
+
+        if (c.post_id) {
+          // Use existing Page post as creative
+          creativeBody.object_story_id = `${c.page_id}_${c.post_id.replace(/^.*_/, "")}`;
+        } else if (c.image_url || c.destination_url) {
+          // Link/image creative
+          const linkData: Record<string, unknown> = {
+            link: c.destination_url || "https://facebook.com",
+            message: c.body_text || "",
+            name: c.headline || c.name,
+          };
+          if (c.image_url) linkData.image_url = c.image_url;
+          if (c.call_to_action) linkData.call_to_action = { type: c.call_to_action };
+          creativeBody.object_story_spec = { page_id: c.page_id, link_data: linkData };
+        }
+
+        if (creativeBody.object_story_id || creativeBody.object_story_spec) {
+          const creativeRes = await fetch(`${GRAPH}/${conn.account_id}/adcreatives`, {
             method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              name: `${c.name} — Anúncio`,
-              adset_id: adsetData.id,
-              creative: { creative_id: creativeId },
-              status: "PAUSED",
-              access_token: token,
-            }),
+            body: JSON.stringify(creativeBody),
           });
-          const adData = await adRes.json();
-          if (!adData.error) adId = adData.id;
+          const creativeData = await creativeRes.json();
+          if (!creativeData.error) {
+            creativeId = creativeData.id;
+            const adRes = await fetch(`${GRAPH}/${conn.account_id}/ads`, {
+              method: "POST", headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                name: `${c.name} — Anúncio`,
+                adset_id: adsetData.id,
+                creative: { creative_id: creativeId },
+                status: adStatus,
+                access_token: token,
+              }),
+            });
+            const adData = await adRes.json();
+            if (!adData.error) adId = adData.id;
+          }
         }
       }
 
@@ -968,6 +1237,7 @@ JSON esperado:
         creative_id: creativeId,
         ad_id: adId,
         has_creative: !!creativeId,
+        activated: !!c.activate,
       });
     }
 
@@ -1109,6 +1379,152 @@ JSON esperado:
       const cpc = clicks > 0 ? spend / clicks : 0;
 
       return respond({ connected: true, spend, impressions, clicks, ctr, cpc, cpm: 0, reach: 0, roas: 0 });
+    }
+
+    // ── Rafaela Agent — conversational Meta Ads editor ───────────
+    if (action === "rafaela-agent") {
+      const { messages } = body;
+      const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY") ?? "";
+      const globalToken = Deno.env.get("META_ACCESS_TOKEN") ?? "";
+      const globalAccountId = Deno.env.get("META_AD_ACCOUNT_ID") ?? "";
+      if (!anthropicKey) return respond({ error: "ANTHROPIC_API_KEY não configurado" });
+      if (!globalToken || !globalAccountId) return respond({ error: "META_ACCESS_TOKEN ou META_AD_ACCOUNT_ID não configurados" });
+      if (!Array.isArray(messages) || messages.length === 0) return respond({ error: "messages obrigatório" });
+
+      const tools = [
+        {
+          name: "list_campaigns",
+          description: "Lista campanhas da conta de anúncios com métricas. Use status_filter ALL para ver todas.",
+          input_schema: {
+            type: "object",
+            properties: {
+              status_filter: { type: "string", enum: ["ACTIVE", "PAUSED", "ALL"], description: "Filtro de status" },
+              date_preset: { type: "string", description: "Período das métricas: last_7d, last_30d, last_90d" },
+            },
+          },
+        },
+        {
+          name: "get_campaign_insights",
+          description: "Métricas detalhadas de uma campanha: gasto, impressões, cliques, CTR, CPM, alcance.",
+          input_schema: {
+            type: "object",
+            properties: {
+              campaign_id: { type: "string" },
+              date_preset: { type: "string", description: "last_7d, last_30d, last_90d" },
+            },
+            required: ["campaign_id"],
+          },
+        },
+        {
+          name: "update_campaign",
+          description: "Atualiza nome ou status (ACTIVE/PAUSED) de uma campanha.",
+          input_schema: {
+            type: "object",
+            properties: {
+              campaign_id: { type: "string" },
+              name: { type: "string", description: "Novo nome" },
+              status: { type: "string", enum: ["ACTIVE", "PAUSED"] },
+            },
+            required: ["campaign_id"],
+          },
+        },
+        {
+          name: "list_adsets",
+          description: "Lista conjuntos de anúncios de uma campanha com orçamento e segmentação.",
+          input_schema: {
+            type: "object",
+            properties: { campaign_id: { type: "string" } },
+            required: ["campaign_id"],
+          },
+        },
+        {
+          name: "update_adset",
+          description: "Edita orçamento diário (em reais), datas, segmentação por idade ou status de um conjunto de anúncios.",
+          input_schema: {
+            type: "object",
+            properties: {
+              adset_id: { type: "string" },
+              daily_budget_brl: { type: "number", description: "Orçamento diário em R$ (mínimo 6)" },
+              status: { type: "string", enum: ["ACTIVE", "PAUSED"] },
+              start_time: { type: "string", description: "ISO 8601, ex: 2026-06-01T00:00:00" },
+              end_time: { type: "string", description: "ISO 8601, ex: 2026-07-31T23:59:59" },
+              age_min: { type: "number" },
+              age_max: { type: "number" },
+            },
+            required: ["adset_id"],
+          },
+        },
+        {
+          name: "list_ads",
+          description: "Lista anúncios dentro de um conjunto de anúncios.",
+          input_schema: {
+            type: "object",
+            properties: { adset_id: { type: "string" } },
+            required: ["adset_id"],
+          },
+        },
+        {
+          name: "create_campaign",
+          description: "Cria nova campanha + conjunto de anúncios na conta.",
+          input_schema: {
+            type: "object",
+            properties: {
+              name: { type: "string" },
+              objective: { type: "string", enum: ["OUTCOME_TRAFFIC", "OUTCOME_LEADS", "OUTCOME_AWARENESS", "OUTCOME_ENGAGEMENT", "OUTCOME_SALES"] },
+              optimization_goal: { type: "string", enum: ["LINK_CLICKS", "LEAD_GENERATION", "REACH", "POST_ENGAGEMENT", "OFFSITE_CONVERSIONS"] },
+              daily_budget_brl: { type: "number", description: "Mínimo R$6" },
+              age_min: { type: "number" },
+              age_max: { type: "number" },
+              genders: { type: "string", enum: ["all", "male", "female"] },
+              activate: { type: "boolean", description: "true = ATIVA imediatamente" },
+            },
+            required: ["name", "objective", "daily_budget_brl"],
+          },
+        },
+      ];
+
+      const system = `Você é Rafaela, Gestora de Tráfego da Calu Agência, especialista em Meta Ads.
+Você tem acesso direto à conta de anúncios (${globalAccountId}) e pode consultar, criar e editar campanhas em tempo real usando as ferramentas disponíveis.
+Ao receber um pedido, execute a ferramenta necessária imediatamente (sem pedir confirmação, a menos que a alteração seja irreversível ou o usuário peça confirmação).
+Após cada alteração, confirme o que foi feito e o novo estado.
+Responda sempre em português brasileiro, de forma direta e profissional.
+Se não souber o ID de uma campanha, use list_campaigns para buscá-la pelo nome primeiro.`;
+
+      const loopMsgs: { role: string; content: unknown }[] = [...messages];
+      let finalText = "";
+
+      for (let i = 0; i < 12; i++) {
+        const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: { "x-api-key": anthropicKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+          body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 4096, system, tools, messages: loopMsgs }),
+        });
+        const aiData = await aiRes.json();
+        if (aiData.error) return respond({ error: aiData.error.message ?? "Erro na IA" });
+
+        loopMsgs.push({ role: "assistant", content: aiData.content });
+
+        if (aiData.stop_reason === "end_turn") {
+          finalText = (aiData.content as any[]).find((b: any) => b.type === "text")?.text ?? "";
+          break;
+        }
+
+        const toolResults: { type: string; tool_use_id: string; content: string }[] = [];
+        for (const block of aiData.content as any[]) {
+          if (block.type !== "tool_use") continue;
+          let result: unknown;
+          try {
+            result = await executeMetaTool(block.name, block.input ?? {}, globalToken, globalAccountId);
+          } catch (e) {
+            result = { error: e instanceof Error ? e.message : "Erro ao executar ferramenta" };
+          }
+          toolResults.push({ type: "tool_result", tool_use_id: block.id, content: JSON.stringify(result) });
+        }
+        if (toolResults.length === 0) break;
+        loopMsgs.push({ role: "user", content: toolResults });
+      }
+
+      return respond({ message: finalText });
     }
 
     return respond({ error: "Ação inválida" }, 400);
