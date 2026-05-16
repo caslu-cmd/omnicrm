@@ -360,14 +360,13 @@ function applyBlockInsertInColumn(html: string, sectionId: string, columnIndex: 
   return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
 }
 
-function applyDuplicateSection(html: string, sectionId: string): string {
+function applySectionBgColor(html: string, sectionId: string, color: string): string {
   const doc = new DOMParser().parseFromString(html, "text/html");
-  const el = doc.querySelector(`[data-calu-section="${sectionId}"]`);
-  if (!el?.parentNode) return html;
-  const clone = el.cloneNode(true) as Element;
-  clone.removeAttribute("data-calu-section");
-  clone.querySelectorAll("[data-calu-field]").forEach(f => f.removeAttribute("data-calu-field"));
-  el.after(clone);
+  const el = doc.querySelector(`[data-calu-section="${sectionId}"]`) as HTMLElement | null;
+  if (!el) return html;
+  const existing = el.getAttribute("style") || "";
+  const cleaned = existing.replace(/background(-color)?\s*:\s*[^;]+;?\s*/gi, "").replace(/;\s*;/g, ";").trim().replace(/;$/, "");
+  el.setAttribute("style", color ? (cleaned ? `${cleaned}; background-color: ${color}` : `background-color: ${color}`) : cleaned);
   return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
 }
 
@@ -1120,6 +1119,9 @@ export default function TomasPage() {
   // ── Active field (clicked from preview) ─────────────────────────────────────
   const [activeFieldId, setActiveFieldId] = useState<string | null>(null);
 
+  // ── Section background color ─────────────────────────────────────────────────
+  const [sectionBgColor, setSectionBgColor] = useState<string>("");
+
   // ── Section AI edit modal state ───────────────────────────────────────────────
   const [sectionAiModal, setSectionAiModal] = useState<{ sectionId: string; name: string } | null>(null);
   const [sectionAiCmd, setSectionAiCmd]     = useState("");
@@ -1337,6 +1339,20 @@ export default function TomasPage() {
 
   // ── Sync htmlEditadoRef ───────────────────────────────────────────────────────
   useEffect(() => { htmlEditadoRef.current = htmlEditado; }, [htmlEditado]);
+
+  // Detect current bg color of selected section
+  useEffect(() => {
+    if (!selectedSectionIdx !== undefined && sections[selectedSectionIdx] && markedHtml) {
+      const sid = sections[selectedSectionIdx]?.id;
+      if (!sid) return;
+      const doc = new DOMParser().parseFromString(markedHtml, "text/html");
+      const el = doc.querySelector(`[data-calu-section="${sid}"]`);
+      if (!el) { setSectionBgColor(""); return; }
+      const style = el.getAttribute("style") || "";
+      const m = style.match(/background(-color)?\s*:\s*(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\)|[a-zA-Z]+)/i);
+      setSectionBgColor(m ? m[2].trim() : "");
+    }
+  }, [selectedSectionIdx, sections.length]);
 
   // Scroll sidebar to active field when clicked from preview
   useEffect(() => {
@@ -3133,6 +3149,58 @@ form.addEventListener('submit',function(e){
                     {"</>"} {rawHtmlSectionId === selectedSection.id ? "Campos" : "HTML"}
                   </button>
                 </div>
+
+                {/* Section background color picker */}
+                {rawHtmlSectionId !== selectedSection.id && (
+                  <div className="flex items-center gap-2 px-1 mb-3 py-2 rounded-xl"
+                    style={{ background: "#0D0D16", border: "1px solid #1E1E2E" }}>
+                    <div className="w-3.5 h-3.5 rounded-sm flex-shrink-0" style={{
+                      background: sectionBgColor || "transparent",
+                      border: "1px solid #2A2A3A",
+                      backgroundImage: sectionBgColor ? "none" : "linear-gradient(45deg, #1E1E2E 25%, transparent 25%, transparent 75%, #1E1E2E 75%), linear-gradient(45deg, #1E1E2E 25%, #0D0D16 25%, #0D0D16 75%, #1E1E2E 75%)",
+                      backgroundSize: "6px 6px",
+                      backgroundPosition: "0 0, 3px 3px",
+                    }} />
+                    <span className="text-[10px] uppercase tracking-widest font-semibold flex-1" style={{ color: "#555577" }}>
+                      Cor do fundo
+                    </span>
+                    <input
+                      type="color"
+                      value={sectionBgColor && sectionBgColor.startsWith("#") ? sectionBgColor : "#0A0A10"}
+                      onChange={e => {
+                        const color = e.target.value;
+                        setSectionBgColor(color);
+                        if (htmlEditadoRef.current) undoStack.current = [...undoStack.current.slice(-49), htmlEditadoRef.current];
+                        setMarkedHtml(prev => {
+                          const newHtml = applySectionBgColor(prev, selectedSection.id, color);
+                          setHtmlEditado(stripEditorAttrs(newHtml));
+                          return newHtml;
+                        });
+                      }}
+                      title="Escolher cor de fundo"
+                      className="w-6 h-6 rounded cursor-pointer flex-shrink-0"
+                      style={{ padding: 1, border: "1px solid #2A2A3A", background: "transparent" }}
+                    />
+                    {sectionBgColor && (
+                      <button
+                        title="Remover cor de fundo"
+                        onClick={() => {
+                          setSectionBgColor("");
+                          if (htmlEditadoRef.current) undoStack.current = [...undoStack.current.slice(-49), htmlEditadoRef.current];
+                          setMarkedHtml(prev => {
+                            const newHtml = applySectionBgColor(prev, selectedSection.id, "");
+                            setHtmlEditado(stripEditorAttrs(newHtml));
+                            return newHtml;
+                          });
+                        }}
+                        style={{ color: "#555577" }}
+                        onMouseEnter={e => e.currentTarget.style.color = "#FF4466"}
+                        onMouseLeave={e => e.currentTarget.style.color = "#555577"}>
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </div>
+                )}
 
                 {/* Raw HTML editor mode */}
                 {rawHtmlSectionId === selectedSection.id ? (
