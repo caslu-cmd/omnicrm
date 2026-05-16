@@ -112,6 +112,34 @@ type ApiBlock =
   | { type: "document"; source: { type: "base64"; media_type: "application/pdf"; data: string }; title: string };
 type ApiMsg = { role: "user" | "assistant"; content: string | ApiBlock[] };
 
+const WELCOME: DisplayMsg = { role: "assistant", content: "Olá! Sou a Rafaela. Tenho acesso direto à conta de anúncios da Calu Agência. O que você quer fazer? Posso listar campanhas, editar orçamentos, pausar/ativar campanhas, criar novas, verificar métricas… Você também pode me enviar imagens ou briefings em PDF!" };
+
+function storageKey(clientId: string) { return `rafaela_chat_${clientId}`; }
+
+function loadChat(clientId: string): { display: DisplayMsg[]; api: ApiMsg[] } {
+  try {
+    const raw = localStorage.getItem(storageKey(clientId));
+    if (raw) return JSON.parse(raw);
+  } catch { /* ignore */ }
+  return { display: [WELCOME], api: [] };
+}
+
+function saveChat(clientId: string, display: DisplayMsg[], api: ApiMsg[]) {
+  try {
+    // Strip image base64 from api history before saving (too large for localStorage)
+    const apiClean = api.map((m) => {
+      if (typeof m.content === "string") return m;
+      const stripped = (m.content as ApiBlock[]).map((b) => {
+        if (b.type === "image") return { type: "text" as const, text: "[imagem enviada anteriormente]" };
+        if (b.type === "document") return { type: "text" as const, text: `[documento: ${(b as any).title ?? "arquivo"}]` };
+        return b;
+      });
+      return { ...m, content: stripped };
+    });
+    localStorage.setItem(storageKey(clientId), JSON.stringify({ display, api: apiClean }));
+  } catch { /* quota exceeded — ignore */ }
+}
+
 function RafaelaEditModal({
   clientId,
   clientColor,
@@ -121,18 +149,23 @@ function RafaelaEditModal({
   clientColor: string;
   onClose: () => void;
 }) {
-  const [messages, setMessages] = useState<DisplayMsg[]>([
-    { role: "assistant", content: "Olá! Sou a Rafaela. Tenho acesso direto à conta de anúncios da Calu Agência. O que você quer fazer? Posso listar campanhas, editar orçamentos, pausar/ativar campanhas, criar novas, verificar métricas… Você também pode me enviar imagens ou briefings em PDF!" },
-  ]);
+  const saved = loadChat(clientId);
+  const [messages, setMessages] = useState<DisplayMsg[]>(saved.display);
   const [input, setInput] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
-  const apiMsgsRef = useRef<ApiMsg[]>([]);
+  const apiMsgsRef = useRef<ApiMsg[]>(saved.api);
   const endRef = useRef<HTMLDivElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const s = (o: number) => `rgba(255,255,255,${o})`;
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
+
+  const clearChat = () => {
+    localStorage.removeItem(storageKey(clientId));
+    apiMsgsRef.current = [];
+    setMessages([WELCOME]);
+  };
 
   const send = async () => {
     const text = input.trim();
@@ -191,8 +224,11 @@ function RafaelaEditModal({
     try {
       const data = await callFn({ action: "rafaela-agent", messages: newApiMsgs, client_id: clientId });
       const reply = data.message ?? "Pronto!";
-      apiMsgsRef.current = [...newApiMsgs, { role: "assistant", content: reply }];
+      const updatedApi = [...newApiMsgs, { role: "assistant" as const, content: reply }];
+      const updatedDisplay = [...messages, { role: "user" as const, content: displayText, files: fileNames }, { role: "assistant" as const, content: reply }];
+      apiMsgsRef.current = updatedApi;
       setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
+      saveChat(clientId, updatedDisplay, updatedApi);
     } catch (e: any) {
       toast.error(e.message ?? "Erro ao falar com Rafaela");
     } finally {
@@ -224,9 +260,21 @@ function RafaelaEditModal({
               <p className="text-[10px]" style={{ color: s(0.35) }}>Gestora de Tráfego · Meta Ads</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.06)" }}>
-            <X className="w-3.5 h-3.5" style={{ color: s(0.5) }} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={clearChat}
+              disabled={loading}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10px] font-medium transition-all"
+              style={{ background: "rgba(255,255,255,0.05)", color: s(0.4) }}
+              title="Começar nova conversa"
+            >
+              <RefreshCw className="w-3 h-3" />
+              Nova conversa
+            </button>
+            <button onClick={onClose} className="p-1.5 rounded-lg" style={{ background: "rgba(255,255,255,0.06)" }}>
+              <X className="w-3.5 h-3.5" style={{ color: s(0.5) }} />
+            </button>
+          </div>
         </div>
 
         {/* Messages */}
