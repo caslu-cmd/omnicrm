@@ -618,6 +618,10 @@ serve(async (req) => {
             if (!htmlFinal.includes("</style>")) htmlFinal += "\n</style>";
             if (!htmlFinal.includes("</body>")) htmlFinal += "\n</body>";
             htmlFinal += "\n</html>";
+          } else if (!htmlFinal.includes("</body>")) {
+            // Tem </html> mas não </body> — insere </body> antes do fechamento
+            const hi = htmlFinal.lastIndexOf("</html>");
+            htmlFinal = htmlFinal.slice(0, hi) + "\n</body>\n</html>" + htmlFinal.slice(hi + 7);
           }
 
           // Injeta override do IntersectionObserver para garantir que animações

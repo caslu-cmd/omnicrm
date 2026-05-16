@@ -1356,7 +1356,11 @@ eb.addEventListener('mouseleave',function(){eb.style.display='none';curFid=null;
 })();
 ${elPickScript}
 })();<\/script>`;
-  return html.includes("</body>") ? html.replace("</body>", script + "</body>") : html + script;
+  const bi = html.lastIndexOf("</body>");
+  if (bi >= 0) return html.slice(0, bi) + script + "\n</body>" + html.slice(bi + 7);
+  const hi = html.lastIndexOf("</html>");
+  if (hi >= 0) return html.slice(0, hi) + script + "\n</html>" + html.slice(hi + 7);
+  return html + script;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -2937,7 +2941,11 @@ form.addEventListener('submit',function(e){
     });
   },true);
 })();<\/script>`;
-    return html.includes("</body>") ? html.replace("</body>", script + "</body>") : html + script;
+    const bi = html.lastIndexOf("</body>");
+    if (bi >= 0) return html.slice(0, bi) + script + "\n</body>" + html.slice(bi + 7);
+    const hi = html.lastIndexOf("</html>");
+    if (hi >= 0) return html.slice(0, hi) + script + "\n</html>" + html.slice(hi + 7);
+    return html + script;
   }
 
   // ── Editor Panel render ───────────────────────────────────────────────────────
