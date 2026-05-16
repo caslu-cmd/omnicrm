@@ -105,6 +105,13 @@ const OPT_GOALS = [
 const CTAS = ["LEARN_MORE","SIGN_UP","CONTACT_US","GET_OFFER","BUY_NOW"];
 
 // ── Rafaela Edit Modal ────────────────────────────────────────
+type DisplayMsg = { role: "user" | "assistant"; content: string; files?: string[] };
+type ApiBlock =
+  | { type: "text"; text: string }
+  | { type: "image"; source: { type: "base64"; media_type: string; data: string } }
+  | { type: "document"; source: { type: "base64"; media_type: "application/pdf"; data: string }; title: string };
+type ApiMsg = { role: "user" | "assistant"; content: string | ApiBlock[] };
+
 function RafaelaEditModal({
   clientColor,
   onClose,
@@ -112,24 +119,71 @@ function RafaelaEditModal({
   clientColor: string;
   onClose: () => void;
 }) {
-  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
-    { role: "assistant", content: "Olá! Sou a Rafaela. Tenho acesso direto à conta de anúncios da Calu Agência. O que você quer fazer? Posso listar campanhas, editar orçamentos, pausar/ativar campanhas, criar novas, verificar métricas…" },
+  const [messages, setMessages] = useState<DisplayMsg[]>([
+    { role: "assistant", content: "Olá! Sou a Rafaela. Tenho acesso direto à conta de anúncios da Calu Agência. O que você quer fazer? Posso listar campanhas, editar orçamentos, pausar/ativar campanhas, criar novas, verificar métricas… Você também pode me enviar imagens ou briefings em PDF!" },
   ]);
   const [input, setInput] = useState("");
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
-  const apiMsgsRef = useRef<{ role: "user" | "assistant"; content: string }[]>([]);
+  const apiMsgsRef = useRef<ApiMsg[]>([]);
   const endRef = useRef<HTMLDivElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
   const s = (o: number) => `rgba(255,255,255,${o})`;
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
 
   const send = async () => {
     const text = input.trim();
-    if (!text || loading) return;
-    const newApiMsgs = [...apiMsgsRef.current, { role: "user" as const, content: text }];
+    if ((!text && attachedFiles.length === 0) || loading) return;
+
+    // Process files
+    const blocks: ApiBlock[] = [];
+    const textExtras: string[] = [];
+    const fileNames = attachedFiles.map((f) => f.name);
+
+    for (const file of attachedFiles) {
+      if (file.type === "text/plain" || file.name.endsWith(".md")) {
+        const txt = await file.text();
+        textExtras.push(`--- ${file.name} ---\n${txt}`);
+      } else {
+        const b64 = await new Promise<string>((res) => {
+          const r = new FileReader();
+          r.onload = () => res((r.result as string).split(",")[1]);
+          r.readAsDataURL(file);
+        });
+        if (file.type === "application/pdf") {
+          blocks.push({ type: "document", source: { type: "base64", media_type: "application/pdf", data: b64 }, title: file.name });
+        } else if (file.type.startsWith("image/")) {
+          blocks.push({ type: "image", source: { type: "base64", media_type: file.type, data: b64 } });
+          // Upload to Supabase Storage to get public URL for Meta Ads
+          try {
+            const path = `rafaela/${Date.now()}-${file.name}`;
+            await supabase.storage.from("campaign-media").upload(path, file, { upsert: true });
+            const { data: urlData } = supabase.storage.from("campaign-media").getPublicUrl(path);
+            if (urlData?.publicUrl) {
+              textExtras.push(`[URL pública da imagem para usar em image_url: ${urlData.publicUrl}]`);
+            }
+          } catch { /* upload failed — image still visible to Claude via base64 */ }
+        }
+      }
+    }
+
+    const fullText = [
+      ...(textExtras.length > 0 ? [textExtras.join("\n")] : []),
+      text || (attachedFiles.length > 0 ? "Analise os arquivos acima." : ""),
+    ].join("\n\n").trim();
+
+    const apiContent: string | ApiBlock[] = blocks.length > 0
+      ? [...blocks, { type: "text" as const, text: fullText }]
+      : fullText;
+
+    const newApiMsgs: ApiMsg[] = [...apiMsgsRef.current, { role: "user", content: apiContent }];
     apiMsgsRef.current = newApiMsgs;
-    setMessages((prev) => [...prev, { role: "user", content: text }]);
+
+    const displayText = text || "📎 Arquivo enviado";
+    setMessages((prev) => [...prev, { role: "user", content: displayText, files: fileNames }]);
     setInput("");
+    setAttachedFiles([]);
     setLoading(true);
     const _tid = toast.loading("Acionando agente Rafaela…", { description: "Gestão de Tráfego — Meta Ads" });
     try {
@@ -184,14 +238,25 @@ function RafaelaEditModal({
                 </div>
               )}
               <div
-                className="max-w-[82%] px-3.5 py-2.5 text-xs leading-relaxed whitespace-pre-wrap"
+                className="max-w-[82%] px-3.5 py-2.5 text-xs leading-relaxed whitespace-pre-wrap space-y-1.5"
                 style={{
                   background: msg.role === "user" ? clientColor : "rgba(255,255,255,0.07)",
                   color: msg.role === "user" ? "#000" : s(0.85),
                   borderRadius: msg.role === "user" ? "14px 14px 4px 14px" : "4px 14px 14px 14px",
                 }}
               >
-                {msg.content}
+                <span>{msg.content}</span>
+                {msg.files && msg.files.length > 0 && (
+                  <div className="flex flex-wrap gap-1 pt-0.5">
+                    {msg.files.map((name, j) => (
+                      <div key={j} className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-medium"
+                        style={{ background: "rgba(0,0,0,0.15)", color: "rgba(0,0,0,0.6)" }}>
+                        {name.endsWith(".pdf") ? <FileText className="w-2.5 h-2.5" /> : <ImageIcon className="w-2.5 h-2.5" />}
+                        {name.length > 18 ? name.slice(0, 16) + "…" : name}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           ))}
@@ -213,9 +278,46 @@ function RafaelaEditModal({
           <div ref={endRef} />
         </div>
 
+        {/* File chips */}
+        {attachedFiles.length > 0 && (
+          <div className="px-5 pb-2 flex flex-wrap gap-1.5">
+            {attachedFiles.map((f, i) => (
+              <div key={i} className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px]"
+                style={{ background: "rgba(255,255,255,0.07)", color: s(0.7) }}>
+                {f.type.startsWith("image/") ? <ImageIcon className="w-3 h-3 shrink-0" /> : <FileText className="w-3 h-3 shrink-0" />}
+                <span className="max-w-[120px] truncate">{f.name}</span>
+                <button onClick={() => setAttachedFiles((p) => p.filter((_, j) => j !== i))}>
+                  <X className="w-3 h-3" style={{ color: s(0.4) }} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Input */}
         <div className="px-5 py-4 flex gap-2"
           style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".pdf,.png,.jpg,.jpeg,.webp,.txt,.md"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              setAttachedFiles((p) => [...p, ...Array.from(e.target.files ?? [])]);
+              e.target.value = "";
+            }}
+          />
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            disabled={loading}
+            className="px-3 py-2.5 rounded-xl flex items-center justify-center shrink-0 transition-all"
+            style={{ background: "rgba(255,255,255,0.06)", color: s(0.45) }}
+            title="Anexar imagem ou PDF"
+          >
+            <Paperclip className="w-3.5 h-3.5" />
+          </button>
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
@@ -227,11 +329,11 @@ function RafaelaEditModal({
           />
           <button
             onClick={send}
-            disabled={!input.trim() || loading}
+            disabled={(!input.trim() && attachedFiles.length === 0) || loading}
             className="px-3.5 py-2.5 rounded-xl flex items-center justify-center transition-all shrink-0"
             style={{
-              background: input.trim() && !loading ? clientColor : "rgba(255,255,255,0.06)",
-              color: input.trim() && !loading ? "#000" : s(0.25),
+              background: (input.trim() || attachedFiles.length > 0) && !loading ? clientColor : "rgba(255,255,255,0.06)",
+              color: (input.trim() || attachedFiles.length > 0) && !loading ? "#000" : s(0.25),
             }}
           >
             <Send className="w-3.5 h-3.5" />

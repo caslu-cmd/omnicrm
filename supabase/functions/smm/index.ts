@@ -165,7 +165,53 @@ async function executeMetaTool(
       });
       const adsetData = await adsetRes.json();
       if (adsetData.error) return { error: adsetData.error.message, campaign_id: campData.id };
-      return { success: true, campaign_id: campData.id, adset_id: adsetData.id, activated: !!input.activate };
+
+      // Create creative + ad if page_id provided
+      let creativeId: string | null = null;
+      let adId: string | null = null;
+      if (input.page_id && (input.image_url || input.destination_url)) {
+        const linkData: Record<string, unknown> = {
+          link: input.destination_url || "https://facebook.com",
+          message: input.body_text || "",
+          name: input.headline || input.name,
+        };
+        if (input.image_url) linkData.image_url = input.image_url;
+        if (input.call_to_action) linkData.call_to_action = { type: input.call_to_action };
+        const creativeRes = await fetch(`${GRAPH}/${accountId}/adcreatives`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: `${input.name} — Criativo`,
+            object_story_spec: { page_id: input.page_id, link_data: linkData },
+            access_token: token,
+          }),
+        });
+        const creativeData = await creativeRes.json();
+        if (!creativeData.error) {
+          creativeId = creativeData.id;
+          const adRes = await fetch(`${GRAPH}/${accountId}/ads`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: `${input.name} — Anúncio`,
+              adset_id: adsetData.id,
+              creative: { creative_id: creativeId },
+              status: input.activate ? "ACTIVE" : "PAUSED",
+              access_token: token,
+            }),
+          });
+          const adData = await adRes.json();
+          if (!adData.error) adId = adData.id;
+        }
+      }
+
+      return {
+        success: true,
+        campaign_id: campData.id,
+        adset_id: adsetData.id,
+        creative_id: creativeId,
+        ad_id: adId,
+        has_creative: !!creativeId,
+        activated: !!input.activate,
+      };
     }
     default:
       return { error: `Ferramenta desconhecida: ${toolName}` };
@@ -1465,7 +1511,7 @@ JSON esperado:
         },
         {
           name: "create_campaign",
-          description: "Cria nova campanha + conjunto de anúncios na conta.",
+          description: "Cria nova campanha + conjunto de anúncios. Se page_id e image_url forem fornecidos, cria também o criativo e o anúncio.",
           input_schema: {
             type: "object",
             properties: {
@@ -1477,6 +1523,12 @@ JSON esperado:
               age_max: { type: "number" },
               genders: { type: "string", enum: ["all", "male", "female"] },
               activate: { type: "boolean", description: "true = ATIVA imediatamente" },
+              page_id: { type: "string", description: "ID da Página do Facebook — necessário para criar criativo" },
+              image_url: { type: "string", description: "URL pública da imagem do anúncio (use a URL do Supabase Storage enviada pelo usuário)" },
+              headline: { type: "string", description: "Título do anúncio (máx 40 chars)" },
+              body_text: { type: "string", description: "Texto principal do anúncio (máx 125 chars)" },
+              destination_url: { type: "string", description: "URL de destino do clique" },
+              call_to_action: { type: "string", enum: ["LEARN_MORE", "SIGN_UP", "CONTACT_US", "GET_OFFER", "BUY_NOW", "SHOP_NOW"], description: "Botão de CTA" },
             },
             required: ["name", "objective", "daily_budget_brl"],
           },
@@ -1488,15 +1540,29 @@ Você tem acesso direto à conta de anúncios (${globalAccountId}) e pode consul
 Ao receber um pedido, execute a ferramenta necessária imediatamente (sem pedir confirmação, a menos que a alteração seja irreversível ou o usuário peça confirmação).
 Após cada alteração, confirme o que foi feito e o novo estado.
 Responda sempre em português brasileiro, de forma direta e profissional.
-Se não souber o ID de uma campanha, use list_campaigns para buscá-la pelo nome primeiro.`;
+Se não souber o ID de uma campanha, use list_campaigns para buscá-la pelo nome primeiro.
+Quando o usuário enviar imagens ou arquivos, extraia todas as informações relevantes: produto, objetivo, público, textos, URL de destino.
+Se o usuário enviar uma imagem de anúncio e você receber a URL pública do Supabase Storage na mensagem de contexto, use essa URL no campo image_url ao criar a campanha.`;
+
+      // Detect if any message content has PDFs
+      const hasPdfs = (messages as any[]).some((m: any) =>
+        Array.isArray(m.content) && m.content.some((b: any) => b.type === "document")
+      );
 
       const loopMsgs: { role: string; content: unknown }[] = [...messages];
       let finalText = "";
 
       for (let i = 0; i < 12; i++) {
+        const aiHeaders: Record<string, string> = {
+          "x-api-key": anthropicKey,
+          "anthropic-version": "2023-06-01",
+          "content-type": "application/json",
+        };
+        if (hasPdfs) aiHeaders["anthropic-beta"] = "pdfs-2024-09-25";
+
         const aiRes = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
-          headers: { "x-api-key": anthropicKey, "anthropic-version": "2023-06-01", "content-type": "application/json" },
+          headers: aiHeaders,
           body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 4096, system, tools, messages: loopMsgs }),
         });
         const aiData = await aiRes.json();
