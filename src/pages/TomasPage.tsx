@@ -982,6 +982,18 @@ document.querySelectorAll('[data-calu-field]').forEach(function(el){
     },{once:false});
   },true);
 });
+// ── Image field click → notify sidebar ──────────────────────────────────────
+document.querySelectorAll('img[data-calu-field]').forEach(function(el){
+  var fid=el.getAttribute('data-calu-field');
+  var sid=(el.closest('[data-calu-section]')||{getAttribute:function(){return 's0';}}).getAttribute('data-calu-section');
+  el.style.cursor='pointer';
+  el.addEventListener('click',function(e){
+    e.stopPropagation();e.preventDefault();
+    el.style.outline='2px solid #60A5FA';el.style.outlineOffset='3px';
+    setTimeout(function(){el.style.outline='';el.style.outlineOffset='';},1200);
+    window.parent.postMessage({type:'calu-field-click',fieldId:fid,sectionId:sid},'*');
+  },true);
+});
 // section click (only when not clicking a field)
 document.querySelectorAll('[data-calu-section]').forEach(function(sec){
   sec.addEventListener('click',function(e){
@@ -1104,6 +1116,9 @@ export default function TomasPage() {
   // ── Tomas command state ──────────────────────────────────────────────────────
   const [tomasCmd, setTomasCmd]         = useState("");
   const [tomasCmdLoading, setTomasCmdLoading] = useState(false);
+
+  // ── Active field (clicked from preview) ─────────────────────────────────────
+  const [activeFieldId, setActiveFieldId] = useState<string | null>(null);
 
   // ── Section AI edit modal state ───────────────────────────────────────────────
   const [sectionAiModal, setSectionAiModal] = useState<{ sectionId: string; name: string } | null>(null);
@@ -1239,14 +1254,13 @@ export default function TomasPage() {
         if (idx >= 0) setSelectedSectionIdx(idx);
       }
       if (e.data?.type === "calu-field-click") {
-        // Select the right section first
         const sIdx = sections.findIndex(s => s.id === e.data.sectionId);
         if (sIdx >= 0) setSelectedSectionIdx(sIdx);
-        // Then select the field for direct editing
         const sec = sIdx >= 0 ? sections[sIdx] : sections[0];
         if (sec) {
           const field = sec.fields.find(f => f.id === e.data.fieldId);
           if (field) {
+            setActiveFieldId(field.id);
             if (field.type === "image") {
               setDirectEditField(null);
             } else {
@@ -1323,6 +1337,16 @@ export default function TomasPage() {
 
   // ── Sync htmlEditadoRef ───────────────────────────────────────────────────────
   useEffect(() => { htmlEditadoRef.current = htmlEditado; }, [htmlEditado]);
+
+  // Scroll sidebar to active field when clicked from preview
+  useEffect(() => {
+    if (!activeFieldId) return;
+    const timer = setTimeout(() => {
+      const el = document.querySelector(`[data-field-id="${activeFieldId}"]`);
+      el?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    }, 120);
+    return () => clearTimeout(timer);
+  }, [activeFieldId]);
 
   // ── Derived ──────────────────────────────────────────────────────────────────
   const gerandoAtivo      = etapa !== "idle" && etapa !== "concluido" && etapa !== "erro";
@@ -3143,6 +3167,7 @@ form.addEventListener('submit',function(e){
                       field={field}
                       isAiEditing={aiEditField === field.id}
                       isDirectEditing={directEditField === field.id}
+                      isActive={activeFieldId === field.id}
                       directEditValue={directEditValue}
                       aiInstruction={aiInstruction}
                       aiLoading={aiLoading && aiEditField === field.id}
@@ -3153,12 +3178,13 @@ form.addEventListener('submit',function(e){
                       onRunAiRewrite={() => runAiRewrite(field)}
                       onApplySuggestion={applyAiSuggestion}
                       onDiscardSuggestion={() => setAiSuggestion(null)}
-                      onStartDirectEdit={() => startDirectEdit(field)}
+                      onStartDirectEdit={() => { startDirectEdit(field); setActiveFieldId(null); }}
                       onDirectEditChange={setDirectEditValue}
                       onConfirmDirectEdit={confirmDirectEdit}
                       onCancelDirectEdit={() => { setDirectEditField(null); setDirectEditValue(""); }}
-                      onReplaceImage={(file) => replaceImage(field.id, file)}
+                      onReplaceImage={(file) => { replaceImage(field.id, file); setActiveFieldId(null); }}
                       onDeleteField={() => deleteFieldById(field.id)}
+                      onClearActive={() => setActiveFieldId(null)}
                     />
                   ))}
                 </div>
@@ -4515,6 +4541,7 @@ interface FieldEditorProps {
   field: ParsedField;
   isAiEditing: boolean;
   isDirectEditing: boolean;
+  isActive: boolean;
   directEditValue: string;
   aiInstruction: string;
   aiLoading: boolean;
@@ -4531,29 +4558,56 @@ interface FieldEditorProps {
   onCancelDirectEdit: () => void;
   onReplaceImage: (file: File) => void;
   onDeleteField: () => void;
+  onClearActive: () => void;
 }
 
 function FieldEditor({
-  field, isAiEditing, isDirectEditing, directEditValue,
+  field, isAiEditing, isDirectEditing, isActive, directEditValue,
   aiInstruction, aiLoading, aiSuggestion,
   onOpenAiEdit, onCancelAiEdit, onSetInstruction, onRunAiRewrite,
   onApplySuggestion, onDiscardSuggestion,
   onStartDirectEdit, onDirectEditChange, onConfirmDirectEdit, onCancelDirectEdit,
-  onReplaceImage, onDeleteField,
+  onReplaceImage, onDeleteField, onClearActive,
 }: FieldEditorProps) {
   const imgInputRef = useRef<HTMLInputElement>(null);
   const [hovered, setHovered] = useState(false);
+
+  // Auto-open file picker when image field is activated by clicking in preview
+  useEffect(() => {
+    if (isActive && field.type === "image") {
+      const t = setTimeout(() => imgInputRef.current?.click(), 200);
+      return () => clearTimeout(t);
+    }
+  }, [isActive, field.type]);
+
   return (
-    <div className="flex flex-col gap-2 p-3 rounded-xl" style={{ background: "#141420", border: "1px solid #1E1E2E" }}
+    <div
+      data-field-id={field.id}
+      className="flex flex-col gap-2 p-3 rounded-xl transition-all"
+      style={{
+        background: "#141420",
+        border: isActive ? "1px solid #B9FF4B" : "1px solid #1E1E2E",
+        boxShadow: isActive ? "0 0 0 2px rgba(185,255,75,0.18)" : "none",
+      }}
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}>
-      {/* Label + delete button */}
-      <div className="flex items-center justify-between">
-        <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#555577" }}>{field.label}</p>
+      onMouseLeave={() => setHovered(false)}
+      onClick={() => { if (!isActive) return; }}
+    >
+      {/* Label + active badge + delete button */}
+      <div className="flex items-center justify-between gap-1">
+        <p className="text-[10px] uppercase tracking-widest font-semibold truncate" style={{ color: isActive ? "#B9FF4B" : "#555577" }}>
+          {field.label}
+        </p>
+        {isActive && (
+          <span className="text-[9px] px-1.5 py-0.5 rounded-full flex-shrink-0 font-bold"
+            style={{ background: "rgba(185,255,75,0.15)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.3)" }}>
+            ● selecionado
+          </span>
+        )}
         <button
           onClick={onDeleteField}
           title="Remover este elemento da LP"
-          className="flex items-center justify-center w-5 h-5 rounded transition-all"
+          className="flex items-center justify-center w-5 h-5 rounded transition-all flex-shrink-0"
           style={{ color: hovered ? "#FF4466" : "transparent", opacity: hovered ? 1 : 0 }}>
           <Trash2 className="w-3 h-3" />
         </button>
