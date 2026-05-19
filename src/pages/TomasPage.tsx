@@ -392,6 +392,43 @@ function applyDuplicateSection(html: string, sectionId: string): string {
   return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
 }
 
+function applyDuplicateRow(html: string, sectionId: string): string {
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  const sec = doc.querySelector(`[data-calu-section="${sectionId}"]`);
+  if (!sec) return html;
+
+  // Find the grid container (grid or flex with multiple children)
+  let gridEl: Element | null = sec.querySelector('[class*="grid-cols-4"],[class*="grid-cols-3"],[class*="grid-cols-2"]');
+  if (!gridEl) {
+    const flexEl = sec.querySelector('[class*="flex"]:not([class*="flex-col"])');
+    if (flexEl) {
+      const kids = Array.from(flexEl.children).filter(el => (el.textContent?.trim().length ?? 0) > 5 || el.querySelector("img"));
+      if (kids.length >= 2) gridEl = flexEl;
+    }
+  }
+  if (!gridEl) return html;
+
+  // Determine columns count
+  let cols = 2;
+  if (gridEl.className.includes("grid-cols-4")) cols = 4;
+  else if (gridEl.className.includes("grid-cols-3")) cols = 3;
+  else if (gridEl.className.includes("grid-cols-2")) cols = 2;
+  else cols = Array.from(gridEl.children).length || 2;
+
+  // Clone last `cols` items (= last visible row)
+  const allItems = Array.from(gridEl.children);
+  const rowItems = allItems.slice(-cols);
+  if (rowItems.length === 0) return html;
+
+  rowItems.forEach(item => {
+    const clone = item.cloneNode(true) as Element;
+    clone.querySelectorAll("[data-calu-field]").forEach(f => f.removeAttribute("data-calu-field"));
+    gridEl!.appendChild(clone);
+  });
+
+  return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
+}
+
 function applySplitColumns(html: string, sectionId: string, cols: 2 | 3 | 4): string {
   const doc = new DOMParser().parseFromString(html, "text/html");
   const el = doc.querySelector(`[data-calu-section="${sectionId}"]`);
@@ -1210,7 +1247,8 @@ var sep1=document.createElement('div');sep1.className='sep';bar.appendChild(sep1
 bar.appendChild(mkBtn('btn-mv','↑',function(){if(curSid)window.parent.postMessage({type:'calu-section-move',sectionId:curSid,dir:'up'},'*');}));
 bar.appendChild(mkBtn('btn-mv','↓',function(){if(curSid)window.parent.postMessage({type:'calu-section-move',sectionId:curSid,dir:'down'},'*');}));
 var sep3=document.createElement('div');sep3.className='sep';bar.appendChild(sep3);
-bar.appendChild(mkBtn('btn-dup','⧉ Duplicar',function(){if(curSid)window.parent.postMessage({type:'calu-section-duplicate',sectionId:curSid},'*');}));
+bar.appendChild(mkBtn('btn-dup','⧉ Seção',function(){if(curSid)window.parent.postMessage({type:'calu-section-duplicate',sectionId:curSid},'*');}));
+bar.appendChild(mkBtn('btn-dup','⊞ Linha',function(){if(curSid)window.parent.postMessage({type:'calu-row-duplicate',sectionId:curSid},'*');}));
 var sep4=document.createElement('div');sep4.className='sep';bar.appendChild(sep4);
 var colBtns=[1,2,3,4].map(function(n){
   var b=mkBtn('btn-col',n+'',function(){if(curSid)window.parent.postMessage({type:'calu-section-columns',sectionId:curSid,cols:n},'*');});
@@ -1644,6 +1682,18 @@ export default function TomasPage() {
           return nm;
         });
         toast.success("Seção duplicada!");
+      }
+      if (e.data?.type === "calu-row-duplicate") {
+        const { sectionId } = e.data;
+        setMarkedHtml(prev => {
+          const newHtml = applyDuplicateRow(prev, sectionId);
+          if (newHtml === prev) { toast.error("Nenhuma linha/grade encontrada nesta seção."); return prev; }
+          const { markedHtml: nm, sections: ns } = parseLPIntoSections(newHtml);
+          setSections(ns);
+          setHtmlEditado(stripEditorAttrs(newHtml));
+          return nm;
+        });
+        toast.success("Linha duplicada!");
       }
       if (e.data?.type === "calu-section-columns") {
         const { sectionId, cols } = e.data;
