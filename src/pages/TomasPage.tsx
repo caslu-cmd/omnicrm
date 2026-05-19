@@ -397,33 +397,40 @@ function applyDuplicateRow(html: string, sectionId: string): string {
   const sec = doc.querySelector(`[data-calu-section="${sectionId}"]`);
   if (!sec) return html;
 
-  // Find the grid container (grid or flex with multiple children)
-  let gridEl: Element | null = sec.querySelector('[class*="grid-cols-4"],[class*="grid-cols-3"],[class*="grid-cols-2"]');
+  // Find the grid with the most direct children — that's the cards container, not a layout wrapper
+  let gridEl: Element | null = null;
+  let maxChildren = 1;
+
+  sec.querySelectorAll('[class*="grid"]').forEach(el => {
+    const colMatch = el.className.match(/(?:^|\s)(?:[a-z-]+:)?grid-cols-(\d+)/);
+    if (!colMatch) return;
+    const count = el.children.length;
+    if (count > maxChildren) { maxChildren = count; gridEl = el; }
+  });
+
   if (!gridEl) {
-    const flexEl = sec.querySelector('[class*="flex"]:not([class*="flex-col"])');
-    if (flexEl) {
-      const kids = Array.from(flexEl.children).filter(el => (el.textContent?.trim().length ?? 0) > 5 || el.querySelector("img"));
-      if (kids.length >= 2) gridEl = flexEl;
-    }
+    sec.querySelectorAll('[class*="flex"]').forEach(el => {
+      if (/flex-col/.test(el.className)) return;
+      const kids = Array.from(el.children).filter(c => (c.textContent?.trim().length ?? 0) > 5 || c.querySelector("img"));
+      if (kids.length > maxChildren) { maxChildren = kids.length; gridEl = el; }
+    });
   }
-  if (!gridEl) return html;
 
-  // Determine columns count
-  let cols = 2;
-  if (gridEl.className.includes("grid-cols-4")) cols = 4;
-  else if (gridEl.className.includes("grid-cols-3")) cols = 3;
-  else if (gridEl.className.includes("grid-cols-2")) cols = 2;
-  else cols = Array.from(gridEl.children).length || 2;
+  if (!gridEl || maxChildren < 2) return html;
 
-  // Clone last `cols` items (= last visible row)
-  const allItems = Array.from(gridEl.children);
+  // Determine column count from class (handles responsive prefixes like md:grid-cols-4)
+  const colMatch = (gridEl as Element).className.match(/(?:^|\s)(?:[a-z-]+:)?grid-cols-(\d+)/);
+  const cols = colMatch ? parseInt(colMatch[1]) : maxChildren;
+
+  // Clone the last `cols` items (= last row of cards)
+  const allItems = Array.from((gridEl as Element).children);
   const rowItems = allItems.slice(-cols);
   if (rowItems.length === 0) return html;
 
   rowItems.forEach(item => {
     const clone = item.cloneNode(true) as Element;
     clone.querySelectorAll("[data-calu-field]").forEach(f => f.removeAttribute("data-calu-field"));
-    gridEl!.appendChild(clone);
+    (gridEl as Element).appendChild(clone);
   });
 
   return "<!DOCTYPE html>\n" + doc.documentElement.outerHTML;
@@ -1685,9 +1692,10 @@ export default function TomasPage() {
       }
       if (e.data?.type === "calu-row-duplicate") {
         const { sectionId } = e.data;
+        if (htmlEditadoRef.current) undoStack.current = [...undoStack.current.slice(-49), htmlEditadoRef.current];
         setMarkedHtml(prev => {
           const newHtml = applyDuplicateRow(prev, sectionId);
-          if (newHtml === prev) { toast.error("Nenhuma linha/grade encontrada nesta seção."); return prev; }
+          if (newHtml === prev) { toast.error("Nenhuma grade de cards encontrada nesta seção."); return prev; }
           const { markedHtml: nm, sections: ns } = parseLPIntoSections(newHtml);
           setSections(ns);
           setHtmlEditado(stripEditorAttrs(newHtml));
