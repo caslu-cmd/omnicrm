@@ -9596,6 +9596,13 @@ Regras:
                               className="w-12 text-center text-xs focus:outline-none bg-transparent"
                               style={{ color: "#F0F0F0" }} />
                           </div>
+                          <div className="col-span-2 flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}>
+                            <span className="text-xs flex-1" style={{ color: "rgba(255,255,255,0.5)" }}>Data de início (Dia 1)</span>
+                            <input type="date" value={newCourseForm.start_date}
+                              onChange={e => setNewCourseForm(p => ({ ...p, start_date: e.target.value }))}
+                              className="text-xs focus:outline-none bg-transparent"
+                              style={{ color: "#F0F0F0", colorScheme: "dark" }} />
+                          </div>
                         </div>
                         <div className="flex gap-2">
                           <button onClick={handleCreateCourse} disabled={savingCourse || !newCourseForm.title.trim()}
@@ -9722,7 +9729,7 @@ Regras:
                           <button
                             onClick={() => {
                               if (editCourseId === course.id) { setEditCourseId(null); return; }
-                              setEditCourseForm({ title: course.title, description: course.description ?? "", level: course.level ?? "Básico", num_days: course.num_days ?? 1 });
+                              setEditCourseForm({ title: course.title, description: course.description ?? "", level: course.level ?? "Básico", num_days: course.num_days ?? 1, start_date: course.start_date ?? "" });
                               setEditCourseId(course.id);
                             }}
                             className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
@@ -9767,6 +9774,13 @@ Regras:
                                     onChange={e => setEditCourseForm(p => ({ ...p, num_days: Math.max(1, parseInt(e.target.value) || 1) }))}
                                     className="w-12 text-center text-xs focus:outline-none bg-transparent"
                                     style={{ color: "#F0F0F0" }} />
+                                </div>
+                                <div className="col-span-2 flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}>
+                                  <span className="text-xs flex-1" style={{ color: "rgba(255,255,255,0.5)" }}>Data de início (Dia 1)</span>
+                                  <input type="date" value={editCourseForm.start_date}
+                                    onChange={e => setEditCourseForm(p => ({ ...p, start_date: e.target.value }))}
+                                    className="text-xs focus:outline-none bg-transparent"
+                                    style={{ color: "#F0F0F0", colorScheme: "dark" }} />
                                 </div>
                               </div>
                               <div className="flex gap-2">
