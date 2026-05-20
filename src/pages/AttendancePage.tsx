@@ -148,8 +148,12 @@ export default function AttendancePage() {
     try {
       const looksLikeEmail = typed.includes("@");
       const typedEmail = normEmail(typed);
-      const typedDigits = onlyDigits(typed);
-      const typedName = normText(typed);
+
+      if (!looksLikeEmail || !typedEmail.includes("@")) {
+        setErrorMessage("Informe o e-mail usado na sua matrícula.");
+        setStep("error");
+        return;
+      }
 
       const { data: enrollments, error: enrollmentError } = await (supabase as any)
         .from("course_enrollments")
@@ -163,17 +167,12 @@ export default function AttendancePage() {
         return;
       }
 
-      const enrollment = (enrollments ?? []).find((e: any) => {
-        const emailMatch = looksLikeEmail && e.student_email && normEmail(e.student_email) === typedEmail;
-        const phone = onlyDigits(e.student_phone);
-        const phoneMatch = typedDigits.length >= 8 && phone && (phone === typedDigits || phone.endsWith(typedDigits));
-        const name = normText(e.student_name);
-        const nameMatch = typedName.length >= 5 && name && (name === typedName || name.includes(typedName));
-        return emailMatch || phoneMatch || nameMatch;
-      });
+      const enrollment = (enrollments ?? []).find((e: any) =>
+        e.student_email && normEmail(e.student_email) === typedEmail
+      );
 
       if (!enrollment) {
-        console.warn("Matrícula não encontrada. Dado digitado:", typed, "| matrículas no curso:", enrollments);
+        console.warn("Matrícula não encontrada para e-mail:", typed);
         setStep("not_found");
         return;
       }
