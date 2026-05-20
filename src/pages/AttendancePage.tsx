@@ -242,7 +242,16 @@ export default function AttendancePage() {
     if (!y || !m || !d) return "";
     const base = new Date(y, m - 1, d);
     base.setDate(base.getDate() + (dayNumber - 1));
-    return base.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+    return base.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
+  })();
+  // Short form for button labels (e.g. "19/05")
+  const dayDateShort = (() => {
+    if (!course?.start_date) return "";
+    const [y, m, d] = String(course.start_date).split("-").map(Number);
+    if (!y || !m || !d) return "";
+    const base = new Date(y, m - 1, d);
+    base.setDate(base.getDate() + (dayNumber - 1));
+    return base.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
   })();
 
   const wrap: React.CSSProperties = {
@@ -327,7 +336,7 @@ export default function AttendancePage() {
           background: `${accent}1F`, border: `1px solid ${accent}40`,
           color: accent, fontSize: 11, fontWeight: 700,
         }}>
-          {showDayLabel ? `Dia ${dayNumber} de ${numDays}` : "Presença"}{dayDateLabel && ` · ${dayDateLabel}`}
+          {dayDateLabel ? dayDateLabel : (showDayLabel ? `Dia ${dayNumber} de ${numDays}` : "Presença")}
         </span>
       )}
     </div>
@@ -383,7 +392,7 @@ export default function AttendancePage() {
                             fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer",
                           }}
                         >
-                          Confirmar presença{showDayLabel ? ` — Dia ${dayNumber}` : ""}
+                          Confirmar presença{dayDateShort ? ` — ${dayDateShort}` : (showDayLabel ? ` — Dia ${dayNumber}` : "")}
                         </button>
                       </div>
                     )}
@@ -461,7 +470,7 @@ export default function AttendancePage() {
                     color: "#07080A", fontWeight: 700, fontSize: 14,
                     border: "none", cursor: email.trim() && !submitting ? "pointer" : "default",
                   }}>
-                  {submitting ? "Gravando presença…" : `Confirmar presença${showDayLabel ? ` — Dia ${dayNumber}` : ""}`}
+                  {submitting ? "Gravando presença…" : `Confirmar presença${dayDateShort ? ` — ${dayDateShort}` : (showDayLabel ? ` — Dia ${dayNumber}` : "")}`}
                 </button>
               </div>
             )}
@@ -521,7 +530,7 @@ export default function AttendancePage() {
                   color: "#07080A", fontWeight: 700, fontSize: 14,
                   border: "none", cursor: email.trim() && !submitting ? "pointer" : "default", transition: "all 0.2s",
                 }}>
-                {submitting ? "Gravando presença…" : `Confirmar presença${showDayLabel ? ` — Dia ${dayNumber}` : ""}`}
+                {submitting ? "Gravando presença…" : `Confirmar presença${dayDateShort ? ` — ${dayDateShort}` : (showDayLabel ? ` — Dia ${dayNumber}` : "")}`}
               </button>
             </div>
           )}
@@ -546,7 +555,7 @@ export default function AttendancePage() {
               <h2 style={{ color: "#F0F0F0", fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Presença confirmada!</h2>
               <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 14 }}>
                 Olá, <strong style={{ color: "#F0F0F0" }}>{studentName}</strong>.{" "}
-                {showDayLabel ? `Sua presença no Dia ${dayNumber} foi registrada.` : "Sua presença foi registrada."}
+                {dayDateLabel ? `Sua presença em ${dayDateLabel} foi registrada.` : (showDayLabel ? `Sua presença no Dia ${dayNumber} foi registrada.` : "Sua presença foi registrada.")}
               </p>
               {socialLinks.length > 0 && (
                 <div style={{ marginTop: 20 }}>
@@ -584,7 +593,7 @@ export default function AttendancePage() {
               <h2 style={{ color: "#F0F0F0", fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Você já marcou presença!</h2>
               <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 14 }}>
                 Olá, <strong style={{ color: "#F0F0F0" }}>{studentName}</strong>.{" "}
-                {showDayLabel ? `Sua presença no Dia ${dayNumber} já estava registrada.` : "Sua presença já estava registrada."}
+                {dayDateLabel ? `Sua presença em ${dayDateLabel} já estava registrada.` : (showDayLabel ? `Sua presença no Dia ${dayNumber} já estava registrada.` : "Sua presença já estava registrada.")}
               </p>
               {socialLinks.length > 0 && (
                 <div style={{ marginTop: 20 }}>

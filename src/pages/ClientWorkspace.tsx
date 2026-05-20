@@ -10522,7 +10522,7 @@ Regras:
                                               color: activeDay === d ? "#34D399" : "rgba(255,255,255,0.35)",
                                               border: `1px solid ${activeDay === d ? "rgba(52,211,153,0.3)" : "rgba(255,255,255,0.08)"}`,
                                             }}>
-                                            Dia {d}{dDate && ` · ${dDate}`}
+                                            {dDate || `Dia ${d}`}
                                           </button>
                                         );
                                       })}
@@ -10536,7 +10536,7 @@ Regras:
                                     </div>
                                     {numDays > 1 && (
                                       <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full" style={{ background: "rgba(52,211,153,0.12)", color: "#34D399" }}>
-                                        Dia {activeDay} de {numDays}{getCourseDayDate(course, activeDay) && ` · ${getCourseDayDate(course, activeDay)}`}
+                                        {getCourseDayDate(course, activeDay) || `Dia ${activeDay} de ${numDays}`}
                                       </span>
                                     )}
                                     <p className="text-[10px] text-center leading-snug" style={{ color: "rgba(255,255,255,0.35)" }}>
@@ -10623,7 +10623,7 @@ Regras:
                                                 color: active ? "#34D399" : "rgba(255,255,255,0.3)",
                                                 border: `1px solid ${active ? "rgba(52,211,153,0.3)" : "rgba(255,255,255,0.07)"}`,
                                               }}>
-                                              {d === "all" ? "Todos" : `Dia ${d}${getCourseDayDate(course, d as number) ? ` · ${getCourseDayDate(course, d as number)}` : ""}`}
+                                              {d === "all" ? "Todos" : (getCourseDayDate(course, d as number) || `Dia ${d}`)}
                                             </button>
                                           );
                                         })}
@@ -10710,7 +10710,7 @@ Regras:
                                                         style={daysAttended.has(d)
                                                           ? { background: "rgba(52,211,153,0.15)", color: "#34D399" }
                                                           : { background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.2)" }}>
-                                                        <span title={getCourseDayDate(course, d)}>D{d}{daysAttended.has(d) ? "✓" : "✗"}</span>
+                                                        {getCourseDayDate(course, d) || `D${d}`}{daysAttended.has(d) ? "✓" : "✗"}
                                                       </span>
                                                     ))
                                                   )}
