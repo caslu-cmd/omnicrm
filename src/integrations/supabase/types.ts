@@ -340,6 +340,7 @@ export type Database = {
           level: string | null
           modules_count: number | null
           num_days: number
+          start_date: string | null
           status: string
           title: string
           updated_at: string
@@ -354,6 +355,7 @@ export type Database = {
           level?: string | null
           modules_count?: number | null
           num_days?: number
+          start_date?: string | null
           status?: string
           title: string
           updated_at?: string
@@ -368,6 +370,7 @@ export type Database = {
           level?: string | null
           modules_count?: number | null
           num_days?: number
+          start_date?: string | null
           status?: string
           title?: string
           updated_at?: string
