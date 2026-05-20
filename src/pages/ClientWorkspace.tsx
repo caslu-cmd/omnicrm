@@ -10508,21 +10508,24 @@ Regras:
                                   {/* Day selector */}
                                   {numDays > 1 && (
                                     <div className="flex gap-1.5 flex-wrap">
-                                      {Array.from({ length: numDays }, (_, i) => i + 1).map(d => (
-                                        <button key={d}
-                                          onClick={() => {
-                                            setSelectedQrDay(prev => ({ ...prev, [course.id]: d }));
-                                            setAttendDayFilter(prev => ({ ...prev, [course.id]: d }));
-                                          }}
-                                          className="px-3 py-1 rounded-lg text-[10px] font-semibold transition-all"
-                                          style={{
-                                            background: activeDay === d ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.04)",
-                                            color: activeDay === d ? "#34D399" : "rgba(255,255,255,0.35)",
-                                            border: `1px solid ${activeDay === d ? "rgba(52,211,153,0.3)" : "rgba(255,255,255,0.08)"}`,
-                                          }}>
-                                          Dia {d}
-                                        </button>
-                                      ))}
+                                      {Array.from({ length: numDays }, (_, i) => i + 1).map(d => {
+                                        const dDate = getCourseDayDate(course, d);
+                                        return (
+                                          <button key={d}
+                                            onClick={() => {
+                                              setSelectedQrDay(prev => ({ ...prev, [course.id]: d }));
+                                              setAttendDayFilter(prev => ({ ...prev, [course.id]: d }));
+                                            }}
+                                            className="px-3 py-1 rounded-lg text-[10px] font-semibold transition-all"
+                                            style={{
+                                              background: activeDay === d ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.04)",
+                                              color: activeDay === d ? "#34D399" : "rgba(255,255,255,0.35)",
+                                              border: `1px solid ${activeDay === d ? "rgba(52,211,153,0.3)" : "rgba(255,255,255,0.08)"}`,
+                                            }}>
+                                            Dia {d}{dDate && ` · ${dDate}`}
+                                          </button>
+                                        );
+                                      })}
                                     </div>
                                   )}
 
@@ -10533,7 +10536,7 @@ Regras:
                                     </div>
                                     {numDays > 1 && (
                                       <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full" style={{ background: "rgba(52,211,153,0.12)", color: "#34D399" }}>
-                                        Dia {activeDay} de {numDays}
+                                        Dia {activeDay} de {numDays}{getCourseDayDate(course, activeDay) && ` · ${getCourseDayDate(course, activeDay)}`}
                                       </span>
                                     )}
                                     <p className="text-[10px] text-center leading-snug" style={{ color: "rgba(255,255,255,0.35)" }}>
@@ -10620,7 +10623,7 @@ Regras:
                                                 color: active ? "#34D399" : "rgba(255,255,255,0.3)",
                                                 border: `1px solid ${active ? "rgba(52,211,153,0.3)" : "rgba(255,255,255,0.07)"}`,
                                               }}>
-                                              {d === "all" ? "Todos" : `Dia ${d}`}
+                                              {d === "all" ? "Todos" : `Dia ${d}${getCourseDayDate(course, d as number) ? ` · ${getCourseDayDate(course, d as number)}` : ""}`}
                                             </button>
                                           );
                                         })}
@@ -10707,7 +10710,7 @@ Regras:
                                                         style={daysAttended.has(d)
                                                           ? { background: "rgba(52,211,153,0.15)", color: "#34D399" }
                                                           : { background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.2)" }}>
-                                                        D{d}{daysAttended.has(d) ? "✓" : "✗"}
+                                                        <span title={getCourseDayDate(course, d)}>D{d}{daysAttended.has(d) ? "✓" : "✗"}</span>
                                                       </span>
                                                     ))
                                                   )}
