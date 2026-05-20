@@ -421,14 +421,14 @@ export default function AttendancePage() {
                     autoFocus
                   />
                 </div>
-                <button onClick={handleSubmit} disabled={!email.trim()}
+                <button onClick={handleSubmit} disabled={!email.trim() || submitting}
                   style={{
                     width: "100%", padding: "13px 0", borderRadius: 12,
-                    background: email.trim() ? accent : `${accent}33`,
+                    background: email.trim() && !submitting ? accent : `${accent}33`,
                     color: "#07080A", fontWeight: 700, fontSize: 14,
-                    border: "none", cursor: email.trim() ? "pointer" : "default",
+                    border: "none", cursor: email.trim() && !submitting ? "pointer" : "default",
                   }}>
-                  Confirmar presença{showDayLabel ? ` — Dia ${dayNumber}` : ""}
+                  {submitting ? "Gravando presença…" : `Confirmar presença${showDayLabel ? ` — Dia ${dayNumber}` : ""}`}
                 </button>
               </div>
             )}
@@ -481,14 +481,14 @@ export default function AttendancePage() {
                   />
                 </div>
               </div>
-              <button onClick={handleSubmit} disabled={!email.trim()}
+              <button onClick={handleSubmit} disabled={!email.trim() || submitting}
                 style={{
                   width: "100%", padding: "13px 0", borderRadius: 12,
-                  background: email.trim() ? accent : `${accent}33`,
+                  background: email.trim() && !submitting ? accent : `${accent}33`,
                   color: "#07080A", fontWeight: 700, fontSize: 14,
-                  border: "none", cursor: email.trim() ? "pointer" : "default", transition: "all 0.2s",
+                  border: "none", cursor: email.trim() && !submitting ? "pointer" : "default", transition: "all 0.2s",
                 }}>
-                Confirmar presença{showDayLabel ? ` — Dia ${dayNumber}` : ""}
+                {submitting ? "Gravando presença…" : `Confirmar presença${showDayLabel ? ` — Dia ${dayNumber}` : ""}`}
               </button>
             </div>
           )}
@@ -590,15 +590,15 @@ export default function AttendancePage() {
                   <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 12 }}>{errorMessage}</p>
                 </div>
               </div>
-              <button onClick={handleSubmit}
+              <button onClick={handleSubmit} disabled={submitting}
                 style={{
                   width: "100%", padding: "12px 0", borderRadius: 12,
-                  background: accent, color: "#07080A",
+                  background: submitting ? `${accent}33` : accent, color: "#07080A",
                   fontWeight: 700, fontSize: 14,
-                  border: "none", cursor: "pointer",
+                  border: "none", cursor: submitting ? "default" : "pointer",
                   display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 }}>
-                <RefreshCw style={{ width: 14, height: 14 }} /> Tentar gravar novamente
+                <RefreshCw style={{ width: 14, height: 14 }} /> {submitting ? "Gravando…" : "Tentar gravar novamente"}
               </button>
             </div>
           )}
