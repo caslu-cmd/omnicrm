@@ -3754,6 +3754,26 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
 
   useEffect(() => { if (activeTab === "integrations" && id) fetchSocialIntegrations(); }, [activeTab, id]);
   useEffect(() => { if (activeTab === "courses" && id) loadDbCourses(); }, [activeTab, id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Realtime: atualiza lista de presença automaticamente quando aluno confirma
+  useEffect(() => {
+    if (!attendanceCourseId) return;
+    const channel = (supabase as any)
+      .channel(`attendance-${attendanceCourseId}`)
+      .on("postgres_changes", {
+        event: "INSERT",
+        schema: "public",
+        table: "course_attendance",
+        filter: `course_id=eq.${attendanceCourseId}`,
+      }, (payload: any) => {
+        setDbAttendance(prev => ({
+          ...prev,
+          [attendanceCourseId]: [...(prev[attendanceCourseId] ?? []), payload.new],
+        }));
+      })
+      .subscribe();
+    return () => { (supabase as any).removeChannel(channel); };
+  }, [attendanceCourseId]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (activeTab === "sales-agents" && id) { fetchSalesAgents(); loadAgentChannelConfig(); loadAgentLogs(); loadSocialAccounts(); } }, [activeTab, id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (activeTab === "agents" && id && !agentChatsLoaded) loadAgentChatsFromDb(); }, [activeTab, id, agentChatsLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (id && !clientWpCredsLoaded) loadClientWpCreds(); }, [id, clientWpCredsLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
