@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckCircle2, Loader2, Mail, AlertTriangle, Instagram, Facebook, Youtube, Linkedin } from "lucide-react";
+import { CheckCircle2, Loader2, Mail, AlertTriangle, Instagram, Facebook, Youtube, Linkedin, RefreshCw } from "lucide-react";
 
-type Step = "chat" | "email" | "checking" | "confirmed" | "already" | "not_found";
+type Step = "chat" | "email" | "checking" | "confirmed" | "already" | "not_found" | "error";
 
 interface Branding {
   logo_url: string | null;
@@ -26,6 +26,7 @@ export default function AttendancePage() {
   const [email, setEmail] = useState("");
   const [step, setStep] = useState<Step>("chat");
   const [studentName, setStudentName] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
   // Chat state
   const [visibleMsgs, setVisibleMsgs] = useState<ChatMsg[]>([]);
@@ -56,40 +57,43 @@ export default function AttendancePage() {
     })();
   }, [courseId]);
 
-  // Build chat messages after branding loaded
+  // Build chat messages after course loaded
   useEffect(() => {
     if (loadingCourse || !course) return;
 
     const hasSocial = branding?.instagram_handle || branding?.facebook_url || branding?.youtube_url || branding?.linkedin_url;
-    if (!hasSocial) { setStep("email"); return; }
 
     const msgs: ChatMsg[] = [
       { id: 1, text: `Oi! 👋 Que bom ter você aqui no **${course.title}**!`, type: "bot" },
       { id: 2, text: "Antes de confirmar sua presença, deixa eu te fazer uma pergunta rápida... 😄", type: "bot" },
       { id: 3, text: "Você nos segue nas redes sociais? A gente posta conteúdo exclusivo, dicas e novidades por lá! 🔥", type: "bot" },
-      { id: 4, text: "", type: "social" },
       { id: 5, text: "Quem nos segue tem acesso em primeira mão a descontos e capacitações exclusivas. Vale muito a pena! 🎁", type: "bot" },
       { id: 6, text: "Indica pra um colega também — quanto mais souberem, melhor pra todo mundo! 🤝", type: "bot" },
       { id: 7, text: "Agora pode confirmar sua presença aqui embaixo 👇", type: "cta" },
     ];
 
+    if (hasSocial) msgs.splice(3, 0, { id: 4, text: "", type: "social" });
+
     let i = 0;
-    const delays = [600, 1800, 3200, 4600, 6000, 7200, 8400];
+    const timers: ReturnType<typeof setTimeout>[] = [];
 
     const schedule = () => {
       if (i >= msgs.length) { setChatDone(true); return; }
-      const delay = delays[i] ?? delays[delays.length - 1];
-      setTimeout(() => {
+      const delay = i === 0 ? 600 : 100;
+      const startTimer = setTimeout(() => {
         setTyping(true);
-        setTimeout(() => {
+        const typeTimer = setTimeout(() => {
           setTyping(false);
           setVisibleMsgs(prev => [...prev, msgs[i]]);
           i++;
           schedule();
         }, msgs[i].type === "social" || msgs[i].type === "cta" ? 400 : 900);
+        timers.push(typeTimer);
       }, i === 0 ? delay : 100);
+      timers.push(startTimer);
     };
     schedule();
+    return () => timers.forEach(clearTimeout);
   }, [loadingCourse, course, branding]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
