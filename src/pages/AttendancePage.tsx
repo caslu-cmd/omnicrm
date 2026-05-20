@@ -32,6 +32,7 @@ export default function AttendancePage() {
   const [visibleMsgs, setVisibleMsgs] = useState<ChatMsg[]>([]);
   const [typing, setTyping] = useState(false);
   const [chatDone, setChatDone] = useState(false);
+  const [emailInChat, setEmailInChat] = useState(false);
   const chatBottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -65,6 +66,7 @@ export default function AttendancePage() {
     setVisibleMsgs([]);
     setTyping(false);
     setChatDone(false);
+    setEmailInChat(false);
     const hasSocial = branding?.instagram_handle || branding?.facebook_url || branding?.youtube_url || branding?.linkedin_url;
 
     const msgs: ChatMsg[] = [
