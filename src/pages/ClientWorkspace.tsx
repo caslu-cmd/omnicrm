@@ -10615,23 +10615,28 @@ Regras:
                                       attByEmail[key].add(a.day ?? 1);
                                     });
 
-                                    // Alunos únicos que confirmaram presença (via QR), com dados de matrícula quando disponível
+                                    // Lista todos os alunos matriculados + qualquer presente que não esteja matriculado
                                     const seenEmails = new Set<string>();
-                                    const attendedStudents: any[] = [];
+                                    const allStudents: any[] = [];
+                                    (students ?? []).forEach((s: any) => {
+                                      const key = (s.student_email ?? "").toLowerCase();
+                                      if (seenEmails.has(key)) return;
+                                      seenEmails.add(key);
+                                      allStudents.push(s);
+                                    });
                                     attending.forEach((a: any) => {
                                       const key = (a.student_email ?? "").toLowerCase();
                                       if (seenEmails.has(key)) return;
                                       seenEmails.add(key);
-                                      const enrollment = students.find((s: any) => (s.student_email ?? "").toLowerCase() === key);
-                                      attendedStudents.push(enrollment ?? { student_email: a.student_email, student_name: a.student_name, id: null });
+                                      allStudents.push({ student_email: a.student_email, student_name: a.student_name, id: null });
                                     });
 
                                     const dayFilter = attendDayFilter[course.id] ?? "all";
                                     const visible = dayFilter === "all"
-                                      ? attendedStudents
-                                      : attendedStudents.filter((s: any) => attByEmail[(s.student_email ?? "").toLowerCase()]?.has(dayFilter as number));
+                                      ? allStudents
+                                      : allStudents.filter((s: any) => attByEmail[(s.student_email ?? "").toLowerCase()]?.has(dayFilter as number));
 
-                                    if (attendedStudents.length === 0) return (
+                                    if (allStudents.length === 0) return (
                                       <div className="py-8 text-center rounded-xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.07)" }}>
                                         <CheckCircle2 className="w-8 h-8 mx-auto mb-2" style={{ color: "rgba(255,255,255,0.08)" }} />
                                         <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.25)" }}>Nenhum aluno matriculado.</p>
