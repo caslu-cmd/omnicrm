@@ -195,7 +195,9 @@ export default function AttendancePage() {
       }
 
       const possibleKeys = new Set([attendanceKey, typedEmail, normEmail(enrollment.student_email), phoneKey ? `phone:${phoneKey}` : ""].filter(Boolean));
-      const existing = (attendances ?? []).find((a: any) => possibleKeys.has(normEmail(a.student_email)));
+      const existing = (attendances ?? []).find((a: any) =>
+        (a.day ?? 1) === dayNumber && possibleKeys.has(normEmail(a.student_email))
+      );
       if (existing) { setStep("already"); return; }
 
       const { data: savedAttendance, error: insertError } = await (supabase as any).from("course_attendance").insert({
