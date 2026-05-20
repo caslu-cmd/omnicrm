@@ -1257,7 +1257,7 @@ export default function ClientWorkspace() {
       }
 
       setAiraLiveText("Transcrevendo e resumindo...");
-      const _airaTid = toast.loading("Acionando agente Aira…", { description: "Transcrição e resumo de reunião" });
+      _airaTid = toast.loading("Acionando agente Aira…", { description: "Transcrição e resumo de reunião" });
 
       const { data, error } = await supabase.functions.invoke("aira-meeting", {
         body: {
