@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckCircle2, Loader2, Mail, AlertTriangle, Instagram, Facebook, Youtube, Linkedin } from "lucide-react";
+import { CheckCircle2, Loader2, Mail, AlertTriangle, Instagram, Facebook, Youtube, Linkedin, RefreshCw } from "lucide-react";
 
-type Step = "chat" | "email" | "checking" | "confirmed" | "already" | "not_found";
+type Step = "chat" | "email" | "checking" | "confirmed" | "already" | "not_found" | "error";
 
 interface Branding {
   logo_url: string | null;
@@ -26,6 +26,7 @@ export default function AttendancePage() {
   const [email, setEmail] = useState("");
   const [step, setStep] = useState<Step>("chat");
   const [studentName, setStudentName] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
   // Chat state
   const [visibleMsgs, setVisibleMsgs] = useState<ChatMsg[]>([]);
@@ -36,6 +37,7 @@ export default function AttendancePage() {
   useEffect(() => {
     if (!courseId) return;
     (async () => {
+      setLoadingCourse(true);
       const { data } = await (supabase as any)
         .from("courses")
         .select("title, num_days, client_id")
@@ -43,7 +45,6 @@ export default function AttendancePage() {
         .single();
 
       setCourse(data);
-      setLoadingCourse(false);
 
       if (data?.client_id) {
         const { data: brandData } = await (supabase as any)
@@ -53,43 +54,50 @@ export default function AttendancePage() {
           .single();
         if (brandData) setBranding(brandData);
       }
+      setLoadingCourse(false);
     })();
   }, [courseId]);
 
-  // Build chat messages after branding loaded
+  // Build chat messages after course loaded
   useEffect(() => {
     if (loadingCourse || !course) return;
 
+    setVisibleMsgs([]);
+    setTyping(false);
+    setChatDone(false);
     const hasSocial = branding?.instagram_handle || branding?.facebook_url || branding?.youtube_url || branding?.linkedin_url;
-    if (!hasSocial) { setStep("email"); return; }
 
     const msgs: ChatMsg[] = [
       { id: 1, text: `Oi! 👋 Que bom ter você aqui no **${course.title}**!`, type: "bot" },
       { id: 2, text: "Antes de confirmar sua presença, deixa eu te fazer uma pergunta rápida... 😄", type: "bot" },
       { id: 3, text: "Você nos segue nas redes sociais? A gente posta conteúdo exclusivo, dicas e novidades por lá! 🔥", type: "bot" },
-      { id: 4, text: "", type: "social" },
       { id: 5, text: "Quem nos segue tem acesso em primeira mão a descontos e capacitações exclusivas. Vale muito a pena! 🎁", type: "bot" },
       { id: 6, text: "Indica pra um colega também — quanto mais souberem, melhor pra todo mundo! 🤝", type: "bot" },
       { id: 7, text: "Agora pode confirmar sua presença aqui embaixo 👇", type: "cta" },
     ];
 
+    if (hasSocial) msgs.splice(3, 0, { id: 4, text: "", type: "social" });
+
     let i = 0;
-    const delays = [600, 1800, 3200, 4600, 6000, 7200, 8400];
+    const timers: ReturnType<typeof setTimeout>[] = [];
 
     const schedule = () => {
       if (i >= msgs.length) { setChatDone(true); return; }
-      const delay = delays[i] ?? delays[delays.length - 1];
-      setTimeout(() => {
+      const delay = i === 0 ? 600 : 100;
+      const startTimer = setTimeout(() => {
         setTyping(true);
-        setTimeout(() => {
+        const typeTimer = setTimeout(() => {
           setTyping(false);
           setVisibleMsgs(prev => [...prev, msgs[i]]);
           i++;
           schedule();
         }, msgs[i].type === "social" || msgs[i].type === "cta" ? 400 : 900);
+        timers.push(typeTimer);
       }, i === 0 ? delay : 100);
+      timers.push(startTimer);
     };
     schedule();
+    return () => timers.forEach(clearTimeout);
   }, [loadingCourse, course, branding]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -100,18 +108,26 @@ export default function AttendancePage() {
     const trimmed = email.trim().toLowerCase();
     if (!trimmed || !courseId) return;
     setStep("checking");
+    setErrorMessage("");
 
-    const { data: enrollment } = await (supabase as any)
+    const { data: enrollment, error: enrollmentError } = await (supabase as any)
       .from("course_enrollments")
       .select("student_name, student_email")
       .eq("course_id", courseId)
       .ilike("student_email", trimmed)
-      .single();
+      .limit(1)
+      .maybeSingle();
 
+    if (enrollmentError) {
+      console.error("Erro ao verificar matrícula:", enrollmentError);
+      setErrorMessage("Não foi possível verificar sua matrícula agora. Tente novamente em instantes.");
+      setStep("error");
+      return;
+    }
     if (!enrollment) { setStep("not_found"); return; }
     setStudentName(enrollment.student_name);
 
-    const { data: existing } = await (supabase as any)
+    const { data: existing, error: existingError } = await (supabase as any)
       .from("course_attendance")
       .select("id")
       .eq("course_id", courseId)
@@ -119,14 +135,27 @@ export default function AttendancePage() {
       .ilike("student_email", trimmed)
       .maybeSingle();
 
+    if (existingError) {
+      console.error("Erro ao consultar presença:", existingError);
+      setErrorMessage("Não foi possível consultar sua presença agora. Tente novamente.");
+      setStep("error");
+      return;
+    }
     if (existing) { setStep("already"); return; }
 
-    await (supabase as any).from("course_attendance").insert({
+    const { data: savedAttendance, error: insertError } = await (supabase as any).from("course_attendance").insert({
       course_id: courseId,
       student_email: trimmed,
       student_name: enrollment.student_name,
       day: dayNumber,
-    });
+    }).select("id").single();
+
+    if (insertError || !savedAttendance) {
+      console.error("Erro ao gravar presença:", insertError);
+      setErrorMessage("Sua matrícula foi encontrada, mas a presença não foi gravada. Tente novamente.");
+      setStep("error");
+      return;
+    }
     setStep("confirmed");
   };
 
@@ -412,18 +441,23 @@ export default function AttendancePage() {
                 {showDayLabel ? `Sua presença no Dia ${dayNumber} foi registrada.` : "Sua presença foi registrada."}
               </p>
               {socialLinks.length > 0 && (
-                <div style={{ marginTop: 20, display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
-                  {socialLinks.map(({ href, icon, label, color }) => (
-                    <a key={label} href={href} target="_blank" rel="noreferrer"
-                      style={{
-                        display: "inline-flex", alignItems: "center", gap: 6,
-                        padding: "7px 14px", borderRadius: 99,
-                        background: `${color}18`, border: `1px solid ${color}44`,
-                        color, fontSize: 12, fontWeight: 700, textDecoration: "none",
-                      }}>
-                      {icon} {label}
-                    </a>
-                  ))}
+                <div style={{ marginTop: 20 }}>
+                  <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
+                    Siga nossas redes e fique por dentro em primeira mão de descontos, capacitações exclusivas e lançamentos especiais.
+                  </p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+                    {socialLinks.map(({ href, icon, label, color }) => (
+                      <a key={label} href={href} target="_blank" rel="noreferrer"
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 6,
+                          padding: "7px 14px", borderRadius: 99,
+                          background: `${color}18`, border: `1px solid ${color}44`,
+                          color, fontSize: 12, fontWeight: 700, textDecoration: "none",
+                        }}>
+                        {icon} {label}
+                      </a>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
@@ -444,6 +478,53 @@ export default function AttendancePage() {
                 Olá, <strong style={{ color: "#F0F0F0" }}>{studentName}</strong>.{" "}
                 {showDayLabel ? `Sua presença no Dia ${dayNumber} já estava registrada.` : "Sua presença já estava registrada."}
               </p>
+              {socialLinks.length > 0 && (
+                <div style={{ marginTop: 20 }}>
+                  <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
+                    Siga nossas redes e fique por dentro em primeira mão de descontos, capacitações exclusivas e lançamentos especiais.
+                  </p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+                    {socialLinks.map(({ href, icon, label, color }) => (
+                      <a key={label} href={href} target="_blank" rel="noreferrer"
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 6,
+                          padding: "7px 14px", borderRadius: 99,
+                          background: `${color}18`, border: `1px solid ${color}44`,
+                          color, fontSize: 12, fontWeight: 700, textDecoration: "none",
+                        }}>
+                        {icon} {label}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {step === "error" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{
+                padding: "14px 16px",
+                background: "rgba(248,113,113,0.08)",
+                border: "1px solid rgba(248,113,113,0.2)",
+                borderRadius: 12, display: "flex", gap: 12, alignItems: "flex-start",
+              }}>
+                <AlertTriangle style={{ width: 18, height: 18, color: "#F87171", flexShrink: 0, marginTop: 1 }} />
+                <div>
+                  <p style={{ color: "#F87171", fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Presença não gravada</p>
+                  <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 12 }}>{errorMessage}</p>
+                </div>
+              </div>
+              <button onClick={handleSubmit}
+                style={{
+                  width: "100%", padding: "12px 0", borderRadius: 12,
+                  background: accent, color: "#07080A",
+                  fontWeight: 700, fontSize: 14,
+                  border: "none", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                }}>
+                <RefreshCw style={{ width: 14, height: 14 }} /> Tentar gravar novamente
+              </button>
             </div>
           )}
 
