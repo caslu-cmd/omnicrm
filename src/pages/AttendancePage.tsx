@@ -27,6 +27,7 @@ export default function AttendancePage() {
   const [step, setStep] = useState<Step>("chat");
   const [studentName, setStudentName] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   // Chat state
   const [visibleMsgs, setVisibleMsgs] = useState<ChatMsg[]>([]);
@@ -44,15 +45,27 @@ export default function AttendancePage() {
         .from("courses")
         .select("title, num_days, client_id")
         .eq("id", courseId)
-        .single();
+        .maybeSingle();
 
-      setCourse(data);
+      let courseData = data;
+      if (!courseData) {
+        const { data: enrollmentData } = await (supabase as any)
+          .from("course_enrollments")
+          .select("course_id")
+          .eq("course_id", courseId)
+          .limit(1);
+        if ((enrollmentData ?? []).length > 0) {
+          courseData = { title: "Curso", num_days: dayNumber, client_id: null };
+        }
+      }
 
-      if (data?.client_id) {
+      setCourse(courseData);
+
+      if (courseData?.client_id) {
         const { data: brandData } = await (supabase as any)
           .from("client_branding")
           .select("logo_url, instagram_handle, facebook_url, youtube_url, linkedin_url, primary_color")
-          .eq("client_id", data.client_id)
+          .eq("client_id", courseData.client_id)
           .single();
         if (brandData) setBranding(brandData);
       }
@@ -116,71 +129,98 @@ export default function AttendancePage() {
   }, [visibleMsgs, typing]);
 
   const handleSubmit = async () => {
-    const trimmed = email.trim().toLowerCase();
-    if (!trimmed || !courseId) return;
+    const typed = email.trim();
+    if (!typed || !courseId || submitting) return;
+    setSubmitting(true);
     setStep("checking");
     setErrorMessage("");
 
-    // Fetch all enrollments for this course and match client-side (robust against
-    // whitespace, hidden chars, accent/case differences that ilike misses).
-    const { data: enrollments, error: enrollmentError } = await (supabase as any)
-      .from("course_enrollments")
-      .select("student_name, student_email")
-      .eq("course_id", courseId);
+    const onlyDigits = (s: string | null | undefined) => (s ?? "").replace(/\D/g, "");
+    const normText = (s: string | null | undefined) => (s ?? "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[\u200B-\u200D\uFEFF]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+    const normEmail = (s: string | null | undefined) => normText(s).replace(/\s/g, "");
 
-    if (enrollmentError) {
-      console.error("Erro ao verificar matrícula:", enrollmentError);
-      setErrorMessage("Não foi possível verificar sua matrícula agora. Tente novamente em instantes.");
-      setStep("error");
-      return;
+    try {
+      const looksLikeEmail = typed.includes("@");
+      const typedEmail = normEmail(typed);
+      const typedDigits = onlyDigits(typed);
+      const typedName = normText(typed);
+
+      const { data: enrollments, error: enrollmentError } = await (supabase as any)
+        .from("course_enrollments")
+        .select("id, student_name, student_email, student_phone")
+        .eq("course_id", courseId);
+
+      if (enrollmentError) {
+        console.error("Erro ao verificar matrícula:", enrollmentError);
+        setErrorMessage("Não foi possível verificar sua matrícula agora. Tente novamente em instantes.");
+        setStep("error");
+        return;
+      }
+
+      const enrollment = (enrollments ?? []).find((e: any) => {
+        const emailMatch = looksLikeEmail && e.student_email && normEmail(e.student_email) === typedEmail;
+        const phone = onlyDigits(e.student_phone);
+        const phoneMatch = typedDigits.length >= 8 && phone && (phone === typedDigits || phone.endsWith(typedDigits));
+        const name = normText(e.student_name);
+        const nameMatch = typedName.length >= 5 && name && (name === typedName || name.includes(typedName));
+        return emailMatch || phoneMatch || nameMatch;
+      });
+
+      if (!enrollment) {
+        console.warn("Matrícula não encontrada. Dado digitado:", typed, "| matrículas no curso:", enrollments);
+        setStep("not_found");
+        return;
+      }
+
+      const studentDisplayName = enrollment.student_name || "Aluno";
+      const phoneKey = onlyDigits(enrollment.student_phone);
+      const attendanceKey = normEmail(enrollment.student_email) || (phoneKey ? `phone:${phoneKey}` : `enrollment:${enrollment.id}`);
+      setStudentName(studentDisplayName);
+
+      const { data: attendances, error: existingError } = await (supabase as any)
+        .from("course_attendance")
+        .select("id, student_email, day")
+        .eq("course_id", courseId);
+
+      if (existingError) {
+        console.error("Erro ao consultar presença:", existingError);
+        setErrorMessage("Não foi possível consultar sua presença agora. Tente novamente.");
+        setStep("error");
+        return;
+      }
+
+      const possibleKeys = new Set([attendanceKey, typedEmail, normEmail(enrollment.student_email), phoneKey ? `phone:${phoneKey}` : ""].filter(Boolean));
+      const existing = (attendances ?? []).find((a: any) => possibleKeys.has(normEmail(a.student_email)));
+      if (existing) { setStep("already"); return; }
+
+      const { data: savedAttendance, error: insertError } = await (supabase as any).from("course_attendance").insert({
+        course_id: courseId,
+        student_email: attendanceKey,
+        student_name: studentDisplayName,
+        day: dayNumber,
+      }).select("id").single();
+
+      if (insertError?.code === "23505") {
+        setStep("already");
+        return;
+      }
+
+      if (insertError || !savedAttendance) {
+        console.error("Erro ao gravar presença:", insertError);
+        setErrorMessage("Sua matrícula foi encontrada, mas a presença não foi gravada. Tente novamente.");
+        setStep("error");
+        return;
+      }
+      setStep("confirmed");
+    } finally {
+      setSubmitting(false);
     }
-
-    const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
-    const enrollment = (enrollments ?? []).find((e: any) => norm(e.student_email) === trimmed);
-
-    if (!enrollment) {
-      console.warn("Matrícula não encontrada. E-mail digitado:", trimmed, "| matrículas no curso:", enrollments);
-      setStep("not_found");
-      return;
-    }
-    setStudentName(enrollment.student_name);
-
-    const { data: attendances, error: existingError } = await (supabase as any)
-      .from("course_attendance")
-      .select("id, student_email, day")
-      .eq("course_id", courseId)
-      .eq("day", dayNumber);
-
-    if (existingError) {
-      console.error("Erro ao consultar presença:", existingError);
-      setErrorMessage("Não foi possível consultar sua presença agora. Tente novamente.");
-      setStep("error");
-      return;
-    }
-    const existing = (attendances ?? []).find((a: any) => norm(a.student_email) === trimmed);
-
-    if (existingError) {
-      console.error("Erro ao consultar presença:", existingError);
-      setErrorMessage("Não foi possível consultar sua presença agora. Tente novamente.");
-      setStep("error");
-      return;
-    }
-    if (existing) { setStep("already"); return; }
-
-    const { data: savedAttendance, error: insertError } = await (supabase as any).from("course_attendance").insert({
-      course_id: courseId,
-      student_email: trimmed,
-      student_name: enrollment.student_name,
-      day: dayNumber,
-    }).select("id").single();
-
-    if (insertError || !savedAttendance) {
-      console.error("Erro ao gravar presença:", insertError);
-      setErrorMessage("Sua matrícula foi encontrada, mas a presença não foi gravada. Tente novamente.");
-      setStep("error");
-      return;
-    }
-    setStep("confirmed");
   };
 
   const retry = () => { setEmail(""); setEmailInChat(true); setStep("chat"); };
@@ -398,14 +438,14 @@ export default function AttendancePage() {
                     autoFocus
                   />
                 </div>
-                <button onClick={handleSubmit} disabled={!email.trim()}
+                <button onClick={handleSubmit} disabled={!email.trim() || submitting}
                   style={{
                     width: "100%", padding: "13px 0", borderRadius: 12,
-                    background: email.trim() ? accent : `${accent}33`,
+                    background: email.trim() && !submitting ? accent : `${accent}33`,
                     color: "#07080A", fontWeight: 700, fontSize: 14,
-                    border: "none", cursor: email.trim() ? "pointer" : "default",
+                    border: "none", cursor: email.trim() && !submitting ? "pointer" : "default",
                   }}>
-                  Confirmar presença{showDayLabel ? ` — Dia ${dayNumber}` : ""}
+                  {submitting ? "Gravando presença…" : `Confirmar presença${showDayLabel ? ` — Dia ${dayNumber}` : ""}`}
                 </button>
               </div>
             )}
@@ -458,14 +498,14 @@ export default function AttendancePage() {
                   />
                 </div>
               </div>
-              <button onClick={handleSubmit} disabled={!email.trim()}
+              <button onClick={handleSubmit} disabled={!email.trim() || submitting}
                 style={{
                   width: "100%", padding: "13px 0", borderRadius: 12,
-                  background: email.trim() ? accent : `${accent}33`,
+                  background: email.trim() && !submitting ? accent : `${accent}33`,
                   color: "#07080A", fontWeight: 700, fontSize: 14,
-                  border: "none", cursor: email.trim() ? "pointer" : "default", transition: "all 0.2s",
+                  border: "none", cursor: email.trim() && !submitting ? "pointer" : "default", transition: "all 0.2s",
                 }}>
-                Confirmar presença{showDayLabel ? ` — Dia ${dayNumber}` : ""}
+                {submitting ? "Gravando presença…" : `Confirmar presença${showDayLabel ? ` — Dia ${dayNumber}` : ""}`}
               </button>
             </div>
           )}
@@ -567,15 +607,15 @@ export default function AttendancePage() {
                   <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 12 }}>{errorMessage}</p>
                 </div>
               </div>
-              <button onClick={handleSubmit}
+              <button onClick={handleSubmit} disabled={submitting}
                 style={{
                   width: "100%", padding: "12px 0", borderRadius: 12,
-                  background: accent, color: "#07080A",
+                  background: submitting ? `${accent}33` : accent, color: "#07080A",
                   fontWeight: 700, fontSize: 14,
-                  border: "none", cursor: "pointer",
+                  border: "none", cursor: submitting ? "default" : "pointer",
                   display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
                 }}>
-                <RefreshCw style={{ width: 14, height: 14 }} /> Tentar gravar novamente
+                <RefreshCw style={{ width: 14, height: 14 }} /> {submitting ? "Gravando…" : "Tentar gravar novamente"}
               </button>
             </div>
           )}
