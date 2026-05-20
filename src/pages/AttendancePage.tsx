@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { CheckCircle2, Loader2, Mail, AlertTriangle, Instagram, Facebook, Youtube, Linkedin, RefreshCw } from "lucide-react";
 
@@ -18,7 +18,9 @@ interface ChatMsg { id: number; text: string; type: "bot" | "social" | "cta"; }
 
 export default function AttendancePage() {
   const { courseId, day } = useParams<{ courseId: string; day?: string }>();
-  const parsedDay = day ? Number.parseInt(day, 10) : 1;
+  const location = useLocation();
+  const queryDay = new URLSearchParams(location.search).get("dia") ?? new URLSearchParams(location.search).get("day");
+  const parsedDay = Number.parseInt(day ?? queryDay ?? "1", 10);
   const dayNumber = Number.isFinite(parsedDay) && parsedDay > 0 ? parsedDay : 1;
 
   const [course, setCourse] = useState<{ title: string; num_days?: number; client_id?: string } | null>(null);
