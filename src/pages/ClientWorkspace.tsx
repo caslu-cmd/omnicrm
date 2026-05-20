@@ -10598,7 +10598,6 @@ Regras:
                                   </div>
 
                                   {(() => {
-                                    const enrolledList = students;
                                     // attendance by student email → set of days attended
                                     const attByEmail: Record<string, Set<number>> = {};
                                     attending.forEach((a: any) => {
@@ -10606,8 +10605,22 @@ Regras:
                                       if (!attByEmail[key]) attByEmail[key] = new Set();
                                       attByEmail[key].add(a.day ?? 1);
                                     });
-                                    // Sempre mostra todos os alunos matriculados — tabs de dia só controlam o QR
-                                    const visible = enrolledList;
+
+                                    // Alunos únicos que confirmaram presença (via QR), com dados de matrícula quando disponível
+                                    const seenEmails = new Set<string>();
+                                    const attendedStudents: any[] = [];
+                                    attending.forEach((a: any) => {
+                                      const key = (a.student_email ?? "").toLowerCase();
+                                      if (seenEmails.has(key)) return;
+                                      seenEmails.add(key);
+                                      const enrollment = students.find((s: any) => (s.student_email ?? "").toLowerCase() === key);
+                                      attendedStudents.push(enrollment ?? { student_email: a.student_email, student_name: a.student_name, id: null });
+                                    });
+
+                                    const dayFilter = attendDayFilter[course.id] ?? "all";
+                                    const visible = dayFilter === "all"
+                                      ? attendedStudents
+                                      : attendedStudents.filter((s: any) => attByEmail[(s.student_email ?? "").toLowerCase()]?.has(dayFilter as number));
 
                                     if (enrolledList.length === 0) return (
                                       <div className="py-8 text-center rounded-xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.07)" }}>
