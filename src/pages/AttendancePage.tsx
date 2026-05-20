@@ -18,7 +18,8 @@ interface ChatMsg { id: number; text: string; type: "bot" | "social" | "cta"; }
 
 export default function AttendancePage() {
   const { courseId, day } = useParams<{ courseId: string; day?: string }>();
-  const dayNumber = day ? parseInt(day, 10) : 1;
+  const parsedDay = day ? Number.parseInt(day, 10) : 1;
+  const dayNumber = Number.isFinite(parsedDay) && parsedDay > 0 ? parsedDay : 1;
 
   const [course, setCourse] = useState<{ title: string; num_days?: number; client_id?: string } | null>(null);
   const [branding, setBranding] = useState<Branding | null>(null);
@@ -135,7 +136,6 @@ export default function AttendancePage() {
     setStep("checking");
     setErrorMessage("");
 
-    const onlyDigits = (s: string | null | undefined) => (s ?? "").replace(/\D/g, "");
     const normText = (s: string | null | undefined) => (s ?? "")
       .normalize("NFD")
       .replace(/[\u0300-\u036f]/g, "")
@@ -157,7 +157,7 @@ export default function AttendancePage() {
 
       const { data: enrollments, error: enrollmentError } = await (supabase as any)
         .from("course_enrollments")
-        .select("id, student_name, student_email, student_phone")
+        .select("id, student_name, student_email")
         .eq("course_id", courseId);
 
       if (enrollmentError) {
@@ -178,14 +178,16 @@ export default function AttendancePage() {
       }
 
       const studentDisplayName = enrollment.student_name || "Aluno";
-      const phoneKey = onlyDigits(enrollment.student_phone);
-      const attendanceKey = normEmail(enrollment.student_email) || (phoneKey ? `phone:${phoneKey}` : `enrollment:${enrollment.id}`);
+      const attendanceEmail = normEmail(enrollment.student_email);
       setStudentName(studentDisplayName);
 
       const { data: attendances, error: existingError } = await (supabase as any)
         .from("course_attendance")
-        .select("id, student_email, day")
-        .eq("course_id", courseId);
+        .select("id")
+        .eq("course_id", courseId)
+        .eq("student_email", attendanceEmail)
+        .eq("day", dayNumber)
+        .limit(1);
 
       if (existingError) {
         console.error("Erro ao consultar presença:", existingError);
@@ -194,18 +196,14 @@ export default function AttendancePage() {
         return;
       }
 
-      const possibleKeys = new Set([attendanceKey, typedEmail, normEmail(enrollment.student_email), phoneKey ? `phone:${phoneKey}` : ""].filter(Boolean));
-      const existing = (attendances ?? []).find((a: any) =>
-        (a.day ?? 1) === dayNumber && possibleKeys.has(normEmail(a.student_email))
-      );
-      if (existing) { setStep("already"); return; }
+      if ((attendances ?? []).length > 0) { setStep("already"); return; }
 
       const { data: savedAttendance, error: insertError } = await (supabase as any).from("course_attendance").insert({
         course_id: courseId,
-        student_email: attendanceKey,
+        student_email: attendanceEmail,
         student_name: studentDisplayName,
         day: dayNumber,
-      }).select("id").single();
+      }).select("id, day").single();
 
       if (insertError?.code === "23505") {
         setStep("already");
@@ -215,6 +213,13 @@ export default function AttendancePage() {
       if (insertError || !savedAttendance) {
         console.error("Erro ao gravar presença:", insertError);
         setErrorMessage("Sua matrícula foi encontrada, mas a presença não foi gravada. Tente novamente.");
+        setStep("error");
+        return;
+      }
+
+      if ((savedAttendance.day ?? dayNumber) !== dayNumber) {
+        console.error("Presença gravada no dia errado:", { esperado: dayNumber, gravado: savedAttendance.day });
+        setErrorMessage(`A presença foi gravada no dia ${savedAttendance.day}, mas este QR é do dia ${dayNumber}. Gere o QR novamente e tente de novo.`);
         setStep("error");
         return;
       }

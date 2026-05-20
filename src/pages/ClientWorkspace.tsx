@@ -9631,18 +9631,11 @@ Regras:
                   const isAttendOpen = attendanceCourseId === course.id;
                   const attending = dbAttendance[course.id] ?? [];
                   const numDays = course.num_days ?? 1;
-                  const activeDay = selectedQrDay[course.id] ?? 1;
-                  const productionAttendanceUrl = "https://www.caluagencia.com.br";
+                  const selectedDay = selectedQrDay[course.id] ?? 1;
+                  const activeDay = Math.min(Math.max(1, selectedDay), numDays);
                   const currentOrigin = typeof window !== "undefined" ? window.location.origin : "";
-                  const currentHost = (() => {
-                    try { return currentOrigin ? new URL(currentOrigin).hostname : ""; }
-                    catch { return ""; }
-                  })();
-                  const isPublicAttendanceHost = ["www.caluagencia.com.br", "caluagencia.com.br", "caluagencia.lovable.app"].includes(currentHost);
-                  const attendanceBaseUrl = isPublicAttendanceHost ? currentOrigin : productionAttendanceUrl;
-                  const presencaUrl = numDays > 1
-                    ? `${attendanceBaseUrl}/presenca/${course.id}/${activeDay}`
-                    : `${attendanceBaseUrl}/presenca/${course.id}`;
+                  const attendanceBaseUrl = currentOrigin || "https://www.caluagencia.com.br";
+                  const presencaUrl = `${attendanceBaseUrl}/presenca/${course.id}/${activeDay}`;
 
                   return (
                     <motion.div key={course.id} className="rounded-2xl overflow-hidden"
@@ -10491,7 +10484,10 @@ Regras:
                                     <div className="flex gap-1.5 flex-wrap">
                                       {Array.from({ length: numDays }, (_, i) => i + 1).map(d => (
                                         <button key={d}
-                                          onClick={() => setSelectedQrDay(prev => ({ ...prev, [course.id]: d }))}
+                                          onClick={() => {
+                                            setSelectedQrDay(prev => ({ ...prev, [course.id]: d }));
+                                            setAttendDayFilter(prev => ({ ...prev, [course.id]: d }));
+                                          }}
                                           className="px-3 py-1 rounded-lg text-[10px] font-semibold transition-all"
                                           style={{
                                             background: activeDay === d ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.04)",
@@ -10607,10 +10603,19 @@ Regras:
                                   </div>
 
                                   {(() => {
+                                    const normalizeAttendanceEmail = (value: string | null | undefined) => (value ?? "")
+                                      .normalize("NFD")
+                                      .replace(/[\u0300-\u036f]/g, "")
+                                      .replace(/[\u200B-\u200D\uFEFF]/g, "")
+                                      .replace(/\s+/g, "")
+                                      .trim()
+                                      .toLowerCase();
+
                                     // attendance by student email → set of days attended
                                     const attByEmail: Record<string, Set<number>> = {};
                                     attending.forEach((a: any) => {
-                                      const key = (a.student_email ?? "").toLowerCase();
+                                      const key = normalizeAttendanceEmail(a.student_email);
+                                      if (!key) return;
                                       if (!attByEmail[key]) attByEmail[key] = new Set();
                                       attByEmail[key].add(a.day ?? 1);
                                     });
@@ -10619,13 +10624,13 @@ Regras:
                                     const seenEmails = new Set<string>();
                                     const allStudents: any[] = [];
                                     (students ?? []).forEach((s: any) => {
-                                      const key = (s.student_email ?? "").toLowerCase();
+                                      const key = normalizeAttendanceEmail(s.student_email);
                                       if (seenEmails.has(key)) return;
                                       seenEmails.add(key);
                                       allStudents.push(s);
                                     });
                                     attending.forEach((a: any) => {
-                                      const key = (a.student_email ?? "").toLowerCase();
+                                      const key = normalizeAttendanceEmail(a.student_email);
                                       if (seenEmails.has(key)) return;
                                       seenEmails.add(key);
                                       allStudents.push({ student_email: a.student_email, student_name: a.student_name, id: null });
@@ -10634,7 +10639,7 @@ Regras:
                                     const dayFilter = attendDayFilter[course.id] ?? "all";
                                     const visible = dayFilter === "all"
                                       ? allStudents
-                                      : allStudents.filter((s: any) => attByEmail[(s.student_email ?? "").toLowerCase()]?.has(dayFilter as number));
+                                      : allStudents.filter((s: any) => attByEmail[normalizeAttendanceEmail(s.student_email)]?.has(dayFilter as number));
 
                                     if (allStudents.length === 0) return (
                                       <div className="py-8 text-center rounded-xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.07)" }}>
@@ -10646,7 +10651,7 @@ Regras:
                                     return (
                                       <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
                                         {visible.map((s: any) => {
-                                          const emailKey = (s.student_email ?? "").toLowerCase();
+                                          const emailKey = normalizeAttendanceEmail(s.student_email);
                                           const daysAttended = attByEmail[emailKey] ?? new Set<number>();
                                           const totalAttended = daysAttended.size;
                                           const allDaysOk = totalAttended >= numDays;
