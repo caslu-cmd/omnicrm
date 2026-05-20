@@ -9631,7 +9631,8 @@ Regras:
                   const isAttendOpen = attendanceCourseId === course.id;
                   const attending = dbAttendance[course.id] ?? [];
                   const numDays = course.num_days ?? 1;
-                  const activeDay = selectedQrDay[course.id] ?? 1;
+                  const selectedDay = selectedQrDay[course.id] ?? 1;
+                  const activeDay = Math.min(Math.max(1, selectedDay), numDays);
                   const productionAttendanceUrl = "https://www.caluagencia.com.br";
                   const currentOrigin = typeof window !== "undefined" ? window.location.origin : "";
                   const currentHost = (() => {
@@ -9640,9 +9641,7 @@ Regras:
                   })();
                   const isPublicAttendanceHost = ["www.caluagencia.com.br", "caluagencia.com.br", "caluagencia.lovable.app"].includes(currentHost);
                   const attendanceBaseUrl = isPublicAttendanceHost ? currentOrigin : productionAttendanceUrl;
-                  const presencaUrl = numDays > 1
-                    ? `${attendanceBaseUrl}/presenca/${course.id}/${activeDay}`
-                    : `${attendanceBaseUrl}/presenca/${course.id}`;
+                  const presencaUrl = `${attendanceBaseUrl}/presenca/${course.id}/${activeDay}`;
 
                   return (
                     <motion.div key={course.id} className="rounded-2xl overflow-hidden"
