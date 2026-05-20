@@ -1,13 +1,14 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckCircle2, Loader2, Mail, AlertTriangle, Instagram } from "lucide-react";
+import { CheckCircle2, Loader2, Mail, AlertTriangle, Instagram, Facebook } from "lucide-react";
 
 type Step = "email" | "checking" | "confirmed" | "already" | "not_found";
 
 interface Branding {
   logo_url: string | null;
   instagram_handle: string | null;
+  facebook_handle: string | null;
   primary_color: string;
 }
 
@@ -37,7 +38,7 @@ export default function AttendancePage() {
       if (data?.client_id) {
         const { data: brandData } = await (supabase as any)
           .from("client_branding")
-          .select("logo_url, instagram_handle, primary_color")
+          .select("logo_url, instagram_handle, facebook_handle, primary_color")
           .eq("client_id", data.client_id)
           .single();
         if (brandData) setBranding(brandData);
@@ -115,33 +116,59 @@ export default function AttendancePage() {
     </div>
   );
 
-  const InstagramBadge = branding?.instagram_handle ? (
-    <a
-      href={`https://instagram.com/${branding.instagram_handle}`}
-      target="_blank"
-      rel="noreferrer"
-      style={{
-        display: "inline-flex", alignItems: "center", gap: 6,
-        marginTop: 14, padding: "7px 16px", borderRadius: 99,
-        background: "rgba(255,255,255,0.05)",
-        border: "1px solid rgba(255,255,255,0.1)",
-        color: "rgba(255,255,255,0.6)", fontSize: 12, fontWeight: 600,
-        textDecoration: "none", transition: "all 0.2s",
-      }}
-      onMouseEnter={e => {
-        (e.currentTarget as HTMLElement).style.background = "rgba(225,48,108,0.12)";
-        (e.currentTarget as HTMLElement).style.borderColor = "rgba(225,48,108,0.35)";
-        (e.currentTarget as HTMLElement).style.color = "#E1306C";
-      }}
-      onMouseLeave={e => {
-        (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
-        (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.1)";
-        (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)";
-      }}
-    >
-      <Instagram style={{ width: 13, height: 13 }} />
-      Siga @{branding.instagram_handle} no Instagram
-    </a>
+  const socialLinkStyle: React.CSSProperties = {
+    display: "inline-flex", alignItems: "center", gap: 6,
+    padding: "7px 16px", borderRadius: 99,
+    background: "rgba(255,255,255,0.05)",
+    border: "1px solid rgba(255,255,255,0.1)",
+    color: "rgba(255,255,255,0.6)", fontSize: 12, fontWeight: 600,
+    textDecoration: "none", transition: "all 0.2s",
+  };
+
+  const hasSocial = branding?.instagram_handle || branding?.facebook_handle;
+  const SocialBadges = hasSocial ? (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 14 }}>
+      {branding?.instagram_handle && (
+        <a
+          href={`https://instagram.com/${branding.instagram_handle}`}
+          target="_blank" rel="noreferrer"
+          style={socialLinkStyle}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLElement).style.background = "rgba(225,48,108,0.12)";
+            (e.currentTarget as HTMLElement).style.borderColor = "rgba(225,48,108,0.35)";
+            (e.currentTarget as HTMLElement).style.color = "#E1306C";
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
+            (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.1)";
+            (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)";
+          }}
+        >
+          <Instagram style={{ width: 13, height: 13 }} />
+          Siga @{branding.instagram_handle}
+        </a>
+      )}
+      {branding?.facebook_handle && (
+        <a
+          href={`https://facebook.com/${branding.facebook_handle}`}
+          target="_blank" rel="noreferrer"
+          style={socialLinkStyle}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLElement).style.background = "rgba(24,119,242,0.12)";
+            (e.currentTarget as HTMLElement).style.borderColor = "rgba(24,119,242,0.35)";
+            (e.currentTarget as HTMLElement).style.color = "#1877F2";
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
+            (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.1)";
+            (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)";
+          }}
+        >
+          <Facebook style={{ width: 13, height: 13 }} />
+          Siga @{branding.facebook_handle}
+        </a>
+      )}
+    </div>
   ) : null;
 
   return (
@@ -181,7 +208,7 @@ export default function AttendancePage() {
             </span>
           )}
 
-          {InstagramBadge}
+          {SocialBadges}
         </div>
 
         {step === "email" && (

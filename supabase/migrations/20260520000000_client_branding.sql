@@ -3,6 +3,7 @@ CREATE TABLE public.client_branding (
   client_id        text PRIMARY KEY,
   logo_url         text,
   instagram_handle text,
+  facebook_handle  text,
   primary_color    text DEFAULT '#B9FF4B',
   created_at       timestamptz DEFAULT now()
 );
@@ -18,5 +19,5 @@ CREATE POLICY "Authenticated manage client_branding"
   ON public.client_branding FOR ALL USING (auth.role() = 'authenticated');
 
 -- Dados iniciais: Grupo Licita
-INSERT INTO public.client_branding (client_id, instagram_handle, primary_color)
-VALUES ('grupo-licita', 'grupolicita', '#B9FF4B');
+INSERT INTO public.client_branding (client_id, instagram_handle, facebook_handle, primary_color)
+VALUES ('grupo-licita', 'grupolicita', 'grupolicita', '#B9FF4B');
