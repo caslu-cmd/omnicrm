@@ -10606,10 +10606,19 @@ Regras:
                                   </div>
 
                                   {(() => {
+                                    const normalizeAttendanceEmail = (value: string | null | undefined) => (value ?? "")
+                                      .normalize("NFD")
+                                      .replace(/[\u0300-\u036f]/g, "")
+                                      .replace(/[\u200B-\u200D\uFEFF]/g, "")
+                                      .replace(/\s+/g, "")
+                                      .trim()
+                                      .toLowerCase();
+
                                     // attendance by student email → set of days attended
                                     const attByEmail: Record<string, Set<number>> = {};
                                     attending.forEach((a: any) => {
-                                      const key = (a.student_email ?? "").toLowerCase();
+                                      const key = normalizeAttendanceEmail(a.student_email);
+                                      if (!key) return;
                                       if (!attByEmail[key]) attByEmail[key] = new Set();
                                       attByEmail[key].add(a.day ?? 1);
                                     });
@@ -10618,13 +10627,13 @@ Regras:
                                     const seenEmails = new Set<string>();
                                     const allStudents: any[] = [];
                                     (students ?? []).forEach((s: any) => {
-                                      const key = (s.student_email ?? "").toLowerCase();
+                                      const key = normalizeAttendanceEmail(s.student_email);
                                       if (seenEmails.has(key)) return;
                                       seenEmails.add(key);
                                       allStudents.push(s);
                                     });
                                     attending.forEach((a: any) => {
-                                      const key = (a.student_email ?? "").toLowerCase();
+                                      const key = normalizeAttendanceEmail(a.student_email);
                                       if (seenEmails.has(key)) return;
                                       seenEmails.add(key);
                                       allStudents.push({ student_email: a.student_email, student_name: a.student_name, id: null });
@@ -10633,7 +10642,7 @@ Regras:
                                     const dayFilter = attendDayFilter[course.id] ?? "all";
                                     const visible = dayFilter === "all"
                                       ? allStudents
-                                      : allStudents.filter((s: any) => attByEmail[(s.student_email ?? "").toLowerCase()]?.has(dayFilter as number));
+                                      : allStudents.filter((s: any) => attByEmail[normalizeAttendanceEmail(s.student_email)]?.has(dayFilter as number));
 
                                     if (allStudents.length === 0) return (
                                       <div className="py-8 text-center rounded-xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.07)" }}>
