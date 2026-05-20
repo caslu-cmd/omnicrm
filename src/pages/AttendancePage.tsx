@@ -34,6 +34,7 @@ export default function AttendancePage() {
   const [chatDone, setChatDone] = useState(false);
   const [emailInChat, setEmailInChat] = useState(false);
   const chatBottomRef = useRef<HTMLDivElement>(null);
+  const chatBuiltRef = useRef(false);
 
   useEffect(() => {
     if (!courseId) return;
@@ -62,6 +63,8 @@ export default function AttendancePage() {
   // Build chat messages after course loaded
   useEffect(() => {
     if (loadingCourse || !course) return;
+    if (chatBuiltRef.current) return; // build once — don't reset when branding loads late
+    chatBuiltRef.current = true;
 
     setVisibleMsgs([]);
     setTyping(false);
@@ -85,17 +88,23 @@ export default function AttendancePage() {
 
     const schedule = () => {
       if (i >= msgs.length) { setChatDone(true); return; }
-      const delay = i === 0 ? 600 : 100;
+      const msg = msgs[i];
+      // pause before showing typing (gives time to read previous msg)
+      const readPause = i === 0 ? 500 : 1400;
+      // typing duration scales with text length so longer msgs feel natural
+      const typingDuration = msg.type === "social" || msg.type === "cta"
+        ? 700
+        : Math.min(2800, Math.max(1100, msg.text.length * 35));
       const startTimer = setTimeout(() => {
         setTyping(true);
         const typeTimer = setTimeout(() => {
           setTyping(false);
-          setVisibleMsgs(prev => [...prev, msgs[i]]);
+          setVisibleMsgs(prev => [...prev, msg]);
           i++;
           schedule();
-        }, msgs[i].type === "social" || msgs[i].type === "cta" ? 400 : 900);
+        }, typingDuration);
         timers.push(typeTimer);
-      }, i === 0 ? delay : 100);
+      }, readPause);
       timers.push(startTimer);
     };
     schedule();
