@@ -10606,10 +10606,8 @@ Regras:
                                       if (!attByEmail[key]) attByEmail[key] = new Set();
                                       attByEmail[key].add(a.day ?? 1);
                                     });
-                                    const dayFilter = attendDayFilter[course.id] ?? "all";
-                                    const visible = dayFilter === "all"
-                                      ? enrolledList
-                                      : enrolledList.filter((s: any) => attByEmail[(s.student_email ?? "").toLowerCase()]?.has(dayFilter as number));
+                                    // Sempre mostra todos os alunos matriculados — tabs de dia só controlam o QR
+                                    const visible = enrolledList;
 
                                     if (enrolledList.length === 0) return (
                                       <div className="py-8 text-center rounded-xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.07)" }}>

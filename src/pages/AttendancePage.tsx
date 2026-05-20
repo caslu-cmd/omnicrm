@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { CheckCircle2, Loader2, Mail, AlertTriangle, Instagram, Facebook, Youtube, Linkedin } from "lucide-react";
 
-type Step = "email" | "checking" | "confirmed" | "already" | "not_found";
+type Step = "chat" | "email" | "checking" | "confirmed" | "already" | "not_found";
 
 interface Branding {
   logo_url: string | null;
@@ -14,6 +14,8 @@ interface Branding {
   primary_color: string;
 }
 
+interface ChatMsg { id: number; text: string; type: "bot" | "social" | "cta"; }
+
 export default function AttendancePage() {
   const { courseId, day } = useParams<{ courseId: string; day?: string }>();
   const dayNumber = day ? parseInt(day, 10) : 1;
@@ -22,8 +24,14 @@ export default function AttendancePage() {
   const [branding, setBranding] = useState<Branding | null>(null);
   const [loadingCourse, setLoadingCourse] = useState(true);
   const [email, setEmail] = useState("");
-  const [step, setStep] = useState<Step>("email");
+  const [step, setStep] = useState<Step>("chat");
   const [studentName, setStudentName] = useState("");
+
+  // Chat state
+  const [visibleMsgs, setVisibleMsgs] = useState<ChatMsg[]>([]);
+  const [typing, setTyping] = useState(false);
+  const [chatDone, setChatDone] = useState(false);
+  const chatBottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!courseId) return;
@@ -47,6 +55,46 @@ export default function AttendancePage() {
       }
     })();
   }, [courseId]);
+
+  // Build chat messages after branding loaded
+  useEffect(() => {
+    if (loadingCourse || !course) return;
+
+    const hasSocial = branding?.instagram_handle || branding?.facebook_url || branding?.youtube_url || branding?.linkedin_url;
+    if (!hasSocial) { setStep("email"); return; }
+
+    const msgs: ChatMsg[] = [
+      { id: 1, text: `Oi! 👋 Que bom ter você aqui no **${course.title}**!`, type: "bot" },
+      { id: 2, text: "Antes de confirmar sua presença, deixa eu te fazer uma pergunta rápida... 😄", type: "bot" },
+      { id: 3, text: "Você nos segue nas redes sociais? A gente posta conteúdo exclusivo, dicas e novidades por lá! 🔥", type: "bot" },
+      { id: 4, text: "", type: "social" },
+      { id: 5, text: "Quem nos segue tem acesso em primeira mão a descontos e capacitações exclusivas. Vale muito a pena! 🎁", type: "bot" },
+      { id: 6, text: "Indica pra um colega também — quanto mais souberem, melhor pra todo mundo! 🤝", type: "bot" },
+      { id: 7, text: "Agora pode confirmar sua presença aqui embaixo 👇", type: "cta" },
+    ];
+
+    let i = 0;
+    const delays = [600, 1800, 3200, 4600, 6000, 7200, 8400];
+
+    const schedule = () => {
+      if (i >= msgs.length) { setChatDone(true); return; }
+      const delay = delays[i] ?? delays[delays.length - 1];
+      setTimeout(() => {
+        setTyping(true);
+        setTimeout(() => {
+          setTyping(false);
+          setVisibleMsgs(prev => [...prev, msgs[i]]);
+          i++;
+          schedule();
+        }, msgs[i].type === "social" || msgs[i].type === "cta" ? 400 : 900);
+      }, i === 0 ? delay : 100);
+    };
+    schedule();
+  }, [loadingCourse, course, branding]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    chatBottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [visibleMsgs, typing]);
 
   const handleSubmit = async () => {
     const trimmed = email.trim().toLowerCase();
@@ -88,15 +136,16 @@ export default function AttendancePage() {
   const showDayLabel = numDays > 1;
   const accent = branding?.primary_color ?? "#B9FF4B";
 
-  const card: React.CSSProperties = {
-    width: "100%", maxWidth: 460,
-    background: "#0A0A10",
-    border: "1px solid rgba(255,255,255,0.08)",
-    borderRadius: 20, padding: 36,
-  };
   const wrap: React.CSSProperties = {
     minHeight: "100vh", background: "#07080A",
-    display: "flex", alignItems: "center", justifyContent: "center", padding: 24,
+    display: "flex", flexDirection: "column", alignItems: "center",
+    justifyContent: "center", padding: 24,
+  };
+  const card: React.CSSProperties = {
+    width: "100%", maxWidth: 420,
+    background: "#0A0A10",
+    border: "1px solid rgba(255,255,255,0.08)",
+    borderRadius: 20, overflow: "hidden",
   };
   const inputStyle: React.CSSProperties = {
     width: "100%", boxSizing: "border-box",
@@ -121,251 +170,313 @@ export default function AttendancePage() {
   const socialLinks = [
     branding?.instagram_handle && {
       href: `https://instagram.com/${branding.instagram_handle}`,
-      icon: <Instagram style={{ width: 14, height: 14 }} />,
+      icon: <Instagram style={{ width: 15, height: 15 }} />,
       label: "Instagram",
-      hoverColor: "#E1306C",
-      hoverBg: "rgba(225,48,108,0.12)",
-      hoverBorder: "rgba(225,48,108,0.35)",
+      color: "#E1306C",
     },
     branding?.facebook_url && {
       href: branding.facebook_url,
-      icon: <Facebook style={{ width: 14, height: 14 }} />,
+      icon: <Facebook style={{ width: 15, height: 15 }} />,
       label: "Facebook",
-      hoverColor: "#1877F2",
-      hoverBg: "rgba(24,119,242,0.12)",
-      hoverBorder: "rgba(24,119,242,0.35)",
+      color: "#1877F2",
     },
     branding?.youtube_url && {
       href: branding.youtube_url,
-      icon: <Youtube style={{ width: 14, height: 14 }} />,
+      icon: <Youtube style={{ width: 15, height: 15 }} />,
       label: "YouTube",
-      hoverColor: "#FF0000",
-      hoverBg: "rgba(255,0,0,0.12)",
-      hoverBorder: "rgba(255,0,0,0.35)",
+      color: "#FF0000",
     },
     branding?.linkedin_url && {
       href: branding.linkedin_url,
-      icon: <Linkedin style={{ width: 14, height: 14 }} />,
+      icon: <Linkedin style={{ width: 15, height: 15 }} />,
       label: "LinkedIn",
-      hoverColor: "#0A66C2",
-      hoverBg: "rgba(10,102,194,0.12)",
-      hoverBorder: "rgba(10,102,194,0.35)",
+      color: "#0A66C2",
     },
-  ].filter(Boolean) as { href: string; icon: React.ReactNode; label: string; hoverColor: string; hoverBg: string; hoverBorder: string }[];
+  ].filter(Boolean) as { href: string; icon: React.ReactNode; label: string; color: string }[];
 
-  const hasSocial = socialLinks.length > 0;
-
-  const SocialSection = hasSocial ? (
-    <div style={{
-      marginTop: 20,
-      padding: "16px",
-      background: "rgba(255,255,255,0.03)",
-      border: "1px solid rgba(255,255,255,0.07)",
-      borderRadius: 14,
-      textAlign: "center",
-    }}>
-      <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 12, lineHeight: 1.6, marginBottom: 12 }}>
-        🎁 <strong style={{ color: "rgba(255,255,255,0.8)" }}>Siga nossas redes</strong> e fique por dentro em primeira mão de descontos, capacitações exclusivas e lançamentos especiais. Compartilhe com seus colegas também — quanto mais souberem, melhor para todos!
-      </p>
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
-        {socialLinks.map(({ href, icon, label, hoverColor, hoverBg, hoverBorder }) => (
-          <a
-            key={label}
-            href={href}
-            target="_blank"
-            rel="noreferrer"
-            style={{
-              display: "inline-flex", alignItems: "center", gap: 6,
-              padding: "7px 14px", borderRadius: 99,
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              color: "rgba(255,255,255,0.6)", fontSize: 12, fontWeight: 600,
-              textDecoration: "none", transition: "all 0.2s",
-            }}
-            onMouseEnter={e => {
-              const el = e.currentTarget as HTMLElement;
-              el.style.background = hoverBg;
-              el.style.borderColor = hoverBorder;
-              el.style.color = hoverColor;
-            }}
-            onMouseLeave={e => {
-              const el = e.currentTarget as HTMLElement;
-              el.style.background = "rgba(255,255,255,0.05)";
-              el.style.borderColor = "rgba(255,255,255,0.1)";
-              el.style.color = "rgba(255,255,255,0.6)";
-            }}
-          >
-            {icon}
-            {label}
-          </a>
-        ))}
-      </div>
+  // ── Header (logo + título) ────────────────────────────────────────────────
+  const Header = (
+    <div style={{ padding: "24px 24px 16px", textAlign: "center", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+      {branding?.logo_url ? (
+        <img src={branding.logo_url} alt="" style={{ height: 44, maxWidth: 160, objectFit: "contain", margin: "0 auto 12px", display: "block" }} />
+      ) : (
+        <div style={{
+          width: 44, height: 44, borderRadius: 12,
+          background: `${accent}1A`, border: `1px solid ${accent}33`,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          margin: "0 auto 12px",
+        }}>
+          <CheckCircle2 style={{ width: 22, height: 22, color: accent }} />
+        </div>
+      )}
+      <p style={{ color: "rgba(255,255,255,0.9)", fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Lista de Presença</p>
+      <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>{course.title}</p>
+      {showDayLabel && (
+        <span style={{
+          display: "inline-block", marginTop: 6,
+          padding: "3px 12px", borderRadius: 99,
+          background: `${accent}1F`, border: `1px solid ${accent}40`,
+          color: accent, fontSize: 11, fontWeight: 700,
+        }}>
+          Dia {dayNumber} de {numDays}
+        </span>
+      )}
     </div>
-  ) : null;
+  );
 
+  // ── Chat step ─────────────────────────────────────────────────────────────
+  if (step === "chat") {
+    return (
+      <div style={wrap}>
+        <div style={card}>
+          {Header}
+
+          {/* Chat messages */}
+          <div style={{ padding: "16px 16px 8px", maxHeight: 360, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
+            {visibleMsgs.map(msg => {
+              if (msg.type === "social") {
+                return (
+                  <div key={msg.id} style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", padding: "4px 0" }}>
+                    {socialLinks.map(({ href, icon, label, color }) => (
+                      <a key={label} href={href} target="_blank" rel="noreferrer"
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 6,
+                          padding: "8px 16px", borderRadius: 99,
+                          background: `${color}18`, border: `1px solid ${color}44`,
+                          color, fontSize: 12, fontWeight: 700, textDecoration: "none",
+                          transition: "all 0.2s",
+                        }}>
+                        {icon} {label}
+                      </a>
+                    ))}
+                  </div>
+                );
+              }
+
+              if (msg.type === "cta") {
+                return (
+                  <div key={msg.id} style={{ marginTop: 4 }}>
+                    <div style={{
+                      display: "inline-block", maxWidth: "85%",
+                      padding: "10px 14px", borderRadius: "16px 16px 16px 4px",
+                      background: "rgba(255,255,255,0.07)",
+                      fontSize: 13, color: "rgba(255,255,255,0.8)", lineHeight: 1.5,
+                    }}>
+                      {msg.text}
+                    </div>
+                    <div style={{ marginTop: 12 }}>
+                      <button
+                        onClick={() => setStep("email")}
+                        style={{
+                          width: "100%", padding: "13px 0", borderRadius: 12,
+                          background: accent, color: "#07080A",
+                          fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer",
+                        }}
+                      >
+                        Confirmar presença{showDayLabel ? ` — Dia ${dayNumber}` : ""}
+                      </button>
+                    </div>
+                  </div>
+                );
+              }
+
+              // bot message — parse **bold**
+              const parts = msg.text.split(/\*\*(.*?)\*\*/g);
+              return (
+                <div key={msg.id} style={{ display: "flex", alignItems: "flex-end", gap: 8 }}>
+                  {branding?.logo_url ? (
+                    <img src={branding.logo_url} alt="" style={{ width: 28, height: 28, borderRadius: "50%", objectFit: "cover", flexShrink: 0 }} />
+                  ) : (
+                    <div style={{
+                      width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+                      background: `${accent}22`, border: `1px solid ${accent}44`,
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      fontSize: 11, fontWeight: 800, color: accent,
+                    }}>GL</div>
+                  )}
+                  <div style={{
+                    maxWidth: "80%", padding: "10px 14px",
+                    borderRadius: "16px 16px 16px 4px",
+                    background: "rgba(255,255,255,0.07)",
+                    fontSize: 13, color: "rgba(255,255,255,0.85)", lineHeight: 1.55,
+                  }}>
+                    {parts.map((p, i) => i % 2 === 1 ? <strong key={i}>{p}</strong> : p)}
+                  </div>
+                </div>
+              );
+            })}
+
+            {/* Typing indicator */}
+            {typing && (
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 8 }}>
+                <div style={{
+                  width: 28, height: 28, borderRadius: "50%", flexShrink: 0,
+                  background: `${accent}22`, border: `1px solid ${accent}44`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: 11, fontWeight: 800, color: accent,
+                }}>GL</div>
+                <div style={{
+                  padding: "12px 16px", borderRadius: "16px 16px 16px 4px",
+                  background: "rgba(255,255,255,0.07)",
+                  display: "flex", gap: 4, alignItems: "center",
+                }}>
+                  {[0, 1, 2].map(i => (
+                    <div key={i} style={{
+                      width: 6, height: 6, borderRadius: "50%",
+                      background: "rgba(255,255,255,0.3)",
+                      animation: `bounce 1.2s ${i * 0.2}s infinite`,
+                    }} />
+                  ))}
+                </div>
+              </div>
+            )}
+            <div ref={chatBottomRef} />
+          </div>
+
+          {/* Skip link */}
+          <div style={{ padding: "8px 16px 16px", textAlign: "center" }}>
+            <button onClick={() => setStep("email")}
+              style={{ background: "none", border: "none", color: "rgba(255,255,255,0.25)", fontSize: 11, cursor: "pointer" }}>
+              Pular e confirmar presença direto
+            </button>
+          </div>
+        </div>
+
+        <style>{`@keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }`}</style>
+      </div>
+    );
+  }
+
+  // ── Email + result steps ──────────────────────────────────────────────────
   return (
     <div style={wrap}>
       <div style={card}>
-        <div style={{ textAlign: "center", marginBottom: 28 }}>
-          {branding?.logo_url ? (
-            <img
-              src={branding.logo_url}
-              alt=""
-              style={{ height: 56, maxWidth: 180, objectFit: "contain", margin: "0 auto 16px", display: "block" }}
-            />
-          ) : (
-            <div style={{
-              width: 56, height: 56, borderRadius: 16,
-              background: `${accent}1A`, border: `1px solid ${accent}33`,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              margin: "0 auto 16px",
-            }}>
-              <CheckCircle2 style={{ width: 28, height: 28, color: accent }} />
-            </div>
-          )}
+        {Header}
+        <div style={{ padding: 24 }}>
 
-          <h1 style={{ color: "#F0F0F0", fontSize: 20, fontWeight: 700, marginBottom: 6 }}>
-            Lista de Presença
-          </h1>
-          <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 14 }}>{course.title}</p>
-          {showDayLabel && (
-            <span style={{
-              display: "inline-block", marginTop: 8,
-              padding: "4px 14px", borderRadius: 99,
-              background: `${accent}1F`, border: `1px solid ${accent}40`,
-              color: accent, fontSize: 12, fontWeight: 700, letterSpacing: "0.05em",
-            }}>
-              Dia {dayNumber} de {numDays}
-            </span>
-          )}
-        </div>
-
-        {step === "email" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div>
-              <label style={{
-                display: "block", fontSize: 11, fontWeight: 600,
-                color: "rgba(255,255,255,0.35)", marginBottom: 8,
-                textTransform: "uppercase", letterSpacing: "0.08em",
-              }}>
-                E-mail usado na matrícula
-              </label>
-              <div style={{ position: "relative" }}>
-                <Mail style={{
-                  position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)",
-                  width: 16, height: 16, color: "rgba(255,255,255,0.25)",
-                }} />
-                <input
-                  type="email" value={email}
-                  onChange={e => setEmail(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && handleSubmit()}
-                  placeholder="seu@email.com"
-                  style={inputStyle}
-                />
-              </div>
-            </div>
-            <button
-              onClick={handleSubmit}
-              disabled={!email.trim()}
-              style={{
-                width: "100%", padding: "13px 0", borderRadius: 12,
-                background: email.trim() ? accent : `${accent}33`,
-                color: "#07080A", fontWeight: 700, fontSize: 14,
-                border: "none", cursor: email.trim() ? "pointer" : "default",
-                transition: "all 0.2s",
-              }}
-            >
-              Confirmar presença{showDayLabel ? ` — Dia ${dayNumber}` : ""}
-            </button>
-            {SocialSection}
-          </div>
-        )}
-
-        {step === "checking" && (
-          <div style={{ textAlign: "center", padding: "24px 0" }}>
-            <Loader2 className="animate-spin" style={{ width: 32, height: 32, color: accent, margin: "0 auto 12px" }} />
-            <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 14 }}>Verificando matrícula…</p>
-          </div>
-        )}
-
-        {step === "confirmed" && (
-          <div style={{ textAlign: "center" }}>
-            <div style={{
-              width: 64, height: 64, borderRadius: "50%",
-              background: "rgba(52,211,153,0.1)", border: "2px solid #34D399",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              margin: "0 auto 20px",
-            }}>
-              <CheckCircle2 style={{ width: 32, height: 32, color: "#34D399" }} />
-            </div>
-            <h2 style={{ color: "#F0F0F0", fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
-              Presença confirmada!
-            </h2>
-            <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 14, marginBottom: 4 }}>
-              Olá, <strong style={{ color: "#F0F0F0" }}>{studentName}</strong>.{" "}
-              {showDayLabel
-                ? `Sua presença no Dia ${dayNumber} foi registrada com sucesso.`
-                : "Sua presença foi registrada com sucesso."}
-            </p>
-            {SocialSection}
-          </div>
-        )}
-
-        {step === "already" && (
-          <div style={{ textAlign: "center" }}>
-            <div style={{
-              width: 64, height: 64, borderRadius: "50%",
-              background: `${accent}1A`, border: `2px solid ${accent}`,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              margin: "0 auto 20px",
-            }}>
-              <CheckCircle2 style={{ width: 32, height: 32, color: accent }} />
-            </div>
-            <h2 style={{ color: "#F0F0F0", fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
-              Você já marcou presença!
-            </h2>
-            <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 14, marginBottom: 4 }}>
-              Olá, <strong style={{ color: "#F0F0F0" }}>{studentName}</strong>.{" "}
-              {showDayLabel
-                ? `Sua presença no Dia ${dayNumber} já estava registrada.`
-                : "Sua presença neste curso já estava registrada."}
-            </p>
-            {SocialSection}
-          </div>
-        )}
-
-        {step === "not_found" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            <div style={{
-              padding: "14px 16px",
-              background: "rgba(248,113,113,0.08)",
-              border: "1px solid rgba(248,113,113,0.2)",
-              borderRadius: 12, display: "flex", gap: 12, alignItems: "flex-start",
-            }}>
-              <AlertTriangle style={{ width: 18, height: 18, color: "#F87171", flexShrink: 0, marginTop: 1 }} />
+          {step === "email" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div>
-                <p style={{ color: "#F87171", fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
-                  E-mail não encontrado
-                </p>
-                <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 12 }}>
-                  O e-mail <strong style={{ color: "rgba(255,255,255,0.7)" }}>{email}</strong>{" "}
-                  não está matriculado neste curso. Verifique o e-mail usado na matrícula.
-                </p>
+                <label style={{
+                  display: "block", fontSize: 11, fontWeight: 600,
+                  color: "rgba(255,255,255,0.35)", marginBottom: 8,
+                  textTransform: "uppercase", letterSpacing: "0.08em",
+                }}>E-mail usado na matrícula</label>
+                <div style={{ position: "relative" }}>
+                  <Mail style={{
+                    position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)",
+                    width: 16, height: 16, color: "rgba(255,255,255,0.25)",
+                  }} />
+                  <input
+                    type="email" value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && handleSubmit()}
+                    placeholder="seu@email.com"
+                    style={inputStyle}
+                    autoFocus
+                  />
+                </div>
               </div>
+              <button onClick={handleSubmit} disabled={!email.trim()}
+                style={{
+                  width: "100%", padding: "13px 0", borderRadius: 12,
+                  background: email.trim() ? accent : `${accent}33`,
+                  color: "#07080A", fontWeight: 700, fontSize: 14,
+                  border: "none", cursor: email.trim() ? "pointer" : "default", transition: "all 0.2s",
+                }}>
+                Confirmar presença{showDayLabel ? ` — Dia ${dayNumber}` : ""}
+              </button>
             </div>
-            <button
-              onClick={retry}
-              style={{
-                width: "100%", padding: "12px 0", borderRadius: 12,
-                background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.7)",
-                fontWeight: 600, fontSize: 14,
-                border: "1px solid rgba(255,255,255,0.1)", cursor: "pointer",
-              }}
-            >
-              Tentar outro e-mail
-            </button>
-          </div>
-        )}
+          )}
+
+          {step === "checking" && (
+            <div style={{ textAlign: "center", padding: "24px 0" }}>
+              <Loader2 className="animate-spin" style={{ width: 32, height: 32, color: accent, margin: "0 auto 12px" }} />
+              <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 14 }}>Verificando matrícula…</p>
+            </div>
+          )}
+
+          {step === "confirmed" && (
+            <div style={{ textAlign: "center" }}>
+              <div style={{
+                width: 64, height: 64, borderRadius: "50%",
+                background: "rgba(52,211,153,0.1)", border: "2px solid #34D399",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                margin: "0 auto 20px",
+              }}>
+                <CheckCircle2 style={{ width: 32, height: 32, color: "#34D399" }} />
+              </div>
+              <h2 style={{ color: "#F0F0F0", fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Presença confirmada!</h2>
+              <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 14 }}>
+                Olá, <strong style={{ color: "#F0F0F0" }}>{studentName}</strong>.{" "}
+                {showDayLabel ? `Sua presença no Dia ${dayNumber} foi registrada.` : "Sua presença foi registrada."}
+              </p>
+              {socialLinks.length > 0 && (
+                <div style={{ marginTop: 20, display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+                  {socialLinks.map(({ href, icon, label, color }) => (
+                    <a key={label} href={href} target="_blank" rel="noreferrer"
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: 6,
+                        padding: "7px 14px", borderRadius: 99,
+                        background: `${color}18`, border: `1px solid ${color}44`,
+                        color, fontSize: 12, fontWeight: 700, textDecoration: "none",
+                      }}>
+                      {icon} {label}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {step === "already" && (
+            <div style={{ textAlign: "center" }}>
+              <div style={{
+                width: 64, height: 64, borderRadius: "50%",
+                background: `${accent}1A`, border: `2px solid ${accent}`,
+                display: "flex", alignItems: "center", justifyContent: "center",
+                margin: "0 auto 20px",
+              }}>
+                <CheckCircle2 style={{ width: 32, height: 32, color: accent }} />
+              </div>
+              <h2 style={{ color: "#F0F0F0", fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Você já marcou presença!</h2>
+              <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 14 }}>
+                Olá, <strong style={{ color: "#F0F0F0" }}>{studentName}</strong>.{" "}
+                {showDayLabel ? `Sua presença no Dia ${dayNumber} já estava registrada.` : "Sua presença já estava registrada."}
+              </p>
+            </div>
+          )}
+
+          {step === "not_found" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{
+                padding: "14px 16px",
+                background: "rgba(248,113,113,0.08)",
+                border: "1px solid rgba(248,113,113,0.2)",
+                borderRadius: 12, display: "flex", gap: 12, alignItems: "flex-start",
+              }}>
+                <AlertTriangle style={{ width: 18, height: 18, color: "#F87171", flexShrink: 0, marginTop: 1 }} />
+                <div>
+                  <p style={{ color: "#F87171", fontSize: 13, fontWeight: 600, marginBottom: 4 }}>E-mail não encontrado</p>
+                  <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 12 }}>
+                    O e-mail <strong style={{ color: "rgba(255,255,255,0.7)" }}>{email}</strong>{" "}
+                    não está matriculado neste curso. Verifique o e-mail usado na matrícula.
+                  </p>
+                </div>
+              </div>
+              <button onClick={retry}
+                style={{
+                  width: "100%", padding: "12px 0", borderRadius: 12,
+                  background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.7)",
+                  fontWeight: 600, fontSize: 14,
+                  border: "1px solid rgba(255,255,255,0.1)", cursor: "pointer",
+                }}>
+                Tentar outro e-mail
+              </button>
+            </div>
+          )}
+
+        </div>
       </div>
     </div>
   );
