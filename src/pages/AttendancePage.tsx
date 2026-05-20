@@ -1,15 +1,22 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckCircle2, Loader2, Mail, AlertTriangle } from "lucide-react";
+import { CheckCircle2, Loader2, Mail, AlertTriangle, Instagram } from "lucide-react";
 
 type Step = "email" | "checking" | "confirmed" | "already" | "not_found";
+
+interface Branding {
+  logo_url: string | null;
+  instagram_handle: string | null;
+  primary_color: string;
+}
 
 export default function AttendancePage() {
   const { courseId, day } = useParams<{ courseId: string; day?: string }>();
   const dayNumber = day ? parseInt(day, 10) : 1;
 
-  const [course, setCourse] = useState<{ title: string; num_days?: number } | null>(null);
+  const [course, setCourse] = useState<{ title: string; num_days?: number; client_id?: string } | null>(null);
+  const [branding, setBranding] = useState<Branding | null>(null);
   const [loadingCourse, setLoadingCourse] = useState(true);
   const [email, setEmail] = useState("");
   const [step, setStep] = useState<Step>("email");
@@ -17,12 +24,25 @@ export default function AttendancePage() {
 
   useEffect(() => {
     if (!courseId) return;
-    (supabase as any)
-      .from("courses")
-      .select("title, num_days")
-      .eq("id", courseId)
-      .single()
-      .then(({ data }: any) => { setCourse(data); setLoadingCourse(false); });
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("courses")
+        .select("title, num_days, client_id")
+        .eq("id", courseId)
+        .single();
+
+      setCourse(data);
+      setLoadingCourse(false);
+
+      if (data?.client_id) {
+        const { data: brandData } = await (supabase as any)
+          .from("client_branding")
+          .select("logo_url, instagram_handle, primary_color")
+          .eq("client_id", data.client_id)
+          .single();
+        if (brandData) setBranding(brandData);
+      }
+    })();
   }, [courseId]);
 
   const handleSubmit = async () => {
@@ -63,6 +83,7 @@ export default function AttendancePage() {
 
   const numDays = course?.num_days ?? 1;
   const showDayLabel = numDays > 1;
+  const accent = branding?.primary_color ?? "#B9FF4B";
 
   const card: React.CSSProperties = {
     width: "100%", maxWidth: 440,
@@ -84,7 +105,7 @@ export default function AttendancePage() {
 
   if (loadingCourse) return (
     <div style={wrap}>
-      <Loader2 className="w-8 h-8 animate-spin" style={{ color: "#B9FF4B" }} />
+      <Loader2 className="w-8 h-8 animate-spin" style={{ color: accent }} />
     </div>
   );
 
@@ -94,18 +115,57 @@ export default function AttendancePage() {
     </div>
   );
 
+  const InstagramBadge = branding?.instagram_handle ? (
+    <a
+      href={`https://instagram.com/${branding.instagram_handle}`}
+      target="_blank"
+      rel="noreferrer"
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 6,
+        marginTop: 14, padding: "7px 16px", borderRadius: 99,
+        background: "rgba(255,255,255,0.05)",
+        border: "1px solid rgba(255,255,255,0.1)",
+        color: "rgba(255,255,255,0.6)", fontSize: 12, fontWeight: 600,
+        textDecoration: "none", transition: "all 0.2s",
+      }}
+      onMouseEnter={e => {
+        (e.currentTarget as HTMLElement).style.background = "rgba(225,48,108,0.12)";
+        (e.currentTarget as HTMLElement).style.borderColor = "rgba(225,48,108,0.35)";
+        (e.currentTarget as HTMLElement).style.color = "#E1306C";
+      }}
+      onMouseLeave={e => {
+        (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
+        (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.1)";
+        (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)";
+      }}
+    >
+      <Instagram style={{ width: 13, height: 13 }} />
+      Siga @{branding.instagram_handle} no Instagram
+    </a>
+  ) : null;
+
   return (
     <div style={wrap}>
       <div style={card}>
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{
-            width: 56, height: 56, borderRadius: 16,
-            background: "rgba(185,255,75,0.1)", border: "1px solid rgba(185,255,75,0.2)",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            margin: "0 auto 16px",
-          }}>
-            <CheckCircle2 style={{ width: 28, height: 28, color: "#B9FF4B" }} />
-          </div>
+          {/* Logo do cliente ou ícone padrão */}
+          {branding?.logo_url ? (
+            <img
+              src={branding.logo_url}
+              alt=""
+              style={{ height: 56, maxWidth: 180, objectFit: "contain", margin: "0 auto 16px", display: "block" }}
+            />
+          ) : (
+            <div style={{
+              width: 56, height: 56, borderRadius: 16,
+              background: `${accent}1A`, border: `1px solid ${accent}33`,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              margin: "0 auto 16px",
+            }}>
+              <CheckCircle2 style={{ width: 28, height: 28, color: accent }} />
+            </div>
+          )}
+
           <h1 style={{ color: "#F0F0F0", fontSize: 20, fontWeight: 700, marginBottom: 6 }}>
             Lista de Presença
           </h1>
@@ -114,12 +174,14 @@ export default function AttendancePage() {
             <span style={{
               display: "inline-block", marginTop: 8,
               padding: "4px 14px", borderRadius: 99,
-              background: "rgba(185,255,75,0.12)", border: "1px solid rgba(185,255,75,0.25)",
-              color: "#B9FF4B", fontSize: 12, fontWeight: 700, letterSpacing: "0.05em",
+              background: `${accent}1F`, border: `1px solid ${accent}40`,
+              color: accent, fontSize: 12, fontWeight: 700, letterSpacing: "0.05em",
             }}>
               Dia {dayNumber} de {numDays}
             </span>
           )}
+
+          {InstagramBadge}
         </div>
 
         {step === "email" && (
@@ -151,7 +213,7 @@ export default function AttendancePage() {
               disabled={!email.trim()}
               style={{
                 width: "100%", padding: "13px 0", borderRadius: 12,
-                background: email.trim() ? "#B9FF4B" : "rgba(185,255,75,0.2)",
+                background: email.trim() ? accent : `${accent}33`,
                 color: "#07080A", fontWeight: 700, fontSize: 14,
                 border: "none", cursor: email.trim() ? "pointer" : "default",
                 transition: "all 0.2s",
@@ -164,7 +226,7 @@ export default function AttendancePage() {
 
         {step === "checking" && (
           <div style={{ textAlign: "center", padding: "24px 0" }}>
-            <Loader2 className="animate-spin" style={{ width: 32, height: 32, color: "#B9FF4B", margin: "0 auto 12px" }} />
+            <Loader2 className="animate-spin" style={{ width: 32, height: 32, color: accent, margin: "0 auto 12px" }} />
             <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 14 }}>Verificando matrícula…</p>
           </div>
         )}
@@ -195,11 +257,11 @@ export default function AttendancePage() {
           <div style={{ textAlign: "center" }}>
             <div style={{
               width: 64, height: 64, borderRadius: "50%",
-              background: "rgba(185,255,75,0.1)", border: "2px solid #B9FF4B",
+              background: `${accent}1A`, border: `2px solid ${accent}`,
               display: "flex", alignItems: "center", justifyContent: "center",
               margin: "0 auto 20px",
             }}>
-              <CheckCircle2 style={{ width: 32, height: 32, color: "#B9FF4B" }} />
+              <CheckCircle2 style={{ width: 32, height: 32, color: accent }} />
             </div>
             <h2 style={{ color: "#F0F0F0", fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
               Você já marcou presença!
