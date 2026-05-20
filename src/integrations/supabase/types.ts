@@ -113,6 +113,48 @@ export type Database = {
         }
         Relationships: []
       }
+      client_branding: {
+        Row: {
+          client_id: string
+          created_at: string
+          facebook_url: string | null
+          id: string
+          instagram_handle: string | null
+          linkedin_url: string | null
+          logo_url: string | null
+          primary_color: string | null
+          updated_at: string
+          user_id: string
+          youtube_url: string | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          facebook_url?: string | null
+          id?: string
+          instagram_handle?: string | null
+          linkedin_url?: string | null
+          logo_url?: string | null
+          primary_color?: string | null
+          updated_at?: string
+          user_id: string
+          youtube_url?: string | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          facebook_url?: string | null
+          id?: string
+          instagram_handle?: string | null
+          linkedin_url?: string | null
+          logo_url?: string | null
+          primary_color?: string | null
+          updated_at?: string
+          user_id?: string
+          youtube_url?: string | null
+        }
+        Relationships: []
+      }
       client_calendar_events: {
         Row: {
           client_id: string
@@ -214,32 +256,65 @@ export type Database = {
         }
         Relationships: []
       }
+      course_attendance: {
+        Row: {
+          confirmed_at: string
+          course_id: string
+          day: number
+          id: string
+          student_email: string
+          student_name: string | null
+        }
+        Insert: {
+          confirmed_at?: string
+          course_id: string
+          day?: number
+          id?: string
+          student_email: string
+          student_name?: string | null
+        }
+        Update: {
+          confirmed_at?: string
+          course_id?: string
+          day?: number
+          id?: string
+          student_email?: string
+          student_name?: string | null
+        }
+        Relationships: []
+      }
       course_enrollments: {
         Row: {
+          can_emit_certificate: boolean
           completed_at: string | null
           course_id: string
           enrolled_at: string
           id: string
+          payment_confirmed: boolean
           progress: number | null
           student_email: string | null
           student_name: string
           user_id: string
         }
         Insert: {
+          can_emit_certificate?: boolean
           completed_at?: string | null
           course_id: string
           enrolled_at?: string
           id?: string
+          payment_confirmed?: boolean
           progress?: number | null
           student_email?: string | null
           student_name: string
           user_id: string
         }
         Update: {
+          can_emit_certificate?: boolean
           completed_at?: string | null
           course_id?: string
           enrolled_at?: string
           id?: string
+          payment_confirmed?: boolean
           progress?: number | null
           student_email?: string | null
           student_name?: string
@@ -257,36 +332,42 @@ export type Database = {
       }
       courses: {
         Row: {
+          client_id: string | null
           created_at: string
           description: string | null
           id: string
           image_url: string | null
           level: string | null
           modules_count: number | null
+          num_days: number
           status: string
           title: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          client_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
           image_url?: string | null
           level?: string | null
           modules_count?: number | null
+          num_days?: number
           status?: string
           title: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          client_id?: string | null
           created_at?: string
           description?: string | null
           id?: string
           image_url?: string | null
           level?: string | null
           modules_count?: number | null
+          num_days?: number
           status?: string
           title?: string
           updated_at?: string
