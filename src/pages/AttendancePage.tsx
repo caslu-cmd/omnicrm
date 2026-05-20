@@ -62,6 +62,9 @@ export default function AttendancePage() {
   useEffect(() => {
     if (loadingCourse || !course) return;
 
+    setVisibleMsgs([]);
+    setTyping(false);
+    setChatDone(false);
     const hasSocial = branding?.instagram_handle || branding?.facebook_url || branding?.youtube_url || branding?.linkedin_url;
 
     const msgs: ChatMsg[] = [
@@ -105,18 +108,26 @@ export default function AttendancePage() {
     const trimmed = email.trim().toLowerCase();
     if (!trimmed || !courseId) return;
     setStep("checking");
+    setErrorMessage("");
 
-    const { data: enrollment } = await (supabase as any)
+    const { data: enrollment, error: enrollmentError } = await (supabase as any)
       .from("course_enrollments")
       .select("student_name, student_email")
       .eq("course_id", courseId)
       .ilike("student_email", trimmed)
-      .single();
+      .limit(1)
+      .maybeSingle();
 
+    if (enrollmentError) {
+      console.error("Erro ao verificar matrícula:", enrollmentError);
+      setErrorMessage("Não foi possível verificar sua matrícula agora. Tente novamente em instantes.");
+      setStep("error");
+      return;
+    }
     if (!enrollment) { setStep("not_found"); return; }
     setStudentName(enrollment.student_name);
 
-    const { data: existing } = await (supabase as any)
+    const { data: existing, error: existingError } = await (supabase as any)
       .from("course_attendance")
       .select("id")
       .eq("course_id", courseId)
@@ -124,14 +135,27 @@ export default function AttendancePage() {
       .ilike("student_email", trimmed)
       .maybeSingle();
 
+    if (existingError) {
+      console.error("Erro ao consultar presença:", existingError);
+      setErrorMessage("Não foi possível consultar sua presença agora. Tente novamente.");
+      setStep("error");
+      return;
+    }
     if (existing) { setStep("already"); return; }
 
-    await (supabase as any).from("course_attendance").insert({
+    const { data: savedAttendance, error: insertError } = await (supabase as any).from("course_attendance").insert({
       course_id: courseId,
       student_email: trimmed,
       student_name: enrollment.student_name,
       day: dayNumber,
-    });
+    }).select("id").single();
+
+    if (insertError || !savedAttendance) {
+      console.error("Erro ao gravar presença:", insertError);
+      setErrorMessage("Sua matrícula foi encontrada, mas a presença não foi gravada. Tente novamente.");
+      setStep("error");
+      return;
+    }
     setStep("confirmed");
   };
 
