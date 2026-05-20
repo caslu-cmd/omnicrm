@@ -9633,14 +9633,8 @@ Regras:
                   const numDays = course.num_days ?? 1;
                   const selectedDay = selectedQrDay[course.id] ?? 1;
                   const activeDay = Math.min(Math.max(1, selectedDay), numDays);
-                  const productionAttendanceUrl = "https://www.caluagencia.com.br";
                   const currentOrigin = typeof window !== "undefined" ? window.location.origin : "";
-                  const currentHost = (() => {
-                    try { return currentOrigin ? new URL(currentOrigin).hostname : ""; }
-                    catch { return ""; }
-                  })();
-                  const isPublicAttendanceHost = ["www.caluagencia.com.br", "caluagencia.com.br", "caluagencia.lovable.app"].includes(currentHost);
-                  const attendanceBaseUrl = isPublicAttendanceHost ? currentOrigin : productionAttendanceUrl;
+                  const attendanceBaseUrl = currentOrigin || "https://www.caluagencia.com.br";
                   const presencaUrl = `${attendanceBaseUrl}/presenca/${course.id}/${activeDay}`;
 
                   return (
