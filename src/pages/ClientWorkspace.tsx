@@ -1006,9 +1006,9 @@ export default function ClientWorkspace() {
   const [dbGroupMembers, setDbGroupMembers] = useState<Record<string, any[]>>({});
   const [coursesLoading, setCoursesLoading] = useState(false);
   const [showNewCourse, setShowNewCourse] = useState(false);
-  const [newCourseForm, setNewCourseForm] = useState({ title: "", description: "", level: "Básico", num_days: 1 });
+  const [newCourseForm, setNewCourseForm] = useState({ title: "", description: "", level: "Básico", num_days: 1, start_date: "" });
   const [editCourseId, setEditCourseId] = useState<string | null>(null);
-  const [editCourseForm, setEditCourseForm] = useState({ title: "", description: "", level: "Básico", num_days: 1 });
+  const [editCourseForm, setEditCourseForm] = useState({ title: "", description: "", level: "Básico", num_days: 1, start_date: "" });
   const [selectedQrDay, setSelectedQrDay] = useState<Record<string, number>>({});
   const [savingCourse, setSavingCourse] = useState(false);
   const [showAddStudent, setShowAddStudent] = useState<string | null>(null);
@@ -2935,9 +2935,10 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
       title: newCourseForm.title, description: newCourseForm.description || null,
       level: newCourseForm.level, status: "active",
       num_days: newCourseForm.num_days ?? 1,
+      start_date: newCourseForm.start_date || null,
     });
     setShowNewCourse(false);
-    setNewCourseForm({ title: "", description: "", level: "Básico", num_days: 1 });
+    setNewCourseForm({ title: "", description: "", level: "Básico", num_days: 1, start_date: "" });
     loadDbCourses();
     toast.success("Curso criado!");
     setSavingCourse(false);
@@ -3134,12 +3135,23 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
       description: editCourseForm.description || null,
       level: editCourseForm.level,
       num_days: editCourseForm.num_days ?? 1,
+      start_date: editCourseForm.start_date || null,
     }).eq("id", courseId);
     setDbCourses(prev => prev.map(c => c.id === courseId
-      ? { ...c, title: editCourseForm.title, description: editCourseForm.description || null, level: editCourseForm.level, num_days: editCourseForm.num_days }
+      ? { ...c, title: editCourseForm.title, description: editCourseForm.description || null, level: editCourseForm.level, num_days: editCourseForm.num_days, start_date: editCourseForm.start_date || null }
       : c));
     setEditCourseId(null);
     toast.success("Curso atualizado!");
+  };
+
+  // Calendar date for a given course day (1-indexed). Returns "" if no start_date set.
+  const getCourseDayDate = (course: any, dayNumber: number): string => {
+    if (!course?.start_date) return "";
+    const [y, m, d] = String(course.start_date).split("-").map(Number);
+    if (!y || !m || !d) return "";
+    const base = new Date(y, m - 1, d);
+    base.setDate(base.getDate() + (dayNumber - 1));
+    return base.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
   };
 
   const PHASE_LABELS: Record<string, string> = {
