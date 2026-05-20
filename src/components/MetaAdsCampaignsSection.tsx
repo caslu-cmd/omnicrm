@@ -485,7 +485,7 @@ function CampaignModal({
       : fullText;
 
     // Update API messages history
-    const newApiMessages = [...apiMessagesRef.current, { role: "user", content: apiContent }];
+    const newApiMessages = [...apiMessagesRef.current, { role: "user" as const, content: apiContent }];
     apiMessagesRef.current = newApiMessages;
 
     // Update display messages
