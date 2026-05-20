@@ -1,14 +1,16 @@
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { CheckCircle2, Loader2, Mail, AlertTriangle, Instagram, Facebook } from "lucide-react";
+import { CheckCircle2, Loader2, Mail, AlertTriangle, Instagram, Facebook, Youtube, Linkedin } from "lucide-react";
 
 type Step = "email" | "checking" | "confirmed" | "already" | "not_found";
 
 interface Branding {
   logo_url: string | null;
   instagram_handle: string | null;
-  facebook_handle: string | null;
+  facebook_url: string | null;
+  youtube_url: string | null;
+  linkedin_url: string | null;
   primary_color: string;
 }
 
@@ -38,7 +40,7 @@ export default function AttendancePage() {
       if (data?.client_id) {
         const { data: brandData } = await (supabase as any)
           .from("client_branding")
-          .select("logo_url, instagram_handle, facebook_handle, primary_color")
+          .select("logo_url, instagram_handle, facebook_url, youtube_url, linkedin_url, primary_color")
           .eq("client_id", data.client_id)
           .single();
         if (brandData) setBranding(brandData);
@@ -87,7 +89,7 @@ export default function AttendancePage() {
   const accent = branding?.primary_color ?? "#B9FF4B";
 
   const card: React.CSSProperties = {
-    width: "100%", maxWidth: 440,
+    width: "100%", maxWidth: 460,
     background: "#0A0A10",
     border: "1px solid rgba(255,255,255,0.08)",
     borderRadius: 20, padding: 36,
@@ -116,66 +118,95 @@ export default function AttendancePage() {
     </div>
   );
 
-  const socialLinkStyle: React.CSSProperties = {
-    display: "inline-flex", alignItems: "center", gap: 6,
-    padding: "7px 16px", borderRadius: 99,
-    background: "rgba(255,255,255,0.05)",
-    border: "1px solid rgba(255,255,255,0.1)",
-    color: "rgba(255,255,255,0.6)", fontSize: 12, fontWeight: 600,
-    textDecoration: "none", transition: "all 0.2s",
-  };
+  const socialLinks = [
+    branding?.instagram_handle && {
+      href: `https://instagram.com/${branding.instagram_handle}`,
+      icon: <Instagram style={{ width: 14, height: 14 }} />,
+      label: "Instagram",
+      hoverColor: "#E1306C",
+      hoverBg: "rgba(225,48,108,0.12)",
+      hoverBorder: "rgba(225,48,108,0.35)",
+    },
+    branding?.facebook_url && {
+      href: branding.facebook_url,
+      icon: <Facebook style={{ width: 14, height: 14 }} />,
+      label: "Facebook",
+      hoverColor: "#1877F2",
+      hoverBg: "rgba(24,119,242,0.12)",
+      hoverBorder: "rgba(24,119,242,0.35)",
+    },
+    branding?.youtube_url && {
+      href: branding.youtube_url,
+      icon: <Youtube style={{ width: 14, height: 14 }} />,
+      label: "YouTube",
+      hoverColor: "#FF0000",
+      hoverBg: "rgba(255,0,0,0.12)",
+      hoverBorder: "rgba(255,0,0,0.35)",
+    },
+    branding?.linkedin_url && {
+      href: branding.linkedin_url,
+      icon: <Linkedin style={{ width: 14, height: 14 }} />,
+      label: "LinkedIn",
+      hoverColor: "#0A66C2",
+      hoverBg: "rgba(10,102,194,0.12)",
+      hoverBorder: "rgba(10,102,194,0.35)",
+    },
+  ].filter(Boolean) as { href: string; icon: React.ReactNode; label: string; hoverColor: string; hoverBg: string; hoverBorder: string }[];
 
-  const hasSocial = branding?.instagram_handle || branding?.facebook_handle;
-  const SocialBadges = hasSocial ? (
-    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center", marginTop: 14 }}>
-      {branding?.instagram_handle && (
-        <a
-          href={`https://instagram.com/${branding.instagram_handle}`}
-          target="_blank" rel="noreferrer"
-          style={socialLinkStyle}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLElement).style.background = "rgba(225,48,108,0.12)";
-            (e.currentTarget as HTMLElement).style.borderColor = "rgba(225,48,108,0.35)";
-            (e.currentTarget as HTMLElement).style.color = "#E1306C";
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
-            (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.1)";
-            (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)";
-          }}
-        >
-          <Instagram style={{ width: 13, height: 13 }} />
-          Siga @{branding.instagram_handle}
-        </a>
-      )}
-      {branding?.facebook_handle && (
-        <a
-          href={`https://facebook.com/${branding.facebook_handle}`}
-          target="_blank" rel="noreferrer"
-          style={socialLinkStyle}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLElement).style.background = "rgba(24,119,242,0.12)";
-            (e.currentTarget as HTMLElement).style.borderColor = "rgba(24,119,242,0.35)";
-            (e.currentTarget as HTMLElement).style.color = "#1877F2";
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)";
-            (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.1)";
-            (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.6)";
-          }}
-        >
-          <Facebook style={{ width: 13, height: 13 }} />
-          Siga @{branding.facebook_handle}
-        </a>
-      )}
+  const hasSocial = socialLinks.length > 0;
+
+  const SocialSection = hasSocial ? (
+    <div style={{
+      marginTop: 20,
+      padding: "16px",
+      background: "rgba(255,255,255,0.03)",
+      border: "1px solid rgba(255,255,255,0.07)",
+      borderRadius: 14,
+      textAlign: "center",
+    }}>
+      <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 12, lineHeight: 1.6, marginBottom: 12 }}>
+        🎁 <strong style={{ color: "rgba(255,255,255,0.8)" }}>Siga nossas redes</strong> e fique por dentro em primeira mão de descontos, capacitações exclusivas e lançamentos especiais. Compartilhe com seus colegas também — quanto mais souberem, melhor para todos!
+      </p>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+        {socialLinks.map(({ href, icon, label, hoverColor, hoverBg, hoverBorder }) => (
+          <a
+            key={label}
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            style={{
+              display: "inline-flex", alignItems: "center", gap: 6,
+              padding: "7px 14px", borderRadius: 99,
+              background: "rgba(255,255,255,0.05)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              color: "rgba(255,255,255,0.6)", fontSize: 12, fontWeight: 600,
+              textDecoration: "none", transition: "all 0.2s",
+            }}
+            onMouseEnter={e => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.background = hoverBg;
+              el.style.borderColor = hoverBorder;
+              el.style.color = hoverColor;
+            }}
+            onMouseLeave={e => {
+              const el = e.currentTarget as HTMLElement;
+              el.style.background = "rgba(255,255,255,0.05)";
+              el.style.borderColor = "rgba(255,255,255,0.1)";
+              el.style.color = "rgba(255,255,255,0.6)";
+            }}
+          >
+            {icon}
+            {label}
+          </a>
+        ))}
+      </div>
     </div>
   ) : null;
 
   return (
     <div style={wrap}>
       <div style={card}>
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
-          {/* Logo do cliente ou ícone padrão */}
+        <div style={{ textAlign: "center", marginBottom: 28 }}>
           {branding?.logo_url ? (
             <img
               src={branding.logo_url}
@@ -207,8 +238,6 @@ export default function AttendancePage() {
               Dia {dayNumber} de {numDays}
             </span>
           )}
-
-          {SocialBadges}
         </div>
 
         {step === "email" && (
@@ -248,6 +277,7 @@ export default function AttendancePage() {
             >
               Confirmar presença{showDayLabel ? ` — Dia ${dayNumber}` : ""}
             </button>
+            {SocialSection}
           </div>
         )}
 
@@ -271,12 +301,13 @@ export default function AttendancePage() {
             <h2 style={{ color: "#F0F0F0", fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
               Presença confirmada!
             </h2>
-            <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 14 }}>
+            <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 14, marginBottom: 4 }}>
               Olá, <strong style={{ color: "#F0F0F0" }}>{studentName}</strong>.{" "}
               {showDayLabel
                 ? `Sua presença no Dia ${dayNumber} foi registrada com sucesso.`
                 : "Sua presença foi registrada com sucesso."}
             </p>
+            {SocialSection}
           </div>
         )}
 
@@ -293,12 +324,13 @@ export default function AttendancePage() {
             <h2 style={{ color: "#F0F0F0", fontSize: 18, fontWeight: 700, marginBottom: 8 }}>
               Você já marcou presença!
             </h2>
-            <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 14 }}>
+            <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 14, marginBottom: 4 }}>
               Olá, <strong style={{ color: "#F0F0F0" }}>{studentName}</strong>.{" "}
               {showDayLabel
                 ? `Sua presença no Dia ${dayNumber} já estava registrada.`
                 : "Sua presença neste curso já estava registrada."}
             </p>
+            {SocialSection}
           </div>
         )}
 
