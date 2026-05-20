@@ -37,6 +37,7 @@ export default function AttendancePage() {
   useEffect(() => {
     if (!courseId) return;
     (async () => {
+      setLoadingCourse(true);
       const { data } = await (supabase as any)
         .from("courses")
         .select("title, num_days, client_id")
@@ -44,7 +45,6 @@ export default function AttendancePage() {
         .single();
 
       setCourse(data);
-      setLoadingCourse(false);
 
       if (data?.client_id) {
         const { data: brandData } = await (supabase as any)
@@ -54,6 +54,7 @@ export default function AttendancePage() {
           .single();
         if (brandData) setBranding(brandData);
       }
+      setLoadingCourse(false);
     })();
   }, [courseId]);
 
