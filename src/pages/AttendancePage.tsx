@@ -157,7 +157,7 @@ export default function AttendancePage() {
 
       const { data: enrollments, error: enrollmentError } = await (supabase as any)
         .from("course_enrollments")
-        .select("id, student_name, student_email, student_phone")
+        .select("id, student_name, student_email")
         .eq("course_id", courseId);
 
       if (enrollmentError) {
