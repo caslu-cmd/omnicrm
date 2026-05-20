@@ -161,7 +161,7 @@ export default function AttendancePage() {
     setStep("confirmed");
   };
 
-  const retry = () => { setEmail(""); setStep("email"); };
+  const retry = () => { setEmail(""); setEmailInChat(true); setStep("chat"); };
 
   const numDays = course?.num_days ?? 1;
   const showDayLabel = numDays > 1;
