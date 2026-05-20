@@ -317,18 +317,20 @@ export default function AttendancePage() {
                     }}>
                       {msg.text}
                     </div>
-                    <div style={{ marginTop: 12 }}>
-                      <button
-                        onClick={() => setEmailInChat(true)}
-                        style={{
-                          width: "100%", padding: "13px 0", borderRadius: 12,
-                          background: accent, color: "#07080A",
-                          fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer",
-                        }}
-                      >
-                        Confirmar presença{showDayLabel ? ` — Dia ${dayNumber}` : ""}
-                      </button>
-                    </div>
+                    {!emailInChat && (
+                      <div style={{ marginTop: 12 }}>
+                        <button
+                          onClick={() => setEmailInChat(true)}
+                          style={{
+                            width: "100%", padding: "13px 0", borderRadius: 12,
+                            background: accent, color: "#07080A",
+                            fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer",
+                          }}
+                        >
+                          Confirmar presença{showDayLabel ? ` — Dia ${dayNumber}` : ""}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               }
