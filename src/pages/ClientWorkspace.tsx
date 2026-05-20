@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+﻿import { useState, useRef, useEffect } from "react";
 import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -1040,7 +1040,7 @@ export default function ClientWorkspace() {
   // Course attendance
   const [dbAttendance, setDbAttendance] = useState<Record<string, any[]>>({});
   const [attendanceCourseId, setAttendanceCourseId] = useState<string | null>(null);
-  const [attendDayFilter, setAttendDayFilter] = useState<Record<string, number | "all">>({});
+  const [attendDayFilter, setAttendDayFilter] = useState<Record<string, string>>({});
   // Course checklists
   const [dbChecklists, setDbChecklists] = useState<Record<string, any[]>>({});
   const [checklistGenerating, setChecklistGenerating] = useState<string | null>(null); // `${courseId}_${phase}`
@@ -10514,7 +10514,7 @@ Regras:
                                           <button key={d}
                                             onClick={() => {
                                               setSelectedQrDay(prev => ({ ...prev, [course.id]: d }));
-                                              setAttendDayFilter(prev => ({ ...prev, [course.id]: d }));
+                                              setAttendDayFilter(prev => ({ ...prev, [course.id]: String(d) }));
                                             }}
                                             className="px-3 py-1 rounded-lg text-[10px] font-semibold transition-all"
                                             style={{
@@ -10603,140 +10603,132 @@ Regras:
                                   )}
                                 </div>
 
-                                {/* List — por aluno matriculado com dias, pagamento e certificado */}
+                                {/* Lista de confirmados via QR */}
                                 <div className="space-y-3">
                                   <div className="flex items-center justify-between flex-wrap gap-2">
                                     <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.3)" }}>
-                                      Alunos matriculados
+                                      Confirmados via QR
                                     </label>
-                                    {/* Filtro por dia */}
-                                    {numDays > 1 && (
-                                      <div className="flex gap-1 flex-wrap">
-                                        {(["all", ...Array.from({ length: numDays }, (_, i) => i + 1)] as (number | "all")[]).map(d => {
-                                          const active = (attendDayFilter[course.id] ?? "all") === d;
-                                          return (
-                                            <button key={String(d)}
-                                              onClick={() => setAttendDayFilter(p => ({ ...p, [course.id]: d }))}
-                                              className="px-2.5 py-1 rounded-lg text-[9px] font-bold transition-all"
-                                              style={{
-                                                background: active ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.04)",
-                                                color: active ? "#34D399" : "rgba(255,255,255,0.3)",
-                                                border: `1px solid ${active ? "rgba(52,211,153,0.3)" : "rgba(255,255,255,0.07)"}`,
-                                              }}>
-                                              {d === "all" ? "Todos" : (getCourseDayDate(course, d as number) || `Dia ${d}`)}
-                                            </button>
-                                          );
-                                        })}
-                                      </div>
-                                    )}
+                                    {/* Filtro por data */}
+                                    {numDays > 1 && (() => {
+                                      const uniqueDates = [...new Set(
+                                        attending.map((a: any) => a.attendance_date as string | null).filter(Boolean)
+                                      )].sort() as string[];
+                                      const hasRealDates = uniqueDates.length > 0;
+                                      const tabs: string[] = hasRealDates
+                                        ? uniqueDates
+                                        : Array.from({ length: numDays }, (_, i) => String(i + 1));
+                                      const currentFilter = attendDayFilter[course.id] ?? "all";
+                                      return (
+                                        <div className="flex gap-1 flex-wrap">
+                                          <button
+                                            onClick={() => setAttendDayFilter(p => ({ ...p, [course.id]: "all" }))}
+                                            className="px-2.5 py-1 rounded-lg text-[9px] font-bold transition-all"
+                                            style={{
+                                              background: currentFilter === "all" ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.04)",
+                                              color: currentFilter === "all" ? "#34D399" : "rgba(255,255,255,0.3)",
+                                              border: `1px solid ${currentFilter === "all" ? "rgba(52,211,153,0.3)" : "rgba(255,255,255,0.07)"}`,
+                                            }}>
+                                            Todos
+                                          </button>
+                                          {tabs.map(tab => {
+                                            const label = hasRealDates
+                                              ? tab.slice(5).split("-").reverse().join("/")
+                                              : (getCourseDayDate(course, Number(tab)) || `Dia ${tab}`);
+                                            const active = currentFilter === tab;
+                                            return (
+                                              <button key={tab}
+                                                onClick={() => setAttendDayFilter(p => ({ ...p, [course.id]: tab }))}
+                                                className="px-2.5 py-1 rounded-lg text-[9px] font-bold transition-all"
+                                                style={{
+                                                  background: active ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.04)",
+                                                  color: active ? "#34D399" : "rgba(255,255,255,0.3)",
+                                                  border: `1px solid ${active ? "rgba(52,211,153,0.3)" : "rgba(255,255,255,0.07)"}`,
+                                                }}>
+                                                {label}
+                                              </button>
+                                            );
+                                          })}
+                                        </div>
+                                      );
+                                    })()}
                                   </div>
 
                                   {(() => {
-                                    const normalizeAttendanceEmail = (value: string | null | undefined) => (value ?? "")
-                                      .normalize("NFD")
-                                      .replace(/[\u0300-\u036f]/g, "")
-                                      .replace(/[\u200B-\u200D\uFEFF]/g, "")
-                                      .replace(/\s+/g, "")
-                                      .trim()
-                                      .toLowerCase();
-
-                                    // attendance by student email → set of days attended
-                                    const attByEmail: Record<string, Set<number>> = {};
+                                    // Show only students who confirmed via QR, deduplicated by email
+                                    const seenKeys = new Set<string>();
+                                    const confirmedStudents: any[] = [];
                                     attending.forEach((a: any) => {
-                                      const key = normalizeAttendanceEmail(a.student_email);
+                                      const key = (a.student_email ?? "").trim().toLowerCase();
+                                      if (!key || seenKeys.has(key)) return;
+                                      seenKeys.add(key);
+                                      confirmedStudents.push(a);
+                                    });
+
+                                    // All records per email (to show multiple date badges)
+                                    const recordsByEmail: Record<string, any[]> = {};
+                                    attending.forEach((a: any) => {
+                                      const key = (a.student_email ?? "").trim().toLowerCase();
                                       if (!key) return;
-                                      if (!attByEmail[key]) attByEmail[key] = new Set();
-                                      attByEmail[key].add(a.day ?? 1);
+                                      if (!recordsByEmail[key]) recordsByEmail[key] = [];
+                                      recordsByEmail[key].push(a);
                                     });
 
-                                    // Lista todos os alunos matriculados + qualquer presente que não esteja matriculado
-                                    const seenEmails = new Set<string>();
-                                    const allStudents: any[] = [];
-                                    (students ?? []).forEach((s: any) => {
-                                      const key = normalizeAttendanceEmail(s.student_email);
-                                      if (seenEmails.has(key)) return;
-                                      seenEmails.add(key);
-                                      allStudents.push(s);
-                                    });
-                                    attending.forEach((a: any) => {
-                                      const key = normalizeAttendanceEmail(a.student_email);
-                                      if (seenEmails.has(key)) return;
-                                      seenEmails.add(key);
-                                      allStudents.push({ student_email: a.student_email, student_name: a.student_name, id: null });
-                                    });
+                                    const currentFilter = attendDayFilter[course.id] ?? "all";
+                                    const visible = currentFilter === "all"
+                                      ? confirmedStudents
+                                      : confirmedStudents.filter((s: any) => {
+                                          const key = (s.student_email ?? "").trim().toLowerCase();
+                                          const recs = recordsByEmail[key] ?? [];
+                                          return recs.some((r: any) =>
+                                            r.attendance_date === currentFilter || String(r.day ?? 1) === currentFilter
+                                          );
+                                        });
 
-                                    const dayFilter = attendDayFilter[course.id] ?? "all";
-                                    const visible = dayFilter === "all"
-                                      ? allStudents
-                                      : allStudents.filter((s: any) => attByEmail[normalizeAttendanceEmail(s.student_email)]?.has(dayFilter as number));
-
-                                    if (allStudents.length === 0) return (
+                                    if (confirmedStudents.length === 0) return (
                                       <div className="py-8 text-center rounded-xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.07)" }}>
-                                        <CheckCircle2 className="w-8 h-8 mx-auto mb-2" style={{ color: "rgba(255,255,255,0.08)" }} />
-                                        <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.25)" }}>Nenhum aluno matriculado.</p>
+                                        <QrCode className="w-8 h-8 mx-auto mb-2" style={{ color: "rgba(255,255,255,0.08)" }} />
+                                        <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.25)" }}>Nenhum aluno confirmou presença ainda.</p>
+                                        <p className="text-[9px] mt-1" style={{ color: "rgba(255,255,255,0.15)" }}>Os alunos aparecem aqui ao escanear o QR code.</p>
+                                      </div>
+                                    );
+
+                                    if (visible.length === 0) return (
+                                      <div className="py-6 text-center rounded-xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.07)" }}>
+                                        <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.25)" }}>Nenhuma presença nesta data.</p>
                                       </div>
                                     );
 
                                     return (
                                       <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
-                                        {visible.map((s: any) => {
-                                          const emailKey = normalizeAttendanceEmail(s.student_email);
-                                          const daysAttended = attByEmail[emailKey] ?? new Set<number>();
-                                          const totalAttended = daysAttended.size;
-                                          const allDaysOk = totalAttended >= numDays;
-                                          const canToggleCert = allDaysOk && s.payment_confirmed;
+                                        {visible.map((s: any, idx: number) => {
+                                          const emailKey = (s.student_email ?? "").trim().toLowerCase();
+                                          const recs = recordsByEmail[emailKey] ?? [];
                                           return (
-                                            <div key={s.id} className="rounded-xl px-3 py-2.5 space-y-2"
-                                              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
-                                              {/* Nome + email */}
+                                            <div key={emailKey || idx} className="rounded-xl px-3 py-2.5"
+                                              style={{ background: "rgba(52,211,153,0.04)", border: "1px solid rgba(52,211,153,0.12)" }}>
                                               <div className="flex items-center gap-2">
                                                 <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
-                                                  style={{ background: "rgba(52,211,153,0.15)", color: "#34D399" }}>
+                                                  style={{ background: "rgba(52,211,153,0.2)", color: "#34D399" }}>
                                                   {s.student_name?.charAt(0)?.toUpperCase() ?? "?"}
                                                 </div>
                                                 <div className="flex-1 min-w-0">
                                                   <p className="text-[11px] font-semibold truncate" style={{ color: "rgba(255,255,255,0.85)" }}>{s.student_name}</p>
                                                   <p className="text-[9px] truncate" style={{ color: "rgba(255,255,255,0.3)" }}>{s.student_email}</p>
                                                 </div>
-                                                {/* Dias presentes */}
-                                                <div className="flex gap-1 flex-shrink-0">
-                                                  {numDays === 1 ? (
-                                                    daysAttended.has(1)
-                                                      ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: "rgba(52,211,153,0.15)", color: "#34D399" }}>✓ Presente</span>
-                                                      : <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: "rgba(248,113,113,0.1)", color: "#F87171" }}>✗ Ausente</span>
-                                                  ) : (
-                                                    Array.from({ length: numDays }, (_, i) => i + 1).map(d => (
-                                                      <span key={d} className="text-[9px] font-bold px-1.5 py-0.5 rounded"
-                                                        style={daysAttended.has(d)
-                                                          ? { background: "rgba(52,211,153,0.15)", color: "#34D399" }
-                                                          : { background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.2)" }}>
-                                                        {getCourseDayDate(course, d) || `D${d}`}{daysAttended.has(d) ? "✓" : "✗"}
+                                                <div className="flex gap-1 flex-wrap flex-shrink-0">
+                                                  {recs.map((r: any, i: number) => {
+                                                    const label = r.attendance_date
+                                                      ? r.attendance_date.slice(5).split("-").reverse().join("/")
+                                                      : (getCourseDayDate(course, r.day ?? 1) || `D${r.day ?? 1}`);
+                                                    return (
+                                                      <span key={i} className="text-[9px] font-bold px-1.5 py-0.5 rounded"
+                                                        style={{ background: "rgba(52,211,153,0.15)", color: "#34D399" }}>
+                                                        {label}
                                                       </span>
-                                                    ))
-                                                  )}
+                                                    );
+                                                  })}
                                                 </div>
-                                              </div>
-                                              {/* Controles pagamento + certificado */}
-                                              <div className="flex gap-2">
-                                                <button
-                                                  onClick={() => toggleEnrollmentField(course.id, s.id, "payment_confirmed", !s.payment_confirmed)}
-                                                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold flex-1 justify-center transition-all"
-                                                  style={s.payment_confirmed
-                                                    ? { background: "rgba(52,211,153,0.12)", color: "#34D399", border: "1px solid rgba(52,211,153,0.25)" }
-                                                    : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.35)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                                                  {s.payment_confirmed ? "✓ Pago" : "Pagamento"}
-                                                </button>
-                                                <button
-                                                  onClick={() => toggleEnrollmentField(course.id, s.id, "can_emit_certificate", !s.can_emit_certificate)}
-                                                  title={!canToggleCert ? `Atenção: ${!allDaysOk ? `${totalAttended}/${numDays} dias` : ""}${!allDaysOk && !s.payment_confirmed ? " + " : ""}${!s.payment_confirmed ? "pagamento pendente" : ""}` : ""}
-                                                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold flex-1 justify-center transition-all"
-                                                  style={s.can_emit_certificate
-                                                    ? { background: "rgba(250,204,21,0.15)", color: "#FBBF24", border: "1px solid rgba(250,204,21,0.3)", cursor: "pointer" }
-                                                    : !canToggleCert
-                                                      ? { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.4)", border: "1px dashed rgba(255,255,255,0.15)", cursor: "pointer" }
-                                                      : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.35)", border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer" }}>
-                                                  {s.can_emit_certificate ? "🎓 Cert. liberado" : "Liberar cert."}
-                                                </button>
                                               </div>
                                             </div>
                                           );

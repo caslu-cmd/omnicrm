@@ -74,12 +74,12 @@ export default function AttendancePage() {
       }
       setLoadingCourse(false);
     })();
-  }, [courseId]);
+  }, [courseId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Build chat messages after course loaded
   useEffect(() => {
     if (loadingCourse || !course) return;
-    if (chatBuiltRef.current) return; // build once — don't reset when branding loads late
+    if (chatBuiltRef.current) return;
     chatBuiltRef.current = true;
 
     setVisibleMsgs([]);
@@ -105,9 +105,7 @@ export default function AttendancePage() {
     const schedule = () => {
       if (i >= msgs.length) { setChatDone(true); return; }
       const msg = msgs[i];
-      // pause before showing typing (gives time to read previous msg)
       const readPause = i === 0 ? 500 : 1400;
-      // typing duration scales with text length so longer msgs feel natural
       const typingDuration = msg.type === "social" || msg.type === "cta"
         ? 700
         : Math.min(2800, Math.max(1100, msg.text.length * 35));
@@ -138,93 +136,100 @@ export default function AttendancePage() {
     setStep("checking");
     setErrorMessage("");
 
-    const normText = (s: string | null | undefined) => (s ?? "")
-      .normalize("NFD")
-      .replace(/[\u0300-\u036f]/g, "")
-      .replace(/[\u200B-\u200D\uFEFF]/g, "")
-      .replace(/\s+/g, " ")
-      .trim()
-      .toLowerCase();
-    const normEmail = (s: string | null | undefined) => normText(s).replace(/\s/g, "");
+    const normEmail = (s: string | null | undefined) =>
+      (s ?? "")
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .replace(/[​-‍﻿]/g, "")
+        .trim()
+        .toLowerCase()
+        .replace(/\s/g, "");
 
     try {
-      const looksLikeEmail = typed.includes("@");
       const typedEmail = normEmail(typed);
-
-      if (!looksLikeEmail || !typedEmail.includes("@")) {
+      if (!typedEmail.includes("@")) {
         setErrorMessage("Informe o e-mail usado na sua matrícula.");
         setStep("error");
         return;
       }
 
-      const { data: enrollments, error: enrollmentError } = await (supabase as any)
+      // Compute the actual calendar date for this QR code's day
+      let attendanceDate: string | null = null;
+      if (course?.start_date) {
+        const [y, m, d] = String(course.start_date).split("-").map(Number);
+        const dt = new Date(y, m - 1, d);
+        dt.setDate(dt.getDate() + dayNumber - 1);
+        attendanceDate = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}-${String(dt.getDate()).padStart(2, "0")}`;
+      }
+
+      // Try server-side ilike first (fast), then client-side normalization fallback
+      let enrollment: any = null;
+      const { data: directMatch } = await (supabase as any)
         .from("course_enrollments")
         .select("id, student_name, student_email")
-        .eq("course_id", courseId);
+        .eq("course_id", courseId)
+        .ilike("student_email", typedEmail)
+        .limit(1)
+        .maybeSingle();
 
-      if (enrollmentError) {
-        console.error("Erro ao verificar matrícula:", enrollmentError);
-        setErrorMessage("Não foi possível verificar sua matrícula agora. Tente novamente em instantes.");
-        setStep("error");
-        return;
+      if (directMatch) {
+        enrollment = directMatch;
+      } else {
+        const { data: allEnrollments, error: enrollmentError } = await (supabase as any)
+          .from("course_enrollments")
+          .select("id, student_name, student_email")
+          .eq("course_id", courseId);
+
+        if (enrollmentError) {
+          setErrorMessage("Não foi possível verificar sua matrícula agora. Tente novamente.");
+          setStep("error");
+          return;
+        }
+
+        enrollment = (allEnrollments ?? []).find((e: any) =>
+          e.student_email && normEmail(e.student_email) === typedEmail
+        );
       }
 
-      const enrollment = (enrollments ?? []).find((e: any) =>
-        e.student_email && normEmail(e.student_email) === typedEmail
-      );
-
-      if (!enrollment) {
-        console.warn("Matrícula não encontrada para e-mail:", typed);
-        setStep("not_found");
-        return;
-      }
+      if (!enrollment) { setStep("not_found"); return; }
 
       const studentDisplayName = enrollment.student_name || "Aluno";
       const attendanceEmail = normEmail(enrollment.student_email);
       setStudentName(studentDisplayName);
 
-      const { data: attendances, error: existingError } = await (supabase as any)
+      // Check duplicate: by attendance_date (when available) or by day number
+      let dupQuery = (supabase as any)
         .from("course_attendance")
         .select("id")
         .eq("course_id", courseId)
         .eq("student_email", attendanceEmail)
-        .eq("day", dayNumber)
         .limit(1);
+      dupQuery = attendanceDate
+        ? dupQuery.eq("attendance_date", attendanceDate)
+        : dupQuery.eq("day", dayNumber);
+      const { data: existing } = await dupQuery.maybeSingle();
+      if (existing) { setStep("already"); return; }
 
-      if (existingError) {
-        console.error("Erro ao consultar presença:", existingError);
-        setErrorMessage("Não foi possível consultar sua presença agora. Tente novamente.");
-        setStep("error");
-        return;
-      }
-
-      if ((attendances ?? []).length > 0) { setStep("already"); return; }
-
-      const { data: savedAttendance, error: insertError } = await (supabase as any).from("course_attendance").insert({
+      // Insert with actual date saved
+      const insertData: Record<string, unknown> = {
         course_id: courseId,
         student_email: attendanceEmail,
         student_name: studentDisplayName,
         day: dayNumber,
-      }).select("id, day").single();
+      };
+      if (attendanceDate) insertData.attendance_date = attendanceDate;
 
-      if (insertError?.code === "23505") {
-        setStep("already");
-        return;
-      }
+      const { error: insertError } = await (supabase as any)
+        .from("course_attendance")
+        .insert(insertData);
 
-      if (insertError || !savedAttendance) {
-        console.error("Erro ao gravar presença:", insertError);
+      if (insertError?.code === "23505") { setStep("already"); return; }
+      if (insertError) {
         setErrorMessage("Sua matrícula foi encontrada, mas a presença não foi gravada. Tente novamente.");
         setStep("error");
         return;
       }
 
-      if ((savedAttendance.day ?? dayNumber) !== dayNumber) {
-        console.error("Presença gravada no dia errado:", { esperado: dayNumber, gravado: savedAttendance.day });
-        setErrorMessage(`A presença foi gravada no dia ${savedAttendance.day}, mas este QR é do dia ${dayNumber}. Gere o QR novamente e tente de novo.`);
-        setStep("error");
-        return;
-      }
       setStep("confirmed");
     } finally {
       setSubmitting(false);
@@ -236,6 +241,8 @@ export default function AttendancePage() {
   const numDays = course?.num_days ?? 1;
   const showDayLabel = numDays > 1;
   const accent = branding?.primary_color ?? "#B9FF4B";
+
+  // Full date label: "segunda-feira, 19 de maio"
   const dayDateLabel = (() => {
     if (!course?.start_date) return "";
     const [y, m, d] = String(course.start_date).split("-").map(Number);
@@ -244,7 +251,8 @@ export default function AttendancePage() {
     base.setDate(base.getDate() + (dayNumber - 1));
     return base.toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
   })();
-  // Short form for button labels (e.g. "19/05")
+
+  // Short date label for buttons: "19/05"
   const dayDateShort = (() => {
     if (!course?.start_date) return "";
     const [y, m, d] = String(course.start_date).split("-").map(Number);
@@ -312,7 +320,7 @@ export default function AttendancePage() {
     },
   ].filter(Boolean) as { href: string; icon: React.ReactNode; label: string; color: string }[];
 
-  // ── Header (logo + título) ────────────────────────────────────────────────
+  // ── Header ────────────────────────────────────────────────────────────────
   const Header = (
     <div style={{ padding: "24px 24px 16px", textAlign: "center", borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
       {branding?.logo_url ? (
@@ -335,8 +343,9 @@ export default function AttendancePage() {
           padding: "3px 12px", borderRadius: 99,
           background: `${accent}1F`, border: `1px solid ${accent}40`,
           color: accent, fontSize: 11, fontWeight: 700,
+          textTransform: "capitalize",
         }}>
-          {dayDateLabel ? dayDateLabel : (showDayLabel ? `Dia ${dayNumber} de ${numDays}` : "Presença")}
+          {dayDateLabel || (showDayLabel ? `Dia ${dayNumber} de ${numDays}` : "Presença")}
         </span>
       )}
     </div>
@@ -349,7 +358,7 @@ export default function AttendancePage() {
         <div style={card}>
           {Header}
 
-          {/* Chat messages */}
+          {/* Scrollable chat messages */}
           <div style={{ padding: "16px 16px 8px", maxHeight: 360, overflowY: "auto", display: "flex", flexDirection: "column", gap: 10 }}>
             {visibleMsgs.map(msg => {
               if (msg.type === "social") {
@@ -450,6 +459,8 @@ export default function AttendancePage() {
                 </div>
               </div>
             )}
+
+            {/* Email form appears inside chat after CTA click */}
             {emailInChat && (
               <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingTop: 4 }}>
                 <div style={{ position: "relative" }}>
@@ -477,14 +488,14 @@ export default function AttendancePage() {
             <div ref={chatBottomRef} />
           </div>
 
-          {/* Skip link */}
+          {/* Skip link — always visible below chat */}
           {!emailInChat && (
-          <div style={{ padding: "8px 16px 16px", textAlign: "center" }}>
-            <button onClick={() => setEmailInChat(true)}
-              style={{ background: "none", border: "none", color: "rgba(255,255,255,0.25)", fontSize: 11, cursor: "pointer" }}>
-              Pular e confirmar presença direto
-            </button>
-          </div>
+            <div style={{ padding: "8px 16px 16px", textAlign: "center" }}>
+              <button onClick={() => setEmailInChat(true)}
+                style={{ background: "none", border: "none", color: "rgba(255,255,255,0.25)", fontSize: 11, cursor: "pointer" }}>
+                Pular e confirmar presença direto
+              </button>
+            </div>
           )}
         </div>
 
@@ -555,7 +566,11 @@ export default function AttendancePage() {
               <h2 style={{ color: "#F0F0F0", fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Presença confirmada!</h2>
               <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 14 }}>
                 Olá, <strong style={{ color: "#F0F0F0" }}>{studentName}</strong>.{" "}
-                {dayDateLabel ? `Sua presença em ${dayDateLabel} foi registrada.` : (showDayLabel ? `Sua presença no Dia ${dayNumber} foi registrada.` : "Sua presença foi registrada.")}
+                {dayDateLabel
+                  ? `Sua presença em ${dayDateLabel} foi registrada.`
+                  : showDayLabel
+                    ? `Sua presença no Dia ${dayNumber} foi registrada.`
+                    : "Sua presença foi registrada."}
               </p>
               {socialLinks.length > 0 && (
                 <div style={{ marginTop: 20 }}>
@@ -593,28 +608,12 @@ export default function AttendancePage() {
               <h2 style={{ color: "#F0F0F0", fontSize: 18, fontWeight: 700, marginBottom: 8 }}>Você já marcou presença!</h2>
               <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 14 }}>
                 Olá, <strong style={{ color: "#F0F0F0" }}>{studentName}</strong>.{" "}
-                {dayDateLabel ? `Sua presença em ${dayDateLabel} já estava registrada.` : (showDayLabel ? `Sua presença no Dia ${dayNumber} já estava registrada.` : "Sua presença já estava registrada.")}
+                {dayDateLabel
+                  ? `Sua presença em ${dayDateLabel} já estava registrada.`
+                  : showDayLabel
+                    ? `Sua presença no Dia ${dayNumber} já estava registrada.`
+                    : "Sua presença já estava registrada."}
               </p>
-              {socialLinks.length > 0 && (
-                <div style={{ marginTop: 20 }}>
-                  <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
-                    Siga nossas redes e fique por dentro em primeira mão de descontos, capacitações exclusivas e lançamentos especiais.
-                  </p>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
-                    {socialLinks.map(({ href, icon, label, color }) => (
-                      <a key={label} href={href} target="_blank" rel="noreferrer"
-                        style={{
-                          display: "inline-flex", alignItems: "center", gap: 6,
-                          padding: "7px 14px", borderRadius: 99,
-                          background: `${color}18`, border: `1px solid ${color}44`,
-                          color, fontSize: 12, fontWeight: 700, textDecoration: "none",
-                        }}>
-                        {icon} {label}
-                      </a>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
           )}
 
