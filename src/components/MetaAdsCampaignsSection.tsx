@@ -503,7 +503,7 @@ function CampaignModal({
         setDraft((prev) => ({ ...prev, ...data.parsed }));
         setStep("configure");
       } else if (data.message) {
-        apiMessagesRef.current = [...newApiMessages, { role: "assistant", content: data.message }];
+        apiMessagesRef.current = [...newApiMessages, { role: "assistant" as const, content: data.message }];
         setChatMessages((prev) => [...prev, { role: "assistant", content: data.message }]);
       }
     } catch (e: any) {
