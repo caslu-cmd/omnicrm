@@ -34,6 +34,7 @@ export default function AttendancePage() {
   const [chatDone, setChatDone] = useState(false);
   const [emailInChat, setEmailInChat] = useState(false);
   const chatBottomRef = useRef<HTMLDivElement>(null);
+  const chatBuiltRef = useRef(false);
 
   useEffect(() => {
     if (!courseId) return;
