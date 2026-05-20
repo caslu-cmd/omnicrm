@@ -27,6 +27,7 @@ export default function AttendancePage() {
   const [step, setStep] = useState<Step>("chat");
   const [studentName, setStudentName] = useState("");
   const [errorMessage, setErrorMessage] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   // Chat state
   const [visibleMsgs, setVisibleMsgs] = useState<ChatMsg[]>([]);
@@ -116,71 +117,93 @@ export default function AttendancePage() {
   }, [visibleMsgs, typing]);
 
   const handleSubmit = async () => {
-    const trimmed = email.trim().toLowerCase();
-    if (!trimmed || !courseId) return;
+    const typed = email.trim();
+    if (!typed || !courseId || submitting) return;
+    setSubmitting(true);
     setStep("checking");
     setErrorMessage("");
 
-    // Fetch all enrollments for this course and match client-side (robust against
-    // whitespace, hidden chars, accent/case differences that ilike misses).
-    const { data: enrollments, error: enrollmentError } = await (supabase as any)
-      .from("course_enrollments")
-      .select("student_name, student_email")
-      .eq("course_id", courseId);
+    const onlyDigits = (s: string | null | undefined) => (s ?? "").replace(/\D/g, "");
+    const normText = (s: string | null | undefined) => (s ?? "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[\u200B-\u200D\uFEFF]/g, "")
+      .replace(/\s+/g, " ")
+      .trim()
+      .toLowerCase();
+    const normEmail = (s: string | null | undefined) => normText(s).replace(/\s/g, "");
 
-    if (enrollmentError) {
-      console.error("Erro ao verificar matrícula:", enrollmentError);
-      setErrorMessage("Não foi possível verificar sua matrícula agora. Tente novamente em instantes.");
-      setStep("error");
-      return;
+    try {
+      const typedEmail = normEmail(typed);
+      const typedDigits = onlyDigits(typed);
+      const typedName = normText(typed);
+
+      const { data: enrollments, error: enrollmentError } = await (supabase as any)
+        .from("course_enrollments")
+        .select("id, student_name, student_email, student_phone")
+        .eq("course_id", courseId);
+
+      if (enrollmentError) {
+        console.error("Erro ao verificar matrícula:", enrollmentError);
+        setErrorMessage("Não foi possível verificar sua matrícula agora. Tente novamente em instantes.");
+        setStep("error");
+        return;
+      }
+
+      const enrollment = (enrollments ?? []).find((e: any) => {
+        const emailMatch = e.student_email && normEmail(e.student_email) === typedEmail;
+        const phone = onlyDigits(e.student_phone);
+        const phoneMatch = typedDigits.length >= 8 && phone && (phone === typedDigits || phone.endsWith(typedDigits));
+        const name = normText(e.student_name);
+        const nameMatch = typedName.length >= 5 && name && (name === typedName || name.includes(typedName));
+        return emailMatch || phoneMatch || nameMatch;
+      });
+
+      if (!enrollment) {
+        console.warn("Matrícula não encontrada. Dado digitado:", typed, "| matrículas no curso:", enrollments);
+        setStep("not_found");
+        return;
+      }
+
+      const studentDisplayName = enrollment.student_name || "Aluno";
+      const phoneKey = onlyDigits(enrollment.student_phone);
+      const attendanceKey = normEmail(enrollment.student_email) || (phoneKey ? `phone:${phoneKey}` : `enrollment:${enrollment.id}`);
+      setStudentName(studentDisplayName);
+
+      const { data: attendances, error: existingError } = await (supabase as any)
+        .from("course_attendance")
+        .select("id, student_email, day")
+        .eq("course_id", courseId)
+        .eq("day", dayNumber);
+
+      if (existingError) {
+        console.error("Erro ao consultar presença:", existingError);
+        setErrorMessage("Não foi possível consultar sua presença agora. Tente novamente.");
+        setStep("error");
+        return;
+      }
+
+      const possibleKeys = new Set([attendanceKey, typedEmail, normEmail(enrollment.student_email), phoneKey ? `phone:${phoneKey}` : ""].filter(Boolean));
+      const existing = (attendances ?? []).find((a: any) => possibleKeys.has(normEmail(a.student_email)));
+      if (existing) { setStep("already"); return; }
+
+      const { data: savedAttendance, error: insertError } = await (supabase as any).from("course_attendance").insert({
+        course_id: courseId,
+        student_email: attendanceKey,
+        student_name: studentDisplayName,
+        day: dayNumber,
+      }).select("id").single();
+
+      if (insertError || !savedAttendance) {
+        console.error("Erro ao gravar presença:", insertError);
+        setErrorMessage("Sua matrícula foi encontrada, mas a presença não foi gravada. Tente novamente.");
+        setStep("error");
+        return;
+      }
+      setStep("confirmed");
+    } finally {
+      setSubmitting(false);
     }
-
-    const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
-    const enrollment = (enrollments ?? []).find((e: any) => norm(e.student_email) === trimmed);
-
-    if (!enrollment) {
-      console.warn("Matrícula não encontrada. E-mail digitado:", trimmed, "| matrículas no curso:", enrollments);
-      setStep("not_found");
-      return;
-    }
-    setStudentName(enrollment.student_name);
-
-    const { data: attendances, error: existingError } = await (supabase as any)
-      .from("course_attendance")
-      .select("id, student_email, day")
-      .eq("course_id", courseId)
-      .eq("day", dayNumber);
-
-    if (existingError) {
-      console.error("Erro ao consultar presença:", existingError);
-      setErrorMessage("Não foi possível consultar sua presença agora. Tente novamente.");
-      setStep("error");
-      return;
-    }
-    const existing = (attendances ?? []).find((a: any) => norm(a.student_email) === trimmed);
-
-    if (existingError) {
-      console.error("Erro ao consultar presença:", existingError);
-      setErrorMessage("Não foi possível consultar sua presença agora. Tente novamente.");
-      setStep("error");
-      return;
-    }
-    if (existing) { setStep("already"); return; }
-
-    const { data: savedAttendance, error: insertError } = await (supabase as any).from("course_attendance").insert({
-      course_id: courseId,
-      student_email: trimmed,
-      student_name: enrollment.student_name,
-      day: dayNumber,
-    }).select("id").single();
-
-    if (insertError || !savedAttendance) {
-      console.error("Erro ao gravar presença:", insertError);
-      setErrorMessage("Sua matrícula foi encontrada, mas a presença não foi gravada. Tente novamente.");
-      setStep("error");
-      return;
-    }
-    setStep("confirmed");
   };
 
   const retry = () => { setEmail(""); setEmailInChat(true); setStep("chat"); };
