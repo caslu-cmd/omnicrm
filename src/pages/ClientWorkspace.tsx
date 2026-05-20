@@ -9632,9 +9632,10 @@ Regras:
                   const attending = dbAttendance[course.id] ?? [];
                   const numDays = course.num_days ?? 1;
                   const activeDay = selectedQrDay[course.id] ?? 1;
+                  const attendanceBaseUrl = typeof window !== "undefined" ? window.location.origin : "https://www.caluagencia.com.br";
                   const presencaUrl = numDays > 1
-                    ? `https://www.caluagencia.com.br/presenca/${course.id}/${activeDay}`
-                    : `https://www.caluagencia.com.br/presenca/${course.id}`;
+                    ? `${attendanceBaseUrl}/presenca/${course.id}/${activeDay}`
+                    : `${attendanceBaseUrl}/presenca/${course.id}`;
 
                   return (
                     <motion.div key={course.id} className="rounded-2xl overflow-hidden"
