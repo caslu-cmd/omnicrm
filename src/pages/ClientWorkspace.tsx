@@ -9632,7 +9632,11 @@ Regras:
                   const attending = dbAttendance[course.id] ?? [];
                   const numDays = course.num_days ?? 1;
                   const activeDay = selectedQrDay[course.id] ?? 1;
-                  const attendanceBaseUrl = typeof window !== "undefined" ? window.location.origin : "https://www.caluagencia.com.br";
+                  const currentOrigin = typeof window !== "undefined" ? window.location.origin : "";
+                  // QR codes are scanned by external mobile devices, so always point to the published production site
+                  // (preview/sandbox URLs require Lovable auth and would show the Lovable screen instead of the chat).
+                  const isPreviewOrLocal = /lovable\.app$|localhost|127\.0\.0\.1/.test(currentOrigin) && !/caluagencia\.lovable\.app$/.test(currentOrigin);
+                  const attendanceBaseUrl = isPreviewOrLocal ? "https://www.caluagencia.com.br" : (currentOrigin || "https://www.caluagencia.com.br");
                   const presencaUrl = numDays > 1
                     ? `${attendanceBaseUrl}/presenca/${course.id}/${activeDay}`
                     : `${attendanceBaseUrl}/presenca/${course.id}`;
