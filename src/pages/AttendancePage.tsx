@@ -121,13 +121,12 @@ export default function AttendancePage() {
     setStep("checking");
     setErrorMessage("");
 
-    const { data: enrollment, error: enrollmentError } = await (supabase as any)
+    // Fetch all enrollments for this course and match client-side (robust against
+    // whitespace, hidden chars, accent/case differences that ilike misses).
+    const { data: enrollments, error: enrollmentError } = await (supabase as any)
       .from("course_enrollments")
       .select("student_name, student_email")
-      .eq("course_id", courseId)
-      .ilike("student_email", trimmed)
-      .limit(1)
-      .maybeSingle();
+      .eq("course_id", courseId);
 
     if (enrollmentError) {
       console.error("Erro ao verificar matrícula:", enrollmentError);
@@ -135,16 +134,30 @@ export default function AttendancePage() {
       setStep("error");
       return;
     }
-    if (!enrollment) { setStep("not_found"); return; }
+
+    const norm = (s: string | null | undefined) => (s ?? "").trim().toLowerCase();
+    const enrollment = (enrollments ?? []).find((e: any) => norm(e.student_email) === trimmed);
+
+    if (!enrollment) {
+      console.warn("Matrícula não encontrada. E-mail digitado:", trimmed, "| matrículas no curso:", enrollments);
+      setStep("not_found");
+      return;
+    }
     setStudentName(enrollment.student_name);
 
-    const { data: existing, error: existingError } = await (supabase as any)
+    const { data: attendances, error: existingError } = await (supabase as any)
       .from("course_attendance")
-      .select("id")
+      .select("id, student_email, day")
       .eq("course_id", courseId)
-      .eq("day", dayNumber)
-      .ilike("student_email", trimmed)
-      .maybeSingle();
+      .eq("day", dayNumber);
+
+    if (existingError) {
+      console.error("Erro ao consultar presença:", existingError);
+      setErrorMessage("Não foi possível consultar sua presença agora. Tente novamente.");
+      setStep("error");
+      return;
+    }
+    const existing = (attendances ?? []).find((a: any) => norm(a.student_email) === trimmed);
 
     if (existingError) {
       console.error("Erro ao consultar presença:", existingError);
@@ -304,18 +317,20 @@ export default function AttendancePage() {
                     }}>
                       {msg.text}
                     </div>
-                    <div style={{ marginTop: 12 }}>
-                      <button
-                        onClick={() => setEmailInChat(true)}
-                        style={{
-                          width: "100%", padding: "13px 0", borderRadius: 12,
-                          background: accent, color: "#07080A",
-                          fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer",
-                        }}
-                      >
-                        Confirmar presença{showDayLabel ? ` — Dia ${dayNumber}` : ""}
-                      </button>
-                    </div>
+                    {!emailInChat && (
+                      <div style={{ marginTop: 12 }}>
+                        <button
+                          onClick={() => setEmailInChat(true)}
+                          style={{
+                            width: "100%", padding: "13px 0", borderRadius: 12,
+                            background: accent, color: "#07080A",
+                            fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer",
+                          }}
+                        >
+                          Confirmar presença{showDayLabel ? ` — Dia ${dayNumber}` : ""}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 );
               }
