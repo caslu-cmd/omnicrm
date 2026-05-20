@@ -45,15 +45,27 @@ export default function AttendancePage() {
         .from("courses")
         .select("title, num_days, client_id")
         .eq("id", courseId)
-        .single();
+        .maybeSingle();
 
-      setCourse(data);
+      let courseData = data;
+      if (!courseData) {
+        const { data: enrollmentData } = await (supabase as any)
+          .from("course_enrollments")
+          .select("course_id")
+          .eq("course_id", courseId)
+          .limit(1);
+        if ((enrollmentData ?? []).length > 0) {
+          courseData = { title: "Curso", num_days: dayNumber, client_id: null };
+        }
+      }
 
-      if (data?.client_id) {
+      setCourse(courseData);
+
+      if (courseData?.client_id) {
         const { data: brandData } = await (supabase as any)
           .from("client_branding")
           .select("logo_url, instagram_handle, facebook_url, youtube_url, linkedin_url, primary_color")
-          .eq("client_id", data.client_id)
+          .eq("client_id", courseData.client_id)
           .single();
         if (brandData) setBranding(brandData);
       }
