@@ -10654,7 +10654,7 @@ Regras:
                                     return (
                                       <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
                                         {visible.map((s: any) => {
-                                          const emailKey = (s.student_email ?? "").toLowerCase();
+                                          const emailKey = normalizeAttendanceEmail(s.student_email);
                                           const daysAttended = attByEmail[emailKey] ?? new Set<number>();
                                           const totalAttended = daysAttended.size;
                                           const allDaysOk = totalAttended >= numDays;
