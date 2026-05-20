@@ -186,8 +186,7 @@ export default function AttendancePage() {
       const { data: attendances, error: existingError } = await (supabase as any)
         .from("course_attendance")
         .select("id, student_email, day")
-        .eq("course_id", courseId)
-        .eq("day", dayNumber);
+        .eq("course_id", courseId);
 
       if (existingError) {
         console.error("Erro ao consultar presença:", existingError);
@@ -206,6 +205,11 @@ export default function AttendancePage() {
         student_name: studentDisplayName,
         day: dayNumber,
       }).select("id").single();
+
+      if (insertError?.code === "23505") {
+        setStep("already");
+        return;
+      }
 
       if (insertError || !savedAttendance) {
         console.error("Erro ao gravar presença:", insertError);
