@@ -1228,6 +1228,7 @@ export default function ClientWorkspace() {
   const airaFinalize = async () => {
     setAiraStatus("loading");
     setAiraLiveText("Salvando áudio...");
+    let _airaTid: string | number | undefined;
     try {
       const blob = await airaStopStream();
       if (blob.size < 1000) {
