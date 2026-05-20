@@ -23,7 +23,7 @@ export default function AttendancePage() {
   const parsedDay = Number.parseInt(day ?? queryDay ?? "1", 10);
   const dayNumber = Number.isFinite(parsedDay) && parsedDay > 0 ? parsedDay : 1;
 
-  const [course, setCourse] = useState<{ title: string; num_days?: number; client_id?: string } | null>(null);
+  const [course, setCourse] = useState<{ title: string; num_days?: number; client_id?: string; start_date?: string | null } | null>(null);
   const [branding, setBranding] = useState<Branding | null>(null);
   const [loadingCourse, setLoadingCourse] = useState(true);
   const [email, setEmail] = useState("");
@@ -46,7 +46,7 @@ export default function AttendancePage() {
       setLoadingCourse(true);
       const { data } = await (supabase as any)
         .from("courses")
-        .select("title, num_days, client_id")
+        .select("title, num_days, client_id, start_date")
         .eq("id", courseId)
         .maybeSingle();
 
@@ -236,6 +236,14 @@ export default function AttendancePage() {
   const numDays = course?.num_days ?? 1;
   const showDayLabel = numDays > 1;
   const accent = branding?.primary_color ?? "#B9FF4B";
+  const dayDateLabel = (() => {
+    if (!course?.start_date) return "";
+    const [y, m, d] = String(course.start_date).split("-").map(Number);
+    if (!y || !m || !d) return "";
+    const base = new Date(y, m - 1, d);
+    base.setDate(base.getDate() + (dayNumber - 1));
+    return base.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+  })();
 
   const wrap: React.CSSProperties = {
     minHeight: "100vh", background: "#07080A",
@@ -312,14 +320,14 @@ export default function AttendancePage() {
       )}
       <p style={{ color: "rgba(255,255,255,0.9)", fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Lista de Presença</p>
       <p style={{ color: "rgba(255,255,255,0.4)", fontSize: 12 }}>{course.title}</p>
-      {showDayLabel && (
+      {(showDayLabel || dayDateLabel) && (
         <span style={{
           display: "inline-block", marginTop: 6,
           padding: "3px 12px", borderRadius: 99,
           background: `${accent}1F`, border: `1px solid ${accent}40`,
           color: accent, fontSize: 11, fontWeight: 700,
         }}>
-          Dia {dayNumber} de {numDays}
+          {showDayLabel ? `Dia ${dayNumber} de ${numDays}` : "Presença"}{dayDateLabel && ` · ${dayDateLabel}`}
         </span>
       )}
     </div>
