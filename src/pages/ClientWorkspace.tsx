@@ -3090,7 +3090,7 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
       for (const row of uniqueRows) {
         const normPhone = row.phone.replace(/\D/g, "").slice(-11);
         const isDup = (row.email && existingEmails.has(row.email)) ||
-                      (normPhone && [...existingPhones].some(p => p?.replace(/\D/g, "").slice(-11) === normPhone));
+                      (normPhone && [...existingPhones].some((p: any) => String(p ?? "").replace(/\D/g, "").slice(-11) === normPhone));
         if (isDup) { alreadyIn++; continue; }
 
         const { error } = await (supabase as any).from("course_enrollments").insert({
