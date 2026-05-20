@@ -1007,6 +1007,8 @@ export default function ClientWorkspace() {
   const [coursesLoading, setCoursesLoading] = useState(false);
   const [showNewCourse, setShowNewCourse] = useState(false);
   const [newCourseForm, setNewCourseForm] = useState({ title: "", description: "", level: "Básico", num_days: 1 });
+  const [editCourseId, setEditCourseId] = useState<string | null>(null);
+  const [editCourseForm, setEditCourseForm] = useState({ title: "", description: "", level: "Básico", num_days: 1 });
   const [selectedQrDay, setSelectedQrDay] = useState<Record<string, number>>({});
   const [savingCourse, setSavingCourse] = useState(false);
   const [showAddStudent, setShowAddStudent] = useState<string | null>(null);
@@ -1038,6 +1040,7 @@ export default function ClientWorkspace() {
   // Course attendance
   const [dbAttendance, setDbAttendance] = useState<Record<string, any[]>>({});
   const [attendanceCourseId, setAttendanceCourseId] = useState<string | null>(null);
+  const [attendDayFilter, setAttendDayFilter] = useState<Record<string, number | "all">>({});
   // Course checklists
   const [dbChecklists, setDbChecklists] = useState<Record<string, any[]>>({});
   const [checklistGenerating, setChecklistGenerating] = useState<string | null>(null); // `${courseId}_${phase}`
@@ -2818,11 +2821,16 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
   const generateAllCerts = async (courseId: string) => {
     if (!certTemplate) return;
     setCertGenerating(true);
-    const attending = (dbAttendance[courseId] ?? []).map((a: any) => a.student_name);
-    const enrolled = (dbEnrollments[courseId] ?? []).map((s: any) => s.student_name);
-    // Prefer attendance list; fall back to enrolled students + manual list
-    const base = attending.length > 0 ? attending : enrolled;
-    const allNames = [...new Set([...base, ...certManualList])].filter(Boolean);
+    // Apenas alunos com certificado liberado manualmente
+    const eligibleFromDb = (dbEnrollments[courseId] ?? [])
+      .filter((s: any) => s.can_emit_certificate)
+      .map((s: any) => s.student_name);
+    const allNames = [...new Set([...eligibleFromDb, ...certManualList])].filter(Boolean);
+    if (allNames.length === 0) {
+      toast.error("Nenhum aluno com certificado liberado.");
+      setCertGenerating(false);
+      return;
+    }
     const certs: { name: string; dataUrl: string }[] = [];
     for (const name of allNames) {
       const dataUrl = await renderCertificate(certTemplate, name, certNameX, certNameY, certFontSize, certFontColor);
@@ -2830,6 +2838,21 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
     }
     setGeneratedCerts(certs);
     setCertGenerating(false);
+  };
+
+  const toggleEnrollmentField = async (
+    courseId: string,
+    enrollmentId: string,
+    field: "payment_confirmed" | "can_emit_certificate",
+    value: boolean,
+  ) => {
+    await (supabase as any).from("course_enrollments").update({ [field]: value }).eq("id", enrollmentId);
+    setDbEnrollments(prev => ({
+      ...prev,
+      [courseId]: (prev[courseId] ?? []).map((s: any) =>
+        s.id === enrollmentId ? { ...s, [field]: value } : s,
+      ),
+    }));
   };
 
   const downloadCert = (dataUrl: string, name: string) => {
@@ -3097,9 +3120,25 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
   };
 
   const handleDeleteCourse = async (courseId: string) => {
+    if (!window.confirm("Excluir este curso? Os alunos e presenças também serão removidos.")) return;
     await (supabase as any).from("courses").delete().eq("id", courseId);
     setDbCourses(prev => prev.filter(c => c.id !== courseId));
     toast.success("Curso removido");
+  };
+
+  const handleUpdateCourse = async (courseId: string) => {
+    if (!editCourseForm.title.trim()) return;
+    await (supabase as any).from("courses").update({
+      title: editCourseForm.title,
+      description: editCourseForm.description || null,
+      level: editCourseForm.level,
+      num_days: editCourseForm.num_days ?? 1,
+    }).eq("id", courseId);
+    setDbCourses(prev => prev.map(c => c.id === courseId
+      ? { ...c, title: editCourseForm.title, description: editCourseForm.description || null, level: editCourseForm.level, num_days: editCourseForm.num_days }
+      : c));
+    setEditCourseId(null);
+    toast.success("Curso atualizado!");
   };
 
   const PHASE_LABELS: Record<string, string> = {
@@ -9646,6 +9685,18 @@ Regras:
                             style={{ background: "rgba(185,255,75,0.08)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.2)" }}>
                             <FileSpreadsheet className="w-3.5 h-3.5" /> CSV
                           </button>
+                          <button
+                            onClick={() => {
+                              if (editCourseId === course.id) { setEditCourseId(null); return; }
+                              setEditCourseForm({ title: course.title, description: course.description ?? "", level: course.level ?? "Básico", num_days: course.num_days ?? 1 });
+                              setEditCourseId(course.id);
+                            }}
+                            className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
+                            style={editCourseId === course.id
+                              ? { background: "rgba(185,255,75,0.15)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.3)" }
+                              : { background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
                           <button onClick={() => handleDeleteCourse(course.id)}
                             className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
                             style={{ background: "rgba(248,113,113,0.08)", color: "rgba(248,113,113,0.5)", border: "1px solid rgba(248,113,113,0.15)" }}>
@@ -9653,6 +9704,49 @@ Regras:
                           </button>
                         </div>
                       </div>
+
+                      {/* Edit course form */}
+                      <AnimatePresence>
+                        {editCourseId === course.id && (
+                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.18 }} className="overflow-hidden"
+                            style={{ borderTop: "1px solid rgba(185,255,75,0.15)" }}>
+                            <div className="px-5 py-4 space-y-3">
+                              <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#B9FF4B" }}>Editar curso</p>
+                              <div className="grid grid-cols-2 gap-2">
+                                <input placeholder="Nome do curso *" value={editCourseForm.title}
+                                  onChange={e => setEditCourseForm(p => ({ ...p, title: e.target.value }))}
+                                  className="col-span-2 rounded-lg px-3 py-2 text-xs focus:outline-none"
+                                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#F0F0F0" }} />
+                                <input placeholder="Descrição" value={editCourseForm.description}
+                                  onChange={e => setEditCourseForm(p => ({ ...p, description: e.target.value }))}
+                                  className="rounded-lg px-3 py-2 text-xs focus:outline-none"
+                                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#F0F0F0" }} />
+                                <select value={editCourseForm.level} onChange={e => setEditCourseForm(p => ({ ...p, level: e.target.value }))}
+                                  className="rounded-lg px-3 py-2 text-xs focus:outline-none"
+                                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#F0F0F0" }}>
+                                  {["Básico", "Intermediário", "Avançado"].map(l => <option key={l} value={l}>{l}</option>)}
+                                </select>
+                                <div className="flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}>
+                                  <span className="text-xs flex-1" style={{ color: "rgba(255,255,255,0.5)" }}>Dias de curso</span>
+                                  <input type="number" min={1} max={30} value={editCourseForm.num_days}
+                                    onChange={e => setEditCourseForm(p => ({ ...p, num_days: Math.max(1, parseInt(e.target.value) || 1) }))}
+                                    className="w-12 text-center text-xs focus:outline-none bg-transparent"
+                                    style={{ color: "#F0F0F0" }} />
+                                </div>
+                              </div>
+                              <div className="flex gap-2">
+                                <button onClick={() => handleUpdateCourse(course.id)} disabled={!editCourseForm.title.trim()}
+                                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-40"
+                                  style={{ background: "#B9FF4B", color: "#07080A" }}>
+                                  <Save className="w-3 h-3" /> Salvar
+                                </button>
+                                <button onClick={() => setEditCourseId(null)} className="px-3 py-2 rounded-xl text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>Cancelar</button>
+                              </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
 
                       {/* Add student form */}
                       <AnimatePresence>
@@ -10452,45 +10546,122 @@ Regras:
                                   )}
                                 </div>
 
-                                {/* List */}
+                                {/* List — por aluno matriculado com dias, pagamento e certificado */}
                                 <div className="space-y-3">
-                                  <label className="text-[10px] uppercase tracking-widest font-semibold block" style={{ color: "rgba(255,255,255,0.3)" }}>
-                                    Presenças confirmadas
-                                    {numDays > 1 && attending.length > 0 && (
-                                      <span className="ml-2 normal-case font-normal" style={{ color: "rgba(52,211,153,0.6)" }}>
-                                        {attending.length} registro{attending.length !== 1 ? "s" : ""}
-                                      </span>
+                                  <div className="flex items-center justify-between flex-wrap gap-2">
+                                    <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.3)" }}>
+                                      Alunos matriculados
+                                    </label>
+                                    {/* Filtro por dia */}
+                                    {numDays > 1 && (
+                                      <div className="flex gap-1 flex-wrap">
+                                        {(["all", ...Array.from({ length: numDays }, (_, i) => i + 1)] as (number | "all")[]).map(d => {
+                                          const active = (attendDayFilter[course.id] ?? "all") === d;
+                                          return (
+                                            <button key={String(d)}
+                                              onClick={() => setAttendDayFilter(p => ({ ...p, [course.id]: d }))}
+                                              className="px-2.5 py-1 rounded-lg text-[9px] font-bold transition-all"
+                                              style={{
+                                                background: active ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.04)",
+                                                color: active ? "#34D399" : "rgba(255,255,255,0.3)",
+                                                border: `1px solid ${active ? "rgba(52,211,153,0.3)" : "rgba(255,255,255,0.07)"}`,
+                                              }}>
+                                              {d === "all" ? "Todos" : `Dia ${d}`}
+                                            </button>
+                                          );
+                                        })}
+                                      </div>
                                     )}
-                                  </label>
-                                  {attending.length === 0 ? (
-                                    <div className="py-8 text-center rounded-xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.07)" }}>
-                                      <CheckCircle2 className="w-8 h-8 mx-auto mb-2" style={{ color: "rgba(255,255,255,0.08)" }} />
-                                      <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.25)" }}>Nenhuma presença registrada.</p>
-                                      <p className="text-[10px] mt-1" style={{ color: "rgba(255,255,255,0.18)" }}>Compartilhe o QR code com os alunos.</p>
-                                    </div>
-                                  ) : (
-                                    <div className="space-y-1.5 max-h-52 overflow-y-auto">
-                                      {attending.map((a: any, i: number) => (
-                                        <div key={a.id ?? i} className="flex items-center gap-2.5 px-3 py-2 rounded-lg"
-                                          style={{ background: "rgba(52,211,153,0.04)", border: "1px solid rgba(52,211,153,0.12)" }}>
-                                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
-                                            style={{ background: "rgba(52,211,153,0.15)", color: "#34D399" }}>
-                                            {a.student_name?.charAt(0)?.toUpperCase() ?? "?"}
-                                          </div>
-                                          <div className="flex-1 min-w-0">
-                                            <p className="text-[11px] font-medium truncate" style={{ color: "rgba(255,255,255,0.8)" }}>{a.student_name}</p>
-                                            <p className="text-[9px] truncate" style={{ color: "rgba(255,255,255,0.3)" }}>{a.student_email}</p>
-                                          </div>
-                                          {numDays > 1 && a.day && (
-                                            <span className="text-[9px] font-bold px-1.5 py-0.5 rounded flex-shrink-0" style={{ background: "rgba(52,211,153,0.12)", color: "#34D399" }}>
-                                              D{a.day}
-                                            </span>
-                                          )}
-                                          <CheckCircle2 className="w-3 h-3 flex-shrink-0" style={{ color: "#34D399" }} />
-                                        </div>
-                                      ))}
-                                    </div>
-                                  )}
+                                  </div>
+
+                                  {(() => {
+                                    const enrolledList = students;
+                                    // attendance by student email → set of days attended
+                                    const attByEmail: Record<string, Set<number>> = {};
+                                    attending.forEach((a: any) => {
+                                      const key = (a.student_email ?? "").toLowerCase();
+                                      if (!attByEmail[key]) attByEmail[key] = new Set();
+                                      attByEmail[key].add(a.day ?? 1);
+                                    });
+                                    const dayFilter = attendDayFilter[course.id] ?? "all";
+                                    const visible = dayFilter === "all"
+                                      ? enrolledList
+                                      : enrolledList.filter((s: any) => attByEmail[(s.student_email ?? "").toLowerCase()]?.has(dayFilter as number));
+
+                                    if (enrolledList.length === 0) return (
+                                      <div className="py-8 text-center rounded-xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.07)" }}>
+                                        <CheckCircle2 className="w-8 h-8 mx-auto mb-2" style={{ color: "rgba(255,255,255,0.08)" }} />
+                                        <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.25)" }}>Nenhum aluno matriculado.</p>
+                                      </div>
+                                    );
+
+                                    return (
+                                      <div className="space-y-1.5 max-h-80 overflow-y-auto pr-1">
+                                        {visible.map((s: any) => {
+                                          const emailKey = (s.student_email ?? "").toLowerCase();
+                                          const daysAttended = attByEmail[emailKey] ?? new Set<number>();
+                                          const totalAttended = daysAttended.size;
+                                          const allDaysOk = totalAttended >= numDays;
+                                          const canToggleCert = allDaysOk && s.payment_confirmed;
+                                          return (
+                                            <div key={s.id} className="rounded-xl px-3 py-2.5 space-y-2"
+                                              style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                                              {/* Nome + email */}
+                                              <div className="flex items-center gap-2">
+                                                <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
+                                                  style={{ background: "rgba(52,211,153,0.15)", color: "#34D399" }}>
+                                                  {s.student_name?.charAt(0)?.toUpperCase() ?? "?"}
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                  <p className="text-[11px] font-semibold truncate" style={{ color: "rgba(255,255,255,0.85)" }}>{s.student_name}</p>
+                                                  <p className="text-[9px] truncate" style={{ color: "rgba(255,255,255,0.3)" }}>{s.student_email}</p>
+                                                </div>
+                                                {/* Dias presentes */}
+                                                <div className="flex gap-1 flex-shrink-0">
+                                                  {numDays === 1 ? (
+                                                    daysAttended.has(1)
+                                                      ? <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: "rgba(52,211,153,0.15)", color: "#34D399" }}>✓ Presente</span>
+                                                      : <span className="text-[9px] font-bold px-1.5 py-0.5 rounded" style={{ background: "rgba(248,113,113,0.1)", color: "#F87171" }}>✗ Ausente</span>
+                                                  ) : (
+                                                    Array.from({ length: numDays }, (_, i) => i + 1).map(d => (
+                                                      <span key={d} className="text-[9px] font-bold px-1.5 py-0.5 rounded"
+                                                        style={daysAttended.has(d)
+                                                          ? { background: "rgba(52,211,153,0.15)", color: "#34D399" }
+                                                          : { background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.2)" }}>
+                                                        D{d}{daysAttended.has(d) ? "✓" : "✗"}
+                                                      </span>
+                                                    ))
+                                                  )}
+                                                </div>
+                                              </div>
+                                              {/* Controles pagamento + certificado */}
+                                              <div className="flex gap-2">
+                                                <button
+                                                  onClick={() => toggleEnrollmentField(course.id, s.id, "payment_confirmed", !s.payment_confirmed)}
+                                                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold flex-1 justify-center transition-all"
+                                                  style={s.payment_confirmed
+                                                    ? { background: "rgba(52,211,153,0.12)", color: "#34D399", border: "1px solid rgba(52,211,153,0.25)" }
+                                                    : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.35)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                                                  {s.payment_confirmed ? "✓ Pago" : "Pagamento"}
+                                                </button>
+                                                <button
+                                                  onClick={() => canToggleCert && toggleEnrollmentField(course.id, s.id, "can_emit_certificate", !s.can_emit_certificate)}
+                                                  title={!canToggleCert ? `Precisa: ${!allDaysOk ? `${totalAttended}/${numDays} dias` : ""}${!allDaysOk && !s.payment_confirmed ? " + " : ""}${!s.payment_confirmed ? "pagamento" : ""}` : ""}
+                                                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold flex-1 justify-center transition-all"
+                                                  style={s.can_emit_certificate
+                                                    ? { background: "rgba(250,204,21,0.15)", color: "#FBBF24", border: "1px solid rgba(250,204,21,0.3)", cursor: "pointer" }
+                                                    : canToggleCert
+                                                      ? { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.35)", border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer" }
+                                                      : { background: "rgba(255,255,255,0.02)", color: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.05)", cursor: "not-allowed" }}>
+                                                  {s.can_emit_certificate ? "🎓 Cert. liberado" : "Liberar cert."}
+                                                </button>
+                                              </div>
+                                            </div>
+                                          );
+                                        })}
+                                      </div>
+                                    );
+                                  })()}
                                 </div>
                               </div>
                             </div>
