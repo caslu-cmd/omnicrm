@@ -2896,7 +2896,7 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
           .eq("course_id", c.id).order("order_index", { ascending: true });
         checkMap[c.id] = checks ?? [];
         const { data: attend } = await (supabase as any).from("course_attendance").select("*")
-          .eq("course_id", c.id).order("attended_at", { ascending: true });
+          .eq("course_id", c.id).order("confirmed_at", { ascending: true });
         attendMap[c.id] = attend ?? [];
       }));
       setDbEnrollments(map);
@@ -10461,7 +10461,7 @@ Regras:
                                 <button
                                   onClick={async () => {
                                     const { data } = await (supabase as any).from("course_attendance").select("*")
-                                      .eq("course_id", course.id).order("attended_at", { ascending: true });
+                                      .eq("course_id", course.id).order("confirmed_at", { ascending: true });
                                     setDbAttendance(prev => ({ ...prev, [course.id]: data ?? [] }));
                                     toast.success("Lista atualizada");
                                   }}
