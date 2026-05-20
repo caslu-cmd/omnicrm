@@ -297,7 +297,7 @@ export default function AttendancePage() {
                     </div>
                     <div style={{ marginTop: 12 }}>
                       <button
-                        onClick={() => setStep("email")}
+                        onClick={() => setEmailInChat(true)}
                         style={{
                           width: "100%", padding: "13px 0", borderRadius: 12,
                           background: accent, color: "#07080A",
@@ -361,16 +361,42 @@ export default function AttendancePage() {
                 </div>
               </div>
             )}
+            {emailInChat && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12, paddingTop: 4 }}>
+                <div style={{ position: "relative" }}>
+                  <Mail style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", width: 16, height: 16, color: "rgba(255,255,255,0.25)" }} />
+                  <input
+                    type="email" value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && handleSubmit()}
+                    placeholder="seu@email.com"
+                    style={inputStyle}
+                    autoFocus
+                  />
+                </div>
+                <button onClick={handleSubmit} disabled={!email.trim()}
+                  style={{
+                    width: "100%", padding: "13px 0", borderRadius: 12,
+                    background: email.trim() ? accent : `${accent}33`,
+                    color: "#07080A", fontWeight: 700, fontSize: 14,
+                    border: "none", cursor: email.trim() ? "pointer" : "default",
+                  }}>
+                  Confirmar presença{showDayLabel ? ` — Dia ${dayNumber}` : ""}
+                </button>
+              </div>
+            )}
             <div ref={chatBottomRef} />
           </div>
 
           {/* Skip link */}
+          {!emailInChat && (
           <div style={{ padding: "8px 16px 16px", textAlign: "center" }}>
-            <button onClick={() => setStep("email")}
+            <button onClick={() => setEmailInChat(true)}
               style={{ background: "none", border: "none", color: "rgba(255,255,255,0.25)", fontSize: 11, cursor: "pointer" }}>
               Pular e confirmar presença direto
             </button>
           </div>
+          )}
         </div>
 
         <style>{`@keyframes bounce { 0%,60%,100%{transform:translateY(0)} 30%{transform:translateY(-6px)} }`}</style>
