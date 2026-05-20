@@ -10469,7 +10469,7 @@ Regras:
                                 <button
                                   onClick={async () => {
                                     const { data } = await (supabase as any).from("course_attendance").select("*")
-                                      .eq("course_id", course.id).order("confirmed_at", { ascending: true });
+                                      .eq("course_id", course.id).order("day", { ascending: true });
                                     setDbAttendance(prev => ({ ...prev, [course.id]: data ?? [] }));
                                     toast.success("Lista atualizada");
                                   }}
