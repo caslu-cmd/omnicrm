@@ -441,18 +441,23 @@ export default function AttendancePage() {
                 {showDayLabel ? `Sua presença no Dia ${dayNumber} foi registrada.` : "Sua presença foi registrada."}
               </p>
               {socialLinks.length > 0 && (
-                <div style={{ marginTop: 20, display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
-                  {socialLinks.map(({ href, icon, label, color }) => (
-                    <a key={label} href={href} target="_blank" rel="noreferrer"
-                      style={{
-                        display: "inline-flex", alignItems: "center", gap: 6,
-                        padding: "7px 14px", borderRadius: 99,
-                        background: `${color}18`, border: `1px solid ${color}44`,
-                        color, fontSize: 12, fontWeight: 700, textDecoration: "none",
-                      }}>
-                      {icon} {label}
-                    </a>
-                  ))}
+                <div style={{ marginTop: 20 }}>
+                  <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
+                    Siga nossas redes e fique por dentro em primeira mão de descontos, capacitações exclusivas e lançamentos especiais.
+                  </p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+                    {socialLinks.map(({ href, icon, label, color }) => (
+                      <a key={label} href={href} target="_blank" rel="noreferrer"
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 6,
+                          padding: "7px 14px", borderRadius: 99,
+                          background: `${color}18`, border: `1px solid ${color}44`,
+                          color, fontSize: 12, fontWeight: 700, textDecoration: "none",
+                        }}>
+                        {icon} {label}
+                      </a>
+                    ))}
+                  </div>
                 </div>
               )}
             </div>
