@@ -10622,7 +10622,7 @@ Regras:
                                       ? attendedStudents
                                       : attendedStudents.filter((s: any) => attByEmail[(s.student_email ?? "").toLowerCase()]?.has(dayFilter as number));
 
-                                    if (enrolledList.length === 0) return (
+                                    if (attendedStudents.length === 0) return (
                                       <div className="py-8 text-center rounded-xl" style={{ background: "rgba(255,255,255,0.02)", border: "1px dashed rgba(255,255,255,0.07)" }}>
                                         <CheckCircle2 className="w-8 h-8 mx-auto mb-2" style={{ color: "rgba(255,255,255,0.08)" }} />
                                         <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.25)" }}>Nenhum aluno matriculado.</p>
