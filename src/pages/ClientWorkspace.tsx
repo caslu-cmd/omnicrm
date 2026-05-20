@@ -10484,7 +10484,10 @@ Regras:
                                     <div className="flex gap-1.5 flex-wrap">
                                       {Array.from({ length: numDays }, (_, i) => i + 1).map(d => (
                                         <button key={d}
-                                          onClick={() => setSelectedQrDay(prev => ({ ...prev, [course.id]: d }))}
+                                          onClick={() => {
+                                            setSelectedQrDay(prev => ({ ...prev, [course.id]: d }));
+                                            setAttendDayFilter(prev => ({ ...prev, [course.id]: d }));
+                                          }}
                                           className="px-3 py-1 rounded-lg text-[10px] font-semibold transition-all"
                                           style={{
                                             background: activeDay === d ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.04)",
