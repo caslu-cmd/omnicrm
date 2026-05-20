@@ -473,6 +473,53 @@ export default function AttendancePage() {
                 Olá, <strong style={{ color: "#F0F0F0" }}>{studentName}</strong>.{" "}
                 {showDayLabel ? `Sua presença no Dia ${dayNumber} já estava registrada.` : "Sua presença já estava registrada."}
               </p>
+              {socialLinks.length > 0 && (
+                <div style={{ marginTop: 20 }}>
+                  <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
+                    Siga nossas redes e fique por dentro em primeira mão de descontos, capacitações exclusivas e lançamentos especiais.
+                  </p>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, justifyContent: "center" }}>
+                    {socialLinks.map(({ href, icon, label, color }) => (
+                      <a key={label} href={href} target="_blank" rel="noreferrer"
+                        style={{
+                          display: "inline-flex", alignItems: "center", gap: 6,
+                          padding: "7px 14px", borderRadius: 99,
+                          background: `${color}18`, border: `1px solid ${color}44`,
+                          color, fontSize: 12, fontWeight: 700, textDecoration: "none",
+                        }}>
+                        {icon} {label}
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {step === "error" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div style={{
+                padding: "14px 16px",
+                background: "rgba(248,113,113,0.08)",
+                border: "1px solid rgba(248,113,113,0.2)",
+                borderRadius: 12, display: "flex", gap: 12, alignItems: "flex-start",
+              }}>
+                <AlertTriangle style={{ width: 18, height: 18, color: "#F87171", flexShrink: 0, marginTop: 1 }} />
+                <div>
+                  <p style={{ color: "#F87171", fontSize: 13, fontWeight: 600, marginBottom: 4 }}>Presença não gravada</p>
+                  <p style={{ color: "rgba(255,255,255,0.45)", fontSize: 12 }}>{errorMessage}</p>
+                </div>
+              </div>
+              <button onClick={handleSubmit}
+                style={{
+                  width: "100%", padding: "12px 0", borderRadius: 12,
+                  background: accent, color: "#07080A",
+                  fontWeight: 700, fontSize: 14,
+                  border: "none", cursor: "pointer",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 8,
+                }}>
+                <RefreshCw style={{ width: 14, height: 14 }} /> Tentar gravar novamente
+              </button>
             </div>
           )}
 
