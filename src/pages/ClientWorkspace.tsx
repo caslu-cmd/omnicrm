@@ -10488,6 +10488,9 @@ Regras:
                                     <p className="text-[10px] text-center leading-snug" style={{ color: "rgba(255,255,255,0.35)" }}>
                                       Aluno escaneia e confirma presença com o e-mail da matrícula
                                     </p>
+                                    <p className="text-[9px] text-center font-mono break-all px-1" style={{ color: "rgba(52,211,153,0.5)" }}>
+                                      {presencaUrl}
+                                    </p>
                                     <button
                                       onClick={() => { navigator.clipboard.writeText(presencaUrl); toast.success("Link copiado!"); }}
                                       className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[11px] font-semibold w-full justify-center"
@@ -10645,14 +10648,14 @@ Regras:
                                                   {s.payment_confirmed ? "✓ Pago" : "Pagamento"}
                                                 </button>
                                                 <button
-                                                  onClick={() => canToggleCert && toggleEnrollmentField(course.id, s.id, "can_emit_certificate", !s.can_emit_certificate)}
-                                                  title={!canToggleCert ? `Precisa: ${!allDaysOk ? `${totalAttended}/${numDays} dias` : ""}${!allDaysOk && !s.payment_confirmed ? " + " : ""}${!s.payment_confirmed ? "pagamento" : ""}` : ""}
+                                                  onClick={() => toggleEnrollmentField(course.id, s.id, "can_emit_certificate", !s.can_emit_certificate)}
+                                                  title={!canToggleCert ? `Atenção: ${!allDaysOk ? `${totalAttended}/${numDays} dias` : ""}${!allDaysOk && !s.payment_confirmed ? " + " : ""}${!s.payment_confirmed ? "pagamento pendente" : ""}` : ""}
                                                   className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-semibold flex-1 justify-center transition-all"
                                                   style={s.can_emit_certificate
                                                     ? { background: "rgba(250,204,21,0.15)", color: "#FBBF24", border: "1px solid rgba(250,204,21,0.3)", cursor: "pointer" }
-                                                    : canToggleCert
-                                                      ? { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.35)", border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer" }
-                                                      : { background: "rgba(255,255,255,0.02)", color: "rgba(255,255,255,0.15)", border: "1px solid rgba(255,255,255,0.05)", cursor: "not-allowed" }}>
+                                                    : !canToggleCert
+                                                      ? { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.4)", border: "1px dashed rgba(255,255,255,0.15)", cursor: "pointer" }
+                                                      : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.35)", border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer" }}>
                                                   {s.can_emit_certificate ? "🎓 Cert. liberado" : "Liberar cert."}
                                                 </button>
                                               </div>
