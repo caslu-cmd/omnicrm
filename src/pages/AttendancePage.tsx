@@ -134,6 +134,7 @@ export default function AttendancePage() {
     const normEmail = (s: string | null | undefined) => normText(s).replace(/\s/g, "");
 
     try {
+      const looksLikeEmail = typed.includes("@");
       const typedEmail = normEmail(typed);
       const typedDigits = onlyDigits(typed);
       const typedName = normText(typed);
@@ -151,7 +152,7 @@ export default function AttendancePage() {
       }
 
       const enrollment = (enrollments ?? []).find((e: any) => {
-        const emailMatch = e.student_email && normEmail(e.student_email) === typedEmail;
+        const emailMatch = looksLikeEmail && e.student_email && normEmail(e.student_email) === typedEmail;
         const phone = onlyDigits(e.student_phone);
         const phoneMatch = typedDigits.length >= 8 && phone && (phone === typedDigits || phone.endsWith(typedDigits));
         const name = normText(e.student_name);
