@@ -1006,9 +1006,9 @@ export default function ClientWorkspace() {
   const [dbGroupMembers, setDbGroupMembers] = useState<Record<string, any[]>>({});
   const [coursesLoading, setCoursesLoading] = useState(false);
   const [showNewCourse, setShowNewCourse] = useState(false);
-  const [newCourseForm, setNewCourseForm] = useState({ title: "", description: "", level: "Básico", num_days: 1 });
+  const [newCourseForm, setNewCourseForm] = useState({ title: "", description: "", level: "Básico", num_days: 1, start_date: "" });
   const [editCourseId, setEditCourseId] = useState<string | null>(null);
-  const [editCourseForm, setEditCourseForm] = useState({ title: "", description: "", level: "Básico", num_days: 1 });
+  const [editCourseForm, setEditCourseForm] = useState({ title: "", description: "", level: "Básico", num_days: 1, start_date: "" });
   const [selectedQrDay, setSelectedQrDay] = useState<Record<string, number>>({});
   const [savingCourse, setSavingCourse] = useState(false);
   const [showAddStudent, setShowAddStudent] = useState<string | null>(null);
@@ -2935,9 +2935,10 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
       title: newCourseForm.title, description: newCourseForm.description || null,
       level: newCourseForm.level, status: "active",
       num_days: newCourseForm.num_days ?? 1,
+      start_date: newCourseForm.start_date || null,
     });
     setShowNewCourse(false);
-    setNewCourseForm({ title: "", description: "", level: "Básico", num_days: 1 });
+    setNewCourseForm({ title: "", description: "", level: "Básico", num_days: 1, start_date: "" });
     loadDbCourses();
     toast.success("Curso criado!");
     setSavingCourse(false);
@@ -3134,12 +3135,23 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
       description: editCourseForm.description || null,
       level: editCourseForm.level,
       num_days: editCourseForm.num_days ?? 1,
+      start_date: editCourseForm.start_date || null,
     }).eq("id", courseId);
     setDbCourses(prev => prev.map(c => c.id === courseId
-      ? { ...c, title: editCourseForm.title, description: editCourseForm.description || null, level: editCourseForm.level, num_days: editCourseForm.num_days }
+      ? { ...c, title: editCourseForm.title, description: editCourseForm.description || null, level: editCourseForm.level, num_days: editCourseForm.num_days, start_date: editCourseForm.start_date || null }
       : c));
     setEditCourseId(null);
     toast.success("Curso atualizado!");
+  };
+
+  // Calendar date for a given course day (1-indexed). Returns "" if no start_date set.
+  const getCourseDayDate = (course: any, dayNumber: number): string => {
+    if (!course?.start_date) return "";
+    const [y, m, d] = String(course.start_date).split("-").map(Number);
+    if (!y || !m || !d) return "";
+    const base = new Date(y, m - 1, d);
+    base.setDate(base.getDate() + (dayNumber - 1));
+    return base.toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
   };
 
   const PHASE_LABELS: Record<string, string> = {
@@ -9584,6 +9596,13 @@ Regras:
                               className="w-12 text-center text-xs focus:outline-none bg-transparent"
                               style={{ color: "#F0F0F0" }} />
                           </div>
+                          <div className="col-span-2 flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}>
+                            <span className="text-xs flex-1" style={{ color: "rgba(255,255,255,0.5)" }}>Data de início (Dia 1)</span>
+                            <input type="date" value={newCourseForm.start_date}
+                              onChange={e => setNewCourseForm(p => ({ ...p, start_date: e.target.value }))}
+                              className="text-xs focus:outline-none bg-transparent"
+                              style={{ color: "#F0F0F0", colorScheme: "dark" }} />
+                          </div>
                         </div>
                         <div className="flex gap-2">
                           <button onClick={handleCreateCourse} disabled={savingCourse || !newCourseForm.title.trim()}
@@ -9710,7 +9729,7 @@ Regras:
                           <button
                             onClick={() => {
                               if (editCourseId === course.id) { setEditCourseId(null); return; }
-                              setEditCourseForm({ title: course.title, description: course.description ?? "", level: course.level ?? "Básico", num_days: course.num_days ?? 1 });
+                              setEditCourseForm({ title: course.title, description: course.description ?? "", level: course.level ?? "Básico", num_days: course.num_days ?? 1, start_date: course.start_date ?? "" });
                               setEditCourseId(course.id);
                             }}
                             className="w-8 h-8 rounded-lg flex items-center justify-center transition-all"
@@ -9755,6 +9774,13 @@ Regras:
                                     onChange={e => setEditCourseForm(p => ({ ...p, num_days: Math.max(1, parseInt(e.target.value) || 1) }))}
                                     className="w-12 text-center text-xs focus:outline-none bg-transparent"
                                     style={{ color: "#F0F0F0" }} />
+                                </div>
+                                <div className="col-span-2 flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}>
+                                  <span className="text-xs flex-1" style={{ color: "rgba(255,255,255,0.5)" }}>Data de início (Dia 1)</span>
+                                  <input type="date" value={editCourseForm.start_date}
+                                    onChange={e => setEditCourseForm(p => ({ ...p, start_date: e.target.value }))}
+                                    className="text-xs focus:outline-none bg-transparent"
+                                    style={{ color: "#F0F0F0", colorScheme: "dark" }} />
                                 </div>
                               </div>
                               <div className="flex gap-2">
@@ -10482,21 +10508,24 @@ Regras:
                                   {/* Day selector */}
                                   {numDays > 1 && (
                                     <div className="flex gap-1.5 flex-wrap">
-                                      {Array.from({ length: numDays }, (_, i) => i + 1).map(d => (
-                                        <button key={d}
-                                          onClick={() => {
-                                            setSelectedQrDay(prev => ({ ...prev, [course.id]: d }));
-                                            setAttendDayFilter(prev => ({ ...prev, [course.id]: d }));
-                                          }}
-                                          className="px-3 py-1 rounded-lg text-[10px] font-semibold transition-all"
-                                          style={{
-                                            background: activeDay === d ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.04)",
-                                            color: activeDay === d ? "#34D399" : "rgba(255,255,255,0.35)",
-                                            border: `1px solid ${activeDay === d ? "rgba(52,211,153,0.3)" : "rgba(255,255,255,0.08)"}`,
-                                          }}>
-                                          Dia {d}
-                                        </button>
-                                      ))}
+                                      {Array.from({ length: numDays }, (_, i) => i + 1).map(d => {
+                                        const dDate = getCourseDayDate(course, d);
+                                        return (
+                                          <button key={d}
+                                            onClick={() => {
+                                              setSelectedQrDay(prev => ({ ...prev, [course.id]: d }));
+                                              setAttendDayFilter(prev => ({ ...prev, [course.id]: d }));
+                                            }}
+                                            className="px-3 py-1 rounded-lg text-[10px] font-semibold transition-all"
+                                            style={{
+                                              background: activeDay === d ? "rgba(52,211,153,0.15)" : "rgba(255,255,255,0.04)",
+                                              color: activeDay === d ? "#34D399" : "rgba(255,255,255,0.35)",
+                                              border: `1px solid ${activeDay === d ? "rgba(52,211,153,0.3)" : "rgba(255,255,255,0.08)"}`,
+                                            }}>
+                                            Dia {d}{dDate && ` · ${dDate}`}
+                                          </button>
+                                        );
+                                      })}
                                     </div>
                                   )}
 
@@ -10507,7 +10536,7 @@ Regras:
                                     </div>
                                     {numDays > 1 && (
                                       <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full" style={{ background: "rgba(52,211,153,0.12)", color: "#34D399" }}>
-                                        Dia {activeDay} de {numDays}
+                                        Dia {activeDay} de {numDays}{getCourseDayDate(course, activeDay) && ` · ${getCourseDayDate(course, activeDay)}`}
                                       </span>
                                     )}
                                     <p className="text-[10px] text-center leading-snug" style={{ color: "rgba(255,255,255,0.35)" }}>
@@ -10594,7 +10623,7 @@ Regras:
                                                 color: active ? "#34D399" : "rgba(255,255,255,0.3)",
                                                 border: `1px solid ${active ? "rgba(52,211,153,0.3)" : "rgba(255,255,255,0.07)"}`,
                                               }}>
-                                              {d === "all" ? "Todos" : `Dia ${d}`}
+                                              {d === "all" ? "Todos" : `Dia ${d}${getCourseDayDate(course, d as number) ? ` · ${getCourseDayDate(course, d as number)}` : ""}`}
                                             </button>
                                           );
                                         })}
@@ -10681,7 +10710,7 @@ Regras:
                                                         style={daysAttended.has(d)
                                                           ? { background: "rgba(52,211,153,0.15)", color: "#34D399" }
                                                           : { background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.2)" }}>
-                                                        D{d}{daysAttended.has(d) ? "✓" : "✗"}
+                                                        <span title={getCourseDayDate(course, d)}>D{d}{daysAttended.has(d) ? "✓" : "✗"}</span>
                                                       </span>
                                                     ))
                                                   )}
