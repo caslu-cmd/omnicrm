@@ -5,7 +5,7 @@ import {
   FileText, RotateCcw, Paperclip, X, Share2, Check, Link, Plus,
 } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
 
 const AGENTS = [
   { key: "campanha",             label: "Estratégia de Campanha", emoji: "🚀", desc: "Campanha com canais, copy e KPIs — executada primeiro" },
@@ -142,13 +142,13 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
       const token = session?.access_token;
 
       const resp = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/run-orchestration`,
+        `${SUPABASE_URL}/functions/v1/run-orchestration`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            apikey: import.meta.env.VITE_SUPABASE_ANON_KEY,
+            apikey: SUPABASE_PUBLISHABLE_KEY,
           },
           body: JSON.stringify({
             briefing: briefing.trim(),

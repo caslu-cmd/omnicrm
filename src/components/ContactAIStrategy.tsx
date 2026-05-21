@@ -2,7 +2,7 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, RefreshCw, AlertTriangle, Target, Zap, MessageSquare, TrendingUp, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
 
 interface Strategy {
   perfil: string;
@@ -29,15 +29,12 @@ export default function ContactAIStrategy({ contactId, contactName }: Props) {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) { toast.error("Sessão expirada."); return; }
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-      const anonKey     = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
-
-      const res = await fetch(`${supabaseUrl}/functions/v1/ai-crm`, {
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-crm`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${session.access_token}`,
-          "apikey": anonKey,
+          "apikey": SUPABASE_PUBLISHABLE_KEY,
         },
         body: JSON.stringify({ action: "generate-strategy", contact_id: contactId }),
       });

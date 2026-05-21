@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 interface ConnectorDef {
@@ -74,8 +74,7 @@ const IntegrationsPage = () => {
   const [zapiQrLoading, setZapiQrLoading] = useState(false);
 
   const invoke = async (action: string, method: "GET" | "POST" = "GET", body?: unknown) => {
-    const projectId = import.meta.env.VITE_SUPABASE_URL?.replace("https://", "").replace(".supabase.co", "") || "";
-    const baseUrl = `https://${projectId}.supabase.co/functions/v1/manage-integrations`;
+    const baseUrl = `${SUPABASE_URL}/functions/v1/manage-integrations`;
     const session = (await supabase.auth.getSession()).data.session;
     const url = `${baseUrl}?action=${action}`;
     const res = await fetch(url, {

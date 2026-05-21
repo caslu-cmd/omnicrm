@@ -22,7 +22,7 @@ import { CLIENTS, GeneratedOutput } from "@/data/agencyData";
 import { useClients } from "@/contexts/ClientsContext";
 import { usePageContext } from "@/contexts/PageContext";
 import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
 import PostCanvas from "@/components/PostCanvas";
 import SocialMediaTab from "@/components/SocialMediaTab";
 import WebhooksTab from "@/components/WebhooksTab";
@@ -1442,8 +1442,7 @@ export default function ClientWorkspace() {
 
   // ── Social integrations helpers ─────────────────────────────
   const invokeMgmt = async (action: string, method: "GET" | "POST" = "GET", body?: unknown) => {
-    const projectId = import.meta.env.VITE_SUPABASE_URL?.replace("https://", "").replace(".supabase.co", "") || "";
-    const baseUrl = `https://${projectId}.supabase.co/functions/v1/manage-integrations`;
+    const baseUrl = `${SUPABASE_URL}/functions/v1/manage-integrations`;
     const session = (await supabase.auth.getSession()).data.session;
     const res = await fetch(`${baseUrl}?action=${action}`, {
       method,
@@ -4645,11 +4644,9 @@ Regras:
     setGeneratingDraft(true);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { setGeneratingDraft(false); return; }
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
-    const res = await fetch(`${supabaseUrl}/functions/v1/ai-crm`, {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-crm`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}`, "apikey": anonKey },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}`, "apikey": SUPABASE_PUBLISHABLE_KEY },
       body: JSON.stringify({
         action: "generate-draft",
         client_id: id,
@@ -4676,11 +4673,9 @@ Regras:
     setInsightsLoading(true);
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { setInsightsLoading(false); return; }
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-    const anonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
-    const res = await fetch(`${supabaseUrl}/functions/v1/ai-crm`, {
+    const res = await fetch(`${SUPABASE_URL}/functions/v1/ai-crm`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}`, "apikey": anonKey },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${session.access_token}`, "apikey": SUPABASE_PUBLISHABLE_KEY },
       body: JSON.stringify({ action: "analyze-performance", client_id: id }),
     });
     const data = await res.json();
