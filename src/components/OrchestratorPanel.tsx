@@ -69,6 +69,7 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
   const [runId, setRunId] = useState<string | null>(null);
   const [shareToken, setShareToken] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
+  const [fetchingUrls, setFetchingUrls] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -82,6 +83,7 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
     setShareToken(null);
     setShareCopied(false);
     setAttachedFiles([]);
+    setFetchingUrls(false);
     setUrls([]);
     setUrlInput("");
   };
@@ -179,6 +181,10 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
             const ev = JSON.parse(line.slice(6));
             if (ev.type === "run_id") {
               setRunId(ev.run_id);
+            } else if (ev.type === "url_fetching") {
+              setFetchingUrls(true);
+            } else if (ev.type === "url_done") {
+              setFetchingUrls(false);
             } else if (ev.type === "agent_start") {
               setAgents(prev => ({ ...prev, [ev.agent_key]: { status: "running" } }));
             } else if (ev.type === "agent_done") {
@@ -355,7 +361,9 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold"
               style={{ background: "rgba(248,113,113,0.15)", color: "#F87171", border: "1px solid rgba(248,113,113,0.3)" }}>
               <Loader2 className="w-4 h-4 animate-spin" />
-              Cancelar ({doneCount}/{AGENTS.length} concluídos)
+              {fetchingUrls
+                ? "Lendo URLs..."
+                : `Cancelar (${doneCount}/${AGENTS.length} concluídos)`}
             </button>
           )}
 

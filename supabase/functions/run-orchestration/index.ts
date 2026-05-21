@@ -92,14 +92,20 @@ function stripHtml(html: string): string {
 }
 
 async function fetchUrl(url: string): Promise<string> {
-  const resp = await fetch(url, {
-    headers: { "User-Agent": "Mozilla/5.0 (compatible; ARIA-bot/1.0)" },
-    signal: AbortSignal.timeout(10_000),
-  });
-  if (!resp.ok) throw new Error(`HTTP ${resp.status} ao buscar ${url}`);
-  const ct = resp.headers.get("content-type") ?? "";
-  const text = await resp.text();
-  return ct.includes("html") ? stripHtml(text) : text;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12_000);
+  try {
+    const resp = await fetch(url, {
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; ARIA-bot/1.0)" },
+      signal: controller.signal,
+    });
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+    const ct = resp.headers.get("content-type") ?? "";
+    const text = await resp.text();
+    return ct.includes("html") ? stripHtml(text) : text;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 async function callClaude(system: string, userMsg: string): Promise<string> {
@@ -152,22 +158,7 @@ serve(async (req) => {
     });
   }
 
-  // Fetch URL contents server-side (no CORS issues)
-  const urlContents: { url: string; content: string }[] = [];
-  if (Array.isArray(urls) && urls.length) {
-    await Promise.allSettled(
-      (urls as string[]).map(async (url) => {
-        try {
-          const content = await fetchUrl(url);
-          urlContents.push({ url, content: content.slice(0, 8000) });
-        } catch (e: any) {
-          urlContents.push({ url, content: `[Erro ao carregar: ${e.message}]` });
-        }
-      })
-    );
-  }
-
-  // Build base user message
+  // Build files section (already extracted client-side)
   const filesSection = (attached_files as AttachedFile[] | undefined)?.length
     ? "\n\n---\nARQUIVOS ANEXADOS:\n" +
       (attached_files as AttachedFile[]).map(f =>
@@ -175,18 +166,7 @@ serve(async (req) => {
       ).join("\n\n")
     : "";
 
-  const urlsSection = urlContents.length
-    ? "\n\n---\nCONTEÚDO DE URLs LIDAS:\n" +
-      urlContents.map(u => `### ${u.url}\n${u.content}`).join("\n\n")
-    : "";
-
-  const baseUserMsg = `Cliente: ${client_name ?? "—"}
-Segmento: ${client_industry ?? "—"}
-
-BRIEFING:
-${briefing}${filesSection}${urlsSection}
-
-Gere o conteúdo solicitado com base nessas informações. Seja específico, criativo e prático.`;
+  const pendingUrls: string[] = Array.isArray(urls) ? (urls as string[]) : [];
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -194,6 +174,36 @@ Gere o conteúdo solicitado com base nessas informações. Seja específico, cri
         new TextEncoder().encode(`data: ${JSON.stringify(obj)}\n\n`);
 
       controller.enqueue(enc({ type: "run_id", run_id: runId }));
+
+      // ── Fetch URLs inside the stream so SSE connection is already open ──
+      const urlContents: { url: string; content: string }[] = [];
+      if (pendingUrls.length) {
+        controller.enqueue(enc({ type: "url_fetching", count: pendingUrls.length }));
+        await Promise.allSettled(
+          pendingUrls.map(async (url) => {
+            try {
+              const content = await fetchUrl(url);
+              urlContents.push({ url, content: content.slice(0, 8000) });
+            } catch (e: any) {
+              urlContents.push({ url, content: `[Erro ao carregar ${url}: ${e.message}]` });
+            }
+          })
+        );
+        controller.enqueue(enc({ type: "url_done", count: urlContents.length }));
+      }
+
+      const urlsSection = urlContents.length
+        ? "\n\n---\nCONTEÚDO DE URLs LIDAS:\n" +
+          urlContents.map(u => `### ${u.url}\n${u.content}`).join("\n\n")
+        : "";
+
+      const baseUserMsg = `Cliente: ${client_name ?? "—"}
+Segmento: ${client_industry ?? "—"}
+
+BRIEFING:
+${briefing}${filesSection}${urlsSection}
+
+Gere o conteúdo solicitado com base nessas informações. Seja específico, criativo e prático.`;
 
       // ── Wave 1: Campanha strategy (runs first so others can use it) ──
       const wave1 = AGENTS.filter(a => a.wave === 1);
