@@ -26,11 +26,42 @@ interface AgentState {
   error?: string;
 }
 
+type ResponsibleRole   = "visualizar" | "editar" | "executar";
+type ResponsibleStatus = "pendente" | "em_andamento" | "concluido";
+
 interface Responsible {
   id: string;
   name: string;
-  checked: boolean;
+  role: ResponsibleRole;
+  status: ResponsibleStatus;
 }
+
+const ROLE_LABELS: Record<ResponsibleRole, string> = {
+  visualizar: "Visualizar",
+  editar:     "Editar",
+  executar:   "Executar",
+};
+const ROLE_COLORS: Record<ResponsibleRole, string> = {
+  visualizar: "rgba(99,179,237,0.15)",
+  editar:     "rgba(251,191,36,0.15)",
+  executar:   "rgba(185,255,75,0.12)",
+};
+const ROLE_TEXT: Record<ResponsibleRole, string> = {
+  visualizar: "#63B3ED",
+  editar:     "#FBBF24",
+  executar:   "#B9FF4B",
+};
+
+const STATUS_LABELS: Record<ResponsibleStatus, string> = {
+  pendente:     "Pendente",
+  em_andamento: "Em andamento",
+  concluido:    "Concluído",
+};
+const STATUS_COLORS: Record<ResponsibleStatus, string> = {
+  pendente:     "rgba(255,255,255,0.18)",
+  em_andamento: "#FBBF24",
+  concluido:    "#34D399",
+};
 
 interface Props {
   clientId: string;
@@ -84,6 +115,7 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
   const [saving, setSaving] = useState(false);
   const [responsibles, setResponsibles] = useState<Responsible[]>([]);
   const [newResponsible, setNewResponsible] = useState("");
+  const [newRole, setNewRole] = useState<ResponsibleRole>("executar");
   const abortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -104,6 +136,7 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
     setEditText("");
     setResponsibles([]);
     setNewResponsible("");
+    setNewRole("executar");
   };
 
   const enterEdit = () => {
@@ -138,15 +171,26 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
   const addResponsible = () => {
     const name = newResponsible.trim();
     if (!name) return;
-    const item: Responsible = { id: crypto.randomUUID(), name, checked: false };
+    const item: Responsible = { id: crypto.randomUUID(), name, role: newRole, status: "pendente" };
     const updated = [...responsibles, item];
     setResponsibles(updated);
     setNewResponsible("");
     saveResponsibles(updated);
   };
 
-  const toggleResponsible = (id: string) => {
-    const updated = responsibles.map(r => r.id === id ? { ...r, checked: !r.checked } : r);
+  const cycleStatus = (id: string) => {
+    const order: ResponsibleStatus[] = ["pendente", "em_andamento", "concluido"];
+    const updated = responsibles.map(r => {
+      if (r.id !== id) return r;
+      const next = order[(order.indexOf(r.status) + 1) % order.length];
+      return { ...r, status: next };
+    });
+    setResponsibles(updated);
+    saveResponsibles(updated);
+  };
+
+  const changeRole = (id: string, role: ResponsibleRole) => {
+    const updated = responsibles.map(r => r.id === id ? { ...r, role } : r);
     setResponsibles(updated);
     saveResponsibles(updated);
   };
@@ -719,8 +763,8 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
                   </p>
 
                   {/* Add responsible */}
-                  <div className="flex items-center gap-2 mb-3">
-                    <div className="flex-1 flex items-center gap-2 rounded-xl px-3 py-2"
+                  <div className="flex flex-wrap items-center gap-2 mb-3">
+                    <div className="flex-1 flex items-center gap-2 rounded-xl px-3 py-2 min-w-[160px]"
                       style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
                       <UserPlus className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "rgba(255,255,255,0.25)" }} />
                       <input
@@ -728,11 +772,20 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
                         value={newResponsible}
                         onChange={e => setNewResponsible(e.target.value)}
                         onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addResponsible(); } }}
-                        placeholder="Nome do responsável (ex: João — Designer)"
+                        placeholder="Nome do responsável"
                         className="flex-1 bg-transparent outline-none text-sm"
                         style={{ color: "rgba(255,255,255,0.8)", minWidth: 0 }}
                       />
                     </div>
+                    <select
+                      value={newRole}
+                      onChange={e => setNewRole(e.target.value as ResponsibleRole)}
+                      className="text-xs rounded-xl px-3 py-2 outline-none"
+                      style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: ROLE_TEXT[newRole], cursor: "pointer" }}>
+                      <option value="executar"   style={{ background: "#1a1a1a" }}>Executar</option>
+                      <option value="editar"     style={{ background: "#1a1a1a" }}>Editar</option>
+                      <option value="visualizar" style={{ background: "#1a1a1a" }}>Visualizar</option>
+                    </select>
                     <button
                       onClick={addResponsible}
                       disabled={!newResponsible.trim()}
@@ -748,26 +801,43 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
                   {responsibles.length > 0 && (
                     <div className="space-y-2">
                       {responsibles.map(r => (
-                        <div key={r.id} className="flex items-center gap-3 px-3 py-2 rounded-xl group"
+                        <div key={r.id} className="flex items-center gap-2 px-3 py-2.5 rounded-xl group"
                           style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                          {/* Status dot */}
                           <button
-                            onClick={() => toggleResponsible(r.id)}
-                            className="flex-shrink-0 w-4 h-4 rounded flex items-center justify-center transition-all"
-                            style={{
-                              background: r.checked ? "#B9FF4B" : "transparent",
-                              border: r.checked ? "none" : "1.5px solid rgba(255,255,255,0.25)",
-                            }}>
-                            {r.checked && <Check className="w-3 h-3" style={{ color: "#07080A" }} />}
-                          </button>
-                          <span className="flex-1 text-sm" style={{
-                            color: r.checked ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.75)",
-                            textDecoration: r.checked ? "line-through" : "none",
+                            onClick={() => cycleStatus(r.id)}
+                            title="Clique para avançar status"
+                            className="flex-shrink-0 w-2.5 h-2.5 rounded-full transition-all"
+                            style={{ background: STATUS_COLORS[r.status], boxShadow: `0 0 6px ${STATUS_COLORS[r.status]}80` }}
+                          />
+                          {/* Name */}
+                          <span className="flex-1 text-sm truncate" style={{
+                            color: r.status === "concluido" ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.78)",
+                            textDecoration: r.status === "concluido" ? "line-through" : "none",
                           }}>
                             {r.name}
                           </span>
+                          {/* Status badge */}
+                          <button
+                            onClick={() => cycleStatus(r.id)}
+                            className="text-[10px] px-2 py-0.5 rounded-full font-medium flex-shrink-0"
+                            style={{ background: `${STATUS_COLORS[r.status]}18`, color: STATUS_COLORS[r.status], border: `1px solid ${STATUS_COLORS[r.status]}35` }}>
+                            {STATUS_LABELS[r.status]}
+                          </button>
+                          {/* Role selector */}
+                          <select
+                            value={r.role}
+                            onChange={e => changeRole(r.id, e.target.value as ResponsibleRole)}
+                            className="text-[10px] rounded-lg px-2 py-0.5 outline-none flex-shrink-0"
+                            style={{ background: ROLE_COLORS[r.role], border: `1px solid ${ROLE_TEXT[r.role]}30`, color: ROLE_TEXT[r.role], cursor: "pointer" }}>
+                            <option value="executar"   style={{ background: "#1a1a1a" }}>Executar</option>
+                            <option value="editar"     style={{ background: "#1a1a1a" }}>Editar</option>
+                            <option value="visualizar" style={{ background: "#1a1a1a" }}>Visualizar</option>
+                          </select>
+                          {/* Remove */}
                           <button
                             onClick={() => removeResponsible(r.id)}
-                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
                             style={{ color: "rgba(255,255,255,0.25)" }}
                             onMouseEnter={e => { e.currentTarget.style.color = "#F87171"; }}
                             onMouseLeave={e => { e.currentTarget.style.color = "rgba(255,255,255,0.25)"; }}>
@@ -779,8 +849,8 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
                   )}
 
                   {responsibles.length === 0 && (
-                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>
-                      Adicione os responsáveis pela execução deste plano.
+                    <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.2)" }}>
+                      Adicione os responsáveis e defina o nível de acesso de cada um.
                     </p>
                   )}
                 </div>
