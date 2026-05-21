@@ -2,7 +2,7 @@ import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Loader2, ChevronDown, CheckCircle2, AlertCircle, Sparkles,
-  FileText, RotateCcw, Paperclip, X, Share2, Check,
+  FileText, RotateCcw, Paperclip, X, Share2, Check, Link, Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -59,6 +59,8 @@ async function extractFileText(file: File): Promise<string> {
 export default function OrchestratorPanel({ clientId, clientName, clientIndustry, userId }: Props) {
   const [briefing, setBriefing] = useState("");
   const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const [urls, setUrls] = useState<string[]>([]);
+  const [urlInput, setUrlInput] = useState("");
   const [running, setRunning] = useState(false);
   const [agents, setAgents] = useState<Record<string, AgentState>>({});
   const [report, setReport] = useState<string | null>(null);
@@ -80,6 +82,16 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
     setShareToken(null);
     setShareCopied(false);
     setAttachedFiles([]);
+    setUrls([]);
+    setUrlInput("");
+  };
+
+  const addUrl = () => {
+    const trimmed = urlInput.trim();
+    if (!trimmed) return;
+    const normalized = trimmed.startsWith("http") ? trimmed : `https://${trimmed}`;
+    if (!urls.includes(normalized)) setUrls(prev => [...prev, normalized]);
+    setUrlInput("");
   };
 
   const removeFile = (idx: number) => {
@@ -143,6 +155,7 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
             client_id: clientId,
             user_id: userId ?? null,
             attached_files: attached_files.length ? attached_files : undefined,
+            urls: urls.length ? urls : undefined,
           }),
           signal: ab.signal,
         }
@@ -253,6 +266,51 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
                 <span className="max-w-[120px] truncate">{f.name}</span>
                 {!running && (
                   <button onClick={() => removeFile(i)} className="ml-0.5 opacity-60 hover:opacity-100">
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* URL input */}
+        <div className="flex items-center gap-2 mt-3">
+          <div className="flex-1 flex items-center gap-2 rounded-xl px-3 py-2"
+            style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)" }}>
+            <Link className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "rgba(255,255,255,0.3)" }} />
+            <input
+              type="url"
+              value={urlInput}
+              onChange={e => setUrlInput(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addUrl(); } }}
+              placeholder="Cole uma URL para a ARIA ler (ex: site do cliente)"
+              disabled={running}
+              className="flex-1 bg-transparent outline-none text-sm"
+              style={{ color: "rgba(255,255,255,0.8)", minWidth: 0 }}
+            />
+          </div>
+          <button
+            onClick={addUrl}
+            disabled={!urlInput.trim() || running}
+            className="flex items-center gap-1 px-3 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
+            style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.2)", whiteSpace: "nowrap" }}
+            onMouseEnter={e => { e.currentTarget.style.background = "rgba(185,255,75,0.2)"; }}
+            onMouseLeave={e => { e.currentTarget.style.background = "rgba(185,255,75,0.1)"; }}>
+            <Plus className="w-3.5 h-3.5" /> Adicionar
+          </button>
+        </div>
+
+        {/* URL chips */}
+        {urls.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {urls.map((u, i) => (
+              <div key={i} className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px]"
+                style={{ background: "rgba(99,179,237,0.08)", color: "#63B3ED", border: "1px solid rgba(99,179,237,0.2)" }}>
+                <Link className="w-3 h-3" />
+                <span className="max-w-[200px] truncate">{u.replace(/^https?:\/\//, "")}</span>
+                {!running && (
+                  <button onClick={() => setUrls(prev => prev.filter((_, j) => j !== i))} className="ml-0.5 opacity-60 hover:opacity-100">
                     <X className="w-3 h-3" />
                   </button>
                 )}

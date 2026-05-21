@@ -77,6 +77,31 @@ interface AttachedFile {
   content: string;
 }
 
+function stripHtml(html: string): string {
+  return html
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+async function fetchUrl(url: string): Promise<string> {
+  const resp = await fetch(url, {
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; ARIA-bot/1.0)" },
+    signal: AbortSignal.timeout(10_000),
+  });
+  if (!resp.ok) throw new Error(`HTTP ${resp.status} ao buscar ${url}`);
+  const ct = resp.headers.get("content-type") ?? "";
+  const text = await resp.text();
+  return ct.includes("html") ? stripHtml(text) : text;
+}
+
 async function callClaude(system: string, userMsg: string): Promise<string> {
   const r = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -100,7 +125,7 @@ async function callClaude(system: string, userMsg: string): Promise<string> {
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
-  const { briefing, client_name, client_industry, client_id, user_id, attached_files } = await req.json();
+  const { briefing, client_name, client_industry, client_id, user_id, attached_files, urls } = await req.json();
   if (!briefing) return new Response(JSON.stringify({ error: "briefing obrigatório" }), { status: 400, headers: cors });
 
   const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
@@ -127,6 +152,21 @@ serve(async (req) => {
     });
   }
 
+  // Fetch URL contents server-side (no CORS issues)
+  const urlContents: { url: string; content: string }[] = [];
+  if (Array.isArray(urls) && urls.length) {
+    await Promise.allSettled(
+      (urls as string[]).map(async (url) => {
+        try {
+          const content = await fetchUrl(url);
+          urlContents.push({ url, content: content.slice(0, 8000) });
+        } catch (e: any) {
+          urlContents.push({ url, content: `[Erro ao carregar: ${e.message}]` });
+        }
+      })
+    );
+  }
+
   // Build base user message
   const filesSection = (attached_files as AttachedFile[] | undefined)?.length
     ? "\n\n---\nARQUIVOS ANEXADOS:\n" +
@@ -135,11 +175,16 @@ serve(async (req) => {
       ).join("\n\n")
     : "";
 
+  const urlsSection = urlContents.length
+    ? "\n\n---\nCONTEÚDO DE URLs LIDAS:\n" +
+      urlContents.map(u => `### ${u.url}\n${u.content}`).join("\n\n")
+    : "";
+
   const baseUserMsg = `Cliente: ${client_name ?? "—"}
 Segmento: ${client_industry ?? "—"}
 
 BRIEFING:
-${briefing}${filesSection}
+${briefing}${filesSection}${urlsSection}
 
 Gere o conteúdo solicitado com base nessas informações. Seja específico, criativo e prático.`;
 
