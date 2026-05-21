@@ -3,8 +3,11 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Loader2, ChevronDown, CheckCircle2, AlertCircle, Sparkles,
   FileText, RotateCcw, Paperclip, X, Share2, Check, Link, Plus,
+  Pencil, Save, UserPlus, Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
 
 const AGENTS = [
@@ -21,6 +24,12 @@ interface AgentState {
   status: AgentStatus;
   output?: string;
   error?: string;
+}
+
+interface Responsible {
+  id: string;
+  name: string;
+  checked: boolean;
 }
 
 interface Props {
@@ -70,6 +79,11 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
   const [shareToken, setShareToken] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
   const [fetchingUrls, setFetchingUrls] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [editText, setEditText] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [responsibles, setResponsibles] = useState<Responsible[]>([]);
+  const [newResponsible, setNewResponsible] = useState("");
   const abortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -86,6 +100,61 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
     setFetchingUrls(false);
     setUrls([]);
     setUrlInput("");
+    setEditMode(false);
+    setEditText("");
+    setResponsibles([]);
+    setNewResponsible("");
+  };
+
+  const enterEdit = () => {
+    setEditText(report ?? "");
+    setEditMode(true);
+  };
+
+  const saveReport = async () => {
+    if (!runId) return;
+    setSaving(true);
+    try {
+      await supabase.from("orchestration_runs")
+        .update({ report: editText, responsibles: responsibles as any })
+        .eq("id", runId);
+      setReport(editText);
+      setEditMode(false);
+      toast.success("Relatório salvo!");
+    } catch {
+      toast.error("Erro ao salvar");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const saveResponsibles = async (updated: Responsible[]) => {
+    if (!runId) return;
+    await supabase.from("orchestration_runs")
+      .update({ responsibles: updated as any })
+      .eq("id", runId);
+  };
+
+  const addResponsible = () => {
+    const name = newResponsible.trim();
+    if (!name) return;
+    const item: Responsible = { id: crypto.randomUUID(), name, checked: false };
+    const updated = [...responsibles, item];
+    setResponsibles(updated);
+    setNewResponsible("");
+    saveResponsibles(updated);
+  };
+
+  const toggleResponsible = (id: string) => {
+    const updated = responsibles.map(r => r.id === id ? { ...r, checked: !r.checked } : r);
+    setResponsibles(updated);
+    saveResponsibles(updated);
+  };
+
+  const removeResponsible = (id: string) => {
+    const updated = responsibles.filter(r => r.id !== id);
+    setResponsibles(updated);
+    saveResponsibles(updated);
   };
 
   const addUrl = () => {
@@ -501,46 +570,220 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
             exit={{ opacity: 0 }}
             className="rounded-2xl overflow-hidden"
             style={{ background: "rgba(185,255,75,0.04)", border: "1px solid rgba(185,255,75,0.2)" }}>
-            <div className="flex items-center gap-3 px-5 py-4 border-b"
-              style={{ borderColor: "rgba(185,255,75,0.12)" }}>
-              <FileText className="w-4 h-4" style={{ color: "#B9FF4B" }} />
-              <span className="text-sm font-bold" style={{ color: "#B9FF4B" }}>Relatório Executivo</span>
-              {reportGenerating && <Loader2 className="w-3.5 h-3.5 animate-spin ml-auto" style={{ color: "#B9FF4B" }} />}
-              {report && (
-                <div className="ml-auto flex items-center gap-2">
-                  {shareToken && (
-                    <button
-                      onClick={copyShareLink}
-                      className="flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-lg transition-all"
-                      style={{ background: "rgba(255,255,255,0.06)", color: shareCopied ? "#34D399" : "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.08)" }}
-                      onMouseEnter={e => { if (!shareCopied) e.currentTarget.style.color = "#B9FF4B"; }}
-                      onMouseLeave={e => { if (!shareCopied) e.currentTarget.style.color = "rgba(255,255,255,0.5)"; }}>
-                      {shareCopied ? <Check className="w-3 h-3" /> : <Share2 className="w-3 h-3" />}
-                      {shareCopied ? "Link copiado!" : "Compartilhar"}
-                    </button>
-                  )}
-                  <button
-                    onClick={() => copyOutput(report)}
-                    className="text-[11px] px-3 py-1 rounded-lg transition-all"
-                    style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.2)" }}
-                    onMouseEnter={e => { e.currentTarget.style.background = "rgba(185,255,75,0.2)"; }}
-                    onMouseLeave={e => { e.currentTarget.style.background = "rgba(185,255,75,0.1)"; }}>
-                    Copiar relatório
-                  </button>
+
+            {/* Report header */}
+            <div className="px-5 pt-5 pb-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <FileText className="w-5 h-5 flex-shrink-0" style={{ color: "#B9FF4B" }} />
+                  <div>
+                    <p className="text-[10px] font-semibold uppercase tracking-widest mb-0.5"
+                      style={{ color: "rgba(185,255,75,0.6)" }}>ARIA · Calu Agência</p>
+                    <h2 className="text-base font-bold" style={{ color: "#fff" }}>
+                      Relatório de Estratégia de Marketing
+                    </h2>
+                  </div>
                 </div>
-              )}
+
+                {reportGenerating && <Loader2 className="w-4 h-4 animate-spin flex-shrink-0 mt-1" style={{ color: "#B9FF4B" }} />}
+
+                {report && !editMode && (
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      onClick={enterEdit}
+                      className="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-lg transition-all"
+                      style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.08)" }}
+                      onMouseEnter={e => { e.currentTarget.style.color = "#B9FF4B"; e.currentTarget.style.borderColor = "rgba(185,255,75,0.3)"; }}
+                      onMouseLeave={e => { e.currentTarget.style.color = "rgba(255,255,255,0.5)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}>
+                      <Pencil className="w-3 h-3" /> Editar
+                    </button>
+                    {shareToken && (
+                      <button
+                        onClick={copyShareLink}
+                        className="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-lg transition-all"
+                        style={{ background: "rgba(255,255,255,0.06)", color: shareCopied ? "#34D399" : "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.08)" }}
+                        onMouseEnter={e => { if (!shareCopied) e.currentTarget.style.color = "#B9FF4B"; }}
+                        onMouseLeave={e => { if (!shareCopied) e.currentTarget.style.color = "rgba(255,255,255,0.5)"; }}>
+                        {shareCopied ? <Check className="w-3 h-3" /> : <Share2 className="w-3 h-3" />}
+                        {shareCopied ? "Copiado!" : "Compartilhar"}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => copyOutput(report)}
+                      className="flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-lg transition-all"
+                      style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.2)" }}
+                      onMouseEnter={e => { e.currentTarget.style.background = "rgba(185,255,75,0.2)"; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = "rgba(185,255,75,0.1)"; }}>
+                      Copiar
+                    </button>
+                  </div>
+                )}
+
+                {editMode && (
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => setEditMode(false)}
+                      className="text-[11px] px-3 py-1.5 rounded-lg"
+                      style={{ color: "rgba(255,255,255,0.4)" }}>
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={saveReport}
+                      disabled={saving}
+                      className="flex items-center gap-1.5 text-[11px] px-4 py-1.5 rounded-lg font-semibold transition-all disabled:opacity-50"
+                      style={{ background: "#B9FF4B", color: "#07080A" }}>
+                      {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Save className="w-3 h-3" />}
+                      Salvar
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
-            {report && (
-              <div className="px-5 py-4 text-xs whitespace-pre-wrap max-h-[600px] overflow-y-auto"
-                style={{ color: "rgba(255,255,255,0.75)", lineHeight: 1.8 }}>
-                {report}
+
+            <div className="border-t mx-5" style={{ borderColor: "rgba(185,255,75,0.1)" }} />
+
+            {/* Report content */}
+            {report && !editMode && (
+              <div className="px-5 py-4 max-h-[600px] overflow-y-auto">
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={{
+                    h1: ({ children }) => <h1 className="text-lg font-bold mb-3 mt-5 first:mt-0" style={{ color: "#fff" }}>{children}</h1>,
+                    h2: ({ children }) => <h2 className="text-sm font-bold mb-2 mt-5 first:mt-0 pb-1" style={{ color: "#B9FF4B", borderBottom: "1px solid rgba(185,255,75,0.15)" }}>{children}</h2>,
+                    h3: ({ children }) => <h3 className="text-sm font-semibold mb-1.5 mt-4" style={{ color: "rgba(255,255,255,0.9)" }}>{children}</h3>,
+                    p: ({ children }) => <p className="text-sm mb-3 leading-relaxed" style={{ color: "rgba(255,255,255,0.72)" }}>{children}</p>,
+                    strong: ({ children }) => <strong className="font-semibold" style={{ color: "#fff" }}>{children}</strong>,
+                    em: ({ children }) => <em style={{ color: "rgba(255,255,255,0.6)" }}>{children}</em>,
+                    ul: ({ children }) => <ul className="mb-3 space-y-1 pl-4" style={{ listStyleType: "disc", color: "rgba(255,255,255,0.72)" }}>{children}</ul>,
+                    ol: ({ children }) => <ol className="mb-3 space-y-1 pl-4" style={{ listStyleType: "decimal", color: "rgba(255,255,255,0.72)" }}>{children}</ol>,
+                    li: ({ children }) => <li className="text-sm leading-relaxed">{children}</li>,
+                    hr: () => <hr className="my-4" style={{ borderColor: "rgba(255,255,255,0.08)" }} />,
+                    blockquote: ({ children }) => (
+                      <blockquote className="pl-3 my-3 italic text-sm" style={{ borderLeft: "2px solid #B9FF4B", color: "rgba(255,255,255,0.55)" }}>
+                        {children}
+                      </blockquote>
+                    ),
+                    code: ({ children }) => (
+                      <code className="text-xs px-1.5 py-0.5 rounded" style={{ background: "rgba(255,255,255,0.08)", color: "#B9FF4B" }}>
+                        {children}
+                      </code>
+                    ),
+                    table: ({ children }) => (
+                      <div className="overflow-x-auto mb-3">
+                        <table className="w-full text-xs border-collapse">{children}</table>
+                      </div>
+                    ),
+                    th: ({ children }) => <th className="text-left px-3 py-2 text-xs font-semibold" style={{ background: "rgba(185,255,75,0.08)", color: "#B9FF4B", borderBottom: "1px solid rgba(185,255,75,0.2)" }}>{children}</th>,
+                    td: ({ children }) => <td className="px-3 py-2 text-xs" style={{ color: "rgba(255,255,255,0.65)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>{children}</td>,
+                  }}>
+                  {report}
+                </ReactMarkdown>
               </div>
             )}
+
+            {editMode && (
+              <div className="px-5 py-4">
+                <textarea
+                  value={editText}
+                  onChange={e => setEditText(e.target.value)}
+                  rows={20}
+                  className="w-full text-sm rounded-xl px-4 py-3 resize-none outline-none font-mono"
+                  style={{
+                    background: "rgba(0,0,0,0.3)",
+                    border: "1px solid rgba(185,255,75,0.2)",
+                    color: "rgba(255,255,255,0.8)",
+                    lineHeight: 1.7,
+                  }}
+                />
+                <p className="text-[11px] mt-2" style={{ color: "rgba(255,255,255,0.3)" }}>
+                  Edite o texto em Markdown. Clique em Salvar para persistir as alterações.
+                </p>
+              </div>
+            )}
+
             {reportGenerating && !report && (
-              <div className="px-5 py-6 text-center">
+              <div className="px-5 py-8 text-center">
+                <Loader2 className="w-5 h-5 animate-spin mx-auto mb-3" style={{ color: "#B9FF4B" }} />
                 <p className="text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
                   ARIA está compilando o relatório executivo...
                 </p>
+              </div>
+            )}
+
+            {/* Responsáveis */}
+            {report && (
+              <div className="px-5 pb-5 pt-2">
+                <div className="border-t pt-4" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                  <p className="text-xs font-semibold uppercase tracking-widest mb-3" style={{ color: "rgba(255,255,255,0.3)" }}>
+                    Responsáveis
+                  </p>
+
+                  {/* Add responsible */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="flex-1 flex items-center gap-2 rounded-xl px-3 py-2"
+                      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                      <UserPlus className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "rgba(255,255,255,0.25)" }} />
+                      <input
+                        type="text"
+                        value={newResponsible}
+                        onChange={e => setNewResponsible(e.target.value)}
+                        onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addResponsible(); } }}
+                        placeholder="Nome do responsável (ex: João — Designer)"
+                        className="flex-1 bg-transparent outline-none text-sm"
+                        style={{ color: "rgba(255,255,255,0.8)", minWidth: 0 }}
+                      />
+                    </div>
+                    <button
+                      onClick={addResponsible}
+                      disabled={!newResponsible.trim()}
+                      className="flex items-center gap-1 px-3 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-40"
+                      style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.2)" }}
+                      onMouseEnter={e => { e.currentTarget.style.background = "rgba(185,255,75,0.2)"; }}
+                      onMouseLeave={e => { e.currentTarget.style.background = "rgba(185,255,75,0.1)"; }}>
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* Responsible list */}
+                  {responsibles.length > 0 && (
+                    <div className="space-y-2">
+                      {responsibles.map(r => (
+                        <div key={r.id} className="flex items-center gap-3 px-3 py-2 rounded-xl group"
+                          style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                          <button
+                            onClick={() => toggleResponsible(r.id)}
+                            className="flex-shrink-0 w-4 h-4 rounded flex items-center justify-center transition-all"
+                            style={{
+                              background: r.checked ? "#B9FF4B" : "transparent",
+                              border: r.checked ? "none" : "1.5px solid rgba(255,255,255,0.25)",
+                            }}>
+                            {r.checked && <Check className="w-3 h-3" style={{ color: "#07080A" }} />}
+                          </button>
+                          <span className="flex-1 text-sm" style={{
+                            color: r.checked ? "rgba(255,255,255,0.35)" : "rgba(255,255,255,0.75)",
+                            textDecoration: r.checked ? "line-through" : "none",
+                          }}>
+                            {r.name}
+                          </span>
+                          <button
+                            onClick={() => removeResponsible(r.id)}
+                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                            style={{ color: "rgba(255,255,255,0.25)" }}
+                            onMouseEnter={e => { e.currentTarget.style.color = "#F87171"; }}
+                            onMouseLeave={e => { e.currentTarget.style.color = "rgba(255,255,255,0.25)"; }}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {responsibles.length === 0 && (
+                    <p className="text-xs" style={{ color: "rgba(255,255,255,0.2)" }}>
+                      Adicione os responsáveis pela execução deste plano.
+                    </p>
+                  )}
+                </div>
               </div>
             )}
           </motion.div>
