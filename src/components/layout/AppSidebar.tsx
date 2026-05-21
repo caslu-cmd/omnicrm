@@ -249,7 +249,9 @@ export const AppSidebar = ({ collapsed, onToggle, hideToggle }: AppSidebarProps)
           <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
             {[
               ...clientTools,
-              { tab: "courses", icon: GraduationCap, label: "Cursos" },
+              ...(client.name.toLowerCase().includes("licita")
+                ? [{ tab: "courses", icon: GraduationCap, label: "Cursos" }]
+                : []),
               ...(wpSites.find(s => s.client_name?.toLowerCase() === client.name.toLowerCase())
                 ? [{ tab: "pixel", icon: Globe, label: "Pixel — WordPress" }]
                 : []),
