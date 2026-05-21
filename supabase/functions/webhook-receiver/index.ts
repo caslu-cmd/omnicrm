@@ -178,10 +178,35 @@ Deno.serve(async (req) => {
     if (lead) leadId = lead.id;
   }
 
+  // If webhook is linked to a course, auto-enroll the student
+  let enrollmentId: string | null = null;
+  if (endpoint.course_id && (mapped.name || mapped.email)) {
+    let alreadyEnrolled = false;
+    if (mapped.email) {
+      const { data: ex } = await db
+        .from("course_enrollments")
+        .select("id")
+        .eq("course_id", endpoint.course_id)
+        .eq("student_email", mapped.email)
+        .maybeSingle();
+      if (ex) { alreadyEnrolled = true; enrollmentId = ex.id; }
+    }
+    if (!alreadyEnrolled) {
+      const { data: enr } = await db.from("course_enrollments").insert({
+        course_id: endpoint.course_id,
+        user_id: endpoint.user_id,
+        student_name: mapped.name ?? mapped.email ?? "Inscrito",
+        student_email: mapped.email ?? null,
+        student_phone: mapped.phone ?? null,
+      }).select("id").single();
+      if (enr) enrollmentId = enr.id;
+    }
+  }
+
   // Update trigger stats
   await db.from("webhook_endpoints")
     .update({ trigger_count: (endpoint.trigger_count ?? 0) + 1, last_triggered_at: new Date().toISOString() })
     .eq("id", endpoint.id);
 
-  return ok({ success: true, contact_id: contactId, lead_id: leadId });
+  return ok({ success: true, contact_id: contactId, lead_id: leadId, enrollment_id: enrollmentId });
 });

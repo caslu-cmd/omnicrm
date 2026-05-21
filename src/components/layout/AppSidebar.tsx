@@ -42,6 +42,7 @@ const crmItems = [
   { to: "/tomas", icon: Layout, label: "Criador de LPs" },
   { to: "/pages", icon: Globe, label: "Landing Pages" },
   { to: "/ben", icon: TrendingUp, label: "Tendências — Ben" },
+  { to: "/fisco", icon: FileBarChart, label: "Contabilidade — Fisco" },
   { to: "/notebook", icon: BookOpen, label: "Notebook IA" },
   { to: "/wordpress", icon: Globe, label: "WordPress" },
   { to: "/members", icon: GraduationCap, label: "Membros" },

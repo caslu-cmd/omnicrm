@@ -301,6 +301,17 @@ export default function ClientPortal() {
       .then(({ data: rows }: any) => { if (rows) setDeliverables(rows); });
   }, [data?.client?.workspace_id]);
 
+  // Comunicados / Atualizações publicados pela agência
+  const [portalUpdates, setPortalUpdates] = useState<any[]>([]);
+  useEffect(() => {
+    const wid = data?.client?.workspace_id;
+    if (!wid) return;
+    (supabase as any).from("client_updates").select("*")
+      .eq("client_id", wid).eq("status", "published")
+      .order("created_at", { ascending: false })
+      .then(({ data: rows }: any) => { if (rows) setPortalUpdates(rows); });
+  }, [data?.client?.workspace_id]);
+
   // Calendário aprovado pelo dono — visível ao cliente
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
   useEffect(() => {
@@ -510,6 +521,70 @@ export default function ClientPortal() {
             </div>
           </div>
         </motion.div>
+
+        {/* ── Comunicados / Atualizações ──────────────────── */}
+        {portalUpdates.length > 0 && (() => {
+          const UPDATE_CFG: Record<string, { label: string; color: string }> = {
+            informativo:  { label: "Informativo",  color: "#60A5FA" },
+            alerta:       { label: "Alerta",       color: "#F97316" },
+            em_andamento: { label: "Em Andamento", color: "#F59E0B" },
+            destaque:     { label: "Destaque",     color: "#B9FF4B" },
+          };
+          return (
+            <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.09 }}>
+              <div className="rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.07)" }}>
+                <div className="px-6 py-5" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                  <h2 className="text-base font-bold mb-0.5" style={{ color: "#111" }}>Atualizações da agência</h2>
+                  <p className="text-xs" style={{ color: "#888" }}>
+                    {portalUpdates.length} comunicado{portalUpdates.length !== 1 ? "s" : ""} da equipe
+                  </p>
+                </div>
+                <div className="divide-y" style={{ borderColor: "rgba(0,0,0,0.05)" }}>
+                  {portalUpdates.map((u) => {
+                    const cfg = UPDATE_CFG[u.type] ?? UPDATE_CFG.informativo;
+                    const paragraphs = (u.content as string).split(/\n\s*\n/).filter(Boolean);
+                    return (
+                      <div key={u.id} className="flex items-stretch gap-0"
+                        style={{ borderLeft: `4px solid ${cfg.color}` }}>
+                        <div className="flex-1 min-w-0 px-5 py-4">
+                          {/* Type badge + title */}
+                          <div className="flex items-center gap-2 flex-wrap mb-2">
+                            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1"
+                              style={{ background: `${cfg.color}15`, color: cfg.color }}>
+                              {u.type === "em_andamento" && (
+                                <Clock className="w-2.5 h-2.5" />
+                              )}
+                              {cfg.label}
+                            </span>
+                            {u.title && (
+                              <span className="text-sm font-semibold" style={{ color: "#111" }}>{u.title}</span>
+                            )}
+                          </div>
+                          {/* Content — each blank-line-separated chunk is its own paragraph */}
+                          <div className="space-y-3">
+                            {paragraphs.map((para, i) => (
+                              <p key={i} className="text-sm leading-relaxed" style={{ color: "#444" }}>
+                                {para.trim()}
+                              </p>
+                            ))}
+                          </div>
+                          {/* Footer */}
+                          <div className="flex items-center justify-between mt-3 pt-2.5"
+                            style={{ borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+                            <span className="text-xs" style={{ color: "#bbb" }}>
+                              {new Date(u.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}
+                            </span>
+                            <span className="text-xs font-medium" style={{ color: "#999" }}>{u.author}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          );
+        })()}
 
         {/* ── Briefing da marca ────────────────────────────── */}
         <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>

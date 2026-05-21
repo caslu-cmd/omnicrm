@@ -1,15 +1,18 @@
 import { useState, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, ChevronDown, CheckCircle2, AlertCircle, Sparkles, Send, FileText, RotateCcw } from "lucide-react";
+import {
+  Loader2, ChevronDown, CheckCircle2, AlertCircle, Sparkles,
+  FileText, RotateCcw, Paperclip, X, Share2, Check,
+} from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
 const AGENTS = [
-  { key: "calendario_editorial", label: "Calendário Editorial", emoji: "📅", desc: "Pauta de 30 dias por canal e formato" },
+  { key: "campanha",             label: "Estratégia de Campanha", emoji: "🚀", desc: "Campanha com canais, copy e KPIs — executada primeiro" },
+  { key: "calendario_editorial", label: "Calendário Editorial",   emoji: "📅", desc: "Pauta de 30 dias por canal e formato" },
   { key: "calendario_demandas",  label: "Calendário de Demandas", emoji: "✅", desc: "Tarefas, prazos e responsáveis" },
-  { key: "posts_redes_sociais",  label: "Posts Redes Sociais", emoji: "📱", desc: "5 posts prontos com copy e briefing visual" },
-  { key: "blogpost",             label: "Artigo de Blog", emoji: "✍️", desc: "Artigo SEO completo para o blog" },
-  { key: "campanha",             label: "Estratégia de Campanha", emoji: "🚀", desc: "Campanha com canais, copy e KPIs" },
+  { key: "posts_redes_sociais",  label: "Posts Redes Sociais",    emoji: "📱", desc: "5 posts prontos com copy e briefing visual" },
+  { key: "blogpost",             label: "Artigo de Blog",         emoji: "✍️", desc: "Artigo SEO completo para o blog" },
 ];
 
 type AgentStatus = "idle" | "running" | "done" | "error";
@@ -27,15 +30,45 @@ interface Props {
   userId?: string;
 }
 
+async function extractFileText(file: File): Promise<string> {
+  if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
+    const { getDocument, GlobalWorkerOptions } = await import("pdfjs-dist");
+    // Use unpkg CDN worker matching the installed version
+    const mod = await import("pdfjs-dist");
+    const ver = (mod as any).version ?? "5.7.284";
+    GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${ver}/build/pdf.worker.min.mjs`;
+    const arrayBuf = await file.arrayBuffer();
+    const pdf = await getDocument({ data: arrayBuf }).promise;
+    const parts: string[] = [];
+    for (let i = 1; i <= Math.min(pdf.numPages, 30); i++) {
+      const page = await pdf.getPage(i);
+      const tc = await page.getTextContent();
+      parts.push(tc.items.map((item: any) => item.str).join(" "));
+    }
+    return parts.join("\n");
+  }
+  // Text-based files
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(new Error("Falha ao ler arquivo"));
+    reader.readAsText(file, "utf-8");
+  });
+}
+
 export default function OrchestratorPanel({ clientId, clientName, clientIndustry, userId }: Props) {
   const [briefing, setBriefing] = useState("");
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
   const [running, setRunning] = useState(false);
   const [agents, setAgents] = useState<Record<string, AgentState>>({});
   const [report, setReport] = useState<string | null>(null);
   const [reportGenerating, setReportGenerating] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [runId, setRunId] = useState<string | null>(null);
+  const [shareToken, setShareToken] = useState<string | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const resetPanel = () => {
     setAgents({});
@@ -44,6 +77,29 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
     setReportGenerating(false);
     setExpanded(null);
     setRunId(null);
+    setShareToken(null);
+    setShareCopied(false);
+    setAttachedFiles([]);
+  };
+
+  const removeFile = (idx: number) => {
+    setAttachedFiles(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const onFilePick = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files ?? []);
+    setAttachedFiles(prev => [...prev, ...picked]);
+    e.target.value = "";
+  };
+
+  const copyShareLink = () => {
+    if (!shareToken) return;
+    const url = `${window.location.origin}/shared/${shareToken}`;
+    navigator.clipboard.writeText(url).then(() => {
+      setShareCopied(true);
+      toast.success("Link copiado!");
+      setTimeout(() => setShareCopied(false), 2500);
+    });
   };
 
   const startOrchestration = async () => {
@@ -57,6 +113,17 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
     abortRef.current = ab;
 
     try {
+      // Extract text from all attached files
+      const attached_files: { name: string; content: string }[] = [];
+      for (const file of attachedFiles) {
+        try {
+          const content = await extractFileText(file);
+          attached_files.push({ name: file.name, content });
+        } catch {
+          toast.error(`Não foi possível ler: ${file.name}`);
+        }
+      }
+
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
 
@@ -75,6 +142,7 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
             client_industry: clientIndustry ?? "",
             client_id: clientId,
             user_id: userId ?? null,
+            attached_files: attached_files.length ? attached_files : undefined,
           }),
           signal: ab.signal,
         }
@@ -109,6 +177,8 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
             } else if (ev.type === "report") {
               setReport(ev.report);
               setReportGenerating(false);
+            } else if (ev.type === "share_token") {
+              setShareToken(ev.share_token);
             } else if (ev.type === "concluido") {
               setRunning(false);
               toast.success("Orquestração concluída!");
@@ -141,7 +211,7 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
 
   return (
     <div className="space-y-4">
-      {/* Header */}
+      {/* Header / Input */}
       <div className="rounded-2xl px-5 py-4"
         style={{ background: "rgba(185,255,75,0.04)", border: "1px solid rgba(185,255,75,0.15)" }}>
         <div className="flex items-start gap-3 mb-3">
@@ -152,8 +222,8 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
           <div>
             <p className="text-sm font-bold" style={{ color: "#B9FF4B" }}>ARIA — Orquestração Multi-Agente</p>
             <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-              Descreva o que você precisa e ARIA aciona todos os especialistas em paralelo.
-              Ao final, você recebe um relatório completo com todos os entregáveis.
+              Descreva o que você precisa e ARIA aciona todos os especialistas.
+              A estratégia de campanha é gerada primeiro e compartilhada com os demais agentes.
             </p>
           </div>
         </div>
@@ -173,16 +243,54 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
           disabled={running}
         />
 
-        <div className="flex items-center gap-3 mt-3">
+        {/* File chips */}
+        {attachedFiles.length > 0 && (
+          <div className="flex flex-wrap gap-2 mt-2">
+            {attachedFiles.map((f, i) => (
+              <div key={i} className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px]"
+                style={{ background: "rgba(185,255,75,0.08)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.2)" }}>
+                <FileText className="w-3 h-3" />
+                <span className="max-w-[120px] truncate">{f.name}</span>
+                {!running && (
+                  <button onClick={() => removeFile(i)} className="ml-0.5 opacity-60 hover:opacity-100">
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-center gap-3 mt-3 flex-wrap">
           {!running ? (
-            <button
-              onClick={startOrchestration}
-              disabled={!briefing.trim()}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40"
-              style={{ background: "#B9FF4B", color: "#07080A" }}>
-              <Sparkles className="w-4 h-4" />
-              Acionar Todos os Agentes
-            </button>
+            <>
+              <button
+                onClick={startOrchestration}
+                disabled={!briefing.trim()}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40"
+                style={{ background: "#B9FF4B", color: "#07080A" }}>
+                <Sparkles className="w-4 h-4" />
+                Acionar Todos os Agentes
+              </button>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".pdf,.txt,.md,.csv,.docx"
+                className="hidden"
+                onChange={onFilePick}
+              />
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm transition-all"
+                style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.08)" }}
+                onMouseEnter={e => { e.currentTarget.style.color = "#B9FF4B"; e.currentTarget.style.borderColor = "rgba(185,255,75,0.3)"; }}
+                onMouseLeave={e => { e.currentTarget.style.color = "rgba(255,255,255,0.5)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)"; }}>
+                <Paperclip className="w-3.5 h-3.5" />
+                Anexar arquivos
+              </button>
+            </>
           ) : (
             <button
               onClick={stopOrchestration}
@@ -333,14 +441,27 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
               <span className="text-sm font-bold" style={{ color: "#B9FF4B" }}>Relatório Executivo</span>
               {reportGenerating && <Loader2 className="w-3.5 h-3.5 animate-spin ml-auto" style={{ color: "#B9FF4B" }} />}
               {report && (
-                <button
-                  onClick={() => copyOutput(report)}
-                  className="ml-auto text-[11px] px-3 py-1 rounded-lg transition-all"
-                  style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.2)" }}
-                  onMouseEnter={e => { e.currentTarget.style.background = "rgba(185,255,75,0.2)"; }}
-                  onMouseLeave={e => { e.currentTarget.style.background = "rgba(185,255,75,0.1)"; }}>
-                  Copiar relatório
-                </button>
+                <div className="ml-auto flex items-center gap-2">
+                  {shareToken && (
+                    <button
+                      onClick={copyShareLink}
+                      className="flex items-center gap-1.5 text-[11px] px-3 py-1 rounded-lg transition-all"
+                      style={{ background: "rgba(255,255,255,0.06)", color: shareCopied ? "#34D399" : "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.08)" }}
+                      onMouseEnter={e => { if (!shareCopied) e.currentTarget.style.color = "#B9FF4B"; }}
+                      onMouseLeave={e => { if (!shareCopied) e.currentTarget.style.color = "rgba(255,255,255,0.5)"; }}>
+                      {shareCopied ? <Check className="w-3 h-3" /> : <Share2 className="w-3 h-3" />}
+                      {shareCopied ? "Link copiado!" : "Compartilhar"}
+                    </button>
+                  )}
+                  <button
+                    onClick={() => copyOutput(report)}
+                    className="text-[11px] px-3 py-1 rounded-lg transition-all"
+                    style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.2)" }}
+                    onMouseEnter={e => { e.currentTarget.style.background = "rgba(185,255,75,0.2)"; }}
+                    onMouseLeave={e => { e.currentTarget.style.background = "rgba(185,255,75,0.1)"; }}>
+                    Copiar relatório
+                  </button>
+                </div>
               )}
             </div>
             {report && (

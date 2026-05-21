@@ -3,7 +3,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
   Users, Megaphone, Calendar, TrendingUp,
-  ArrowRight, MessageSquare, Plus, Zap, X, Trash2, AlertTriangle, ExternalLink
+  ArrowRight, MessageSquare, Plus, Zap, X, Trash2, AlertTriangle, ExternalLink,
+  Receipt, Clapperboard, BookOpen, Globe, FileText
 } from "lucide-react";
 import { useClients } from "@/contexts/ClientsContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -11,6 +12,49 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const LIME = "#B9FF4B";
+
+const AGENTES = [
+  {
+    nome: "Fisco",
+    descricao: "Consultor Contábil IA",
+    emoji: <Receipt className="w-5 h-5" />,
+    cor: "#F59E0B",
+    rota: "/fisco",
+    skills: ["NFS-e", "Tributos", "Obrigações"],
+  },
+  {
+    nome: "Ben",
+    descricao: "Especialista em Tendências",
+    emoji: <TrendingUp className="w-5 h-5" />,
+    cor: "#B9FF4B",
+    rota: "/ben",
+    skills: ["Google Trends", "Ideias", "Hashtags"],
+  },
+  {
+    nome: "Bobby",
+    descricao: "Editor de Vídeo IA",
+    emoji: <Clapperboard className="w-5 h-5" />,
+    cor: "#A78BFA",
+    rota: "/video-editor",
+    skills: ["Roteiro", "Legendas", "Cortes"],
+  },
+  {
+    nome: "Apolo",
+    descricao: "Criador de Apostilas",
+    emoji: <BookOpen className="w-5 h-5" />,
+    cor: "#60A5FA",
+    rota: "/apostila",
+    skills: ["PDF", "Layout", "Conteúdo"],
+  },
+  {
+    nome: "Pixel",
+    descricao: "Agente WordPress",
+    emoji: <Globe className="w-5 h-5" />,
+    cor: "#34D399",
+    rota: "/wordpress",
+    skills: ["Posts", "SEO", "Páginas"],
+  },
+];
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; border: string }> = {
   Ativo:       { bg: "rgba(185,255,75,0.1)",   text: "#B9FF4B", border: "rgba(185,255,75,0.22)" },
@@ -202,6 +246,72 @@ export default function AgencyDashboard() {
               </div>
             </div>
           ))}
+        </motion.div>
+
+        {/* ── Agentes da Agência ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.18, duration: 0.5 }}
+          className="mb-10"
+        >
+          <div className="flex items-center gap-4 mb-5">
+            <h2 className="text-[11px] font-medium tracking-[0.2em] uppercase"
+              style={{ color: "rgba(255,255,255,0.35)" }}>Agentes da Agência</h2>
+            <div className="h-px w-20" style={{ background: "rgba(185,255,75,0.15)" }} />
+            <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.2)" }}>{AGENTES.length} agentes</span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            {AGENTES.map((ag, i) => (
+              <motion.button
+                key={ag.nome}
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.22 + i * 0.06, duration: 0.4 }}
+                onClick={() => navigate(ag.rota)}
+                className="flex flex-col items-start p-4 rounded-2xl text-left transition-all group"
+                style={{
+                  background: "rgba(255,255,255,0.022)",
+                  border: "1px solid rgba(255,255,255,0.06)",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.borderColor = `${ag.cor}40`;
+                  e.currentTarget.style.boxShadow = `0 0 24px -6px ${ag.cor}30`;
+                  e.currentTarget.style.background = `${ag.cor}08`;
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)";
+                  e.currentTarget.style.boxShadow = "none";
+                  e.currentTarget.style.background = "rgba(255,255,255,0.022)";
+                }}
+              >
+                <div
+                  className="w-9 h-9 rounded-xl flex items-center justify-center mb-3"
+                  style={{ background: `${ag.cor}18`, border: `1px solid ${ag.cor}35`, color: ag.cor }}
+                >
+                  {ag.emoji}
+                </div>
+                <div className="font-semibold text-sm mb-0.5" style={{ color: "rgba(255,255,255,0.9)" }}>
+                  {ag.nome}
+                </div>
+                <div className="text-[11px] mb-3" style={{ color: "rgba(255,255,255,0.35)" }}>
+                  {ag.descricao}
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {ag.skills.map((s) => (
+                    <span
+                      key={s}
+                      className="text-[10px] px-1.5 py-0.5 rounded-full"
+                      style={{ background: `${ag.cor}15`, color: ag.cor, border: `1px solid ${ag.cor}25` }}
+                    >
+                      {s}
+                    </span>
+                  ))}
+                </div>
+              </motion.button>
+            ))}
+          </div>
         </motion.div>
 
         {/* ── Section header ── */}

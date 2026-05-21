@@ -165,6 +165,11 @@ export default function SocialMediaTab({
   const [linkedinOrgUrl, setLinkedinOrgUrl] = useState("");
   const pendingOAuthStateRef = useRef<string>("");
   const userIdRef = useRef<string>("");
+  // Page picker (when Meta account manages multiple Facebook Pages)
+  const [pagePickerPages, setPagePickerPages] = useState<{ id: string; name: string }[]>([]);
+  const [pagePickerTempData, setPagePickerTempData] = useState("");
+  const [pagePickerPlatform, setPagePickerPlatform] = useState<"instagram" | "facebook">("facebook");
+  const [pagePickerLoading, setPagePickerLoading] = useState<string | null>(null);
 
   // ── Reel state ───────────────────────────────────────────────
   const [reelVideoFile, setReelVideoFile] = useState<File | null>(null);
@@ -356,6 +361,11 @@ export default function SocialMediaTab({
             }
             if (error || data?.error) {
               toast.error(msg);
+            } else if (data?.requires_page_selection) {
+              // Multiple Facebook Pages — show picker
+              setPagePickerPages(data.pages ?? []);
+              setPagePickerTempData(data.temp_data ?? "");
+              setPagePickerPlatform(platform);
             } else {
               if (platform === "facebook" && data?.instagram_connected) {
                 toast.success("Facebook e Instagram conectados!");
@@ -856,6 +866,31 @@ export default function SocialMediaTab({
   const nextMonth = () => setCalendarDate((d) => d.month === 11 ? { year: d.year + 1, month: 0 } : { ...d, month: d.month + 1 });
 
   const s = (opacity = 1, value = "255,255,255") => `rgba(${value},${opacity})`;
+
+  const selectPage = async (pageId: string) => {
+    setPagePickerLoading(pageId);
+    try {
+      const { data, error } = await supabase.functions.invoke("smm", {
+        body: { action: "select-page", temp_data: pagePickerTempData, page_id: pageId },
+      });
+      if (error || data?.error) {
+        toast.error(data?.error ?? error?.message ?? "Erro ao conectar.");
+      } else {
+        if (pagePickerPlatform === "facebook" && data?.instagram_connected) {
+          toast.success("Facebook e Instagram conectados!");
+        } else {
+          toast.success(`${PLATFORM_CFG[pagePickerPlatform].name} conectado!`);
+        }
+        setPagePickerPages([]);
+        setPagePickerTempData("");
+        loadConnections();
+        loadMetrics();
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao conectar.");
+    }
+    setPagePickerLoading(null);
+  };
 
   if (loading) {
     return (
@@ -2260,6 +2295,46 @@ export default function SocialMediaTab({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── Page Picker Modal ─────────────────────────────────── */}
+      {pagePickerPages.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center" style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}>
+          <div className="w-full max-w-sm rounded-2xl p-6 space-y-4"
+            style={{ background: "#13131A", border: "1px solid rgba(255,255,255,0.1)" }}>
+            <div>
+              <h2 className="text-base font-bold" style={{ color: "rgba(255,255,255,0.9)" }}>
+                Escolha a Página
+              </h2>
+              <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>
+                Selecione a página do {PLATFORM_CFG[pagePickerPlatform].name} deste cliente
+              </p>
+            </div>
+            <div className="space-y-2">
+              {pagePickerPages.map((page) => (
+                <button
+                  key={page.id}
+                  onClick={() => selectPage(page.id)}
+                  disabled={!!pagePickerLoading}
+                  className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-all disabled:opacity-50"
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.85)" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = `${PLATFORM_CFG[pagePickerPlatform].color}18`; (e.currentTarget as HTMLElement).style.borderColor = `${PLATFORM_CFG[pagePickerPlatform].color}40`; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = "rgba(255,255,255,0.05)"; (e.currentTarget as HTMLElement).style.borderColor = "rgba(255,255,255,0.09)"; }}>
+                  <span>{page.name}</span>
+                  {pagePickerLoading === page.id
+                    ? <div className="h-4 w-4 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: PLATFORM_CFG[pagePickerPlatform].color, borderTopColor: "transparent" }} />
+                    : <ChevronRight className="w-4 h-4" style={{ color: "rgba(255,255,255,0.3)" }} />}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => { setPagePickerPages([]); setPagePickerTempData(""); }}
+              className="w-full py-2 rounded-xl text-sm"
+              style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.35)" }}>
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
 
     </div>
   );

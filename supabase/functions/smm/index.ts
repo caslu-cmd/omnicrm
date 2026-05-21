@@ -399,6 +399,19 @@ Deno.serve(async (req) => {
       const pages: Array<{ id: string; name: string; access_token: string }> = pagesData.data ?? [];
       if (!pages.length) return respond({ error: "Nenhuma Página do Facebook encontrada." }, 400);
 
+      // Multiple pages → return picker so user selects the right company
+      if (pages.length > 1) {
+        const tempPayload = JSON.stringify({
+          longToken, expiresIn, userId, clientId, platform,
+          pages: pages.map((p) => ({ id: p.id, name: p.name, access_token: p.access_token })),
+        });
+        return respond({
+          requires_page_selection: true,
+          pages: pages.map((p) => ({ id: p.id, name: p.name })),
+          temp_data: obfuscate(tempPayload, encKey),
+        });
+      }
+
       const page = pages[0];
       const pageToken = page.access_token;
       let accountId = page.id;
@@ -487,6 +500,89 @@ Deno.serve(async (req) => {
         instagram_name: igName,
         instagram_username: igUsername,
       });
+    }
+
+    // ── Select page (when Meta account has multiple pages) ───────
+    if (action === "select-page") {
+      const { temp_data, page_id } = body;
+      if (!temp_data || !page_id) return respond({ error: "temp_data e page_id obrigatórios" }, 400);
+      let payload: { longToken: string; expiresIn: number; userId: string; clientId: string; platform: string; pages: Array<{ id: string; name: string; access_token: string }> };
+      try { payload = JSON.parse(deobfuscate(temp_data, encKey)); }
+      catch { return respond({ error: "Dados expirados. Reconecte novamente." }, 400); }
+      const selectedPage = payload.pages.find((p) => p.id === page_id);
+      if (!selectedPage) return respond({ error: "Página não encontrada." }, 400);
+
+      const spToken = selectedPage.access_token;
+      let spAccountId = selectedPage.id;
+      let spAccountName = selectedPage.name;
+      let spAccountUsername: string | null = null;
+      let spFollowersCount = 0;
+      const spEncToken = obfuscate(spToken, encKey);
+      const spTokenExpiresAt = new Date(Date.now() + payload.expiresIn * 1000).toISOString();
+      const { clientId: spClientId, userId: spUserId, platform: spPlatform } = payload;
+
+      if (spPlatform === "instagram") {
+        const igRes = await fetch(`${GRAPH}/${selectedPage.id}?fields=instagram_business_account&access_token=${spToken}`);
+        const igData = await igRes.json();
+        const igId = igData.instagram_business_account?.id;
+        if (!igId) return respond({ error: "Nenhuma conta Instagram Profissional vinculada a esta Página." }, 400);
+        const igDetailsRes = await fetch(`${GRAPH}/${igId}?fields=id,name,username,followers_count&access_token=${spToken}`);
+        const igDetails = await igDetailsRes.json();
+        spAccountId = igId;
+        spAccountName = igDetails.name ?? selectedPage.name;
+        spAccountUsername = igDetails.username ? `@${igDetails.username}` : null;
+        spFollowersCount = igDetails.followers_count ?? 0;
+        const { error: upsertError } = await supabase.from("social_connections").upsert({
+          user_id: spUserId, client_id: spClientId, platform: "instagram",
+          account_id: spAccountId, account_name: spAccountName,
+          account_username: spAccountUsername, followers_count: spFollowersCount,
+          access_token: spEncToken, token_expires_at: spTokenExpiresAt,
+          connected: true, connected_at: new Date().toISOString(),
+        }, { onConflict: "user_id,client_id,platform" });
+        if (upsertError) return respond({ error: upsertError.message }, 500);
+        return respond({ success: true, account_name: spAccountName, account_username: spAccountUsername, followers_count: spFollowersCount });
+      }
+
+      // Facebook page + auto-detect Instagram
+      const spDetailsRes = await fetch(`${GRAPH}/${selectedPage.id}?fields=fan_count,followers_count&access_token=${spToken}`);
+      const spDetails = await spDetailsRes.json();
+      spFollowersCount = spDetails.followers_count ?? spDetails.fan_count ?? 0;
+      const { error: upsertError } = await supabase.from("social_connections").upsert({
+        user_id: spUserId, client_id: spClientId, platform: "facebook",
+        account_id: spAccountId, account_name: spAccountName,
+        account_username: spAccountUsername, followers_count: spFollowersCount,
+        access_token: spEncToken, token_expires_at: spTokenExpiresAt,
+        connected: true, connected_at: new Date().toISOString(),
+      }, { onConflict: "user_id,client_id,platform" });
+      if (upsertError) return respond({ error: upsertError.message }, 500);
+
+      let spIgConnected = false;
+      let spIgName: string | null = null;
+      let spIgUsername: string | null = null;
+      try {
+        const igRes = await fetch(`${GRAPH}/${selectedPage.id}?fields=instagram_business_account&access_token=${spToken}`);
+        const igData = await igRes.json();
+        const igId = igData.instagram_business_account?.id;
+        if (igId) {
+          const igDRes = await fetch(`${GRAPH}/${igId}?fields=id,name,username,followers_count&access_token=${spToken}`);
+          const igD = await igDRes.json();
+          if (!igD.error) {
+            spIgName = igD.name ?? selectedPage.name;
+            spIgUsername = igD.username ? `@${igD.username}` : null;
+            const spIgFollowers = igD.followers_count ?? 0;
+            await supabase.from("social_connections").upsert({
+              user_id: spUserId, client_id: spClientId, platform: "instagram",
+              account_id: igId, account_name: spIgName,
+              account_username: spIgUsername, followers_count: spIgFollowers,
+              access_token: spEncToken, token_expires_at: spTokenExpiresAt,
+              connected: true, connected_at: new Date().toISOString(),
+            }, { onConflict: "user_id,client_id,platform" });
+            spIgConnected = true;
+          }
+        }
+      } catch { /* Instagram auto-detect failed silently */ }
+
+      return respond({ success: true, account_name: spAccountName, account_username: spAccountUsername, followers_count: spFollowersCount, instagram_connected: spIgConnected, instagram_name: spIgName, instagram_username: spIgUsername });
     }
 
     // ── LinkedIn OAuth URL ───────────────────────────────────────

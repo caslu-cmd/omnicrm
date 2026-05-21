@@ -14,7 +14,7 @@ import {
   Paperclip, X, Palette, PenLine, BarChart3, Layout, Table2, AtSign,
   Target, ArrowRight, Repeat2, MousePointerClick, Filter, Trash2, Mic, MicOff, StopCircle,
   Save, Settings2, Award, Download, Loader2, Sparkles, ListChecks, Code2, Upload,
-  FileSpreadsheet, AlertCircle,
+  FileSpreadsheet, AlertCircle, Webhook, Copy,
 } from "lucide-react";
 import { toast } from "sonner";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from "recharts";
@@ -868,6 +868,13 @@ export default function ClientWorkspace() {
   const [savingDemand, setSavingDemand] = useState(false);
   const [generatingDemands, setGeneratingDemands] = useState(false);
   const [editingDemand, setEditingDemand] = useState<{ id: string; field: "title" | "description"; value: string } | null>(null);
+  // ── Atualizações do Portal ─────────────────────────────────────
+  const [clientUpdates, setClientUpdates] = useState<any[]>([]);
+  const [showUpdateForm, setShowUpdateForm] = useState(false);
+  const [updateForm, setUpdateForm] = useState({ type: "informativo", title: "", content: "", author: "Calu Agência", status: "draft" as "draft" | "published" });
+  const [savingUpdate, setSavingUpdate] = useState(false);
+  const [editingUpdateId, setEditingUpdateId] = useState<string | null>(null);
+  const [editUpdateForm, setEditUpdateForm] = useState({ type: "informativo", title: "", content: "", author: "", status: "draft" as "draft" | "published" });
   const [portalSection, setPortalSection] = useState<"onboarding" | "entregas" | "demandas">("onboarding");
   const [showAgentForm, setShowAgentForm] = useState(false);
   const [agentForm, setAgentForm] = useState({ agent_id: "luna", agent_name: "Luna", agent_color: "#B9FF4B", titulo: "", descricao: "" });
@@ -1048,6 +1055,10 @@ export default function ClientWorkspace() {
   const [newChecklistItem, setNewChecklistItem] = useState({ title: "", description: "", responsible: "agency" });
   const [savingChecklistItem, setSavingChecklistItem] = useState(false);
   const [selectedChecklistPhase, setSelectedChecklistPhase] = useState<Record<string, string>>({});
+  // Course webhooks (Forminator integration)
+  const [courseWebhooks, setCourseWebhooks] = useState<Record<string, { id: string; token: string }>>({});
+  const [showWebhookCourse, setShowWebhookCourse] = useState<string | null>(null);
+  const [creatingCourseWebhook, setCreatingCourseWebhook] = useState<string | null>(null);
 
   // Course pipeline messages
   type PipelineMsg = { id?: string; body: string; subject?: string };
@@ -2902,6 +2913,18 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
       setDbEnrollments(map);
       setDbChecklists(checkMap);
       setDbAttendance(attendMap);
+
+      // Load webhooks linked to courses of this client
+      const { data: cwh } = await (supabase as any)
+        .from("webhook_endpoints")
+        .select("id, token, course_id")
+        .eq("client_id", id ?? "")
+        .not("course_id", "is", null);
+      if (cwh) {
+        const wmap: Record<string, { id: string; token: string }> = {};
+        for (const ep of cwh) { if (ep.course_id) wmap[ep.course_id] = { id: ep.id, token: ep.token }; }
+        setCourseWebhooks(wmap);
+      }
     }
 
     // CRM contact_groups (user-level, all groups)
@@ -2923,6 +2946,30 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
     }
 
     setCoursesLoading(false);
+  };
+
+  const getOrCreateCourseWebhook = async (course: any) => {
+    if (courseWebhooks[course.id]) {
+      setShowWebhookCourse(prev => prev === course.id ? null : course.id);
+      return;
+    }
+    setCreatingCourseWebhook(course.id);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { setCreatingCourseWebhook(null); return; }
+    const { data, error } = await (supabase as any).from("webhook_endpoints").insert({
+      user_id: session.user.id,
+      client_id: id ?? "",
+      name: `Inscrições — ${course.title}`,
+      course_name: course.title,
+      course_id: course.id,
+    }).select("id, token").single();
+    if (data && !error) {
+      setCourseWebhooks(prev => ({ ...prev, [course.id]: { id: data.id, token: data.token } }));
+      setShowWebhookCourse(course.id);
+    } else {
+      toast.error("Erro ao gerar webhook");
+    }
+    setCreatingCourseWebhook(null);
   };
 
   const handleCreateCourse = async () => {
@@ -4017,6 +4064,51 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
   };
 
   useEffect(() => { if (portalClientUUID) loadPortalContent(portalClientUUID); }, [portalClientUUID]);
+
+  // Load client updates (uses workspace id = URL param)
+  useEffect(() => {
+    if (!id) return;
+    (supabase as any).from("client_updates").select("*")
+      .eq("client_id", id).order("created_at", { ascending: false })
+      .then(({ data: rows }: any) => { if (rows) setClientUpdates(rows); });
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const saveClientUpdate = async () => {
+    if (!id || !updateForm.content.trim()) return;
+    setSavingUpdate(true);
+    const { data, error } = await (supabase as any).from("client_updates").insert({
+      client_id: id, type: updateForm.type, title: updateForm.title.trim() || null,
+      content: updateForm.content.trim(), author: updateForm.author.trim() || "Calu Agência",
+      status: updateForm.status,
+    }).select().single();
+    if (!error && data) {
+      setClientUpdates(p => [data, ...p]);
+      setUpdateForm({ type: "informativo", title: "", content: "", author: "Calu Agência", status: "draft" });
+      setShowUpdateForm(false);
+      toast.success(updateForm.status === "published" ? "Comunicado publicado!" : "Rascunho salvo!");
+    }
+    setSavingUpdate(false);
+  };
+
+  const saveEditUpdate = async () => {
+    if (!editingUpdateId) return;
+    const { data, error } = await (supabase as any).from("client_updates")
+      .update({ type: editUpdateForm.type, title: editUpdateForm.title.trim() || null,
+        content: editUpdateForm.content.trim(), author: editUpdateForm.author.trim() || "Calu Agência",
+        status: editUpdateForm.status, updated_at: new Date().toISOString() })
+      .eq("id", editingUpdateId).select().single();
+    if (!error && data) {
+      setClientUpdates(p => p.map(u => u.id === editingUpdateId ? data : u));
+      toast.success("Comunicado atualizado!");
+    }
+    setEditingUpdateId(null);
+  };
+
+  const deleteClientUpdate = async (uid: string) => {
+    await (supabase as any).from("client_updates").delete().eq("id", uid);
+    setClientUpdates(p => p.filter(u => u.id !== uid));
+    toast.success("Comunicado removido.");
+  };
 
   const saveOnboardItem = async () => {
     if (!portalClientUUID || !onboardForm.title.trim() || !user) return;
@@ -9727,6 +9819,18 @@ Regras:
                             <FileSpreadsheet className="w-3.5 h-3.5" /> CSV
                           </button>
                           <button
+                            onClick={() => getOrCreateCourseWebhook(course)}
+                            title="Webhook para inscrições via Forminator"
+                            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-semibold transition-all"
+                            style={showWebhookCourse === course.id
+                              ? { background: "rgba(99,102,241,0.2)", color: "#818CF8", border: "1px solid rgba(99,102,241,0.4)" }
+                              : { background: "rgba(99,102,241,0.08)", color: "#818CF8", border: "1px solid rgba(99,102,241,0.2)" }}>
+                            {creatingCourseWebhook === course.id
+                              ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                              : <Webhook className="w-3.5 h-3.5" />}
+                            Webhook
+                          </button>
+                          <button
                             onClick={() => {
                               if (editCourseId === course.id) { setEditCourseId(null); return; }
                               setEditCourseForm({ title: course.title, description: course.description ?? "", level: course.level ?? "Básico", num_days: course.num_days ?? 1, start_date: course.start_date ?? "" });
@@ -9791,6 +9895,34 @@ Regras:
                                 </button>
                                 <button onClick={() => setEditCourseId(null)} className="px-3 py-2 rounded-xl text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>Cancelar</button>
                               </div>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+
+                      {/* Course webhook panel */}
+                      <AnimatePresence>
+                        {showWebhookCourse === course.id && courseWebhooks[course.id] && (
+                          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.18 }} className="overflow-hidden"
+                            style={{ borderTop: "1px solid rgba(99,102,241,0.15)" }}>
+                            <div className="px-5 py-4 space-y-2">
+                              <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#818CF8" }}>Webhook de Inscrição — Forminator</p>
+                              <div className="flex items-center gap-2">
+                                <code className="text-[10px] px-3 py-1.5 rounded-lg flex-1 truncate font-mono"
+                                  style={{ background: "rgba(0,0,0,0.3)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                                  {`https://proldgiyterqhthludlp.supabase.co/functions/v1/webhook-receiver?token=${courseWebhooks[course.id].token}`}
+                                </code>
+                                <button
+                                  onClick={() => { navigator.clipboard.writeText(`https://proldgiyterqhthludlp.supabase.co/functions/v1/webhook-receiver?token=${courseWebhooks[course.id].token}`); toast.success("URL copiada!"); }}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold shrink-0"
+                                  style={{ background: "rgba(99,102,241,0.12)", color: "#818CF8", border: "1px solid rgba(99,102,241,0.25)" }}>
+                                  <Copy className="w-3 h-3" /> Copiar
+                                </button>
+                              </div>
+                              <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.25)" }}>
+                                No Forminator: <span style={{ color: "rgba(255,255,255,0.4)" }}>Integrações → Webhook → cole a URL → POST + JSON</span>. As inscrições chegam automaticamente nesta tela.
+                              </p>
                             </div>
                           </motion.div>
                         )}
@@ -12584,7 +12716,189 @@ Regras:
                   </div>
                 </div>
 
+                  {/* ── ATUALIZAÇÕES / COMUNICADOS ── */}
+                  {(() => {
+                    const UPDATE_CFG: Record<string, { label: string; color: string; bg: string }> = {
+                      informativo:  { label: "Informativo",  color: "#60A5FA", bg: "rgba(96,165,250,0.08)" },
+                      alerta:       { label: "Alerta",       color: "#F97316", bg: "rgba(249,115,22,0.08)" },
+                      em_andamento: { label: "Em Andamento", color: "#F59E0B", bg: "rgba(245,158,11,0.08)" },
+                      destaque:     { label: "Destaque",     color: "#B9FF4B", bg: "rgba(185,255,75,0.08)" },
+                    };
+                    const isEditing = (uid: string) => editingUpdateId === uid;
+                    return (
+                      <div className="rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.08)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)" }}>
+                        <div className="px-5 py-4 flex items-center justify-between flex-wrap gap-4" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                          <div>
+                            <p className="text-sm font-bold" style={{ color: "#111" }}>📢 Atualizações</p>
+                            <p className="text-xs mt-0.5" style={{ color: "#999" }}>
+                              {clientUpdates.filter(u => u.status === "published").length} publicado{clientUpdates.filter(u => u.status === "published").length !== 1 ? "s" : ""} · {clientUpdates.filter(u => u.status === "draft").length} rascunho{clientUpdates.filter(u => u.status === "draft").length !== 1 ? "s" : ""}
+                            </p>
+                          </div>
+                          <button onClick={() => setShowUpdateForm(s => !s)}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all"
+                            style={{ background: showUpdateForm ? "#111" : "rgba(0,0,0,0.06)", color: showUpdateForm ? "#B9FF4B" : "#555" }}>
+                            + Nova Atualização
+                          </button>
+                        </div>
 
+                        {/* Formulário de criação */}
+                        {showUpdateForm && (
+                          <div className="px-5 py-4 space-y-3" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)", background: "#FAFAF8" }}>
+                            {/* Tipo */}
+                            <div className="flex flex-wrap gap-1.5">
+                              {Object.entries(UPDATE_CFG).map(([key, cfg]) => (
+                                <button key={key} onClick={() => setUpdateForm(f => ({ ...f, type: key }))}
+                                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-semibold transition-all"
+                                  style={updateForm.type === key
+                                    ? { background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.color}40` }
+                                    : { background: "rgba(0,0,0,0.04)", color: "#888", border: "1px solid rgba(0,0,0,0.08)" }}>
+                                  {key === "em_andamento" && <Clock className="w-3 h-3" />}
+                                  {cfg.label}
+                                </button>
+                              ))}
+                            </div>
+                            {/* Título opcional */}
+                            <input value={updateForm.title} onChange={(e) => setUpdateForm(f => ({ ...f, title: e.target.value }))}
+                              placeholder="Título (opcional)…"
+                              className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none"
+                              style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.14)", color: "#111" }} />
+                            {/* Conteúdo */}
+                            <textarea value={updateForm.content} onChange={(e) => setUpdateForm(f => ({ ...f, content: e.target.value }))}
+                              placeholder="Escreva o comunicado… (pressione Enter duas vezes para criar um novo parágrafo)"
+                              rows={6}
+                              className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none resize-none"
+                              style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.14)", color: "#333" }} />
+                            {/* Autor + status + salvar */}
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <input value={updateForm.author} onChange={(e) => setUpdateForm(f => ({ ...f, author: e.target.value }))}
+                                placeholder="Autor"
+                                className="rounded-xl px-3 py-2 text-xs focus:outline-none"
+                                style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.14)", color: "#555", minWidth: 140 }} />
+                              <button onClick={() => setUpdateForm(f => ({ ...f, status: f.status === "published" ? "draft" : "published" }))}
+                                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all flex-shrink-0"
+                                style={updateForm.status === "published"
+                                  ? { background: "rgba(52,211,153,0.1)", color: "#059669", border: "1px solid rgba(52,211,153,0.2)" }
+                                  : { background: "rgba(0,0,0,0.04)", color: "#aaa", border: "1px solid rgba(0,0,0,0.08)" }}>
+                                {updateForm.status === "published" ? "✅ Publicado" : "🔒 Rascunho"}
+                              </button>
+                              <button onClick={saveClientUpdate} disabled={savingUpdate || !updateForm.content.trim()}
+                                className="ml-auto px-4 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-40 flex-shrink-0"
+                                style={{ background: "#111", color: "#B9FF4B" }}>
+                                {savingUpdate ? <Loader2 className="w-3 h-3 animate-spin" /> : updateForm.status === "published" ? "Publicar" : "Salvar rascunho"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Lista de comunicados */}
+                        {clientUpdates.length === 0 ? (
+                          <div className="px-5 py-8 flex flex-col items-center gap-2">
+                            <p className="text-sm" style={{ color: "#bbb" }}>Nenhuma atualização ainda</p>
+                          </div>
+                        ) : (
+                          <div className="divide-y" style={{ borderColor: "rgba(0,0,0,0.04)" }}>
+                            {clientUpdates.map((u) => {
+                              const cfg = UPDATE_CFG[u.type] ?? UPDATE_CFG.informativo;
+                              if (isEditing(u.id)) {
+                                return (
+                                  <div key={u.id} className="px-5 py-4 space-y-3" style={{ background: "#FAFAF8" }}>
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {Object.entries(UPDATE_CFG).map(([key, c]) => (
+                                        <button key={key} onClick={() => setEditUpdateForm(f => ({ ...f, type: key }))}
+                                          className="flex items-center gap-1.5 px-2 py-1 rounded-lg text-[10px] font-semibold transition-all"
+                                          style={editUpdateForm.type === key
+                                            ? { background: c.bg, color: c.color, border: `1px solid ${c.color}40` }
+                                            : { background: "rgba(0,0,0,0.04)", color: "#999", border: "1px solid rgba(0,0,0,0.07)" }}>
+                                          {key === "em_andamento" && <Clock className="w-3 h-3" />}
+                                          {c.label}
+                                        </button>
+                                      ))}
+                                    </div>
+                                    <input value={editUpdateForm.title} onChange={(e) => setEditUpdateForm(f => ({ ...f, title: e.target.value }))}
+                                      placeholder="Título (opcional)…"
+                                      className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none"
+                                      style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.14)", color: "#111" }} />
+                                    <textarea value={editUpdateForm.content} onChange={(e) => setEditUpdateForm(f => ({ ...f, content: e.target.value }))}
+                                      placeholder="Escreva o comunicado… (pressione Enter duas vezes para criar um novo parágrafo)"
+                                      rows={6}
+                                      className="w-full rounded-xl px-3 py-2 text-sm focus:outline-none resize-none"
+                                      style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.14)", color: "#333" }} />
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <input value={editUpdateForm.author} onChange={(e) => setEditUpdateForm(f => ({ ...f, author: e.target.value }))}
+                                        placeholder="Autor"
+                                        className="rounded-xl px-3 py-2 text-xs focus:outline-none"
+                                        style={{ background: "#fff", border: "1px solid rgba(0,0,0,0.14)", color: "#555", minWidth: 140 }} />
+                                      <button onClick={() => setEditUpdateForm(f => ({ ...f, status: f.status === "published" ? "draft" : "published" }))}
+                                        className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-all flex-shrink-0"
+                                        style={editUpdateForm.status === "published"
+                                          ? { background: "rgba(52,211,153,0.1)", color: "#059669", border: "1px solid rgba(52,211,153,0.2)" }
+                                          : { background: "rgba(0,0,0,0.04)", color: "#aaa", border: "1px solid rgba(0,0,0,0.08)" }}>
+                                        {editUpdateForm.status === "published" ? "✅ Publicado" : "🔒 Rascunho"}
+                                      </button>
+                                      <button onClick={saveEditUpdate}
+                                        className="ml-auto px-4 py-2 rounded-xl text-xs font-semibold"
+                                        style={{ background: "#111", color: "#B9FF4B" }}>
+                                        Salvar
+                                      </button>
+                                      <button onClick={() => setEditingUpdateId(null)}
+                                        className="px-3 py-2 rounded-xl text-xs font-medium"
+                                        style={{ background: "rgba(0,0,0,0.05)", color: "#666" }}>
+                                        Cancelar
+                                      </button>
+                                    </div>
+                                  </div>
+                                );
+                              }
+                              return (
+                                <div key={u.id} className="flex items-start gap-0 px-0 py-0" style={{ borderLeft: `4px solid ${cfg.color}` }}>
+                                  <div className="flex-1 min-w-0 px-5 py-3">
+                                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                                      <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1"
+                                        style={{ background: cfg.bg, color: cfg.color }}>
+                                        {u.type === "em_andamento" && <Clock className="w-2.5 h-2.5" />}
+                                        {cfg.label}
+                                      </span>
+                                      {u.status === "draft" && (
+                                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full"
+                                          style={{ background: "rgba(0,0,0,0.05)", color: "#aaa" }}>
+                                          🔒 Rascunho
+                                        </span>
+                                      )}
+                                      {u.title && (
+                                        <span className="text-xs font-semibold" style={{ color: "#222" }}>{u.title}</span>
+                                      )}
+                                    </div>
+                                    <p className="text-xs leading-relaxed" style={{ color: "#555", whiteSpace: "pre-wrap" }}>
+                                      {u.content}
+                                    </p>
+                                    <div className="flex items-center justify-between mt-2 pt-2" style={{ borderTop: "1px solid rgba(0,0,0,0.05)" }}>
+                                      <span className="text-[10px]" style={{ color: "#bbb" }}>
+                                        {new Date(u.created_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" })}
+                                      </span>
+                                      <span className="text-[10px]" style={{ color: "#bbb" }}>{u.author}</span>
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-col gap-0.5 px-2 py-3 flex-shrink-0">
+                                    <button
+                                      onClick={() => { setEditingUpdateId(u.id); setEditUpdateForm({ type: u.type, title: u.title ?? "", content: u.content, author: u.author, status: u.status }); }}
+                                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
+                                      style={{ background: "rgba(0,0,0,0.05)", color: "#555", border: "1px solid rgba(0,0,0,0.1)" }}>
+                                      <Pencil className="w-3 h-3" /> Editar
+                                    </button>
+                                    <button onClick={() => deleteClientUpdate(u.id)}
+                                      className="p-1.5 rounded-lg flex-shrink-0"
+                                      style={{ color: "#ccc" }}>
+                                      <Trash2 className="w-3.5 h-3.5" />
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
 
               </div>
               );

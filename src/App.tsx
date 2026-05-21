@@ -53,10 +53,12 @@ import GroupsPage from "@/pages/GroupsPage";
 import NotebookPage from "@/pages/NotebookPage";
 import ApostilaPage from "@/pages/ApostilaPage";
 import WordPressPage from "@/pages/WordPressPage";
+import FiscoPage from "@/pages/FiscoPage";
 import AttendancePage from "@/pages/AttendancePage";
 import PagesPage from "@/pages/PagesPage";
 import PropostaPage from "@/pages/PropostaPage";
 import PropostasPage from "@/pages/PropostasPage";
+import SharedOrchestrationPage from "@/pages/SharedOrchestrationPage";
 
 const queryClient = new QueryClient();
 
@@ -115,6 +117,7 @@ const ProtectedRoutes = () => {
           <Route path="/agency/clients/:id" element={<ClientWorkspace />} />
           <Route path="/video-editor" element={<VideoEditorPage />} />
           <Route path="/ben" element={<BenPage />} />
+          <Route path="/fisco" element={<FiscoPage />} />
           <Route path="/notebook" element={<NotebookPage />} />
           <Route path="/apostila" element={<ApostilaPage />} />
           <Route path="/wordpress" element={<WordPressPage />} />
@@ -173,6 +176,8 @@ const AppRoutes = () => (
 
     {/* Propostas comerciais — acesso público por slug */}
     <Route path="/proposta/:slug" element={<PropostaPage />} />
+    {/* Public shared orchestration report — no auth required */}
+    <Route path="/shared/:token" element={<SharedOrchestrationPage />} />
 
     {/* Convite para membros do time do cliente */}
     <Route path="/invite/:token" element={<InvitePage />} />
