@@ -340,11 +340,17 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
   };
 
   const triggerAutoSchedule = async () => {
-    if (!briefing.trim() || !userId || !clientId) return;
+    if (!briefing.trim() || !clientId) return;
     setScheduling(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
+      const resolvedUserId = userId ?? session?.user?.id;
+      if (!resolvedUserId) {
+        toast.error("Sessão expirada — faça login novamente para agendar posts.");
+        setScheduling(false);
+        return;
+      }
       const res = await fetch(`${SUPABASE_URL}/functions/v1/aria-orchestrate`, {
         method: "POST",
         headers: {
@@ -355,7 +361,7 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
         body: JSON.stringify({
           demand: briefing.trim(),
           clientContext: { id: clientId, name: clientName, industry: clientIndustry },
-          userId,
+          userId: resolvedUserId,
           autoSchedule: true,
           platforms: schedulePlatforms,
         }),
@@ -525,9 +531,12 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
           )}
 
           {scheduling && (
-            <div className="flex items-center gap-1.5 text-[11px] ml-auto" style={{ color: "#B9FF4B" }}>
-              <Loader2 className="w-3 h-3 animate-spin" />
-              Agendando posts...
+            <div className="flex items-center gap-2 ml-auto px-3 py-1.5 rounded-lg"
+              style={{ background: "rgba(185,255,75,0.1)", border: "1px solid rgba(185,255,75,0.25)" }}>
+              <Loader2 className="w-3.5 h-3.5 animate-spin" style={{ color: "#B9FF4B" }} />
+              <span className="text-[11px] font-semibold" style={{ color: "#B9FF4B" }}>
+                Ben pesquisando · Agentes gerando posts...
+              </span>
             </div>
           )}
         </div>
