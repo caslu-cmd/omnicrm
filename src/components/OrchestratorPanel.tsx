@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Loader2, ChevronDown, CheckCircle2, AlertCircle, Sparkles,
   FileText, RotateCcw, Paperclip, X, Share2, Check, Link, Plus,
-  Pencil, Save, UserPlus, Trash2,
+  Pencil, Save, UserPlus, Trash2, CalendarClock, Instagram, Facebook,
 } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
@@ -116,6 +116,9 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
   const [responsibles, setResponsibles] = useState<Responsible[]>([]);
   const [newResponsible, setNewResponsible] = useState("");
   const [newRole, setNewRole] = useState<ResponsibleRole>("executar");
+  const [autoSchedule, setAutoSchedule] = useState(false);
+  const [schedulePlatforms, setSchedulePlatforms] = useState<string[]>(["instagram", "facebook"]);
+  const [scheduling, setScheduling] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -137,6 +140,7 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
     setResponsibles([]);
     setNewResponsible("");
     setNewRole("executar");
+    setScheduling(false);
   };
 
   const enterEdit = () => {
@@ -314,6 +318,7 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
             } else if (ev.type === "concluido") {
               setRunning(false);
               toast.success("Orquestração concluída!");
+              if (autoSchedule) triggerAutoSchedule();
             }
           } catch { /* skip malformed line */ }
         }
@@ -332,6 +337,45 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
     setRunning(false);
     setReportGenerating(false);
     toast("Orquestração cancelada");
+  };
+
+  const triggerAutoSchedule = async () => {
+    if (!briefing.trim() || !userId || !clientId) return;
+    setScheduling(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      const res = await fetch(`${SUPABASE_URL}/functions/v1/aria-orchestrate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          apikey: SUPABASE_PUBLISHABLE_KEY,
+        },
+        body: JSON.stringify({
+          demand: briefing.trim(),
+          clientContext: { id: clientId, name: clientName, industry: clientIndustry },
+          userId,
+          autoSchedule: true,
+          platforms: schedulePlatforms,
+        }),
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      const total = (data.scheduledCount ?? 0) + (data.draftCount ?? 0);
+      if (total > 0) {
+        toast.success(
+          `✅ ${data.scheduledCount} post${data.scheduledCount !== 1 ? "s" : ""} agendado${data.scheduledCount !== 1 ? "s" : ""}` +
+          (data.draftCount > 0 ? ` · ${data.draftCount} rascunho${data.draftCount !== 1 ? "s" : ""} (adicione imagem)` : "")
+        );
+      } else {
+        toast("Posts gerados — nenhum agendado automaticamente.");
+      }
+    } catch (e: any) {
+      toast.error("Erro ao agendar: " + (e.message ?? "desconhecido"));
+    } finally {
+      setScheduling(false);
+    }
   };
 
   const copyOutput = (text: string) => {
@@ -437,6 +481,56 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
             ))}
           </div>
         )}
+
+        {/* Auto-schedule toggle */}
+        <div className="mt-3 rounded-xl px-4 py-3 flex flex-wrap items-center gap-3"
+          style={{ background: autoSchedule ? "rgba(185,255,75,0.06)" : "rgba(255,255,255,0.03)", border: `1px solid ${autoSchedule ? "rgba(185,255,75,0.2)" : "rgba(255,255,255,0.07)"}`, transition: "all 0.2s" }}>
+          <button
+            onClick={() => setAutoSchedule(v => !v)}
+            className="flex items-center gap-2 text-sm font-medium transition-colors"
+            style={{ color: autoSchedule ? "#B9FF4B" : "rgba(255,255,255,0.45)" }}>
+            <div className="w-8 h-4 rounded-full relative transition-colors flex-shrink-0"
+              style={{ background: autoSchedule ? "#B9FF4B" : "rgba(255,255,255,0.15)" }}>
+              <div className="w-3 h-3 rounded-full bg-white absolute top-0.5 transition-all"
+                style={{ left: autoSchedule ? "17px" : "2px", boxShadow: "0 1px 3px rgba(0,0,0,0.4)" }} />
+            </div>
+            <CalendarClock className="w-3.5 h-3.5" />
+            Publicar automaticamente nas redes
+          </button>
+
+          {autoSchedule && (
+            <div className="flex items-center gap-2 ml-1">
+              {[
+                { id: "instagram", Icon: Instagram, label: "Instagram" },
+                { id: "facebook",  Icon: Facebook,  label: "Facebook"  },
+              ].map(({ id, Icon, label }) => {
+                const active = schedulePlatforms.includes(id);
+                return (
+                  <button key={id}
+                    onClick={() => setSchedulePlatforms(prev =>
+                      active ? prev.filter(p => p !== id) : [...prev, id]
+                    )}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all"
+                    style={{
+                      background: active ? "rgba(185,255,75,0.12)" : "rgba(255,255,255,0.05)",
+                      color: active ? "#B9FF4B" : "rgba(255,255,255,0.3)",
+                      border: `1px solid ${active ? "rgba(185,255,75,0.3)" : "rgba(255,255,255,0.08)"}`,
+                    }}>
+                    <Icon className="w-3 h-3" />
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {scheduling && (
+            <div className="flex items-center gap-1.5 text-[11px] ml-auto" style={{ color: "#B9FF4B" }}>
+              <Loader2 className="w-3 h-3 animate-spin" />
+              Agendando posts...
+            </div>
+          )}
+        </div>
 
         <div className="flex items-center gap-3 mt-3 flex-wrap">
           {!running ? (
