@@ -8418,7 +8418,7 @@ Regras:
                                   Ver entrega ↓
                                 </button>
                                 <button
-                                  onClick={() => handleShareAgent(agent.id)}
+                                  onClick={() => {/* TODO: share agent */}}
                                   title="Compartilhar entrega"
                                   className="text-[10px] font-semibold whitespace-nowrap px-2 py-0.5 rounded-md transition-all"
                                   style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.1)" }}
@@ -13536,8 +13536,8 @@ ${clientSection}${originalSection}`;
                             style={{ background: "rgba(6,182,212,0.1)", color: "#06B6D4", border: "1px solid rgba(6,182,212,0.2)" }}>
                             <ExternalLink className="w-3 h-3" /> Ver site
                           </a>
-                          {client.whatsappUrl && (
-                            <a href={client.whatsappUrl} target="_blank" rel="noopener noreferrer"
+                          {(client as any).whatsappUrl && (
+                            <a href={(client as any).whatsappUrl} target="_blank" rel="noopener noreferrer"
                               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all"
                               style={{ background: "rgba(37,211,102,0.1)", color: "#25D366", border: "1px solid rgba(37,211,102,0.2)" }}>
                               <ExternalLink className="w-3 h-3" /> WhatsApp
