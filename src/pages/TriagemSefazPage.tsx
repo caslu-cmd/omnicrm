@@ -70,7 +70,7 @@ export default function TriagemSefazPage() {
     if (error) {
       toast.error("Erro ao carregar leads");
     } else {
-      setLeads((data as Lead[]) ?? []);
+      setLeads((data as unknown as Lead[]) ?? []);
     }
     setLoading(false);
   }, []);

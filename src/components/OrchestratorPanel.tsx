@@ -152,7 +152,7 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
     if (!runId) return;
     setSaving(true);
     try {
-      await supabase.from("orchestration_runs")
+      await (supabase.from as any)("orchestration_runs")
         .update({ report: editText, responsibles: responsibles as any })
         .eq("id", runId);
       setReport(editText);
@@ -167,7 +167,7 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
 
   const saveResponsibles = async (updated: Responsible[]) => {
     if (!runId) return;
-    await supabase.from("orchestration_runs")
+    await (supabase.from as any)("orchestration_runs")
       .update({ responsibles: updated as any })
       .eq("id", runId);
   };

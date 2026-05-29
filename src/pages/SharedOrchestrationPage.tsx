@@ -40,8 +40,7 @@ export default function SharedOrchestrationPage() {
     if (!token) { setNotFound(true); setLoading(false); return; }
 
     (async () => {
-      const { data: runData, error } = await supabase
-        .from("orchestration_runs")
+      const { data: runData, error } = await (supabase.from as any)("orchestration_runs")
         .select("id, briefing, report, status, completed_at, client_id")
         .eq("share_token", token)
         .maybeSingle();
@@ -52,19 +51,18 @@ export default function SharedOrchestrationPage() {
         return;
       }
 
-      setRun(runData as Run);
+      setRun(runData as unknown as Run);
 
-      const { data: taskData } = await supabase
-        .from("orchestration_tasks")
+      const { data: taskData } = await (supabase.from as any)("orchestration_tasks")
         .select("agent_key, agent_label, status, output")
-        .eq("run_id", runData.id)
+        .eq("run_id", (runData as any).id)
         .eq("status", "done");
 
-      const sorted = (taskData ?? []).sort((a: Task, b: Task) => {
+      const sorted = ((taskData as unknown as Task[]) ?? []).sort((a, b) => {
         return (AGENT_ORDER.indexOf(a.agent_key) ?? 99) - (AGENT_ORDER.indexOf(b.agent_key) ?? 99);
       });
 
-      setTasks(sorted as Task[]);
+      setTasks(sorted);
       setLoading(false);
     })();
   }, [token]);
