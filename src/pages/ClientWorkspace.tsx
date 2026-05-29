@@ -209,6 +209,15 @@ const MARKETING_TEAM = [
     description: "Especialista em prestação de contas — calcula honorários, registra lançamentos, gera relatórios consolidados e compara períodos",
   },
   {
+    id: "ana",
+    name: "Ana",
+    role: "Triagem SEFAZ/CE",
+    initial: "⚖️",
+    skill: "Leads · Adicional Noturno · Qualificação",
+    color: "#F97316",
+    description: "Agente de triagem para a campanha do adicional noturno SEFAZ/CE — visualiza e gerencia os leads capturados pelo GPT Maker",
+  },
+  {
     id: "apolo",
     name: "Apolo",
     role: "Editor de Apostilas",
@@ -396,18 +405,38 @@ SUAS SKILLS — detecte automaticamente qual aplicar:
 
 Tom acolhedor e consultivo. Português brasileiro.`,
 
-  revisor: `Você é VITÓRIA, Revisora da Calu Agência.
-Padrão editorial impecável — ortografia, gramática, estilo e coerência de tom de voz.
+  revisor: `Você é VITÓRIA, Super Revisora Editorial da Calu Agência.
+Padrão impecável em ortografia, gramática, estilo, coerência de informações e consistência entre materiais.
 
-SUAS SKILLS — detecte automaticamente qual aplicar:
+CONTEXTO DE TIPOS DE MATERIAL:
+- LÂMINA: apresentação comercial/slide deck. Tom persuasivo, síntese, pode usar bullet points. É a versão "vendedora".
+- SITE: conteúdo web. Pode ter variações de texto para SEO (palavras-chave, estrutura de títulos) — isso é NORMAL e esperado. Porém informações factuais (preços, serviços, dados, nomes) devem ser idênticas à lâmina.
+- TEXTO LIVRE: artigo, legenda, copy de anúncio, post. Revise para o canal descrito.
 
-• REVISAR TEXTO → entregue: diagnóstico do texto + tabela de erros (erro | tipo | correção | localização) + versão revisada completa pronta para publicar + melhorias sugeridas além das correções + checklist de qualidade
+FLUXO OBRIGATÓRIO — siga sempre esta ordem:
 
-• CHECAR TOM DE VOZ → entregue: análise de alinhamento por texto (tom atual vs. esperado + o que ajustar + versão reescrita no tom certo) + padrões identificados + guia rápido com 5 regras + lista de palavras para usar/evitar
+1. DIAGNÓSTICO: leia todo o material enviado e identifique todos os problemas.
 
-• REVISAR CAMPANHA → entregue: revisão de todos os textos da campanha com versões corrigidas + coerência entre peças + checklist de aprovação
+2. RELATÓRIO DE ERROS (antes de corrigir qualquer coisa):
+   Apresente uma tabela com:
+   | # | Tipo | Localização | Texto errado | Correção sugerida |
+   Tipos: Ortografia · Gramática · Estilo · Informação ausente · Inconsistência entre arquivos
 
-Se receber texto para revisar, entregue a versão corrigida completa. Português brasileiro impecável.`,
+3. Se houver MÚLTIPLOS ARQUIVOS (ex: lâmina + site):
+   - Mostre também uma seção "⚠️ Inconsistências entre materiais" apontando onde as informações divergem (além das diferenças de SEO esperadas)
+   - Seja específico: "Na lâmina diz X, no site diz Y — qual é o correto?"
+
+4. PERGUNTA DE APROVAÇÃO: ao final do relatório, pergunte:
+   "Posso aplicar todas as correções acima? Ou prefere revisar item a item? Se quiser excluir algum item, me diga o número."
+
+5. Só após confirmação: entregue a versão corrigida completa, item por item se solicitado.
+
+REGRAS:
+- Nunca aplique correções sem perguntar antes
+- Sempre indique a localização exata (ex: "Título da seção 2", "3º parágrafo", "CTA do rodapé")
+- Diferenças de SEO entre site e lâmina não são erros — identifique-as apenas se causarem confusão factual
+- Português brasileiro impecável em todas as entregas
+- Se o material tiver muito texto, priorize os erros críticos (informações incorretas e ortografia) e liste os de estilo separado`,
 
   video: `Você é BOBBY, Editor de Vídeo da Calu Agência.
 Domina cortes, efeitos, legendas animadas, color grade e estrutura de vídeos virais.
@@ -949,6 +978,14 @@ export default function ClientWorkspace() {
   const [agentFileUrl, setAgentFileUrl] = useState<string | null>(null);
   const [agentFileText, setAgentFileText] = useState<string | null>(null);
   const agentFileRef = useRef<HTMLInputElement>(null);
+  const vitoriaFileRef = useRef<HTMLInputElement>(null);
+  const vitoriaOriginalRef = useRef<HTMLInputElement>(null);
+  type VitoriaFile = { id: string; name: string; docType: "lamina" | "site" | "texto"; text: string; size: number };
+  const [vitoriaFiles, setVitoriaFiles] = useState<VitoriaFile[]>([]);
+  const [vitoriaMode, setVitoriaMode] = useState<"revisao" | "alteracao">("revisao");
+  type VitoriaClientFile = { id: string; name: string; text: string; size: number };
+  const [vitoriaClientFiles, setVitoriaClientFiles] = useState<VitoriaClientFile[]>([]);
+  const [vitoriaOriginalFiles, setVitoriaOriginalFiles] = useState<VitoriaClientFile[]>([]);
   const [expandedFile, setExpandedFile] = useState<string | null>(null);
   const [expandedOutput, setExpandedOutput] = useState<string | null>(null);
   const [editingPage, setEditingPage] = useState<string | null>(null);
@@ -1666,10 +1703,10 @@ export default function ClientWorkspace() {
     });
   };
 
-  const handleAgentChat = async (agentId: string) => {
-    const msg = agentChatInput.trim();
+  const handleAgentChat = async (agentId: string, overrideMsg?: string) => {
+    const msg = (overrideMsg ?? agentChatInput).trim();
     if (!msg || agentChatLoading) return;
-    setAgentChatInput("");
+    if (!overrideMsg) setAgentChatInput("");
     const agent = MARKETING_TEAM.find((a) => a.id === agentId);
     const _chatTid = agent ? toast.loading(`Acionando agente ${agent.name}…`, { description: agent.role }) : undefined;
     const history = agentChats[agentId] ?? [];
@@ -3427,6 +3464,78 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
       const reader = new FileReader();
       reader.onload = (ev) => setAttachedFileText((ev.target?.result as string) ?? null);
       reader.readAsText(file);
+    }
+  };
+
+  const AGENT_ROLES: Record<string, string> = {
+    luna: "Orquestradora", queila: "Estrategista", beatriz: "Copywriter",
+    marcela: "Designer", rafaela: "Tráfego Pago", marina: "Social Media",
+    pedro: "Calendário", lucas: "Analista", teo: "Editor de Site", bobby: "Editor de Vídeo",
+  };
+
+  // Prompts base por agente para links compartilháveis
+  const AGENT_PROMPTS: Record<string, string> = {
+    rafaela: `Você é Rafaela, gestora de tráfego pago sênior da Calu Agência — especialista em Meta Ads e Google Ads.\n\nSuas competências:\n- Estratégia e gestão de campanhas no Meta Ads (Facebook e Instagram)\n- Google Ads: Search, Display, Performance Max, YouTube\n- Segmentação avançada: públicos personalizados, lookalike, remarketing\n- Copy para anúncios: headline, descrição, CTA\n- Análise de métricas: CPC, CPM, CTR, CPA, ROAS, CAC\n- Otimização e escalonamento de campanhas\n\nResponda em português brasileiro, seja direta e técnica.`,
+    beatriz: `Você é Beatriz, redatora sênior da Calu Agência — especialista em copywriting de alta conversão.\n\nSuas competências:\n- Copywriting persuasivo (AIDA, PAS, FAB)\n- Copy para Instagram, Facebook, LinkedIn, TikTok, e-mail\n- Headlines, ganchos e CTAs que convertem\n- Storytelling de marca\n\nSempre entregue copy pronto para publicar. Responda em português brasileiro.`,
+    queila: `Você é Queila, estrategista de marketing sênior da Calu Agência.\n\nSuas competências:\n- Estratégia de marketing digital 360°\n- Posicionamento de marca e análise de concorrência\n- Persona, tom de voz e pilares de conteúdo\n- Planejamento de campanhas (30/60/90 dias)\n- OKRs e KPIs para marketing digital\n\nResponda em português brasileiro com estratégias claras, métricas e prazos.`,
+    marcela: `Você é Marcela, designer visual sênior da Calu Agência — especialista em criação de posts para redes sociais.\n\nSuas competências:\n- Design editorial para Instagram, Facebook, LinkedIn e TikTok\n- Teoria das cores, tipografia e hierarquia visual\n- Composição para feed, stories, reels, carrossel\n\nResponda em português brasileiro descrevendo conceitos visuais com detalhes de cor, composição e tipografia.`,
+    marina: `Você é Marina, especialista em social media da Calu Agência.\n\nSuas competências:\n- Estratégia de conteúdo para Instagram, Facebook, TikTok, LinkedIn\n- Algoritmos e melhores práticas de cada plataforma\n- Análise de métricas: alcance, engajamento, conversão\n- Calendário editorial e campanhas sazonais\n\nResponda em português brasileiro com estratégias específicas por plataforma.`,
+    lucas: `Você é Lucas, analista de dados e performance da Calu Agência.\n\nSuas competências:\n- Análise de métricas de marketing digital\n- Relatórios de performance de campanhas\n- Google Analytics, Meta Insights, dashboards\n- Interpretação de dados e recomendações estratégicas\n\nResponda em português brasileiro com dados, insights e recomendações claras.`,
+    luna: `Você é Luna, gestora de projetos da Calu Agência.\n\nSuas competências:\n- Gestão de projetos com metodologias ágeis\n- Cronogramas, sprints e marcos de entrega\n- Coordenação entre equipes e clientes\n- Follow-up de tarefas e aprovações\n\nResponda em português brasileiro com planos organizados, datas e próximos passos.`,
+    teo: `Você é Teo, especialista em web e SEO da Calu Agência.\n\nSuas competências:\n- Otimização de sites para SEO\n- WordPress, landing pages e performance web\n- UX e arquitetura de informação\n- Análise de Core Web Vitals\n\nResponda em português brasileiro com orientações técnicas e práticas.`,
+    pedro: `Você é Pedro, especialista em calendário editorial da Calu Agência.\n\nSuas competências:\n- Planejamento de calendário de conteúdo\n- Temas, datas comemorativas e sazonalidade\n- Frequência e consistência de publicações\n- Integração entre canais\n\nResponda em português brasileiro com calendários estruturados e justificativas.`,
+    bobby: `Você é Bobby, editor de vídeo da Calu Agência.\n\nSuas competências:\n- Roteiros e estrutura narrativa para vídeos\n- Reels, TikToks, YouTube Shorts\n- Edição, cortes, trilha e legendas\n- Storytelling audiovisual\n\nResponda em português brasileiro com orientações práticas de produção e edição.`,
+  };
+
+  // Estado do modal de compartilhamento de agente
+  const [shareAgentId, setShareAgentId] = useState<string | null>(null);
+  const [shareContextNote, setShareContextNote] = useState("");
+  const [shareWelcomeMsg, setShareWelcomeMsg] = useState("");
+  const [sharingAgent, setSharingAgent] = useState(false);
+
+  const openShareAgentModal = (agentId: string) => {
+    const meta = AGENT_META[agentId] ?? { name: agentId, color: "#B9FF4B" };
+    setShareAgentId(agentId);
+    setShareContextNote(client.name ? `Cliente: ${client.name}${(client as any).industry ? ` | Segmento: ${(client as any).industry}` : ""}` : "");
+    setShareWelcomeMsg(`Olá! Sou ${meta.name}${AGENT_ROLES[agentId] ? `, especialista em ${AGENT_ROLES[agentId].toLowerCase()}` : ""}. Como posso te ajudar?`);
+  };
+
+  const handleCreateAgentLink = async () => {
+    if (!shareAgentId || !user) return;
+    const meta = AGENT_META[shareAgentId] ?? { name: shareAgentId, color: "#B9FF4B" };
+    const basePrompt = AGENT_PROMPTS[shareAgentId] ?? `Você é ${meta.name}, agente especializado da Calu Agência. Responda em português brasileiro.`;
+    const systemPrompt = shareContextNote.trim()
+      ? `${basePrompt}\n\nContexto: ${shareContextNote.trim()}`
+      : basePrompt;
+    setSharingAgent(true);
+    try {
+      const { data, error } = await (supabase as any)
+        .from("agent_links")
+        .insert({
+          user_id: user.id,
+          client_id: client.id,
+          client_name: client.name || null,
+          agent_id: shareAgentId,
+          agent_name: meta.name,
+          agent_color: meta.color,
+          agent_role: AGENT_ROLES[shareAgentId] ?? null,
+          system_prompt: systemPrompt,
+          welcome_msg: shareWelcomeMsg.trim() || null,
+          context_note: shareContextNote.trim() || null,
+        })
+        .select("token")
+        .single();
+      if (error) throw error;
+      const url = `${window.location.origin}/conversar/${data.token}`;
+      await navigator.clipboard.writeText(url);
+      toast.success("Link copiado! Qualquer pessoa pode conversar com o agente.");
+      setShareAgentId(null);
+      setShareContextNote("");
+      setShareWelcomeMsg("");
+    } catch {
+      toast.error("Erro ao gerar link.");
+    } finally {
+      setSharingAgent(false);
     }
   };
 
@@ -8203,7 +8312,7 @@ Regras:
                   })()}
 
                   <div className="flex flex-col gap-2.5 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:gap-3">
-                    {MARKETING_TEAM.filter(a => a.id !== "briefing" && (a.id !== "rico" || id === "gnx") && (a.id !== "apolo" || id === "grupo-licita")).map((agent, i) => {
+                    {MARKETING_TEAM.filter(a => a.id !== "briefing" && (a.id !== "rico" || id === "gnx") && (a.id !== "ana" || id === "gnx") && (a.id !== "apolo" || id === "grupo-licita")).map((agent, i) => {
                       const task = client.agentTasks[agent.id];
                       const isWorking = task?.status === "trabalhando";
                       const isDone = task?.status === "concluído";
@@ -8301,12 +8410,24 @@ Regras:
 
                             {/* Última entrega resumida */}
                             {agentOutputs[agent.id] && (
-                              <button
-                                onClick={() => setExpandedAgentOutput(expandedAgentOutput === agent.id ? null : agent.id)}
-                                className="text-[10px] font-semibold whitespace-nowrap px-2 py-0.5 rounded-md"
-                                style={{ background: `${agent.color}10`, color: agent.color, border: `1px solid ${agent.color}25` }}>
-                                Ver entrega ↓
-                              </button>
+                              <div className="flex items-center gap-1">
+                                <button
+                                  onClick={() => setExpandedAgentOutput(expandedAgentOutput === agent.id ? null : agent.id)}
+                                  className="text-[10px] font-semibold whitespace-nowrap px-2 py-0.5 rounded-md"
+                                  style={{ background: `${agent.color}10`, color: agent.color, border: `1px solid ${agent.color}25` }}>
+                                  Ver entrega ↓
+                                </button>
+                                <button
+                                  onClick={() => handleShareAgent(agent.id)}
+                                  title="Compartilhar entrega"
+                                  className="text-[10px] font-semibold whitespace-nowrap px-2 py-0.5 rounded-md transition-all"
+                                  style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.1)" }}
+                                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(185,255,75,0.1)"; e.currentTarget.style.color = "#B9FF4B"; e.currentTarget.style.borderColor = "rgba(185,255,75,0.3)"; }}
+                                  onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; e.currentTarget.style.color = "rgba(255,255,255,0.4)"; e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)"; }}
+                                >
+                                  🔗 Compartilhar
+                                </button>
+                              </div>
                             )}
 
                             {/* Spacer: mobile → empurra botões à direita | desktop → oculto */}
@@ -8358,6 +8479,14 @@ Regras:
                                   className="px-2.5 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1 whitespace-nowrap"
                                   style={{ background: `${agent.color}18`, color: agent.color, border: `1px solid ${agent.color}40` }}>
                                   💰 Abrir
+                                </button>
+                              )}
+                              {agent.id === "ana" && (
+                                <button
+                                  onClick={() => window.open('/triagem-sefaz', '_blank')}
+                                  className="px-2.5 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1 whitespace-nowrap"
+                                  style={{ background: `${agent.color}18`, color: agent.color, border: `1px solid ${agent.color}40` }}>
+                                  ⚖️ Ver Leads
                                 </button>
                               )}
                               {agent.id === "apolo" && (
@@ -8663,6 +8792,267 @@ Regras:
                                 {agentFile && renderFilePreview(agentFile, agentFileUrl, agentFileText, selectedAgent.color)}
                               </>
                             )}
+
+                            {/* Vitória: painel completo */}
+                            {selectedAgent.id === "revisor" && (() => {
+                              // helper: extrai texto de um File usando pdfjs para PDF
+                              const extractVitoriaText = async (file: File): Promise<string> => {
+                                const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+                                const isPdf = ext === "pdf" || file.type === "application/pdf";
+                                const isText = ["txt", "md"].includes(ext) || file.type.startsWith("text/");
+                                const isDocx = ["doc", "docx"].includes(ext);
+                                if (isPdf) {
+                                  const pdfjsLib = await import("pdfjs-dist");
+                                  pdfjsLib.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
+                                  const buf = await file.arrayBuffer();
+                                  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+                                  const pages: string[] = [];
+                                  for (let p = 1; p <= pdf.numPages; p++) {
+                                    const page = await pdf.getPage(p);
+                                    const content = await page.getTextContent();
+                                    pages.push(content.items.map((it: any) => it.str ?? "").join(" "));
+                                  }
+                                  return pages.join("\n\n").slice(0, 12000);
+                                }
+                                if (isText) return (await file.text()).slice(0, 12000);
+                                if (isDocx) return `[DOCX: "${file.name}" — cole o texto manualmente no chat]`;
+                                return `[Formato não suportado para extração automática: ${file.name}]`;
+                              };
+
+                              // handler genérico de upload para os dois modos
+                              const handleVitoriaUpload = async (
+                                files: File[],
+                                setter: React.Dispatch<React.SetStateAction<VitoriaClientFile[]>>,
+                                currentLen: number,
+                                inputRef: React.RefObject<HTMLInputElement>
+                              ) => {
+                                if (inputRef.current) inputRef.current.value = "";
+                                for (const file of files) {
+                                  if (currentLen >= 4) { toast.error("Máximo 4 arquivos"); break; }
+                                  const id = `vf-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+                                  setter(prev => [...prev, { id, name: file.name, text: "⏳ Extraindo texto…", size: file.size }]);
+                                  try {
+                                    const text = await extractVitoriaText(file);
+                                    setter(prev => prev.map(f => f.id === id ? { ...f, text } : f));
+                                  } catch {
+                                    setter(prev => prev.map(f => f.id === id ? { ...f, text: `[Erro ao ler ${file.name}]` } : f));
+                                  }
+                                  currentLen++;
+                                }
+                              };
+
+                              const FileCard = ({ f, onRemove }: { f: VitoriaClientFile; onRemove: () => void }) => (
+                                <div className="rounded-xl overflow-hidden" style={{ background: "rgba(236,72,153,0.05)", border: "1px solid rgba(236,72,153,0.18)" }}>
+                                  <div className="flex items-center gap-3 px-3 py-2.5">
+                                    <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(236,72,153,0.12)" }}>
+                                      <span className="text-sm">📄</span>
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-xs font-medium truncate" style={{ color: "rgba(255,255,255,0.8)" }}>{f.name}</div>
+                                      <div className="text-[10px] flex items-center gap-1.5" style={{ color: f.text.startsWith("⏳") ? "#EC4899" : "rgba(255,255,255,0.3)" }}>
+                                        {f.text.startsWith("⏳") ? <><RefreshCw className="w-2.5 h-2.5 animate-spin" /> Extraindo…</> : <>{(f.size / 1024).toFixed(0)} KB · {f.text.length.toLocaleString()} chars</>}
+                                      </div>
+                                    </div>
+                                    <button onClick={onRemove} style={{ color: "rgba(255,255,255,0.25)" }}><X className="w-3.5 h-3.5" /></button>
+                                  </div>
+                                </div>
+                              );
+
+                              const DropZone = ({ onAdd, label }: { onAdd: () => void; label: string }) => (
+                                <button onClick={onAdd}
+                                  className="w-full flex flex-col items-center gap-2 py-4 rounded-xl transition-all"
+                                  style={{ border: "1.5px dashed rgba(236,72,153,0.25)", background: "rgba(236,72,153,0.03)", color: "rgba(255,255,255,0.35)" }}
+                                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(236,72,153,0.5)"; (e.currentTarget as HTMLButtonElement).style.background = "rgba(236,72,153,0.07)"; }}
+                                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(236,72,153,0.25)"; (e.currentTarget as HTMLButtonElement).style.background = "rgba(236,72,153,0.03)"; }}>
+                                  <span className="text-xl">📎</span>
+                                  <span className="text-xs font-medium">{label}</span>
+                                  <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.2)" }}>PDF, DOCX, TXT, MD · até 4 arquivos</span>
+                                </button>
+                              );
+
+                              const anyExtracting = (list: VitoriaClientFile[]) => list.some(f => f.text.startsWith("⏳"));
+
+                              return (
+                                <div className="space-y-3 mb-3">
+                                  {/* Hidden inputs */}
+                                  <input ref={vitoriaFileRef} type="file" multiple accept=".pdf,.doc,.docx,.txt,.md" className="hidden"
+                                    onChange={async e => {
+                                      const files = Array.from(e.target.files ?? []);
+                                      if (vitoriaMode === "alteracao") {
+                                        await handleVitoriaUpload(files, setVitoriaClientFiles, vitoriaClientFiles.length, vitoriaFileRef as any);
+                                      } else {
+                                        await handleVitoriaUpload(files, setVitoriaFiles as any, vitoriaFiles.length, vitoriaFileRef as any);
+                                      }
+                                    }} />
+                                  <input ref={vitoriaOriginalRef} type="file" multiple accept=".pdf,.doc,.docx,.txt,.md" className="hidden"
+                                    onChange={async e => {
+                                      const files = Array.from(e.target.files ?? []);
+                                      await handleVitoriaUpload(
+                                        files,
+                                        setVitoriaOriginalFiles,
+                                        vitoriaOriginalFiles.length,
+                                        vitoriaOriginalRef as any
+                                      );
+                                    }} />
+
+                                  {/* Toggle de modo */}
+                                  <div className="flex rounded-xl overflow-hidden" style={{ border: "1px solid rgba(236,72,153,0.2)" }}>
+                                    {([["revisao", "🔍 Revisão"], ["alteracao", "✏️ Alteração do cliente"]] as const).map(([mode, label]) => (
+                                      <button key={mode} onClick={() => { setVitoriaMode(mode); setVitoriaFiles([]); setVitoriaClientFiles([]); setVitoriaOriginalFiles([]); }}
+                                        className="flex-1 py-2 text-[11px] font-semibold transition-all"
+                                        style={{
+                                          background: vitoriaMode === mode ? "#EC4899" : "rgba(236,72,153,0.06)",
+                                          color: vitoriaMode === mode ? "#fff" : "rgba(255,255,255,0.4)",
+                                        }}>
+                                        {label}
+                                      </button>
+                                    ))}
+                                  </div>
+
+                                  {/* ── MODO REVISÃO ── */}
+                                  {vitoriaMode === "revisao" && (
+                                    <>
+                                      <div className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.3)" }}>Arquivos para revisar</div>
+                                      {vitoriaFiles.length === 0
+                                        ? <DropZone onAdd={() => vitoriaFileRef.current?.click()} label="Clique para subir os arquivos" />
+                                        : (
+                                          <div className="space-y-2">
+                                            {vitoriaFiles.map(vf => (
+                                              <div key={vf.id} className="rounded-xl overflow-hidden" style={{ background: "rgba(236,72,153,0.05)", border: "1px solid rgba(236,72,153,0.18)" }}>
+                                                <div className="flex items-center gap-3 px-3 py-2.5">
+                                                  <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: "rgba(236,72,153,0.12)" }}>
+                                                    <span className="text-sm">📄</span>
+                                                  </div>
+                                                  <div className="flex-1 min-w-0">
+                                                    <div className="text-xs font-medium truncate" style={{ color: "rgba(255,255,255,0.8)" }}>{vf.name}</div>
+                                                    <div className="text-[10px] flex items-center gap-1.5" style={{ color: vf.text.startsWith("⏳") ? "#EC4899" : "rgba(255,255,255,0.3)" }}>
+                                                      {vf.text.startsWith("⏳") ? <><RefreshCw className="w-2.5 h-2.5 animate-spin" /> Extraindo…</> : <>{(vf.size / 1024).toFixed(0)} KB · {vf.text.length.toLocaleString()} chars</>}
+                                                    </div>
+                                                  </div>
+                                                  <div className="flex items-center gap-1 flex-shrink-0">
+                                                    {(["lamina", "site", "texto"] as const).map(t => (
+                                                      <button key={t} onClick={() => setVitoriaFiles(prev => prev.map(f => f.id === vf.id ? { ...f, docType: t } : f))}
+                                                        className="px-2 py-0.5 rounded-md text-[10px] font-semibold transition-all"
+                                                        style={{
+                                                          background: vf.docType === t ? "rgba(236,72,153,0.25)" : "rgba(255,255,255,0.06)",
+                                                          color: vf.docType === t ? "#EC4899" : "rgba(255,255,255,0.35)",
+                                                          border: `1px solid ${vf.docType === t ? "rgba(236,72,153,0.4)" : "rgba(255,255,255,0.08)"}`,
+                                                        }}>
+                                                        {t === "lamina" ? "Lâmina" : t === "site" ? "Site" : "Texto"}
+                                                      </button>
+                                                    ))}
+                                                  </div>
+                                                  <button onClick={() => setVitoriaFiles(prev => prev.filter(f => f.id !== vf.id))} style={{ color: "rgba(255,255,255,0.25)" }}><X className="w-3.5 h-3.5" /></button>
+                                                </div>
+                                              </div>
+                                            ))}
+                                            <button onClick={() => vitoriaFileRef.current?.click()}
+                                              className="text-[11px] flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all"
+                                              style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.3)", border: "1px dashed rgba(255,255,255,0.1)" }}>
+                                              <span>+</span> Adicionar outro arquivo
+                                            </button>
+                                          </div>
+                                        )}
+                                      {vitoriaFiles.length > 0 && (
+                                        <button
+                                          disabled={agentChatLoading || anyExtracting(vitoriaFiles as any)}
+                                          onClick={() => {
+                                            const summary = vitoriaFiles.map(vf =>
+                                              `=== ARQUIVO: "${vf.name}" [TIPO: ${vf.docType === "lamina" ? "LÂMINA" : vf.docType === "site" ? "SITE" : "TEXTO"}] ===\n${vf.text || "(cole o texto manualmente)"}`
+                                            ).join("\n\n---\n\n");
+                                            const intro = vitoriaFiles.length > 1
+                                              ? `Vitória, tenho ${vitoriaFiles.length} arquivos para revisar. Siga seu fluxo: diagnóstico → tabela de erros → inconsistências → peça aprovação antes de corrigir.`
+                                              : `Vitória, revise este material seguindo seu fluxo completo.`;
+                                            setVitoriaFiles([]);
+                                            handleAgentChat("revisor", `${intro}\n\n${summary}`);
+                                          }}
+                                          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40"
+                                          style={{ background: "#EC4899", color: "#fff", boxShadow: "0 0 20px -4px rgba(236,72,153,0.4)" }}>
+                                          <span>🔍</span> Revisar agora
+                                        </button>
+                                      )}
+                                    </>
+                                  )}
+
+                                  {/* ── MODO ALTERAÇÃO DO CLIENTE ── */}
+                                  {vitoriaMode === "alteracao" && (
+                                    <>
+                                      {/* Arquivos do cliente */}
+                                      <div>
+                                        <div className="text-[10px] uppercase tracking-widest font-semibold mb-2 flex items-center gap-2" style={{ color: "rgba(255,255,255,0.3)" }}>
+                                          <span>📥</span> Arquivos enviados pelo cliente
+                                        </div>
+                                        {vitoriaClientFiles.length === 0
+                                          ? <DropZone onAdd={() => { if (vitoriaOriginalRef.current) vitoriaOriginalRef.current.value = ""; vitoriaFileRef.current?.click(); }} label="Clique para subir o que o cliente enviou" />
+                                          : (
+                                            <div className="space-y-2">
+                                              {vitoriaClientFiles.map(f => (
+                                                <FileCard key={f.id} f={f} onRemove={() => setVitoriaClientFiles(prev => prev.filter(x => x.id !== f.id))} />
+                                              ))}
+                                              <button onClick={() => vitoriaFileRef.current?.click()}
+                                                className="text-[11px] flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all"
+                                                style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.3)", border: "1px dashed rgba(255,255,255,0.1)" }}>
+                                                <span>+</span> Adicionar outro
+                                              </button>
+                                            </div>
+                                          )}
+                                      </div>
+
+                                      {/* Arquivos originais (opcional) */}
+                                      <div>
+                                        <div className="text-[10px] uppercase tracking-widest font-semibold mb-2 flex items-center gap-2" style={{ color: "rgba(255,255,255,0.3)" }}>
+                                          <span>📄</span> Material original entregue
+                                          <span className="normal-case font-normal" style={{ color: "rgba(255,255,255,0.2)" }}>(opcional)</span>
+                                        </div>
+                                        {vitoriaOriginalFiles.length === 0
+                                          ? <DropZone onAdd={() => vitoriaOriginalRef.current?.click()} label="Subir a versão que foi entregue ao cliente" />
+                                          : (
+                                            <div className="space-y-2">
+                                              {vitoriaOriginalFiles.map(f => (
+                                                <FileCard key={f.id} f={f} onRemove={() => setVitoriaOriginalFiles(prev => prev.filter(x => x.id !== f.id))} />
+                                              ))}
+                                              <button onClick={() => vitoriaOriginalRef.current?.click()}
+                                                className="text-[11px] flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-all"
+                                                style={{ background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.3)", border: "1px dashed rgba(255,255,255,0.1)" }}>
+                                                <span>+</span> Adicionar outro
+                                              </button>
+                                            </div>
+                                          )}
+                                      </div>
+
+                                      {/* Botão analisar */}
+                                      {vitoriaClientFiles.length > 0 && (
+                                        <button
+                                          disabled={agentChatLoading || anyExtracting(vitoriaClientFiles) || anyExtracting(vitoriaOriginalFiles)}
+                                          onClick={() => {
+                                            const clientSection = vitoriaClientFiles.map(f =>
+                                              `=== ARQUIVO DO CLIENTE: "${f.name}" ===\n${f.text || "(cole o texto manualmente)"}`
+                                            ).join("\n\n---\n\n");
+                                            const originalSection = vitoriaOriginalFiles.length > 0
+                                              ? `\n\n=== MATERIAL ORIGINAL ENTREGUE ===\n${vitoriaOriginalFiles.map(f => `--- "${f.name}" ---\n${f.text || "(sem texto)"}`).join("\n\n")}`
+                                              : "";
+                                            const msg = `Vitória, o cliente enviou arquivos solicitando alterações. Preciso que você:
+1. Identifique exatamente o que o cliente quer mudar (liste cada pedido numerado)
+2. Compare com o material original — o que muda, o que permanece
+3. Aponte se alguma alteração contradiz outras peças ou informações já estabelecidas
+4. Revise o texto novo do cliente (ortografia, gramática, consistência de tom)
+5. Entregue um checklist de alterações para o time executar, em ordem de prioridade
+
+${clientSection}${originalSection}`;
+                                            setVitoriaClientFiles([]);
+                                            setVitoriaOriginalFiles([]);
+                                            handleAgentChat("revisor", msg);
+                                          }}
+                                          className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold transition-all disabled:opacity-40"
+                                          style={{ background: "#EC4899", color: "#fff", boxShadow: "0 0 20px -4px rgba(236,72,153,0.4)" }}>
+                                          <span>✏️</span> Analisar alterações
+                                        </button>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+                              );
+                            })()}
 
                             {/* Chat direto — todos os agentes exceto Designer, Bobby, Lia e Tomás */}
                             {selectedAgent.id !== "designer" && selectedAgent.id !== "video" && selectedAgent.id !== "briefing" && selectedAgent.id !== "tomas" && (
@@ -11799,7 +12189,7 @@ Regras:
                     </p>
                   </div>
                   {/* List */}
-                  <div className="overflow-y-auto flex-1 px-5 py-3 space-y-1.5">
+                  <div className="overflow-y-auto flex-1 min-h-0 px-5 py-3 space-y-1.5">
                     {importCsvPreview.map((r, i) => (
                       <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-xl"
                         style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
@@ -13146,6 +13536,13 @@ Regras:
                             style={{ background: "rgba(6,182,212,0.1)", color: "#06B6D4", border: "1px solid rgba(6,182,212,0.2)" }}>
                             <ExternalLink className="w-3 h-3" /> Ver site
                           </a>
+                          {client.whatsappUrl && (
+                            <a href={client.whatsappUrl} target="_blank" rel="noopener noreferrer"
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-medium transition-all"
+                              style={{ background: "rgba(37,211,102,0.1)", color: "#25D366", border: "1px solid rgba(37,211,102,0.2)" }}>
+                              <ExternalLink className="w-3 h-3" /> WhatsApp
+                            </a>
+                          )}
                         </div>
                       </div>
 
@@ -13704,7 +14101,7 @@ Regras:
                 </div>
 
                 {/* Scrollable body */}
-                <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                <div className="flex-1 overflow-y-auto min-h-0 p-5 space-y-4">
 
                   {/* Current task */}
                   {effectiveTask && (
@@ -14169,7 +14566,7 @@ Regras:
                     <X className="w-4 h-4" />
                   </button>
                 </div>
-                <div className="overflow-y-auto px-6 py-5">
+                <div className="flex-1 overflow-y-auto min-h-0 px-6 py-5">
                   <pre className="text-xs leading-relaxed whitespace-pre-wrap font-sans" style={{ color: "rgba(255,255,255,0.78)" }}>
                     {agentOutputs[expandedAgentOutput]}
                   </pre>

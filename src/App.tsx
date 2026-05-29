@@ -59,6 +59,9 @@ import PagesPage from "@/pages/PagesPage";
 import PropostaPage from "@/pages/PropostaPage";
 import PropostasPage from "@/pages/PropostasPage";
 import SharedOrchestrationPage from "@/pages/SharedOrchestrationPage";
+import FormsPage from "@/pages/FormsPage";
+import SharedAgentPage from "@/pages/SharedAgentPage";
+import TriagemSefazPage from "@/pages/TriagemSefazPage";
 
 const queryClient = new QueryClient();
 
@@ -122,6 +125,7 @@ const ProtectedRoutes = () => {
           <Route path="/apostila" element={<ApostilaPage />} />
           <Route path="/wordpress" element={<WordPressPage />} />
           <Route path="/pages" element={<PagesPage />} />
+          <Route path="/forms" element={<FormsPage />} />
           <Route path="/propostas" element={<PropostasPage />} />
           <Route path="*" element={<NotFound />} />
         </Route>
@@ -178,6 +182,8 @@ const AppRoutes = () => (
     <Route path="/proposta/:slug" element={<PropostaPage />} />
     {/* Public shared orchestration report — no auth required */}
     <Route path="/shared/:token" element={<SharedOrchestrationPage />} />
+    {/* Public shared agent output — no auth required */}
+    <Route path="/agente/:token" element={<SharedAgentPage />} />
 
     {/* Convite para membros do time do cliente */}
     <Route path="/invite/:token" element={<InvitePage />} />
@@ -196,6 +202,7 @@ const AppRoutes = () => (
 
     {/* Telas exclusivas sem sidebar — exigem sessão */}
     <Route path="/conta-report" element={<FullScreen page={<ContaReportPage />} />} />
+    <Route path="/triagem-sefaz" element={<FullScreen page={<TriagemSefazPage />} />} />
     <Route path="/conta-colaborador" element={<FullScreen page={<ContaColaboradorPage />} />} />
     <Route path="/tomas" element={<FullScreen page={<TomasPage />} />} />
     <Route path="/teo" element={<FullScreen page={<TeoPage />} />} />
