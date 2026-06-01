@@ -61,6 +61,7 @@ import PropostasPage from "@/pages/PropostasPage";
 import SharedOrchestrationPage from "@/pages/SharedOrchestrationPage";
 import FormsPage from "@/pages/FormsPage";
 import SharedAgentPage from "@/pages/SharedAgentPage";
+import SharedAgentChatPage from "@/pages/SharedAgentChatPage";
 import TriagemSefazPage from "@/pages/TriagemSefazPage";
 
 const queryClient = new QueryClient();
@@ -184,6 +185,8 @@ const AppRoutes = () => (
     <Route path="/shared/:token" element={<SharedOrchestrationPage />} />
     {/* Public shared agent output — no auth required */}
     <Route path="/agente/:token" element={<SharedAgentPage />} />
+    {/* Public interactive agent chat — no auth required */}
+    <Route path="/conversar/:token" element={<SharedAgentChatPage />} />
 
     {/* Convite para membros do time do cliente */}
     <Route path="/invite/:token" element={<InvitePage />} />

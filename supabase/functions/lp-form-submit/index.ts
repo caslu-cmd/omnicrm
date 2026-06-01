@@ -12,7 +12,8 @@ serve(async (req) => {
   if (req.method !== "POST") return new Response("method not allowed", { status: 405, headers: cors });
 
   try {
-    const { user_id, client_id, name, email, phone, message, source } = await req.json();
+    const body = await req.json();
+    const { user_id, client_id, name, email, phone, company, message, source, form_id } = body;
 
     if (!user_id || !name) {
       return Response.json({ error: "user_id e name são obrigatórios" }, { status: 400, headers: cors });
@@ -29,6 +30,7 @@ serve(async (req) => {
       name: String(name).trim().slice(0, 200),
       email: email ? String(email).trim().slice(0, 200) : null,
       phone: phone ? String(phone).trim().slice(0, 50) : null,
+      company: company ? String(company).trim().slice(0, 200) : null,
       last_interaction: message ? String(message).trim().slice(0, 500) : null,
       source: source ? String(source).trim().slice(0, 200) : "landing_page",
       channel: "landing_page",
@@ -37,6 +39,13 @@ serve(async (req) => {
     });
 
     if (error) throw new Error(error.message);
+
+    // Incrementa contador do formulário se form_id fornecido
+    if (form_id) {
+      await supabase.rpc("increment_form_submissions_count", { fid: form_id }).catch(() => {
+        // Ignora erro — não crítico
+      });
+    }
 
     return Response.json({ ok: true }, { headers: cors });
   } catch (err) {

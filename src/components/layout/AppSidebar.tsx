@@ -8,7 +8,7 @@ import {
   Palette, Bell, Crown, ArrowLeftRight, Star,
   ArrowLeft, Megaphone, BarChart2, ExternalLink,
   Bot, Activity, Link2, ListTodo, Share2, Clapperboard, Mic, CalendarDays, Webhook, Layout, TrendingUp, FileBarChart, BookOpen,
-  ChevronDown, Code2, Filter, FileText
+  ChevronDown, Code2, Filter, FileText, FormInput
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
@@ -41,6 +41,7 @@ const crmItems = [
   { to: "/video-editor", icon: Clapperboard, label: "Editor de Vídeo" },
   { to: "/tomas", icon: Layout, label: "Criador de LPs" },
   { to: "/pages", icon: Globe, label: "Landing Pages" },
+  { to: "/forms", icon: FormInput, label: "Formulários" },
   { to: "/ben", icon: TrendingUp, label: "Tendências — Ben" },
   { to: "/fisco", icon: FileBarChart, label: "Contabilidade — Fisco" },
   { to: "/notebook", icon: BookOpen, label: "Notebook IA" },
@@ -72,6 +73,7 @@ const clientTools = [
   { tab: "campaigns",    icon: Megaphone,       label: "Campanhas" },
   { tab: "teo",          icon: Code2,           label: "Site — Teo" },
   { tab: "agents",       icon: Bot,             label: "Agentes IA" },
+  { tab: "agent-links",  icon: Share2,          label: "Links Compartilhados" },
   { tab: "sales-agents", icon: Zap,             label: "Agentes Autônomos" },
   { tab: "portal",       icon: ExternalLink,    label: "Portal do Cliente" },
   { tab: "activities",   icon: Activity,        label: "Atividades" },

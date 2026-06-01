@@ -35,6 +35,7 @@ import MetaAdsCampaignsSection from "@/components/MetaAdsCampaignsSection";
 import AdsSection from "@/components/AdsSection";
 import EditorialCalendarPanel from "@/components/EditorialCalendarPanel";
 import LeadsKanbanTab from "@/components/LeadsKanbanTab";
+import AgentLinksTab from "@/components/AgentLinksTab";
 import OrchestratorPanel from "@/components/OrchestratorPanel";
 
 const SOURCES: Record<string, { label: string; color: string; bg: string }> = {
@@ -961,6 +962,10 @@ export default function ClientWorkspace() {
   const [generatingDraft, setGeneratingDraft] = useState(false);
   const [agentCommand, setAgentCommand] = useState("");
   const [showCompleted, setShowCompleted] = useState(false);
+  const [quickDemand, setQuickDemand] = useState("");
+  const [quickDemandPlatforms, setQuickDemandPlatforms] = useState<string[]>(["instagram", "facebook"]);
+  const [quickDemandStatus, setQuickDemandStatus] = useState<"idle"|"sending"|"done"|"error">("idle");
+  const [quickDemandResult, setQuickDemandResult] = useState<{scheduledCount:number;imageUrl?:string}|null>(null);
   const [attachedFile, setAttachedFile] = useState<File | null>(null);
   const [attachedFileUrl, setAttachedFileUrl] = useState<string | null>(null);
   const [attachedFileText, setAttachedFileText] = useState<string | null>(null);
@@ -3945,6 +3950,22 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
   useEffect(() => { if (activeTab === "sales-agents" && id) { fetchSalesAgents(); loadAgentChannelConfig(); loadAgentLogs(); loadSocialAccounts(); } }, [activeTab, id]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (activeTab === "agents" && id && !agentChatsLoaded) loadAgentChatsFromDb(); }, [activeTab, id, agentChatsLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (id && !clientWpCredsLoaded) loadClientWpCreds(); }, [id, clientWpCredsLoaded]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sincroniza perfil do cliente no Supabase para acesso server-side (cron, demand-inbox)
+  useEffect(() => {
+    if (!id || !client || !user?.id) return;
+    const b = clientBriefing as any;
+    (supabase as any).from("client_profiles").upsert({
+      client_id:   id,
+      user_id:     user.id,
+      name:        client.name ?? "",
+      industry:    b?.segmento ?? client.industry ?? "",
+      nicho:       b?.segmento ?? client.industry ?? "",
+      brand_color: b?.corPrimaria ?? client.color ?? "#B9FF4B",
+      logo_url:    b?.logoUrl ?? "",
+      updated_at:  new Date().toISOString(),
+    }, { onConflict: "client_id,user_id" });
+  }, [id, client?.name, client?.industry, clientBriefing, user?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchOverviewData = async () => {
     if (!id) return;
@@ -7224,6 +7245,118 @@ Regras:
             {activeTab === "agents" && (
               <div className="space-y-5">
 
+                {/* ── Demanda Rápida Autônoma ── */}
+                <div className="rounded-2xl px-5 py-4 space-y-3"
+                  style={{ background: "rgba(185,255,75,0.04)", border: "1px solid rgba(185,255,75,0.15)" }}>
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#B9FF4B" }}>
+                      Demanda Rápida
+                    </p>
+                    <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>
+                      ARIA vai gerar o conteúdo, criar o design e agendar automaticamente no Instagram/Facebook
+                    </p>
+                  </div>
+
+                  <textarea
+                    value={quickDemand}
+                    onChange={e => setQuickDemand(e.target.value)}
+                    rows={3}
+                    placeholder="Ex: Crie 3 posts sobre nossa nova campanha de junho com foco em conversão..."
+                    disabled={quickDemandStatus === "sending"}
+                    className="w-full resize-none rounded-xl px-4 py-3 text-sm outline-none transition-all"
+                    style={{
+                      background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.1)",
+                      color: "#F0F0F0", lineHeight: 1.5,
+                    }}
+                    onFocus={e => (e.target.style.borderColor = "rgba(185,255,75,0.4)")}
+                    onBlur={e => (e.target.style.borderColor = "rgba(255,255,255,0.1)")}
+                  />
+
+                  <div className="flex items-center justify-between gap-3">
+                    {/* Plataformas */}
+                    <div className="flex gap-2">
+                      {(["instagram","facebook"] as const).map(p => {
+                        const on = quickDemandPlatforms.includes(p);
+                        return (
+                          <button key={p} onClick={() =>
+                            setQuickDemandPlatforms(prev =>
+                              on ? prev.filter(x => x !== p) : [...prev, p]
+                            )}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
+                            style={{
+                              background: on ? "rgba(185,255,75,0.12)" : "rgba(255,255,255,0.05)",
+                              border: `1px solid ${on ? "rgba(185,255,75,0.35)" : "rgba(255,255,255,0.1)"}`,
+                              color: on ? "#B9FF4B" : "rgba(255,255,255,0.4)",
+                            }}>
+                            {p === "instagram" ? "Instagram" : "Facebook"}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Botão enviar */}
+                    <button
+                      disabled={!quickDemand.trim() || quickDemandStatus === "sending"}
+                      onClick={async () => {
+                        if (!quickDemand.trim() || !id || !user?.id) return;
+                        setQuickDemandStatus("sending");
+                        setQuickDemandResult(null);
+                        try {
+                          const { data: { session } } = await (supabase as any).auth.getSession();
+                          const res = await fetch(`${SUPABASE_URL}/functions/v1/demand-inbox`, {
+                            method: "POST",
+                            headers: {
+                              "Content-Type": "application/json",
+                              "Authorization": `Bearer ${session?.access_token ?? ""}`,
+                              "apikey": SUPABASE_PUBLISHABLE_KEY,
+                            },
+                            body: JSON.stringify({
+                              client_id: id,
+                              user_id: user.id,
+                              demand: quickDemand.trim(),
+                              platforms: quickDemandPlatforms,
+                            }),
+                          });
+                          const data = await res.json();
+                          if (!res.ok) throw new Error(data.error ?? "Erro ao enviar demanda");
+                          setQuickDemandResult({ scheduledCount: data.scheduledCount ?? 0, imageUrl: data.imageUrl });
+                          setQuickDemandStatus("done");
+                          setQuickDemand("");
+                        } catch (e: any) {
+                          setQuickDemandStatus("error");
+                          toast.error(e?.message ?? "Erro ao enviar demanda");
+                        }
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all"
+                      style={{
+                        background: quickDemand.trim() && quickDemandStatus !== "sending" ? "#B9FF4B" : "rgba(255,255,255,0.08)",
+                        color: quickDemand.trim() && quickDemandStatus !== "sending" ? "#07080A" : "rgba(255,255,255,0.3)",
+                        cursor: quickDemand.trim() && quickDemandStatus !== "sending" ? "pointer" : "not-allowed",
+                      }}>
+                      {quickDemandStatus === "sending" ? (
+                        <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Processando...</>
+                      ) : (
+                        <><Sparkles className="w-3.5 h-3.5" /> Enviar para os agentes</>
+                      )}
+                    </button>
+                  </div>
+
+                  {/* Resultado */}
+                  {quickDemandStatus === "done" && quickDemandResult && (
+                    <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
+                      style={{ background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)" }}>
+                      <CheckCircle2 className="w-4 h-4 flex-shrink-0" style={{ color: "#34D399" }} />
+                      <p className="text-xs" style={{ color: "rgba(255,255,255,0.7)" }}>
+                        {quickDemandResult.scheduledCount > 0
+                          ? `${quickDemandResult.scheduledCount} post${quickDemandResult.scheduledCount !== 1 ? "s" : ""} agendado${quickDemandResult.scheduledCount !== 1 ? "s" : ""} — verifique a aba Social Media`
+                          : "Conteúdo gerado — verifique a aba Social Media"}
+                      </p>
+                      <button onClick={() => setQuickDemandStatus("idle")}
+                        className="ml-auto text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>×</button>
+                    </div>
+                  )}
+                </div>
+
                 {/* ── Orquestração Multi-Agente ── */}
                 <div className="rounded-2xl px-5 py-4 space-y-3"
                   style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
@@ -8418,8 +8551,8 @@ Regras:
                                   Ver entrega ↓
                                 </button>
                                 <button
-                                  onClick={() => {/* TODO: share agent */}}
-                                  title="Compartilhar entrega"
+                                  onClick={() => openShareAgentModal(agent.id)}
+                                  title="Compartilhar agente"
                                   className="text-[10px] font-semibold whitespace-nowrap px-2 py-0.5 rounded-md transition-all"
                                   style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.1)" }}
                                   onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(185,255,75,0.1)"; e.currentTarget.style.color = "#B9FF4B"; e.currentTarget.style.borderColor = "rgba(185,255,75,0.3)"; }}
@@ -13426,6 +13559,13 @@ ${clientSection}${originalSection}`;
             )}
 
             {/* ══════════════════════════════════════════════════════
+                LINKS COMPARTILHADOS
+            ══════════════════════════════════════════════════════ */}
+            {activeTab === "agent-links" && (
+              <AgentLinksTab clientId={client.id} clientName={client.name} userId={user?.id ?? ""} />
+            )}
+
+            {/* ══════════════════════════════════════════════════════
                 INTEGRAÇÕES
             ══════════════════════════════════════════════════════ */}
             {activeTab === "integrations" && (
@@ -14536,6 +14676,85 @@ ${clientSection}${originalSection}`;
             </motion.div>
           </>
         )}
+      </AnimatePresence>
+
+      {/* ── Modal: Compartilhar Agente ── */}
+      <AnimatePresence>
+        {shareAgentId && (() => {
+          const sMeta = AGENT_META[shareAgentId] ?? { initial: shareAgentId[0]?.toUpperCase(), color: "#B9FF4B", name: shareAgentId };
+          return (
+            <motion.div
+              key="share-agent-backdrop"
+              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              style={{ background: "rgba(0,0,0,0.8)", backdropFilter: "blur(6px)" }}
+              onClick={() => setShareAgentId(null)}
+            >
+              <motion.div
+                initial={{ opacity: 0, scale: 0.97, y: 12 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.97, y: 12 }}
+                onClick={e => e.stopPropagation()}
+                style={{ width: "100%", maxWidth: 480, background: "#0A0A14", border: `1px solid ${sMeta.color}30`, borderRadius: 20, overflow: "hidden", boxShadow: `0 0 80px -20px ${sMeta.color}30`, display: "flex", flexDirection: "column" }}
+              >
+                {/* Header */}
+                <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "18px 22px", borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
+                  <div style={{ width: 40, height: 40, borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "1rem", fontWeight: 800, background: `${sMeta.color}20`, border: `1px solid ${sMeta.color}40`, color: sMeta.color, flexShrink: 0 }}>
+                    {sMeta.initial}
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: "0.85rem", fontWeight: 700, color: "rgba(255,255,255,0.9)" }}>Compartilhar {sMeta.name}</div>
+                    <div style={{ fontSize: "0.7rem", color: "rgba(255,255,255,0.35)", marginTop: 2 }}>Gera um link — qualquer pessoa pode conversar com este agente</div>
+                  </div>
+                  <button onClick={() => setShareAgentId(null)} style={{ color: "rgba(255,255,255,0.25)", background: "none", border: "none", cursor: "pointer", padding: 4, display: "flex" }}><X className="w-4 h-4" /></button>
+                </div>
+                {/* Body */}
+                <div style={{ padding: "20px 22px", display: "flex", flexDirection: "column", gap: 14 }}>
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.68rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.3)", marginBottom: 6 }}>
+                      Contexto (opcional)
+                    </label>
+                    <textarea
+                      value={shareContextNote}
+                      onChange={e => setShareContextNote(e.target.value)}
+                      placeholder={`Ex: "Especialista em tráfego para e-commerce de moda"`}
+                      rows={2}
+                      style={{ width: "100%", resize: "none", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 12px", color: "rgba(255,255,255,0.8)", fontSize: "0.8rem", outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
+                    />
+                    <p style={{ fontSize: "0.65rem", color: "rgba(255,255,255,0.25)", marginTop: 4 }}>Este texto é adicionado ao prompt do agente para dar mais contexto.</p>
+                  </div>
+                  <div>
+                    <label style={{ display: "block", fontSize: "0.68rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.3)", marginBottom: 6 }}>
+                      Mensagem de boas-vindas
+                    </label>
+                    <input
+                      value={shareWelcomeMsg}
+                      onChange={e => setShareWelcomeMsg(e.target.value)}
+                      placeholder="O que o agente diz ao abrir o link…"
+                      style={{ width: "100%", background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, padding: "9px 12px", color: "rgba(255,255,255,0.8)", fontSize: "0.8rem", outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
+                    />
+                  </div>
+                  <div style={{ padding: "10px 12px", borderRadius: 10, background: `${sMeta.color}08`, border: `1px solid ${sMeta.color}20`, fontSize: "0.72rem", color: "rgba(255,255,255,0.45)" }}>
+                    O link gerado abrirá uma página de chat pública — <strong style={{ color: "rgba(255,255,255,0.6)" }}>sem login, sem sidebar</strong>. A pessoa conversa diretamente com {sMeta.name}.
+                  </div>
+                </div>
+                {/* Footer */}
+                <div style={{ display: "flex", gap: 8, padding: "0 22px 20px" }}>
+                  <button onClick={() => setShareAgentId(null)} style={{ padding: "9px 18px", borderRadius: 10, fontSize: "0.8rem", background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.08)", cursor: "pointer" }}>
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleCreateAgentLink}
+                    disabled={sharingAgent}
+                    style={{ flex: 1, padding: "9px 18px", borderRadius: 10, fontSize: "0.85rem", fontWeight: 700, background: sMeta.color, color: "#07080A", border: "none", cursor: sharingAgent ? "default" : "pointer", opacity: sharingAgent ? 0.6 : 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                  >
+                    {sharingAgent ? <><Loader2 className="w-4 h-4 animate-spin" /> Gerando...</> : <>🔗 Gerar link e copiar</>}
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          );
+        })()}
       </AnimatePresence>
 
       {/* ── Modal entrega completa do agente ── */}

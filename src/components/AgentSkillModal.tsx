@@ -178,7 +178,7 @@ export default function AgentSkillModal({
       >
         {/* ── Skill list (esquerda) ─────────────────────────── */}
         <div
-          className="flex flex-col flex-shrink-0 overflow-hidden"
+          className="flex flex-col flex-shrink-0 overflow-hidden min-h-0"
           style={{
             width: 260,
             borderRight: selectedSkill ? `1px solid rgba(255,255,255,0.06)` : "none",
@@ -211,7 +211,7 @@ export default function AgentSkillModal({
           </div>
 
           {/* Skill list */}
-          <div className="flex-1 overflow-y-auto py-3 px-3 space-y-1">
+          <div className="flex-1 overflow-y-auto min-h-0 py-3 px-3 space-y-1">
             <p className="text-[9px] uppercase tracking-widest font-semibold px-2 mb-2" style={{ color: s(0.2) }}>
               Skills disponíveis
             </p>
@@ -270,7 +270,7 @@ export default function AgentSkillModal({
               initial={{ opacity: 0, x: 16 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 16 }}
-              className="flex-1 flex flex-col overflow-hidden"
+              className="flex-1 flex flex-col overflow-hidden min-h-0"
               style={{ minWidth: 0 }}
             >
               {/* Skill header */}
@@ -294,7 +294,7 @@ export default function AgentSkillModal({
                 )}
               </div>
 
-              <div className="flex-1 overflow-y-auto">
+              <div className="flex-1 overflow-y-auto min-h-0">
                 {/* Form */}
                 {!result && !loading && (
                   <div className="p-6 space-y-4">
