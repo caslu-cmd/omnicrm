@@ -572,7 +572,7 @@ function Td({ children, className = "" }: { children?: React.ReactNode; classNam
 // ── Chat do Agente Rico ───────────────────────────────────────────────────────
 interface ChatMsg { role: "user" | "assistant"; text: string; }
 
-interface AttachedFile { name: string; text: string; size: number; }
+interface AttachedFile { name: string; text: string; size: number; dropbox_path?: string; }
 
 function AgentChat({ onDataSaved }: { onDataSaved?: () => void }) {
   const [history, setHistory] = useState<ChatMsg[]>([]);
@@ -596,11 +596,19 @@ function AgentChat({ onDataSaved }: { onDataSaved?: () => void }) {
     e.target.value = "";
     setUploading(true);
     try {
-      const text = await extractFileText(file);
-      setAttached({ name: file.name, text, size: file.size });
-      toast.success(`${file.name} carregado`);
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`${API}/api/upload`, { method: "POST", body: fd });
+      if (!res.ok) throw new Error("Falha no upload");
+      const data = await res.json();
+      setAttached({ name: data.filename, text: data.text, size: data.size, dropbox_path: data.dropbox_path });
+      if (data.dropbox_path) {
+        toast.success(`${data.filename} carregado e salvo no Dropbox`);
+      } else {
+        toast.success(`${data.filename} carregado`);
+      }
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Erro ao ler arquivo", { duration: 6000 });
+      toast.error(err instanceof Error ? err.message : "Erro ao carregar arquivo", { duration: 6000 });
     } finally {
       setUploading(false);
     }

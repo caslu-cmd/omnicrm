@@ -7,7 +7,8 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-const API = "http://localhost:9100";
+const _AGENTES_URL = (import.meta.env.VITE_AGENTES_API_URL as string | undefined)?.replace(/\/$/, "");
+const API = _AGENTES_URL ? `${_AGENTES_URL}/fisco` : "http://localhost:9100";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type Role = "user" | "assistant";
