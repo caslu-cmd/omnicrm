@@ -1,9 +1,10 @@
+import type { ReactNode } from "react";
 import { ExternalLink, CheckCircle2, Users, Calendar, Receipt, FileText, Bot, Upload } from "lucide-react";
 
 const RICO_URL = "https://caluagencia.com.br/conta-report";
 
 interface Step {
-  icon: React.ReactNode;
+  icon: ReactNode;
   title: string;
   description: string;
   detail?: string;
