@@ -89,7 +89,7 @@ function PinLock({ onUnlock }: { onUnlock: () => void }) {
 
   const tryUnlock = () => {
     if (pin === RICO_PIN) {
-      sessionStorage.setItem(SESSION_KEY, "1");
+      localStorage.setItem(SESSION_KEY, "1");
       onUnlock();
     } else {
       setShake(true);
@@ -924,7 +924,7 @@ function DistribCalcModal({ onClose }: { onClose: () => void }) {
 
 // ── Gate de PIN ───────────────────────────────────────────────────────────────
 export default function ContaReportPage() {
-  const [unlocked, setUnlocked] = useState(() => sessionStorage.getItem(SESSION_KEY) === "1");
+  const [unlocked, setUnlocked] = useState(() => localStorage.getItem(SESSION_KEY) === "1");
   if (!unlocked) return <PinLock onUnlock={() => setUnlocked(true)} />;
   return <ContaReportContent />;
 }

@@ -63,6 +63,7 @@ import FormsPage from "@/pages/FormsPage";
 import SharedAgentPage from "@/pages/SharedAgentPage";
 import SharedAgentChatPage from "@/pages/SharedAgentChatPage";
 import TriagemSefazPage from "@/pages/TriagemSefazPage";
+import RicoGuidePage from "@/pages/RicoGuidePage";
 
 const queryClient = new QueryClient();
 
@@ -205,6 +206,7 @@ const AppRoutes = () => (
 
     {/* Telas exclusivas sem sidebar — exigem sessão */}
     <Route path="/conta-report" element={<FullScreen page={<ContaReportPage />} />} />
+    <Route path="/rico-guide" element={<RicoGuidePage />} />
     <Route path="/triagem-sefaz" element={<FullScreen page={<TriagemSefazPage />} />} />
     <Route path="/conta-colaborador" element={<FullScreen page={<ContaColaboradorPage />} />} />
     <Route path="/tomas" element={<FullScreen page={<TomasPage />} />} />
