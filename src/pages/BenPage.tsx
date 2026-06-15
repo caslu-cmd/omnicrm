@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Search, TrendingUp, BarChart2, Loader2, CheckCircle2,
@@ -7,8 +7,25 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-const _AGENTES_URL = (import.meta.env.VITE_AGENTES_API_URL as string | undefined)?.replace(/\/$/, "");
-const API = _AGENTES_URL ? `${_AGENTES_URL}/ben` : "http://localhost:8800";
+import { supabase } from "@/integrations/supabase/client";
+
+// Separa o relatório do Ben (markdown) nas 3 abas.
+function parseRelatorio(content: string): Resultado {
+  const grab = (re: RegExp) => {
+    const m = content.match(re);
+    return m ? m[1].trim() : "";
+  };
+  const tendencias = grab(/#+\s*🔥[^\n]*\n([\s\S]*?)(?=\n#+\s|$)/);
+  const ideias = grab(/#+\s*💡[^\n]*\n([\s\S]*?)(?=\n#+\s|$)/);
+  // Hashtags + Quick Wins ficam juntos na última aba
+  const hashtags = grab(/#+\s*#️⃣[^\n]*\n([\s\S]*)$/);
+  return {
+    tendencias: tendencias || content,
+    ideias,
+    hashtags,
+    completo: content,
+  };
+}
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type Etapa = "idle" | "buscando" | "analisando" | "concluido" | "erro";
@@ -59,13 +76,11 @@ export default function BenPage() {
   const [buscaCount, setBuscaCount] = useState(0);
   const [resultado, setResultado] = useState<Resultado | null>(null);
   const [abaAtiva, setAbaAtiva] = useState<Aba>("tendencias");
-  const readerRef = useRef<ReadableStreamDefaultReader | null>(null);
 
   const ativo = etapa === "buscando" || etapa === "analisando";
   const idxAtual = etapaIndex(etapa);
 
   const cancelar = useCallback(() => {
-    readerRef.current?.cancel();
     setEtapa("idle");
     setQueryAtual("");
     setBuscaCount(0);
@@ -79,67 +94,34 @@ export default function BenPage() {
 
     setEtapa("buscando");
     setResultado(null);
-    setQueryAtual("Iniciando pesquisa...");
+    setQueryAtual("Pesquisando tendências na web...");
     setBuscaCount(0);
 
+    // Transição visual para a fase de análise (a chamada é única, ~30-60s)
+    const t = setTimeout(() => {
+      setEtapa("analisando");
+      setQueryAtual("Analisando resultados...");
+    }, 2000);
+
     try {
-      const resp = await fetch(`${API}/pesquisar`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nicho, plataforma, tipo_conteudo: tipoConteudo }),
+      const { data, error } = await supabase.functions.invoke("ben-trends", {
+        body: { nicho, plataforma, tipo_conteudo: tipoConteudo },
       });
+      clearTimeout(t);
 
-      if (!resp.ok) throw new Error(`Erro ${resp.status} — verifique se o Ben está rodando.`);
-      if (!resp.body) throw new Error("Stream não disponível.");
+      if (error) throw new Error(error.message ?? "Erro ao consultar o Ben.");
+      const content: string = data?.content ?? "";
+      if (!content) throw new Error(data?.error ?? "Ben não retornou resultado.");
 
-      const reader = resp.body.getReader();
-      readerRef.current = reader;
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const linhas = buffer.split("\n\n");
-        buffer = linhas.pop() ?? "";
-
-        for (const linha of linhas) {
-          if (!linha.startsWith("data: ")) continue;
-          const payload = JSON.parse(linha.slice(6));
-
-          if (payload.etapa === "erro") {
-            throw new Error(payload.mensagem ?? "Erro desconhecido");
-          }
-
-          if (payload.etapa === "concluido") {
-            setEtapa("concluido");
-            setResultado(payload.resultado);
-            setAbaAtiva("tendencias");
-            toast.success("Pesquisa concluída! Tendências prontas.");
-            return;
-          }
-
-          if (payload.etapa === "buscando") {
-            setEtapa("buscando");
-            if (payload.query) {
-              setQueryAtual(payload.query);
-              setBuscaCount((c) => c + 1);
-            }
-          }
-
-          if (payload.etapa === "analisando") {
-            setEtapa("analisando");
-            setQueryAtual("Analisando resultados...");
-          }
-        }
-      }
+      setResultado(parseRelatorio(content));
+      setEtapa("concluido");
+      setAbaAtiva("tendencias");
+      toast.success("Pesquisa concluída! Tendências prontas.");
     } catch (err: any) {
-      if (err?.name === "AbortError") return;
+      clearTimeout(t);
       setEtapa("erro");
       setQueryAtual(err?.message ?? "Erro desconhecido");
-      toast.error("Falha na pesquisa. Verifique se o Ben está rodando na porta 8800.");
+      toast.error("Falha na pesquisa de tendências. Tente novamente.");
     }
   }, [nicho, plataforma, tipoConteudo]);
 

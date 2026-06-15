@@ -7,8 +7,9 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-const _AGENTES_URL = (import.meta.env.VITE_AGENTES_API_URL as string | undefined)?.replace(/\/$/, "");
-const API = _AGENTES_URL ? `${_AGENTES_URL}/fisco` : "http://localhost:9100";
+import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
+
+const API = `${SUPABASE_URL}/functions/v1/fisco`;
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 type Role = "user" | "assistant";
@@ -77,13 +78,17 @@ export default function FiscoPage() {
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
 
     try {
-      const resp = await fetch(`${API}/chat`, {
+      const resp = await fetch(API, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+          "apikey": SUPABASE_PUBLISHABLE_KEY,
+        },
         body: JSON.stringify({ mensagem: msg, historico }),
       });
 
-      if (!resp.ok) throw new Error(`Erro ${resp.status} — verifique se o Fisco está rodando.`);
+      if (!resp.ok) throw new Error(`Erro ${resp.status} — Fisco indisponível.`);
       if (!resp.body) throw new Error("Stream não disponível.");
 
       const reader = resp.body.getReader();
@@ -125,7 +130,7 @@ export default function FiscoPage() {
       const msg = err?.message ?? "Erro desconhecido";
       setErro(msg);
       setMessages((prev) => prev.filter((m) => m.id !== assistantId));
-      toast.error("Fisco offline. Verifique se o servidor está rodando na porta 9100.");
+      toast.error("Fisco indisponível. Tente novamente em instantes.");
     } finally {
       setCarregando(false);
       inputRef.current?.focus();

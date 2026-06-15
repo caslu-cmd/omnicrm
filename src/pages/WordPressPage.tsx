@@ -9,7 +9,8 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-const API = "http://localhost:8500";
+// Pixel roda no Railway em produção; localhost em dev. Defina VITE_PIXEL_API_URL no Lovable.
+const API = (import.meta.env.VITE_PIXEL_API_URL as string | undefined)?.replace(/\/$/, "") || "http://localhost:8500";
 
 interface WPSite {
   id: string;
@@ -160,37 +161,17 @@ const WordPressPage = () => {
   const chatEndRef = useRef<HTMLDivElement>(null);
   const historyRef = useRef<{ role: string; content: string }[]>([]);
 
-  const GRUPO_LICITA: WPSite = {
-    id: "grupo-licita",
-    name: "Grupo Licita",
-    url: "https://grupolicita.com.br",
-    username: "licita",
-    password: "Glct@2025",
-  };
-
   useEffect(() => {
     fetch(`${API}/api/sites`)
       .then(r => r.json())
-      .then(async (data: WPSite[]) => {
-        let list = data;
-        if (list.length === 0) {
-          try {
-            await fetch(`${API}/api/sites`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(GRUPO_LICITA),
-            });
-            list = await fetch(`${API}/api/sites`).then(r => r.json());
-          } catch { list = [GRUPO_LICITA]; }
-        }
-        setSites(list);
+      .then((list: WPSite[]) => {
+        setSites(Array.isArray(list) ? list : []);
         const paramSite = searchParams.get("site");
         const target = paramSite ? list.find((s) => s.id === paramSite) : list[0];
         if (target) setSelectedSite(target);
       })
       .catch(() => {
-        setSites([GRUPO_LICITA]);
-        setSelectedSite(GRUPO_LICITA);
+        setSites([]);
       });
   }, []);
 
