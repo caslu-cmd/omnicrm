@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { MessageCircle, Send, Plus, X, Copy, Link2, Hand, CheckCircle2, Smartphone } from "lucide-react";
+import { MessageCircle, Send, Plus, X, Copy, Link2, Hand, CheckCircle2, Smartphone, Globe, Code2 } from "lucide-react";
 import { toast } from "sonner";
 
 const SUPABASE_URL = "https://proldgiyterqhthludlp.supabase.co";
@@ -251,72 +251,147 @@ export default function InboxTab({ clientId, accent = "#B9FF4B" }: Props) {
   );
 }
 
-// ── Modal: conectar WhatsApp (Z-API) ───────────────────────────
+// ── Gera o snippet do widget de webchat pra colar no site ──────
+function buildWidget(token: string, accent: string): string {
+  const A = `${SUPABASE_URL}/functions/v1/webchat`;
+  return `<!-- Chat Calu — cole antes de </body> -->
+<script>
+(function(){
+  var T=${JSON.stringify(token)}, A=${JSON.stringify(A)}, C=${JSON.stringify(accent)};
+  var sid=localStorage.getItem('calu_sid'); if(!sid){sid=Date.now().toString(36)+Math.random().toString(36).slice(2);localStorage.setItem('calu_sid',sid);}
+  var last=null,open=false;
+  var s=document.createElement('style');s.textContent='.cw{position:fixed;bottom:20px;right:20px;z-index:99999;font-family:system-ui,sans-serif}.cw-b{width:56px;height:56px;border-radius:50%;background:'+C+';border:0;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.25);font-size:24px}.cw-p{position:absolute;bottom:70px;right:0;width:340px;max-width:90vw;height:460px;max-height:70vh;background:#fff;border-radius:16px;box-shadow:0 20px 60px rgba(0,0,0,.3);display:none;flex-direction:column;overflow:hidden}.cw-p.on{display:flex}.cw-h{background:#0A0A10;color:#fff;padding:14px 16px;font-weight:700;font-size:14px}.cw-bd{flex:1;overflow-y:auto;padding:14px;display:flex;flex-direction:column;gap:8px;background:#f6f6f4}.cw-m{max-width:80%;padding:9px 12px;border-radius:14px;font-size:13px;line-height:1.35;word-wrap:break-word}.cw-in{align-self:flex-start;background:#fff;color:#111;border:1px solid #eee}.cw-out{align-self:flex-end;background:'+C+';color:#07080A}.cw-f{display:flex;gap:6px;padding:10px;border-top:1px solid #eee}.cw-f input{flex:1;padding:10px;border:1px solid #ddd;border-radius:10px;font-size:13px;outline:none}.cw-f button{border:0;background:'+C+';color:#07080A;border-radius:10px;padding:0 14px;font-weight:700;cursor:pointer}';document.head.appendChild(s);
+  var w=document.createElement('div');w.className='cw';
+  w.innerHTML='<div class="cw-p"><div class="cw-h">Fale com a gente 👋</div><div class="cw-bd"></div><div class="cw-f"><input placeholder="Escreva sua mensagem..."/><button>➤</button></div></div><button class="cw-b">💬</button>';
+  document.body.appendChild(w);
+  var p=w.querySelector('.cw-p'),bd=w.querySelector('.cw-bd'),inp=w.querySelector('input'),bt=w.querySelector('.cw-b'),sn=w.querySelector('.cw-f button');
+  function add(t,c){var d=document.createElement('div');d.className='cw-m '+c;d.textContent=t;bd.appendChild(d);bd.scrollTop=bd.scrollHeight;}
+  bt.onclick=function(){open=!open;p.classList.toggle('on',open);};
+  function send(){var t=inp.value.trim();if(!t)return;add(t,'cw-out');inp.value='';fetch(A+'?action=in',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:T,session:sid,text:t})});}
+  sn.onclick=send;inp.addEventListener('keydown',function(e){if(e.key==='Enter')send();});
+  function poll(){fetch(A+'?action=poll',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:T,session:sid,after:last})}).then(function(r){return r.json()}).then(function(d){(d.messages||[]).forEach(function(m){add(m.content,'cw-in');last=m.created_at;});}).catch(function(){});}
+  setInterval(poll,4000);poll();
+})();
+</script>`;
+}
+
+// ── Modal: conectar canal (WhatsApp Z-API ou Webchat) ──────────
 function ConnectModal({ clientId, accent, onClose, onSaved }: { clientId: string; accent: string; onClose: () => void; onSaved: () => void }) {
+  const [channel, setChannel] = useState<"whatsapp_zapi" | "webchat">("whatsapp_zapi");
   const [label, setLabel] = useState("");
   const [instance, setInstance] = useState("");
   const [token, setToken] = useState("");
   const [clientToken, setClientToken] = useState("");
   const [saving, setSaving] = useState(false);
-  const [created, setCreated] = useState<{ webhook_token: string } | null>(null);
+  const [created, setCreated] = useState<{ webhook_token: string; channel: string } | null>(null);
 
   const save = async () => {
-    if (!instance.trim() || !token.trim()) { toast.error("Informe instância e token da Z-API"); return; }
+    if (channel === "whatsapp_zapi" && (!instance.trim() || !token.trim())) { toast.error("Informe instância e token da Z-API"); return; }
     setSaving(true);
     const { data: { session } } = await supabase.auth.getSession();
+    const config = channel === "whatsapp_zapi"
+      ? { instance: instance.trim(), token: token.trim(), client_token: clientToken.trim() || null }
+      : {};
     const { data, error } = await (supabase as any).from("channel_connections").insert({
       client_id: clientId,
-      channel: "whatsapp_zapi",
-      label: label.trim() || "WhatsApp",
-      status: "disconnected",
+      channel,
+      label: label.trim() || (channel === "webchat" ? "Site" : "WhatsApp"),
+      status: channel === "webchat" ? "connected" : "disconnected",
       created_by: session?.user.id ?? null,
-      config: { instance: instance.trim(), token: token.trim(), client_token: clientToken.trim() || null },
-    }).select("webhook_token").single();
+      config,
+    }).select("webhook_token, channel").single();
     setSaving(false);
     if (error) { toast.error("Erro ao salvar conexão"); return; }
     setCreated(data);
     onSaved();
-    toast.success("WhatsApp conectado!");
+    toast.success("Canal conectado!");
   };
 
   const webhookUrl = created ? `${SUPABASE_URL}/functions/v1/inbox-whatsapp?t=${created.webhook_token}` : "";
+  const widget = created ? buildWidget(created.webhook_token, accent) : "";
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
       onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="w-full max-w-md rounded-2xl p-6 space-y-4" style={{ background: "#0D0D1A", border: `1px solid ${accent}30` }}>
+      <div className="w-full max-w-md rounded-2xl p-6 space-y-4 max-h-[90vh] overflow-y-auto" style={{ background: "#0D0D1A", border: `1px solid ${accent}30` }}>
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Smartphone className="w-4 h-4" style={{ color: "#25D366" }} />
-            <p className="text-sm font-semibold text-white">Conectar WhatsApp (Z-API)</p>
-          </div>
+          <p className="text-sm font-semibold text-white">Conectar canal</p>
           <button onClick={onClose} style={{ color: "rgba(255,255,255,0.3)" }}><X className="w-4 h-4" /></button>
         </div>
 
         {!created ? (
           <>
-            <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-              No painel da Z-API, crie uma instância, escaneie o QR do WhatsApp e copie a <b>instância</b> e o <b>token</b>.
-            </p>
-            {[
-              { v: label, set: setLabel, ph: "Nome (ex: WhatsApp Comercial)", req: false },
-              { v: instance, set: setInstance, ph: "ID da instância *", req: true },
-              { v: token, set: setToken, ph: "Token da instância *", req: true },
-              { v: clientToken, set: setClientToken, ph: "Client-Token (segurança da conta, opcional)", req: false },
-            ].map((f, i) => (
-              <input key={i} value={f.v} onChange={e => f.set(e.target.value)} placeholder={f.ph}
-                className="w-full rounded-xl px-4 py-2.5 text-sm"
-                style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }} />
-            ))}
+            {/* Channel picker */}
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                { id: "whatsapp_zapi", label: "WhatsApp", icon: Smartphone, color: "#25D366" },
+                { id: "webchat", label: "Chat no site", icon: Globe, color: "#8B5CF6" },
+              ] as const).map(c => {
+                const on = channel === c.id; const Icon = c.icon;
+                return (
+                  <button key={c.id} onClick={() => setChannel(c.id)}
+                    className="flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all"
+                    style={on ? { background: `${c.color}20`, color: c.color, border: `1px solid ${c.color}50` }
+                             : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    <Icon className="w-4 h-4" /> {c.label}
+                  </button>
+                );
+              })}
+            </div>
+
+            <input value={label} onChange={e => setLabel(e.target.value)} placeholder={channel === "webchat" ? "Nome (ex: Chat do site)" : "Nome (ex: WhatsApp Comercial)"}
+              className="w-full rounded-xl px-4 py-2.5 text-sm"
+              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }} />
+
+            {channel === "whatsapp_zapi" ? (
+              <>
+                <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
+                  Na Z-API: crie uma instância, escaneie o QR do WhatsApp e copie a <b>instância</b> e o <b>token</b>.
+                </p>
+                {[
+                  { v: instance, set: setInstance, ph: "ID da instância *" },
+                  { v: token, set: setToken, ph: "Token da instância *" },
+                  { v: clientToken, set: setClientToken, ph: "Client-Token (opcional)" },
+                ].map((f, i) => (
+                  <input key={i} value={f.v} onChange={e => f.set(e.target.value)} placeholder={f.ph}
+                    className="w-full rounded-xl px-4 py-2.5 text-sm"
+                    style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }} />
+                ))}
+              </>
+            ) : (
+              <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
+                Sem configuração: ao salvar, você recebe um <b>código</b> pra colar no site. Um botão de chat aparece no canto e as mensagens caem aqui no inbox.
+              </p>
+            )}
+
             <button onClick={save} disabled={saving} className="w-full py-2.5 rounded-xl text-sm font-bold disabled:opacity-40" style={{ background: accent, color: "#07080A" }}>
               {saving ? "Salvando…" : "Conectar"}
             </button>
+          </>
+        ) : created.channel === "webchat" ? (
+          <>
+            <div className="rounded-xl p-3 flex items-start gap-2" style={{ background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)" }}>
+              <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: "#34D399" }} />
+              <p className="text-[12px]" style={{ color: "rgba(255,255,255,0.7)" }}>Widget criado! Cole o código abaixo no site (antes de <code>&lt;/body&gt;</code>).</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider font-semibold mb-1.5 flex items-center gap-1.5" style={{ color: "rgba(255,255,255,0.3)" }}>
+                <Code2 className="w-3 h-3" /> Código do widget
+              </p>
+              <pre className="text-[9px] p-3 rounded-lg overflow-x-auto font-mono leading-relaxed"
+                style={{ background: "rgba(0,0,0,0.4)", color: "rgba(255,255,255,0.55)", maxHeight: 200 }}>{widget}</pre>
+              <button onClick={() => { navigator.clipboard.writeText(widget); toast.success("Código copiado!"); }}
+                className="mt-2 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold" style={{ background: accent, color: "#07080A" }}>
+                <Copy className="w-4 h-4" /> Copiar código do widget
+              </button>
+            </div>
+            <button onClick={onClose} className="w-full py-2 rounded-xl text-sm font-medium" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}>Concluir</button>
           </>
         ) : (
           <>
             <div className="rounded-xl p-3 flex items-start gap-2" style={{ background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)" }}>
               <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: "#34D399" }} />
-              <p className="text-[12px]" style={{ color: "rgba(255,255,255,0.7)" }}>Conexão salva! Falta 1 passo: colar a URL abaixo no webhook da Z-API.</p>
+              <p className="text-[12px]" style={{ color: "rgba(255,255,255,0.7)" }}>Conexão salva! Falta 1 passo: colar a URL no webhook da Z-API.</p>
             </div>
             <div>
               <p className="text-[10px] uppercase tracking-wider font-semibold mb-1.5 flex items-center gap-1.5" style={{ color: "rgba(255,255,255,0.3)" }}>
@@ -330,7 +405,7 @@ function ConnectModal({ clientId, accent, onClose, onSaved }: { clientId: string
                 </button>
               </div>
               <p className="text-[10px] mt-2" style={{ color: "rgba(255,255,255,0.3)" }}>
-                No painel Z-API → <b>Webhooks</b> → cole essa URL em <b>"Ao receber"</b>. Pronto: as mensagens chegam aqui.
+                No painel Z-API → <b>Webhooks</b> → cole em <b>"Ao receber"</b>.
               </p>
             </div>
             <button onClick={onClose} className="w-full py-2.5 rounded-xl text-sm font-bold" style={{ background: accent, color: "#07080A" }}>Concluir</button>
