@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { MessageCircle, Send, Plus, X, Copy, Link2, Hand, CheckCircle2, Smartphone, Globe, Code2, Instagram, Facebook } from "lucide-react";
+import { MessageCircle, Send, Plus, X, Copy, Link2, Hand, CheckCircle2, Smartphone, Globe, Code2, Instagram, Facebook, Bot, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 
 const SUPABASE_URL = "https://proldgiyterqhthludlp.supabase.co";
@@ -13,7 +13,7 @@ const CHANNELS: Record<string, { label: string; color: string; icon: string }> =
   webchat:           { label: "Site", color: "#8B5CF6", icon: "🌐" },
 };
 
-interface Connection { id: string; channel: string; label: string | null; status: string; webhook_token: string; }
+interface Connection { id: string; channel: string; label: string | null; status: string; webhook_token: string; config: any; }
 interface Conversation {
   id: string; channel: string; external_id: string; contact_name: string | null;
   assignee: string | null; status: string; unread: number;
@@ -36,13 +36,14 @@ export default function InboxTab({ clientId, accent = "#B9FF4B" }: Props) {
   const [sending, setSending] = useState(false);
   const [uid, setUid] = useState<string | null>(null);
   const [showConnect, setShowConnect] = useState(false);
+  const [botFor, setBotFor] = useState<Connection | null>(null);
   const threadRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<Conversation | null>(null);
   activeRef.current = active;
 
   const loadConnections = useCallback(async () => {
     const { data } = await (supabase as any).from("channel_connections")
-      .select("id, channel, label, status, webhook_token").eq("client_id", clientId);
+      .select("id, channel, label, status, webhook_token, config").eq("client_id", clientId);
     setConnections(data ?? []);
   }, [clientId]);
 
@@ -137,11 +138,16 @@ export default function InboxTab({ clientId, accent = "#B9FF4B" }: Props) {
         <div className="flex items-center gap-2 flex-wrap">
           {connections.map(c => {
             const cfg = CHANNELS[c.channel] ?? CHANNELS.webchat;
+            const botOn = !!c.config?.bot?.enabled;
             return (
-              <span key={c.id} className="text-[11px] px-2.5 py-1 rounded-full font-medium flex items-center gap-1.5"
+              <span key={c.id} className="text-[11px] pl-2.5 pr-1 py-1 rounded-full font-medium flex items-center gap-1.5"
                 style={{ background: `${cfg.color}15`, color: cfg.color, border: `1px solid ${cfg.color}30` }}>
                 <span className="w-1.5 h-1.5 rounded-full" style={{ background: c.status === "connected" ? "#34D399" : "#94A3B8" }} />
                 {c.label ?? cfg.label}
+                {botOn && <Bot className="w-3 h-3" style={{ color: "#B9FF4B" }} />}
+                <button onClick={() => setBotFor(c)} title="Configurar bot" className="ml-0.5 p-0.5 rounded-full" style={{ color: "rgba(255,255,255,0.4)" }}>
+                  <Settings2 className="w-3 h-3" />
+                </button>
               </span>
             );
           })}
@@ -247,6 +253,65 @@ export default function InboxTab({ clientId, accent = "#B9FF4B" }: Props) {
       </div>
 
       {showConnect && <ConnectModal clientId={clientId} accent={accent} onClose={() => setShowConnect(false)} onSaved={() => { loadConnections(); }} />}
+      {botFor && <BotModal connection={botFor} accent={accent} onClose={() => setBotFor(null)} onSaved={() => { loadConnections(); }} />}
+    </div>
+  );
+}
+
+// ── Modal: configurar o bot IA de um canal ─────────────────────
+function BotModal({ connection, accent, onClose, onSaved }: { connection: Connection; accent: string; onClose: () => void; onSaved: () => void }) {
+  const [enabled, setEnabled] = useState<boolean>(!!connection.config?.bot?.enabled);
+  const [prompt, setPrompt] = useState<string>(connection.config?.bot?.prompt ?? "");
+  const [saving, setSaving] = useState(false);
+
+  const save = async () => {
+    setSaving(true);
+    const newConfig = { ...(connection.config ?? {}), bot: { enabled, prompt: prompt.trim() } };
+    const { error } = await (supabase as any).from("channel_connections").update({ config: newConfig }).eq("id", connection.id);
+    setSaving(false);
+    if (error) { toast.error("Erro ao salvar"); return; }
+    toast.success(enabled ? "Bot ligado!" : "Bot desligado");
+    onSaved(); onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
+      onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="w-full max-w-md rounded-2xl p-6 space-y-4" style={{ background: "#0D0D1A", border: `1px solid ${accent}30` }}>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Bot className="w-4 h-4" style={{ color: accent }} />
+            <p className="text-sm font-semibold text-white">Bot IA — {connection.label ?? "canal"}</p>
+          </div>
+          <button onClick={onClose} style={{ color: "rgba(255,255,255,0.3)" }}><X className="w-4 h-4" /></button>
+        </div>
+
+        <button onClick={() => setEnabled(v => !v)}
+          className="w-full flex items-center justify-between px-4 py-3 rounded-xl"
+          style={{ background: enabled ? `${accent}12` : "rgba(255,255,255,0.04)", border: `1px solid ${enabled ? `${accent}40` : "rgba(255,255,255,0.08)"}` }}>
+          <span className="text-sm font-semibold" style={{ color: enabled ? accent : "rgba(255,255,255,0.6)" }}>
+            {enabled ? "Bot ligado — responde sozinho" : "Bot desligado"}
+          </span>
+          <span className="w-10 h-6 rounded-full flex items-center px-0.5 transition-all" style={{ background: enabled ? accent : "rgba(255,255,255,0.15)", justifyContent: enabled ? "flex-end" : "flex-start" }}>
+            <span className="w-5 h-5 rounded-full bg-white" />
+          </span>
+        </button>
+
+        <div>
+          <label className="text-[11px] uppercase tracking-wider font-semibold mb-1.5 block" style={{ color: "rgba(255,255,255,0.4)" }}>Instruções do bot (persona)</label>
+          <textarea value={prompt} onChange={e => setPrompt(e.target.value)} rows={6}
+            placeholder="Ex: Você é o atendente da [empresa]. Fale de forma simpática, tire dúvidas sobre nossos produtos e agende visitas. Se pedirem preço, informe que um consultor entra em contato."
+            className="w-full rounded-xl px-4 py-3 text-sm resize-none"
+            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }} />
+          <p className="text-[10px] mt-1.5" style={{ color: "rgba(255,255,255,0.3)" }}>
+            O bot responde automaticamente até alguém clicar em <b>Assumir</b> numa conversa. Deixe em branco pra usar um atendimento genérico.
+          </p>
+        </div>
+
+        <button onClick={save} disabled={saving} className="w-full py-2.5 rounded-xl text-sm font-bold disabled:opacity-40" style={{ background: accent, color: "#07080A" }}>
+          {saving ? "Salvando…" : "Salvar"}
+        </button>
+      </div>
     </div>
   );
 }

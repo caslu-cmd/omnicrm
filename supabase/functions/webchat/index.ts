@@ -80,5 +80,14 @@ Deno.serve(async (req) => {
     content: text,
   });
 
+  // dispara o bot (decide internamente se responde)
+  try {
+    await fetch(`${Deno.env.get("SUPABASE_URL")}/functions/v1/inbox-bot`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")}` },
+      body: JSON.stringify({ conversation_id: conversationId }),
+    });
+  } catch (_) { /* não bloqueia a entrada */ }
+
   return ok({ success: true });
 });
