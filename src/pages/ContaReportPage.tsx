@@ -388,7 +388,7 @@ function ReceitaForm({ periodId, members, onSave }: {
         {["3","4"].includes(form.regra) && (
           <div className="relative">
             <select className={selectCls} value={form.aux1_member_id} onChange={e => set("aux1_member_id", e.target.value)}>
-              <option value="">Auxiliar…</option>
+              <option value="">Co-responsável…</option>
               {members.map(m => <option key={m.id} value={m.id}>{m.nome}</option>)}
             </select>
             <ChevronDown className="absolute right-3 top-3 w-3.5 h-3.5 text-gray-500 pointer-events-none" />
