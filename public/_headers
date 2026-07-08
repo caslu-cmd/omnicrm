@@ -1,0 +1,7 @@
+# Assets com hash no nome são imutáveis — cache longo no navegador (evita re-download do bundle)
+/assets/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# HTML sempre revalida (pra pegar novos deploys)
+/index.html
+  Cache-Control: public, max-age=0, must-revalidate
