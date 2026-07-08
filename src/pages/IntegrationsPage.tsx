@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
 interface ConnectorDef {
@@ -81,7 +81,7 @@ const IntegrationsPage = () => {
       method,
       headers: {
         "Authorization": `Bearer ${session?.access_token}`,
-        "apikey": import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+        "apikey": SUPABASE_PUBLISHABLE_KEY,
         "Content-Type": "application/json",
       },
       body: body ? JSON.stringify(body) : undefined,

@@ -9,6 +9,8 @@
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
     "preview": "vite preview",
+    "deploy": "vite build && npx wrangler deploy",
+    "cf:dev": "npx wrangler dev",
     "test": "vitest run",
     "test:watch": "vitest"
   },
