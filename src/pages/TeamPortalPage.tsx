@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Zap, Users, LogOut, Search, Phone, Mail, Building2, KanbanSquare, FileInput } from "lucide-react";
+import { Zap, Users, LogOut, Search, Phone, Mail, Building2, KanbanSquare, FileInput, MessageCircle } from "lucide-react";
 import LeadsKanbanTab from "@/components/LeadsKanbanTab";
 import FormGenerator from "@/components/FormGenerator";
+import InboxTab from "@/components/InboxTab";
 
 const SOURCES: Record<string, { label: string; color: string }> = {
   instagram: { label: "Instagram", color: "#E1306C" },
@@ -31,7 +32,7 @@ interface MemberInfo {
   member_email: string;
 }
 
-type Tab = "funil" | "contatos" | "captacao";
+type Tab = "funil" | "inbox" | "contatos" | "captacao";
 
 const accent = "#B9FF4B";
 
@@ -101,6 +102,7 @@ export default function TeamPortalPage() {
 
   const TABS: { id: Tab; label: string; icon: typeof KanbanSquare }[] = [
     { id: "funil",    label: "Funil de Leads", icon: KanbanSquare },
+    { id: "inbox",    label: "Inbox",          icon: MessageCircle },
     { id: "contatos", label: "Contatos",       icon: Users },
     { id: "captacao", label: "Captação",       icon: FileInput },
   ];
@@ -157,6 +159,11 @@ export default function TeamPortalPage() {
         {/* ── Funil (kanban) ── */}
         {tab === "funil" && clientId && (
           <LeadsKanbanTab clientId={clientId} clientColor={accent} />
+        )}
+
+        {/* ── Inbox omnichannel ── */}
+        {tab === "inbox" && clientId && (
+          <InboxTab clientId={clientId} accent={accent} />
         )}
 
         {/* ── Captação (formulários) ── */}
