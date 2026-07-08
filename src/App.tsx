@@ -33,6 +33,7 @@ import AdminPage from "@/pages/AdminPage";
 import AgencyDashboard from "@/pages/AgencyDashboard";
 import ClientWorkspace from "@/pages/ClientWorkspace";
 import ClientPortal from "@/pages/ClientPortal";
+import PublicFormPage from "@/pages/PublicFormPage";
 import LandingPage from "@/pages/LandingPage";
 import PrivacyPage from "@/pages/PrivacyPage";
 import TermsPage from "@/pages/TermsPage";
@@ -169,6 +170,9 @@ const AppRoutes = () => (
 
     {/* Portal do cliente (link externo enviado ao cliente) */}
     <Route path="/portal/:token" element={<ClientPortal />} />
+
+    {/* Formulário público de captação (embutido/link em landing pages) */}
+    <Route path="/f/:token" element={<PublicFormPage />} />
 
     {/* Super Diagnóstico Gratuito — funil de captação de leads */}
     <Route path="/super-diagnostico" element={<SuperDiagnostico />} />
