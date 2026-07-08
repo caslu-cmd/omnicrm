@@ -574,6 +574,34 @@ interface ChatMsg { role: "user" | "assistant"; text: string; }
 
 interface AttachedFile { name: string; text: string; size: number; dropbox_path?: string; }
 
+const TOOL_LABELS: Record<string, string> = {
+  calcular_relatorio: "Calculando relatório…",
+  comparar_periodos: "Comparando períodos…",
+  buscar_lancamentos: "Buscando lançamentos…",
+  criar_receita: "Registrando receita…",
+  criar_despesa: "Registrando despesa…",
+  criar_imposto: "Registrando imposto…",
+  criar_adiantamento: "Registrando adiantamento…",
+  listar_periodos: "Listando períodos…",
+  listar_membros: "Listando membros…",
+  listar_dropbox: "Acessando Dropbox…",
+  mapear_financeiro_dropbox: "Mapeando Dropbox…",
+  salvar_relatorio_dropbox: "Salvando relatório no Dropbox…",
+  listar_prestacoes_contas: "Buscando prestações de contas…",
+  buscar_dropbox: "Buscando no Dropbox…",
+  deletar_lancamento: "Removendo lançamento…",
+  ler_documento_dropbox: "Lendo documento…",
+  listar_documentos_recentes: "Buscando documentos recentes…",
+  link_documento_dropbox: "Gerando link…",
+  conciliar_pagamentos: "Conciliando pagamentos…",
+  conciliar_extrato: "Conciliando extrato…",
+  propor_lancamentos_do_extrato: "Lendo o extrato…",
+  regra_do_cliente: "Verificando a regra do cliente…",
+  salvar_regra_cliente: "Memorizando a regra…",
+  gerar_prestacao_modelo: "Gerando a prestação no modelo…",
+  consultar_vera: "🔎 Consultando a Vera…",
+};
+
 function AgentChat({ onDataSaved }: { onDataSaved?: () => void }) {
   const [history, setHistory] = useState<ChatMsg[]>([]);
   const [rawHistory, setRawHistory] = useState<object[]>([]);
@@ -760,7 +788,7 @@ function AgentChat({ onDataSaved }: { onDataSaved?: () => void }) {
             <div className="bg-gray-800 rounded-2xl rounded-bl-sm px-4 py-2.5 text-xs text-emerald-400 flex items-center gap-2">
               <Loader2 className="w-3 h-3 animate-spin" />
               {toolRunning
-                ? <span className="font-mono">{toolRunning}</span>
+                ? <span>{TOOL_LABELS[toolRunning] || toolRunning + "…"}</span>
                 : <span>Em andamento…</span>
               }
             </div>
