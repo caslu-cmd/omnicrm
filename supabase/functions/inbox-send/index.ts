@@ -20,6 +20,17 @@ async function zapiSend(cfg: Record<string, string>, phone: string, message: str
   return { okSent: res.ok, err: res.ok ? null : await res.text() };
 }
 
+// Envia via Meta Graph API (Messenger / Instagram Direct)
+async function metaSend(cfg: Record<string, string>, psid: string, message: string) {
+  const pageToken = cfg?.page_token;
+  if (!pageToken) return { okSent: false, err: "conexão sem page_token" };
+  const res = await fetch(`https://graph.facebook.com/v21.0/me/messages?access_token=${pageToken}`, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ recipient: { id: psid }, message: { text: message }, messaging_type: "RESPONSE" }),
+  });
+  return { okSent: res.ok, err: res.ok ? null : await res.text() };
+}
+
 // Envia uma mensagem numa conversa do inbox. Requer JWT do membro/agência.
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
@@ -52,8 +63,11 @@ Deno.serve(async (req) => {
   if (conv.channel === "whatsapp_zapi") {
     const r = await zapiSend(conn.config ?? {}, conv.external_id, text.trim());
     if (!r.okSent) return fail("Falha ao enviar pelo WhatsApp: " + r.err, 502);
+  } else if (conv.channel === "facebook" || conv.channel === "instagram") {
+    const r = await metaSend(conn.config ?? {}, conv.external_id, text.trim());
+    if (!r.okSent) return fail("Falha ao enviar pela Meta: " + r.err, 502);
   }
-  // (outros canais entram aqui nas próximas fases)
+  // webchat: só grava; o widget puxa via poll
 
   const { data: msg } = await db.from("inbox_messages").insert({
     conversation_id,

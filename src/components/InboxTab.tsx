@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { MessageCircle, Send, Plus, X, Copy, Link2, Hand, CheckCircle2, Smartphone, Globe, Code2 } from "lucide-react";
+import { MessageCircle, Send, Plus, X, Copy, Link2, Hand, CheckCircle2, Smartphone, Globe, Code2, Instagram, Facebook } from "lucide-react";
 import { toast } from "sonner";
 
 const SUPABASE_URL = "https://proldgiyterqhthludlp.supabase.co";
@@ -275,27 +275,40 @@ function buildWidget(token: string, accent: string): string {
 </script>`;
 }
 
-// ── Modal: conectar canal (WhatsApp Z-API ou Webchat) ──────────
+// ── Modal: conectar canal (WhatsApp / Webchat / Instagram / Facebook) ──
+const META_CALLBACK = `${SUPABASE_URL}/functions/v1/meta-inbox`;
+const META_VERIFY = "calu-meta-verify-2026";
+
 function ConnectModal({ clientId, accent, onClose, onSaved }: { clientId: string; accent: string; onClose: () => void; onSaved: () => void }) {
-  const [channel, setChannel] = useState<"whatsapp_zapi" | "webchat">("whatsapp_zapi");
+  const [channel, setChannel] = useState<"whatsapp_zapi" | "webchat" | "instagram" | "facebook">("whatsapp_zapi");
   const [label, setLabel] = useState("");
   const [instance, setInstance] = useState("");
   const [token, setToken] = useState("");
   const [clientToken, setClientToken] = useState("");
+  const [pageId, setPageId] = useState("");
+  const [igId, setIgId] = useState("");
+  const [pageToken, setPageToken] = useState("");
   const [saving, setSaving] = useState(false);
   const [created, setCreated] = useState<{ webhook_token: string; channel: string } | null>(null);
 
+  const LABELS: Record<string, string> = { whatsapp_zapi: "WhatsApp", webchat: "Site", instagram: "Instagram", facebook: "Facebook" };
+  const isMeta = channel === "instagram" || channel === "facebook";
+
   const save = async () => {
     if (channel === "whatsapp_zapi" && (!instance.trim() || !token.trim())) { toast.error("Informe instância e token da Z-API"); return; }
+    if (channel === "facebook" && (!pageId.trim() || !pageToken.trim())) { toast.error("Informe Page ID e Page Token"); return; }
+    if (channel === "instagram" && (!igId.trim() || !pageToken.trim())) { toast.error("Informe o ID da conta IG e o Page Token"); return; }
     setSaving(true);
     const { data: { session } } = await supabase.auth.getSession();
-    const config = channel === "whatsapp_zapi"
-      ? { instance: instance.trim(), token: token.trim(), client_token: clientToken.trim() || null }
+    const config =
+      channel === "whatsapp_zapi" ? { instance: instance.trim(), token: token.trim(), client_token: clientToken.trim() || null }
+      : channel === "facebook" ? { page_id: pageId.trim(), page_token: pageToken.trim() }
+      : channel === "instagram" ? { ig_id: igId.trim(), page_id: pageId.trim() || null, page_token: pageToken.trim() }
       : {};
     const { data, error } = await (supabase as any).from("channel_connections").insert({
       client_id: clientId,
       channel,
-      label: label.trim() || (channel === "webchat" ? "Site" : "WhatsApp"),
+      label: label.trim() || LABELS[channel],
       status: channel === "webchat" ? "connected" : "disconnected",
       created_by: session?.user.id ?? null,
       config,
@@ -309,6 +322,7 @@ function ConnectModal({ clientId, accent, onClose, onSaved }: { clientId: string
 
   const webhookUrl = created ? `${SUPABASE_URL}/functions/v1/inbox-whatsapp?t=${created.webhook_token}` : "";
   const widget = created ? buildWidget(created.webhook_token, accent) : "";
+  const copy = (t: string, m: string) => { navigator.clipboard.writeText(t); toast.success(m); };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
@@ -326,6 +340,8 @@ function ConnectModal({ clientId, accent, onClose, onSaved }: { clientId: string
               {([
                 { id: "whatsapp_zapi", label: "WhatsApp", icon: Smartphone, color: "#25D366" },
                 { id: "webchat", label: "Chat no site", icon: Globe, color: "#8B5CF6" },
+                { id: "instagram", label: "Instagram", icon: Instagram, color: "#E1306C" },
+                { id: "facebook", label: "Facebook", icon: Facebook, color: "#1877F2" },
               ] as const).map(c => {
                 const on = channel === c.id; const Icon = c.icon;
                 return (
@@ -339,11 +355,11 @@ function ConnectModal({ clientId, accent, onClose, onSaved }: { clientId: string
               })}
             </div>
 
-            <input value={label} onChange={e => setLabel(e.target.value)} placeholder={channel === "webchat" ? "Nome (ex: Chat do site)" : "Nome (ex: WhatsApp Comercial)"}
+            <input value={label} onChange={e => setLabel(e.target.value)} placeholder={`Nome (ex: ${LABELS[channel]})`}
               className="w-full rounded-xl px-4 py-2.5 text-sm"
               style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }} />
 
-            {channel === "whatsapp_zapi" ? (
+            {channel === "whatsapp_zapi" && (
               <>
                 <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
                   Na Z-API: crie uma instância, escaneie o QR do WhatsApp e copie a <b>instância</b> e o <b>token</b>.
@@ -358,10 +374,28 @@ function ConnectModal({ clientId, accent, onClose, onSaved }: { clientId: string
                     style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }} />
                 ))}
               </>
-            ) : (
+            )}
+
+            {channel === "webchat" && (
               <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
                 Sem configuração: ao salvar, você recebe um <b>código</b> pra colar no site. Um botão de chat aparece no canto e as mensagens caem aqui no inbox.
               </p>
+            )}
+
+            {isMeta && (
+              <>
+                <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
+                  No app da Meta (developers.facebook.com): copie o <b>Page Access Token</b> da página{channel === "instagram" ? " e o ID da conta do Instagram." : "."}
+                </p>
+                {channel === "instagram" && (
+                  <input value={igId} onChange={e => setIgId(e.target.value)} placeholder="ID da conta do Instagram *"
+                    className="w-full rounded-xl px-4 py-2.5 text-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }} />
+                )}
+                <input value={pageId} onChange={e => setPageId(e.target.value)} placeholder={channel === "facebook" ? "Page ID *" : "Page ID (opcional)"}
+                  className="w-full rounded-xl px-4 py-2.5 text-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }} />
+                <input value={pageToken} onChange={e => setPageToken(e.target.value)} placeholder="Page Access Token *"
+                  className="w-full rounded-xl px-4 py-2.5 text-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }} />
+              </>
             )}
 
             <button onClick={save} disabled={saving} className="w-full py-2.5 rounded-xl text-sm font-bold disabled:opacity-40" style={{ background: accent, color: "#07080A" }}>
@@ -380,12 +414,35 @@ function ConnectModal({ clientId, accent, onClose, onSaved }: { clientId: string
               </p>
               <pre className="text-[9px] p-3 rounded-lg overflow-x-auto font-mono leading-relaxed"
                 style={{ background: "rgba(0,0,0,0.4)", color: "rgba(255,255,255,0.55)", maxHeight: 200 }}>{widget}</pre>
-              <button onClick={() => { navigator.clipboard.writeText(widget); toast.success("Código copiado!"); }}
+              <button onClick={() => copy(widget, "Código copiado!")}
                 className="mt-2 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-bold" style={{ background: accent, color: "#07080A" }}>
                 <Copy className="w-4 h-4" /> Copiar código do widget
               </button>
             </div>
             <button onClick={onClose} className="w-full py-2 rounded-xl text-sm font-medium" style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}>Concluir</button>
+          </>
+        ) : created.channel === "instagram" || created.channel === "facebook" ? (
+          <>
+            <div className="rounded-xl p-3 flex items-start gap-2" style={{ background: "rgba(52,211,153,0.08)", border: "1px solid rgba(52,211,153,0.2)" }}>
+              <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: "#34D399" }} />
+              <p className="text-[12px]" style={{ color: "rgba(255,255,255,0.7)" }}>Conexão salva! Configure o webhook no app da Meta (uma vez só pra todos os clientes).</p>
+            </div>
+            <div>
+              <p className="text-[10px] uppercase tracking-wider font-semibold mb-1.5" style={{ color: "rgba(255,255,255,0.3)" }}>Callback URL (Meta → Webhooks)</p>
+              <div className="flex items-center gap-2">
+                <code className="text-[10px] px-3 py-2 rounded-lg flex-1 truncate font-mono" style={{ background: "rgba(0,0,0,0.3)", color: "rgba(255,255,255,0.55)" }}>{META_CALLBACK}</code>
+                <button onClick={() => copy(META_CALLBACK, "Callback copiada!")} className="px-3 py-2 rounded-lg text-xs font-semibold flex-shrink-0" style={{ background: `${accent}15`, color: accent, border: `1px solid ${accent}30` }}><Copy className="w-3 h-3" /></button>
+              </div>
+              <p className="text-[10px] uppercase tracking-wider font-semibold mb-1.5 mt-3" style={{ color: "rgba(255,255,255,0.3)" }}>Verify Token</p>
+              <div className="flex items-center gap-2">
+                <code className="text-[10px] px-3 py-2 rounded-lg flex-1 truncate font-mono" style={{ background: "rgba(0,0,0,0.3)", color: "rgba(255,255,255,0.55)" }}>{META_VERIFY}</code>
+                <button onClick={() => copy(META_VERIFY, "Verify token copiado!")} className="px-3 py-2 rounded-lg text-xs font-semibold flex-shrink-0" style={{ background: `${accent}15`, color: accent, border: `1px solid ${accent}30` }}><Copy className="w-3 h-3" /></button>
+              </div>
+              <p className="text-[10px] mt-2" style={{ color: "rgba(255,255,255,0.3)" }}>
+                No app Meta → <b>Webhooks</b> → assine <b>messages</b> (Messenger e Instagram) usando a URL e o token acima. Depois, mensagens da página caem aqui.
+              </p>
+            </div>
+            <button onClick={onClose} className="w-full py-2.5 rounded-xl text-sm font-bold" style={{ background: accent, color: "#07080A" }}>Concluir</button>
           </>
         ) : (
           <>
@@ -399,7 +456,7 @@ function ConnectModal({ clientId, accent, onClose, onSaved }: { clientId: string
               </p>
               <div className="flex items-center gap-2">
                 <code className="text-[10px] px-3 py-2 rounded-lg flex-1 truncate font-mono" style={{ background: "rgba(0,0,0,0.3)", color: "rgba(255,255,255,0.55)" }}>{webhookUrl}</code>
-                <button onClick={() => { navigator.clipboard.writeText(webhookUrl); toast.success("URL copiada!"); }}
+                <button onClick={() => copy(webhookUrl, "URL copiada!")}
                   className="px-3 py-2 rounded-lg text-xs font-semibold flex-shrink-0" style={{ background: `${accent}15`, color: accent, border: `1px solid ${accent}30` }}>
                   <Copy className="w-3 h-3" />
                 </button>
