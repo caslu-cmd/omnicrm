@@ -69,6 +69,8 @@ Deno.serve(async (req) => {
   let body: Record<string, unknown> = {};
   try { body = await req.json(); } catch { /* chamada sem corpo */ }
   const force = body.force === true;
+  // Só atualizar seguidores, sem mexer em token.
+  const onlyStats = body.only_stats === true;
 
   const cutoff = new Date(Date.now() + RENEW_WINDOW_DAYS * 86400_000).toISOString();
 
@@ -76,15 +78,49 @@ Deno.serve(async (req) => {
     .from("social_connections")
     .select("id, client_id, platform, account_id, access_token, user_access_token, token_expires_at")
     .eq("connected", true);
-  if (!force) query = query.or(`token_expires_at.lte.${cutoff},token_expires_at.is.null`);
+  if (!force && !onlyStats) query = query.or(`token_expires_at.lte.${cutoff},token_expires_at.is.null`);
 
   const { data: rows, error } = await query;
   if (error) return respond({ error: error.message }, 500);
 
   const results: Array<Record<string, unknown>> = [];
 
+  // Seguidores eram gravados só no momento da conexão e congelavam ali. Página
+  // e Instagram usam campos diferentes — e `fan_count` (curtidas) não é o
+  // mesmo que seguidores, que é o número que a agência mostra ao cliente.
+  const atualizarSeguidores = async (row: Record<string, unknown>, pageToken: string) => {
+    const id = row.account_id as string;
+    if (!id) return null;
+    const fields = row.platform === "instagram"
+      ? "followers_count,username"
+      : "followers_count,fan_count,name";
+    const res = await fetch(`${GRAPH}/${id}?fields=${fields}&access_token=${encodeURIComponent(pageToken)}`);
+    const d = await res.json();
+    if (d.error) throw new Error(d.error.message);
+
+    const seguidores = d.followers_count ?? d.fan_count ?? null;
+    if (seguidores === null) return null;
+
+    const patch: Record<string, unknown> = { followers_count: seguidores };
+    if (row.platform === "instagram" && d.username) patch.account_username = `@${d.username}`;
+    await supabase.from("social_connections").update(patch).eq("id", row.id as string);
+    return seguidores as number;
+  };
+
   for (const row of rows ?? []) {
     const label = `${row.client_id}/${row.platform}`;
+
+    if (onlyStats) {
+      // Meta Ads não tem seguidores.
+      if (row.platform === "meta_ads") { results.push({ conexao: label, status: "ignorado" }); continue; }
+      try {
+        const seguidores = await atualizarSeguidores(row, deobfuscate(row.access_token as string, encKey));
+        results.push({ conexao: label, status: "atualizado", seguidores });
+      } catch (e) {
+        results.push({ conexao: label, status: "erro", erro: e instanceof Error ? e.message : String(e) });
+      }
+      continue;
+    }
 
     // Conexões antigas não guardaram o token de usuário; nesse caso o próprio
     // page token serve de moeda de troca no fb_exchange_token.
@@ -161,7 +197,13 @@ Deno.serve(async (req) => {
         refresh_error: null,
       }).eq("id", row.id);
 
-      results.push({ conexao: label, status: "renovado", vence_em_dias: Math.round(expiresIn / 86400) });
+      // aproveita o token novo para atualizar os seguidores
+      let seguidores: number | null = null;
+      if (row.platform !== "meta_ads") {
+        try { seguidores = await atualizarSeguidores(row, newPageToken); } catch { /* não impede a renovação */ }
+      }
+
+      results.push({ conexao: label, status: "renovado", vence_em_dias: Math.round(expiresIn / 86400), seguidores });
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       await supabase.from("social_connections")
