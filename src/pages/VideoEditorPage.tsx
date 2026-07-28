@@ -13,7 +13,10 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-const API = "http://localhost:8600";
+import { BOBBY_API, AGENT_OFFLINE_MSG } from "@/lib/agentApis";
+import AgentOfflineNotice from "@/components/AgentOfflineNotice";
+
+const API = BOBBY_API ?? "";
 
 // ── Platforms ──────────────────────────────────────────────────────────────────
 const PLATFORMS = [
@@ -313,6 +316,12 @@ function TabBtn({ id, label, icon, active, onClick }: {
 
 // ══════════════════════════════════════════════════════════════════════════════
 export default function VideoEditorPage() {
+  // Guard fora do componente com hooks: sem URL do Bobby a tela nem monta.
+  if (!BOBBY_API) return <AgentOfflineNotice agent="Bobby" envVar="VITE_BOBBY_API_URL" />;
+  return <VideoEditorPageInner />;
+}
+
+function VideoEditorPageInner() {
   const [searchParams] = useSearchParams();
   const location = useLocation();
   const clientName = searchParams.get("clientName") ?? null;

@@ -1,4 +1,4 @@
-import { useEffect, type ReactElement } from "react";
+import { useEffect, lazy, Suspense, type ReactElement } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,58 +13,62 @@ import AiAssistant from "@/components/AiAssistant";
 import AIFieldPanel from "@/components/AIFieldPanel";
 import { AIFieldProvider } from "@/contexts/AIFieldContext";
 import AuthPage from "@/pages/AuthPage";
-import Dashboard from "@/pages/Dashboard";
-import InboxPage from "@/pages/InboxPage";
-import ContactsPage from "@/pages/ContactsPage";
-import PipelinesPage from "@/pages/PipelinesPage";
-import AutomationsPage from "@/pages/AutomationsPage";
-import CampaignsPage from "@/pages/CampaignsPage";
-import SchedulingPage from "@/pages/SchedulingPage";
-import VoicePage from "@/pages/VoicePage";
-import SitesPage from "@/pages/SitesPage";
-import MembersPage from "@/pages/MembersPage";
-import PaymentsPage from "@/pages/PaymentsPage";
-import ImportExportPage from "@/pages/ImportExportPage";
-import ReportsPage from "@/pages/ReportsPage";
-import IntegrationsPage from "@/pages/IntegrationsPage";
-import SettingsPage from "@/pages/SettingsPage";
-import HelpPage from "@/pages/HelpPage";
-import AdminPage from "@/pages/AdminPage";
-import AgencyDashboard from "@/pages/AgencyDashboard";
-import ClientWorkspace from "@/pages/ClientWorkspace";
-import ClientPortal from "@/pages/ClientPortal";
-import PublicFormPage from "@/pages/PublicFormPage";
 import LandingPage from "@/pages/LandingPage";
-import PrivacyPage from "@/pages/PrivacyPage";
-import TermsPage from "@/pages/TermsPage";
-import OAuthCallbackPage from "@/pages/OAuthCallbackPage";
 import NotFound from "@/pages/NotFound";
-import VideoEditorPage from "@/pages/VideoEditorPage";
-import TomasPage from "@/pages/TomasPage";
-import TeoPage from "@/pages/TeoPage";
-import BenPage from "@/pages/BenPage";
-import ContaReportPage from "@/pages/ContaReportPage";
-import ContaColaboradorPage from "@/pages/ContaColaboradorPage";
-import SuperDiagnostico from "@/pages/SuperDiagnostico";
-import InvitePage from "@/pages/InvitePage";
-import TeamPortalPage from "@/pages/TeamPortalPage";
-import WhatsAppPage from "@/pages/WhatsAppPage";
-import BriefingPage from "@/pages/BriefingPage";
-import GroupsPage from "@/pages/GroupsPage";
-import NotebookPage from "@/pages/NotebookPage";
-import ApostilaPage from "@/pages/ApostilaPage";
-import WordPressPage from "@/pages/WordPressPage";
-import FiscoPage from "@/pages/FiscoPage";
-import AttendancePage from "@/pages/AttendancePage";
-import PagesPage from "@/pages/PagesPage";
-import PropostaPage from "@/pages/PropostaPage";
-import PropostasPage from "@/pages/PropostasPage";
-import SharedOrchestrationPage from "@/pages/SharedOrchestrationPage";
-import FormsPage from "@/pages/FormsPage";
-import SharedAgentPage from "@/pages/SharedAgentPage";
-import SharedAgentChatPage from "@/pages/SharedAgentChatPage";
-import TriagemSefazPage from "@/pages/TriagemSefazPage";
-import RicoGuidePage from "@/pages/RicoGuidePage";
+
+// Cada página vira um arquivo próprio: o primeiro carregamento traz só a tela
+// pedida, em vez do app inteiro num bundle só.
+const Dashboard = lazy(() => import("@/pages/Dashboard"));
+const InboxPage = lazy(() => import("@/pages/InboxPage"));
+const ContactsPage = lazy(() => import("@/pages/ContactsPage"));
+const PipelinesPage = lazy(() => import("@/pages/PipelinesPage"));
+const AutomationsPage = lazy(() => import("@/pages/AutomationsPage"));
+const CampaignsPage = lazy(() => import("@/pages/CampaignsPage"));
+const SchedulingPage = lazy(() => import("@/pages/SchedulingPage"));
+const VoicePage = lazy(() => import("@/pages/VoicePage"));
+const SitesPage = lazy(() => import("@/pages/SitesPage"));
+const MembersPage = lazy(() => import("@/pages/MembersPage"));
+const PaymentsPage = lazy(() => import("@/pages/PaymentsPage"));
+const ImportExportPage = lazy(() => import("@/pages/ImportExportPage"));
+const ReportsPage = lazy(() => import("@/pages/ReportsPage"));
+const IntegrationsPage = lazy(() => import("@/pages/IntegrationsPage"));
+const SettingsPage = lazy(() => import("@/pages/SettingsPage"));
+const HelpPage = lazy(() => import("@/pages/HelpPage"));
+const AdminPage = lazy(() => import("@/pages/AdminPage"));
+const AgencyDashboard = lazy(() => import("@/pages/AgencyDashboard"));
+const ClientWorkspace = lazy(() => import("@/pages/ClientWorkspace"));
+const ClientPortal = lazy(() => import("@/pages/ClientPortal"));
+const PublicFormPage = lazy(() => import("@/pages/PublicFormPage"));
+const PrivacyPage = lazy(() => import("@/pages/PrivacyPage"));
+const TermsPage = lazy(() => import("@/pages/TermsPage"));
+const OAuthCallbackPage = lazy(() => import("@/pages/OAuthCallbackPage"));
+const VideoEditorPage = lazy(() => import("@/pages/VideoEditorPage"));
+const TomasPage = lazy(() => import("@/pages/TomasPage"));
+const TeoPage = lazy(() => import("@/pages/TeoPage"));
+const BenPage = lazy(() => import("@/pages/BenPage"));
+const ContaReportPage = lazy(() => import("@/pages/ContaReportPage"));
+const ContaColaboradorPage = lazy(() => import("@/pages/ContaColaboradorPage"));
+const SuperDiagnostico = lazy(() => import("@/pages/SuperDiagnostico"));
+const InvitePage = lazy(() => import("@/pages/InvitePage"));
+const TeamPortalPage = lazy(() => import("@/pages/TeamPortalPage"));
+const WhatsAppPage = lazy(() => import("@/pages/WhatsAppPage"));
+const BriefingPage = lazy(() => import("@/pages/BriefingPage"));
+const GroupsPage = lazy(() => import("@/pages/GroupsPage"));
+const NotebookPage = lazy(() => import("@/pages/NotebookPage"));
+const ApostilaPage = lazy(() => import("@/pages/ApostilaPage"));
+const WordPressPage = lazy(() => import("@/pages/WordPressPage"));
+const FiscoPage = lazy(() => import("@/pages/FiscoPage"));
+const AttendancePage = lazy(() => import("@/pages/AttendancePage"));
+const PagesPage = lazy(() => import("@/pages/PagesPage"));
+const PropostaPage = lazy(() => import("@/pages/PropostaPage"));
+const PropostasPage = lazy(() => import("@/pages/PropostasPage"));
+const CarrosselPage = lazy(() => import("@/pages/CarrosselPage"));
+const SharedOrchestrationPage = lazy(() => import("@/pages/SharedOrchestrationPage"));
+const FormsPage = lazy(() => import("@/pages/FormsPage"));
+const SharedAgentPage = lazy(() => import("@/pages/SharedAgentPage"));
+const SharedAgentChatPage = lazy(() => import("@/pages/SharedAgentChatPage"));
+const TriagemSefazPage = lazy(() => import("@/pages/TriagemSefazPage"));
+const RicoGuidePage = lazy(() => import("@/pages/RicoGuidePage"));
 
 const queryClient = new QueryClient();
 
@@ -130,6 +134,7 @@ const ProtectedRoutes = () => {
           <Route path="/pages" element={<PagesPage />} />
           <Route path="/forms" element={<FormsPage />} />
           <Route path="/propostas" element={<PropostasPage />} />
+          <Route path="/carrossel" element={<CarrosselPage />} />
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
@@ -158,7 +163,9 @@ const SairRoute = () => {
 };
 
 // ── Roteamento principal ──────────────────────────────────────
+// O Suspense cobre o instante em que o arquivo da página está sendo baixado.
 const AppRoutes = () => (
+  <Suspense fallback={<Spinner />}>
   <Routes>
     {/* Única página pública para todos */}
     <Route path="/" element={<LandingPage />} />
@@ -219,6 +226,7 @@ const AppRoutes = () => (
     {/* Tudo mais exige autenticação */}
     <Route path="*" element={<ProtectedRoutes />} />
   </Routes>
+  </Suspense>
 );
 
 const App = () => (

@@ -24,9 +24,9 @@ interface Message {
   content: string | null; media_url: string | null; media_type: string | null; created_at: string;
 }
 
-interface Props { clientId: string; accent?: string }
+interface Props { clientId: string; accent?: string; initialConversationId?: string | null }
 
-export default function InboxTab({ clientId, accent = "#B9FF4B" }: Props) {
+export default function InboxTab({ clientId, accent = "#B9FF4B", initialConversationId = null }: Props) {
   const [connections, setConnections] = useState<Connection[]>([]);
   const [convs, setConvs] = useState<Conversation[]>([]);
   const [active, setActive] = useState<Conversation | null>(null);
@@ -92,6 +92,14 @@ export default function InboxTab({ clientId, accent = "#B9FF4B" }: Props) {
   useEffect(() => { if (threadRef.current) threadRef.current.scrollTop = threadRef.current.scrollHeight; }, [messages]);
 
   const openConv = (c: Conversation) => { setActive(c); loadMessages(c.id); };
+
+  // Conversa escolhida no trilho lateral: abre a thread assim que a lista chega.
+  useEffect(() => {
+    if (!initialConversationId || convs.length === 0) return;
+    if (activeRef.current?.id === initialConversationId) return;
+    const target = convs.find(c => c.id === initialConversationId);
+    if (target) openConv(target);
+  }, [initialConversationId, convs]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const assumir = async () => {
     if (!active || !uid) return;

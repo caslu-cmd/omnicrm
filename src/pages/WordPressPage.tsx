@@ -9,8 +9,10 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-// Pixel roda no Railway em produção; localhost em dev. Defina VITE_PIXEL_API_URL no Lovable.
-const API = (import.meta.env.VITE_PIXEL_API_URL as string | undefined)?.replace(/\/$/, "") || "http://localhost:8500";
+import { PIXEL_API, AGENT_OFFLINE_MSG } from "@/lib/agentApis";
+import AgentOfflineNotice from "@/components/AgentOfflineNotice";
+
+const API = PIXEL_API ?? "";
 
 interface WPSite {
   id: string;
@@ -142,6 +144,12 @@ function AddSiteModal({ onClose, onAdd }: { onClose: () => void; onAdd: (s: WPSi
 
 // ── Componente principal ──────────────────────────────────────────────────────
 const WordPressPage = () => {
+  // Guard fora do componente com hooks: sem URL do Pixel a tela nem monta.
+  if (!PIXEL_API) return <AgentOfflineNotice agent="Pixel" envVar="VITE_PIXEL_API_URL" />;
+  return <WordPressPageInner />;
+};
+
+const WordPressPageInner = () => {
   const [searchParams] = useSearchParams();
   const [tab, setTab] = useState<"agente" | "sites">("agente");
   const [sites, setSites] = useState<WPSite[]>([]);

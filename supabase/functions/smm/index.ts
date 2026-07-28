@@ -308,10 +308,10 @@ Deno.serve(async (req) => {
     const encKey             = Deno.env.get("INTEGRATION_ENCRYPTION_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const metaAppId          = Deno.env.get("META_APP_ID") ?? "";
     const metaAppSecret      = Deno.env.get("META_APP_SECRET") ?? "";
-    const redirectUri        = Deno.env.get("META_REDIRECT_URI") ?? "https://omnicrm.lovable.app/oauth/meta";
+    const redirectUri        = Deno.env.get("META_REDIRECT_URI") ?? "https://www.caluagencia.com.br/oauth/meta";
     const linkedinClientId   = Deno.env.get("LINKEDIN_CLIENT_ID") ?? "";
     const linkedinClientSecret = Deno.env.get("LINKEDIN_CLIENT_SECRET") ?? "";
-    const linkedinRedirectUri = Deno.env.get("LINKEDIN_REDIRECT_URI") ?? "https://omnicrm.lovable.app/oauth/linkedin";
+    const linkedinRedirectUri = Deno.env.get("LINKEDIN_REDIRECT_URI") ?? "https://www.caluagencia.com.br/oauth/linkedin";
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
@@ -1464,7 +1464,7 @@ JSON esperado:
     // ── Google Ads OAuth URL ──────────────────────────────────────
     if (action === "google-ads-oauth-url") {
       const googleClientId = Deno.env.get("GOOGLE_CLIENT_ID") ?? "";
-      const googleRedirectUri = Deno.env.get("GOOGLE_REDIRECT_URI") ?? "https://omnicrm.lovable.app/oauth/google";
+      const googleRedirectUri = Deno.env.get("GOOGLE_REDIRECT_URI") ?? "https://www.caluagencia.com.br/oauth/google";
       if (!googleClientId) return respond({ error: "GOOGLE_CLIENT_ID não configurado" }, 503);
       const { client_id } = body;
       const state = btoa(JSON.stringify({ userId, clientId: client_id, platform: "google_ads", ts: Date.now() }));
@@ -1485,7 +1485,7 @@ JSON esperado:
       if (!code || !state) return respond({ error: "code e state obrigatórios" }, 400);
       const googleClientId = Deno.env.get("GOOGLE_CLIENT_ID") ?? "";
       const googleClientSecret = Deno.env.get("GOOGLE_CLIENT_SECRET") ?? "";
-      const googleRedirectUri = Deno.env.get("GOOGLE_REDIRECT_URI") ?? "https://omnicrm.lovable.app/oauth/google";
+      const googleRedirectUri = Deno.env.get("GOOGLE_REDIRECT_URI") ?? "https://www.caluagencia.com.br/oauth/google";
       if (!googleClientId || !googleClientSecret) return respond({ error: "Credenciais Google não configuradas" }, 503);
 
       const b64 = state.replace(/-/g, "+").replace(/_/g, "/");

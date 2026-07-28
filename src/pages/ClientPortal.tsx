@@ -215,6 +215,7 @@ export default function ClientPortal() {
   const [passwordRequired, setPasswordRequired] = useState(false);
   const [passwordInput, setPasswordInput] = useState("");
   const [passwordError, setPasswordError] = useState(false);
+  const [rateLimited, setRateLimited] = useState(false);
   const [checkingPassword, setCheckingPassword] = useState(false);
   const [localDemands] = useState<DemandItem[]>([]);
 
@@ -253,8 +254,9 @@ export default function ClientPortal() {
     const hashPwd = window.location.hash ? decodeURIComponent(window.location.hash.slice(1)) : null;
     (supabase as any).rpc("get_portal_data", { p_token: token, p_password: hashPwd }).then(({ data: res, error }: any) => {
       if (error || !res) { setNotFound(true); setLoading(false); return; }
-      if ((res as any).error === "wrong_password") {
+      if ((res as any).error === "wrong_password" || (res as any).error === "rate_limited") {
         setPasswordRequired(true);
+        setRateLimited((res as any).error === "rate_limited");
         setLoading(false);
         return;
       }
@@ -270,59 +272,48 @@ export default function ClientPortal() {
     setPasswordError(false);
     const { data: res, error } = await (supabase as any).rpc("get_portal_data", { p_token: token, p_password: passwordInput.trim() });
     setCheckingPassword(false);
+    if ((res as any)?.error === "rate_limited") {
+      setRateLimited(true);
+      setPasswordError(true);
+      return;
+    }
     if (error || !res || (res as any).error === "wrong_password") {
       setPasswordError(true);
       return;
     }
+    setRateLimited(false);
     setPasswordRequired(false);
     setData(res as PortalData);
   };
 
+  // Propostas, entregas e comunicados vêm dentro de get_portal_data: assim
+  // nenhuma dessas tabelas precisa ficar legível por visitante anônimo.
   useEffect(() => {
-    const wid = data?.client?.workspace_id;
-    if (!wid) return;
-    setProposalsLoading(true);
-    (supabase as any).from("agent_proposals").select("*")
-      .eq("client_id", wid).neq("status", "rejected")
-      .order("created_at", { ascending: false })
-      .then(({ data: rows }: any) => {
-        if (rows) setProposals(rows);
-        setProposalsLoading(false);
-      });
-  }, [data?.client?.workspace_id]);
+    if (!data) return;
+    setProposals(((data as any).proposals ?? []) as any[]);
+    setProposalsLoading(false);
+  }, [data]);
 
   const [deliverables, setDeliverables] = useState<any[]>([]);
   useEffect(() => {
-    const wid = data?.client?.workspace_id;
-    if (!wid) return;
-    (supabase as any).from("client_deliverables").select("*")
-      .eq("client_id", wid).eq("visible_to_client", true)
-      .order("done_at", { ascending: false })
-      .then(({ data: rows }: any) => { if (rows) setDeliverables(rows); });
-  }, [data?.client?.workspace_id]);
+    if (!data) return;
+    setDeliverables(((data as any).deliverables ?? []) as any[]);
+  }, [data]);
 
   // Comunicados / Atualizações publicados pela agência
   const [portalUpdates, setPortalUpdates] = useState<any[]>([]);
   useEffect(() => {
-    const wid = data?.client?.workspace_id;
-    if (!wid) return;
-    (supabase as any).from("client_updates").select("*")
-      .eq("client_id", wid).eq("status", "published")
-      .order("created_at", { ascending: false })
-      .then(({ data: rows }: any) => { if (rows) setPortalUpdates(rows); });
-  }, [data?.client?.workspace_id]);
+    if (!data) return;
+    setPortalUpdates(((data as any).updates ?? []) as any[]);
+  }, [data]);
 
   // Calendário aprovado pelo dono — visível ao cliente
   const [calendarEvents, setCalendarEvents] = useState<any[]>([]);
   useEffect(() => {
     const wid = data?.client?.workspace_id;
     if (!wid) return;
-    (supabase as any).from("client_calendar_events").select("*")
-      .eq("client_id", wid).neq("status", "cancelled")
-      .gte("event_date", new Date(Date.now() - 1 * 86400000).toISOString().slice(0, 10))
-      .order("event_date", { ascending: true }).limit(50)
-      .then(({ data: rows }: any) => { if (rows) setCalendarEvents(rows); });
-  }, [data?.client?.workspace_id]);
+    setCalendarEvents(((data as any).calendar ?? []) as any[]);
+  }, [data]);
 
   const [portalCourses, setPortalCourses] = useState<any[]>([]);
   const [portalChecklists, setPortalChecklists] = useState<Record<string, any[]>>({});
@@ -403,9 +394,13 @@ export default function ClientPortal() {
               }}
             />
             {passwordError && (
-              <div className="text-xs" style={{ color: "#FCA5A5" }}>Senha incorreta. Tente novamente.</div>
+              <div className="text-xs" style={{ color: "#FCA5A5" }}>
+                {rateLimited
+                  ? "Muitas tentativas seguidas. Aguarde 15 minutos e tente de novo."
+                  : "Senha incorreta. Tente novamente."}
+              </div>
             )}
-            <button onClick={handlePasswordSubmit} disabled={checkingPassword || !passwordInput.trim()}
+            <button onClick={handlePasswordSubmit} disabled={checkingPassword || !passwordInput.trim() || rateLimited}
               className="w-full py-3 rounded-xl text-sm font-bold transition-all disabled:opacity-50"
               style={{ background: "#B9FF4B", color: "#07080A" }}>
               {checkingPassword ? "Verificando..." : "Entrar"}

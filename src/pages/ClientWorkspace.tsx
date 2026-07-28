@@ -24,6 +24,7 @@ import { usePageContext } from "@/contexts/PageContext";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
 import PostCanvas from "@/components/PostCanvas";
+import CarrosselStudio from "@/components/CarrosselStudio";
 import SocialMediaTab from "@/components/SocialMediaTab";
 import WebhooksTab from "@/components/WebhooksTab";
 import TeamMembersPanel from "@/components/TeamMembersPanel";
@@ -36,6 +37,7 @@ import AdsSection from "@/components/AdsSection";
 import EditorialCalendarPanel from "@/components/EditorialCalendarPanel";
 import LeadsKanbanTab from "@/components/LeadsKanbanTab";
 import InboxTab from "@/components/InboxTab";
+import { PIXEL_API } from "@/lib/agentApis";
 import AgentLinksTab from "@/components/AgentLinksTab";
 import OrchestratorPanel from "@/components/OrchestratorPanel";
 
@@ -846,6 +848,8 @@ export default function ClientWorkspace() {
   const [siteDbPagesLoading, setSiteDbPagesLoading] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [sharePortalToken, setSharePortalToken] = useState<string | null>(null);
+  const [sharePortalClientId, setSharePortalClientId] = useState<string | null>(null);
+  const [hasPortalPassword, setHasPortalPassword] = useState(false);
   const [sharePasswordInput, setSharePasswordInput] = useState("");
   const [showSharePwd, setShowSharePwd] = useState(false);
   const [savingSharePassword, setSavingSharePassword] = useState(false);
@@ -855,6 +859,12 @@ export default function ClientWorkspace() {
   const [openingShare, setOpeningShare] = useState(false);
   const [tasks, setTasks] = useState(MOCK_TASKS_TEMPLATE);
   const [crmView, setCrmView] = useState<"contacts" | "pipeline" | "approvals" | "insights" | "whatsapp" | "deliverables" | "campaigns" | "inbox">("contacts");
+
+  // ?crm=inbox&conv=<id> — usado pelo trilho de conversas ao lado do menu.
+  useEffect(() => {
+    const view = searchParams.get("crm");
+    if (view) setCrmView(view as typeof crmView);
+  }, [searchParams]);
 
   type PipelineCampaign = {
     enabled: boolean;
@@ -1150,6 +1160,7 @@ export default function ClientWorkspace() {
   const [airaShareResult, setAiraShareResult] = useState<string | null>(null);
   // ── Social integrations per client ─────────────────────────
   const [socialConnected, setSocialConnected] = useState<Record<string, boolean>>({});
+  const [socialStatus, setSocialStatus] = useState<Record<string, { expiresAt: string | null; error: string | null }>>({});
   const [socialConfigModal, setSocialConfigModal] = useState<string | null>(null);
   const [socialConfigValues, setSocialConfigValues] = useState<Record<string, string>>({});
   const [socialConfigSaving, setSocialConfigSaving] = useState(false);
@@ -1515,16 +1526,29 @@ export default function ClientWorkspace() {
       }
     } catch { /* silent */ }
     // 2) Fonte real: conexões OAuth em social_connections (Instagram/Facebook/etc.)
+    const status: Record<string, { expiresAt: string | null; error: string | null }> = {};
     try {
       const { data: sc } = await (supabase as any)
         .from("social_connections")
-        .select("platform, connected")
+        .select("platform, connected, token_expires_at, refresh_error")
         .eq("client_id", id);
       for (const row of (sc ?? [])) {
         if (row.connected) map[row.platform] = true;
+        status[row.platform] = { expiresAt: row.token_expires_at ?? null, error: row.refresh_error ?? null };
       }
     } catch { /* silent */ }
     setSocialConnected(map);
+    setSocialStatus(status);
+  };
+
+  // Saúde do token: a Meta expira em ~60 dias e sem isto a conta cai calada.
+  const tokenHealth = (platform: string): { label: string; color: string } | null => {
+    const st = socialStatus[platform];
+    if (!st?.expiresAt) return null;
+    const days = Math.floor((new Date(st.expiresAt).getTime() - Date.now()) / 86400000);
+    if (days < 0) return { label: "Token vencido — reconectar", color: "#F87171" };
+    if (days <= 10) return { label: `Vence em ${days}d`, color: "#FBBF24" };
+    return null;
   };
 
   const handleSocialToggle = async (platformId: string, connect: boolean) => {
@@ -4033,8 +4057,8 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
 
   // Load WordPress site for Pixel tab
   useEffect(() => {
-    if (activeTab !== 'pixel') return;
-    fetch("http://localhost:8500/api/sites")
+    if (activeTab !== 'pixel' || !PIXEL_API) return;
+    fetch(`${PIXEL_API}/api/sites`)
       .then(r => r.json())
       .then((sites: any[]) => {
         const matched = sites.find((s: any) => s.client_name?.toLowerCase() === client.name.toLowerCase());
@@ -4841,7 +4865,7 @@ Regras:
   const findOrCreatePortalRow = async () => {
     const { data: rows } = await (supabase as any)
       .from("clients")
-      .select("id, portal_token, portal_password, workspace_id")
+      .select("id, portal_token, portal_password_hash, workspace_id")
       .eq("user_id", user!.id)
       .eq("workspace_id", id)
       .order("created_at", { ascending: true });
@@ -4855,7 +4879,7 @@ Regras:
     const { data: created } = await (supabase as any)
       .from("clients")
       .insert({ user_id: user!.id, name: client.name, segment: client.industry ?? null, status: "active", workspace_id: id } as any)
-      .select("id, portal_token, portal_password, workspace_id")
+      .select("id, portal_token, portal_password_hash, workspace_id")
       .single();
     return created;
   };
@@ -4879,7 +4903,10 @@ Regras:
       const row = await findOrCreatePortalRow();
       if (!row?.portal_token) { toast.error("Erro ao gerar link do portal."); return; }
       setSharePortalToken(row.portal_token);
-      setSharePasswordInput(row.portal_password ?? "");
+      setSharePortalClientId(row.id);
+      // A senha fica guardada como hash: não dá para exibir a atual, só definir uma nova.
+      setHasPortalPassword(Boolean(row.portal_password_hash));
+      setSharePasswordInput("");
       setSharePasswordSaved(false);
       setShareCopied(false);
       setShowShareModal(true);
@@ -4890,13 +4917,23 @@ Regras:
 
   const handleSaveSharePassword = async () => {
     if (!user) return;
+    let clientRowId = sharePortalClientId;
+    if (!clientRowId) {
+      const row = await findOrCreatePortalRow();
+      clientRowId = row?.id ?? null;
+      setSharePortalClientId(clientRowId);
+    }
+    if (!clientRowId) { toast.error("Cliente não encontrado."); return; }
+
     setSavingSharePassword(true);
     try {
-      await (supabase as any)
-        .from("clients")
-        .update({ portal_password: sharePasswordInput.trim() || null })
-        .eq("user_id", user.id)
-        .eq("workspace_id", id);
+      // A senha é gravada com hash (bcrypt) pela função set_portal_password.
+      const { error } = await (supabase as any).rpc("set_portal_password", {
+        p_client_id: clientRowId,
+        p_password: sharePasswordInput.trim(),
+      });
+      if (error) throw error;
+      setHasPortalPassword(Boolean(sharePasswordInput.trim()));
       setSharePasswordSaved(true);
       setTimeout(() => setSharePasswordSaved(false), 3000);
     } catch { toast.error("Erro ao salvar senha."); }
@@ -5045,11 +5082,16 @@ Regras:
                       {savingSharePassword ? <RefreshCw className="w-3.5 h-3.5 animate-spin" /> : "Salvar"}
                     </button>
                   </div>
-                  {sharePasswordSaved && (
+                  {sharePasswordSaved ? (
                     <div className="text-xs mt-1.5 flex items-center gap-1" style={{ color: "#B9FF4B" }}>
                       <CheckCircle2 className="w-3 h-3" /> Senha salva com sucesso
                     </div>
-                  )}
+                  ) : hasPortalPassword ? (
+                    <div className="text-[11px] mt-1.5 leading-relaxed" style={{ color: "rgba(255,255,255,0.35)" }}>
+                      Já existe uma senha ativa. Ela é guardada criptografada e não pode ser exibida —
+                      digite uma nova aqui para substituí-la, ou deixe em branco e salve para liberar o acesso.
+                    </div>
+                  ) : null}
                 </div>
 
                 {/* Open portal */}
@@ -5554,7 +5596,8 @@ Regras:
 
                 {/* ── CANAIS / INBOX (conectar WhatsApp, Instagram, Facebook, Site) ── */}
                 {crmView === "inbox" && (
-                  <InboxTab clientId={client.id} accent={client.color} />
+                  <InboxTab clientId={client.id} accent={client.color}
+                    initialConversationId={searchParams.get("conv")} />
                 )}
 
                 {/* ── CONTATOS ── */}
@@ -13544,6 +13587,13 @@ ${clientSection}${originalSection}`;
             )}
 
             {/* ══════════════════════════════════════════════════════
+                CARROSSEL & POSTS — estúdio próprio do cliente
+            ══════════════════════════════════════════════════════ */}
+            {activeTab === "carrossel" && (
+              <CarrosselStudio clientIdInicial={client.id} embutido />
+            )}
+
+            {/* ══════════════════════════════════════════════════════
                 CALENDÁRIO EDITORIAL (sidebar)
             ══════════════════════════════════════════════════════ */}
             {activeTab === "calendario" && id && (
@@ -13612,12 +13662,20 @@ ${clientSection}${originalSection}`;
                               <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>{integ.description}</div>
                             </div>
                           </div>
-                          {isConn && (
-                            <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
-                              style={{ background: `${integ.color}18`, color: integ.color }}>
-                              <CheckCircle2 className="w-3 h-3" /> Ativo
-                            </span>
-                          )}
+                          {isConn && (() => {
+                            const health = tokenHealth(integ.id);
+                            return health ? (
+                              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                                style={{ background: `${health.color}18`, color: health.color }}>
+                                <AlertCircle className="w-3 h-3" /> {health.label}
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold"
+                                style={{ background: `${integ.color}18`, color: integ.color }}>
+                                <CheckCircle2 className="w-3 h-3" /> Ativo
+                              </span>
+                            );
+                          })()}
                         </div>
                         <div className="mb-3 space-y-1.5">
                           {integ.features.slice(0, 3).map((f) => (

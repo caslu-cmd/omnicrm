@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useLocation, useOutlet } from "react-router-dom";
+import { useLocation, useNavigate, useOutlet } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
 import { TopBar } from "./TopBar";
 import { MobileBottomNav } from "./MobileBottomNav";
@@ -18,6 +18,7 @@ export const AppLayout = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
 
   if (FULL_SCREEN_PATHS.includes(location.pathname)) {
     return <main className="h-screen overflow-auto bg-gray-950"><FrozenOutlet /></main>;
@@ -60,7 +61,13 @@ export const AppLayout = () => {
       {/* Coluna de conversas — logo depois do sidebar, só no CRM do cliente */}
       {workspaceClientId && (
         <div className="hidden lg:flex">
-          <InboxFeedColumn clientId={workspaceClientId} rail />
+          <InboxFeedColumn
+            clientId={workspaceClientId}
+            rail
+            onOpen={(conv) =>
+              navigate(`/agency/clients/${workspaceClientId}?tab=crm&crm=inbox&conv=${conv.id}`)
+            }
+          />
         </div>
       )}
 

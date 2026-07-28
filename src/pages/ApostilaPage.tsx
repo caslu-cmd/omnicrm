@@ -6,8 +6,10 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import AIFieldButton from "@/components/AIFieldButton";
+import { APOLO_API, AGENT_OFFLINE_MSG } from "@/lib/agentApis";
+import AgentOfflineNotice from "@/components/AgentOfflineNotice";
 
-const API = "http://localhost:9000";
+const API = APOLO_API ?? "";
 
 type Etapa = "idle" | "upload_layout" | "extraindo" | "organizando" | "gerando" | "concluido" | "erro";
 
@@ -90,6 +92,12 @@ function DropZone({
 }
 
 export default function ApostilaPage() {
+  // Guard fora do componente com hooks: sem URL do Apolo a tela nem monta.
+  if (!APOLO_API) return <AgentOfflineNotice agent="Apolo" envVar="VITE_APOLO_API_URL" />;
+  return <ApostilaPageInner />;
+}
+
+function ApostilaPageInner() {
   const [layoutSlots, setLayoutSlots] = useState<Record<string, File | null>>({
     capa: null, interna: null, contracapa: null,
   });

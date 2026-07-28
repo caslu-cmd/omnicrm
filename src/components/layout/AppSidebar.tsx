@@ -8,7 +8,7 @@ import {
   Palette, Bell, Crown, ArrowLeftRight, Star,
   ArrowLeft, Megaphone, BarChart2, ExternalLink,
   Bot, Activity, Link2, ListTodo, Share2, Clapperboard, Mic, CalendarDays, Webhook, Layout, TrendingUp, FileBarChart, BookOpen,
-  ChevronDown, Code2, Filter, FileText, FormInput
+  ChevronDown, Code2, Filter, FileText, FormInput, Images
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
@@ -17,6 +17,7 @@ import { useIsAdmin } from "@/hooks/useAdmin";
 import { useAuth } from "@/hooks/useAuth";
 import { useClients } from "@/contexts/ClientsContext";
 import { supabase } from "@/integrations/supabase/client";
+import { PIXEL_API } from "@/lib/agentApis";
 
 interface AppSidebarProps {
   collapsed: boolean;
@@ -79,6 +80,7 @@ const clientTools = [
   { tab: "activities",   icon: Activity,        label: "Atividades" },
   { tab: "tasks",        icon: ListTodo,        label: "O que fazer" },
   { tab: "social",      icon: Share2,       label: "Redes Sociais" },
+  { tab: "carrossel",   icon: Images,       label: "Carrossel & Posts" },
   { tab: "calendario",  icon: CalendarDays, label: "Calendário Editorial" },
   { tab: "brand",         icon: Palette,      label: "Identidade Visual" },
   { tab: "integrations", icon: Link2,        label: "Integrações" },
@@ -100,7 +102,10 @@ export const AppSidebar = ({ collapsed, onToggle, hideToggle }: AppSidebarProps)
   ]);
 
   useEffect(() => {
-    fetch("http://localhost:8500/api/sites")
+    // Sem o Pixel publicado, fica a lista padrão em vez de bater num endereço
+    // que só existe na máquina da agência.
+    if (!PIXEL_API) return;
+    fetch(`${PIXEL_API}/api/sites`)
       .then(r => r.json())
       .then(data => setWpSites(data))
       .catch(() => {});
@@ -294,7 +299,6 @@ export const AppSidebar = ({ collapsed, onToggle, hideToggle }: AppSidebarProps)
                 </NavLink>
               );
             })}
-
           </nav>
 
           {/* Portal link */}

@@ -4,12 +4,29 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 
 const BASE_URL = "https://proldgiyterqhthludlp.supabase.co/functions/v1";
 
-Deno.serve(async (_req) => {
+Deno.serve(async (req) => {
   const supabaseUrl    = Deno.env.get("SUPABASE_URL")!;
   const serviceKey     = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const anthropicKey   = Deno.env.get("ANTHROPIC_API_KEY")!;
 
   const supabase = createClient(supabaseUrl, serviceKey);
+
+  // O cron chamava sem Authorization e o gateway devolvia 401 todo dia: agora a
+  // função valida a própria chave do job (hash em internal_cron_keys).
+  const bearer = (req.headers.get("Authorization") ?? "").replace("Bearer ", "").trim();
+  let authorized = Boolean(bearer) && bearer === serviceKey;
+  if (!authorized && bearer) {
+    const { data: ok } = await supabase.rpc("verify_cron_key", {
+      p_name: "auto-calendar-dispatch",
+      p_key: bearer,
+    });
+    authorized = ok === true;
+  }
+  if (!authorized) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), {
+      status: 401, headers: { "Content-Type": "application/json" },
+    });
+  }
 
   // Eventos de hoje e amanhã que ainda não foram processados
   const today    = new Date();

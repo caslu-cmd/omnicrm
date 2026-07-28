@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
     const encKey = Deno.env.get("INTEGRATION_ENCRYPTION_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const metaAppId = Deno.env.get("META_APP_ID") ?? "";
     const metaAppSecret = Deno.env.get("META_APP_SECRET") ?? "";
-    const redirectUri = Deno.env.get("META_REDIRECT_URI") ?? "https://omnicrm.lovable.app/oauth/meta";
+    const redirectUri = Deno.env.get("META_REDIRECT_URI") ?? "https://www.caluagencia.com.br/oauth/meta";
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
@@ -151,8 +151,12 @@ Deno.serve(async (req) => {
           account_id: accountId, account_name: accountName,
           account_username: accountUsername, followers_count: followersCount,
           access_token: encryptedToken,
+          // guardado para o cron renovar o page token sem exigir novo OAuth
+          user_access_token: obfuscate(longToken, encKey),
           token_expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
           connected: true, connected_at: new Date().toISOString(),
+          last_refresh_at: new Date().toISOString(),
+          refresh_error: null,
         }, { onConflict: "user_id,client_id,platform" });
 
       if (upsertError) return respond({ error: upsertError.message }, 500);

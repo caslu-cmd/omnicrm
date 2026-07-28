@@ -7,7 +7,9 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
-const API = "http://localhost:8500";
+import { PIXEL_API } from "@/lib/agentApis";
+
+const API = PIXEL_API ?? "";
 
 const GRUPO_LICITA = {
   id: "grupo-licita",
