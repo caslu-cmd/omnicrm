@@ -835,6 +835,21 @@ const VIDEO_FORMATS = [
   { id: "twitter",   label: "Twitter/X",  ratio: "16:9", res: "1280×720",  icon: "𝕏"  },
 ] as const;
 
+// Estado real de cada rede, lido de social_connections (não do arquivo estático).
+type SocialStatus = {
+  expiresAt: string | null;
+  error: string | null;
+  followers: number;
+  account: string | null;
+};
+
+const fmtFollowers = (n: number) => {
+  if (!n) return "—";
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1).replace(".", ",")}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1).replace(".", ",")}k`;
+  return String(n);
+};
+
 // ── Component ─────────────────────────────────────────────────
 export default function ClientWorkspace() {
   const { id } = useParams<{ id: string }>();
@@ -1160,7 +1175,7 @@ export default function ClientWorkspace() {
   const [airaShareResult, setAiraShareResult] = useState<string | null>(null);
   // ── Social integrations per client ─────────────────────────
   const [socialConnected, setSocialConnected] = useState<Record<string, boolean>>({});
-  const [socialStatus, setSocialStatus] = useState<Record<string, { expiresAt: string | null; error: string | null }>>({});
+  const [socialStatus, setSocialStatus] = useState<Record<string, SocialStatus>>({});
   const [socialConfigModal, setSocialConfigModal] = useState<string | null>(null);
   const [socialConfigValues, setSocialConfigValues] = useState<Record<string, string>>({});
   const [socialConfigSaving, setSocialConfigSaving] = useState(false);
@@ -1526,15 +1541,20 @@ export default function ClientWorkspace() {
       }
     } catch { /* silent */ }
     // 2) Fonte real: conexões OAuth em social_connections (Instagram/Facebook/etc.)
-    const status: Record<string, { expiresAt: string | null; error: string | null }> = {};
+    const status: Record<string, SocialStatus> = {};
     try {
       const { data: sc } = await (supabase as any)
         .from("social_connections")
-        .select("platform, connected, token_expires_at, refresh_error")
+        .select("platform, connected, token_expires_at, refresh_error, followers_count, account_username, account_name")
         .eq("client_id", id);
       for (const row of (sc ?? [])) {
         if (row.connected) map[row.platform] = true;
-        status[row.platform] = { expiresAt: row.token_expires_at ?? null, error: row.refresh_error ?? null };
+        status[row.platform] = {
+          expiresAt: row.token_expires_at ?? null,
+          error: row.refresh_error ?? null,
+          followers: row.followers_count ?? 0,
+          account: row.account_username ?? row.account_name ?? null,
+        };
       }
     } catch { /* silent */ }
     setSocialConnected(map);
@@ -4948,8 +4968,13 @@ Regras:
       <div className="flex items-center gap-2 sm:gap-4 px-4 sm:px-8 py-3 flex-shrink-0 flex-wrap"
         style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", background: "rgba(8,8,16,0.95)" }}>
         <div className="flex items-center gap-3 sm:gap-4 text-xs flex-wrap" style={{ color: "rgba(255,255,255,0.35)" }}>
-          <div className="flex items-center gap-1.5 whitespace-nowrap"><Instagram className="w-3.5 h-3.5" /> {client.followers.instagram}</div>
-          <div className="flex items-center gap-1.5 whitespace-nowrap"><Facebook className="w-3.5 h-3.5" /> {client.followers.facebook}</div>
+          {/* Seguidores vêm da conexão real; o arquivo estático só tem "—". */}
+          <div className="flex items-center gap-1.5 whitespace-nowrap" title={socialStatus.instagram?.account ?? "Instagram não conectado"}>
+            <Instagram className="w-3.5 h-3.5" /> {fmtFollowers(socialStatus.instagram?.followers ?? 0)}
+          </div>
+          <div className="flex items-center gap-1.5 whitespace-nowrap" title={socialStatus.facebook?.account ?? "Facebook não conectado"}>
+            <Facebook className="w-3.5 h-3.5" /> {fmtFollowers(socialStatus.facebook?.followers ?? 0)}
+          </div>
         </div>
         <div className="ml-auto flex items-center gap-2 flex-wrap">
           <button
@@ -13659,7 +13684,11 @@ ${clientSection}${originalSection}`;
                             </div>
                             <div>
                               <div className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.9)" }}>{integ.name}</div>
-                              <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>{integ.description}</div>
+                              <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                                {socialStatus[integ.id]?.account
+                                  ? `${socialStatus[integ.id]!.account} · ${fmtFollowers(socialStatus[integ.id]!.followers)} seguidores`
+                                  : integ.description}
+                              </div>
                             </div>
                           </div>
                           {isConn && (() => {
@@ -13709,7 +13738,12 @@ ${clientSection}${originalSection}`;
                             </button>
                           </div>
                         ) : (
-                          <button onClick={() => openSocialConfig(integ.id)}
+                          // Instagram/Facebook/Ads conectam por OAuth na aba Redes Sociais;
+                          // o modal de chaves manuais não serve para essas redes.
+                          <button
+                            onClick={() => ["instagram", "facebook", "meta_ads"].includes(integ.id)
+                              ? navigate(`/agency/clients/${id}?tab=social`)
+                              : openSocialConfig(integ.id)}
                             className="w-full py-2 rounded-xl text-[11px] font-medium transition-all"
                             style={{ background: integ.bg, color: integ.color, border: `1px solid ${integ.border}` }}>
                             Conectar

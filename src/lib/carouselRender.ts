@@ -3,7 +3,7 @@
  * Desenha slides prontos para publicar (1080px) em canvas, sem depender de Canva/Figma.
  */
 
-export type LayoutId = "editorial" | "impacto" | "revista" | "gradiente" | "minimal" | "foto";
+export type LayoutId = "vidro" | "capa" | "editorial" | "impacto" | "revista" | "gradiente" | "minimal" | "foto";
 export type FormatId = "4:5" | "1:1" | "9:16";
 export type FontPairId =
   | "editorial" | "impacto" | "moderno" | "tecnico" | "manchete" | "esportivo"
@@ -84,6 +84,8 @@ export const FONT_PAIRS: Record<
 };
 
 export const LAYOUTS: { id: LayoutId; label: string; desc: string; precisaImagem?: boolean }[] = [
+  { id: "vidro", label: "Vidro", desc: "Foto + cartão de vidro com o título. O padrão que mais roda no feed.", precisaImagem: true },
+  { id: "capa", label: "Capa", desc: "Foto + título gigante direto na imagem, com seta e pílulas.", precisaImagem: true },
   { id: "editorial", label: "Editorial", desc: "Fundo escuro, número gigante, tipografia grande. O mais versátil." },
   { id: "impacto", label: "Impacto", desc: "Cor cheia e tipografia pesada. Para frase de efeito e dado forte." },
   { id: "revista", label: "Revista", desc: "Papel claro, serifada, filetes finos. Ar de publicação premium." },
@@ -903,6 +905,303 @@ function layoutFoto(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrome) 
   drawFooter(ctx, o, local);
 }
 
+
+// ── Peças do padrão "foto + vidro" ───────────────────────────────────────
+/** Pílula translúcida com o fundo borrado atrás — vidro de verdade. */
+function drawGlassPill(
+  ctx: CanvasRenderingContext2D,
+  texto: string,
+  x: number,
+  y: number,
+  o: { fontSize: number; font: string; fg: string; img?: HTMLImageElement | null; W: number; H: number; escuro?: boolean; alinhar?: "esq" | "dir" },
+) {
+  ctx.font = `600 ${o.fontSize}px ${o.font}`;
+  setTracking(ctx, o.fontSize * 0.08);
+  const rotulo = texto.toUpperCase();
+  const padX = o.fontSize * 1.3;
+  const w = ctx.measureText(rotulo).width + padX * 2;
+  const h = o.fontSize * 2.6;
+  const px = o.alinhar === "dir" ? x - w : x;
+
+  ctx.save();
+  roundRectPath(ctx, px, y, w, h, h / 2);
+  ctx.clip();
+  if (o.img?.width) {
+    ctx.filter = "blur(18px)";
+    drawCover(ctx, o.img, 0, 0, o.W, o.H);
+    ctx.filter = "none";
+  }
+  ctx.fillStyle = o.escuro ? "rgba(10,12,15,0.34)" : "rgba(255,255,255,0.32)";
+  ctx.fillRect(px, y, w, h);
+  ctx.restore();
+
+  ctx.strokeStyle = o.escuro ? "rgba(255,255,255,0.20)" : "rgba(255,255,255,0.5)";
+  ctx.lineWidth = Math.max(1, o.W * 0.0012);
+  roundRectPath(ctx, px, y, w, h, h / 2);
+  ctx.stroke();
+
+  ctx.fillStyle = o.fg;
+  ctx.textBaseline = "middle";
+  ctx.fillText(rotulo, px + padX, y + h / 2 + o.fontSize * 0.05);
+  ctx.textBaseline = "alphabetic";
+  setTracking(ctx, 0);
+  return { w, h };
+}
+
+/** Botão de arraste: pílula de vidro + seta dentro de um círculo colorido. */
+function drawSwipeButton(
+  ctx: CanvasRenderingContext2D,
+  texto: string,
+  o: { W: number; H: number; pad: number; accent: string; font: string; img?: HTMLImageElement | null; escuro?: boolean },
+) {
+  const fs = Math.round(o.W * 0.024);
+  ctx.font = `700 ${fs}px ${o.font}`;
+  setTracking(ctx, fs * 0.06);
+  const label = texto.toUpperCase();
+  const tw = ctx.measureText(label).width;
+  const h = fs * 3;
+  const circ = h * 0.86;
+  const w = tw + fs * 2.4 + circ;
+  const x = o.W - o.pad - w;
+  const y = o.H - o.pad - h * 1.35;
+
+  ctx.save();
+  roundRectPath(ctx, x, y, w, h, h / 2);
+  ctx.clip();
+  if (o.img?.width) {
+    ctx.filter = "blur(18px)";
+    drawCover(ctx, o.img, 0, 0, o.W, o.H);
+    ctx.filter = "none";
+  }
+  ctx.fillStyle = o.escuro ? "rgba(10,12,15,0.44)" : "rgba(255,255,255,0.36)";
+  ctx.fillRect(x, y, w, h);
+  ctx.restore();
+  ctx.strokeStyle = o.escuro ? "rgba(255,255,255,0.22)" : "rgba(255,255,255,0.55)";
+  ctx.lineWidth = Math.max(1, o.W * 0.0012);
+  roundRectPath(ctx, x, y, w, h, h / 2);
+  ctx.stroke();
+
+  ctx.fillStyle = o.escuro ? "#FFFFFF" : "#0A0C0F";
+  ctx.textBaseline = "middle";
+  ctx.fillText(label, x + fs * 1.2, y + h / 2 + fs * 0.05);
+  setTracking(ctx, 0);
+
+  const cx = x + w - circ / 2 - (h - circ) / 2;
+  const cy = y + h / 2;
+  ctx.fillStyle = o.accent;
+  ctx.beginPath();
+  ctx.arc(cx, cy, circ / 2, 0, Math.PI * 2);
+  ctx.fill();
+
+  const seta = circ * 0.32;
+  ctx.strokeStyle = contrastOn(o.accent);
+  ctx.lineWidth = Math.max(2, o.W * 0.0034);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  ctx.moveTo(cx - seta / 2, cy);
+  ctx.lineTo(cx + seta / 2, cy);
+  ctx.moveTo(cx + seta * 0.08, cy - seta * 0.42);
+  ctx.lineTo(cx + seta / 2, cy);
+  ctx.lineTo(cx + seta * 0.08, cy + seta * 0.42);
+  ctx.stroke();
+  ctx.textBaseline = "alphabetic";
+}
+
+/** Cabeçalho: marca à esquerda, @ à direita, ambos em vidro. */
+function drawGlassHeader(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrome, escuro: boolean) {
+  const fonts = FONT_PAIRS[o.theme.fontPair];
+  const fs = Math.round(c.W * 0.02);
+  const y = c.pad * 0.8;
+  const fg = escuro ? "#FFFFFF" : "#0A0C0F";
+  const esquerda = (o.brand.nome || "").trim();
+  const direita = (o.brand.handle || "").trim();
+
+  if (esquerda) {
+    drawGlassPill(ctx, esquerda, c.pad, y, { fontSize: fs, font: fonts.body, fg, img: o.image, W: c.W, H: c.H, escuro });
+  }
+  if (direita) {
+    drawGlassPill(ctx, direita, c.W - c.pad, y, { fontSize: fs, font: fonts.body, fg, img: o.image, W: c.W, H: c.H, escuro, alinhar: "dir" });
+  }
+}
+
+/** Foto de fundo — ou gradiente da marca, quando ainda não há imagem. */
+function drawFundoFoto(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrome): boolean {
+  if (o.image?.width) {
+    drawCover(ctx, o.image, 0, 0, c.W, c.H);
+    return true;
+  }
+  const g = ctx.createLinearGradient(0, 0, c.W, c.H);
+  g.addColorStop(0, shade(o.theme.accent, -0.5));
+  g.addColorStop(1, o.theme.bg);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, c.W, c.H);
+  return false;
+}
+
+// ── Layout VIDRO ─────────────────────────────────────────────────────────
+function layoutVidro(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrome) {
+  const { W, H, pad } = c;
+  const fonts = FONT_PAIRS[o.theme.fontPair];
+  const temFoto = drawFundoFoto(ctx, o, c);
+
+  // Véu leve: escurece o suficiente para o texto ler, sem lavar a foto.
+  const veu = ctx.createLinearGradient(0, 0, 0, H);
+  veu.addColorStop(0, "rgba(0,0,0,0.24)");
+  veu.addColorStop(0.42, "rgba(0,0,0,0.04)");
+  veu.addColorStop(1, "rgba(0,0,0,0.38)");
+  ctx.fillStyle = veu;
+  ctx.fillRect(0, 0, W, H);
+
+  drawGlassHeader(ctx, o, c, true);
+
+  const cardW = W - pad * 1.4;
+  const cardX = (W - cardW) / 2;
+  const inner = pad * 0.8;
+
+  const t = fitText(ctx, o.slide.titulo.toUpperCase(), {
+    font: (sz) => `${fonts.displayWeight} ${sz}px ${fonts.display}`,
+    maxWidth: cardW - inner * 2,
+    maxHeight: H * 0.32,
+    max: o.slide.tipo === "capa" ? W * 0.086 : W * 0.074,
+    min: W * 0.038,
+    lh: 1.16,
+    tracking: -0.01,
+  });
+
+  const corpoBlock = o.slide.corpo
+    ? fitText(ctx, o.slide.corpo, {
+        font: (sz) => `400 ${sz}px ${fonts.body}`,
+        maxWidth: cardW - inner * 2,
+        maxHeight: H * 0.13,
+        max: W * 0.032,
+        min: W * 0.022,
+        lh: 1.5,
+      })
+    : null;
+
+  const cardH = inner * 2 + t.height + (corpoBlock ? corpoBlock.height + W * 0.028 : 0);
+  const cardY = H - pad * 3.5 - cardH;
+
+  ctx.save();
+  roundRectPath(ctx, cardX, cardY, cardW, cardH, W * 0.055);
+  ctx.clip();
+  if (temFoto && o.image) {
+    ctx.filter = "blur(26px)";
+    drawCover(ctx, o.image, 0, 0, W, H);
+    ctx.filter = "none";
+  }
+  ctx.fillStyle = "rgba(8,12,20,0.42)";
+  ctx.fillRect(cardX, cardY, cardW, cardH);
+  ctx.restore();
+  ctx.strokeStyle = "rgba(255,255,255,0.22)";
+  ctx.lineWidth = Math.max(1, W * 0.0014);
+  roundRectPath(ctx, cardX, cardY, cardW, cardH, W * 0.055);
+  ctx.stroke();
+
+  ctx.fillStyle = "#FFFFFF";
+  drawBlock(ctx, t, W / 2, cardY + inner, {
+    font: (sz) => `${fonts.displayWeight} ${sz}px ${fonts.display}`,
+    align: "center",
+    tracking: -0.01,
+  });
+  if (corpoBlock) {
+    ctx.fillStyle = "rgba(255,255,255,0.8)";
+    drawBlock(ctx, corpoBlock, W / 2, cardY + inner + t.height + W * 0.028, {
+      font: (sz) => `400 ${sz}px ${fonts.body}`,
+      align: "center",
+    });
+  }
+
+  if (o.slide.tipo === "cta" || (o.mostrarArraste !== false && o.total > 1)) {
+    drawSwipeButton(ctx, o.slide.tipo === "cta" ? (o.slide.destaque || "SAIBA MAIS") : "ARRASTA PRO LADO!", {
+      W, H, pad, accent: o.theme.accent, font: fonts.body, img: o.image, escuro: true,
+    });
+  }
+
+  if (o.total > 1 && o.mostrarNumero !== false) {
+    drawGlassPill(ctx, `${String(o.index + 1).padStart(2, "0")} / ${String(o.total).padStart(2, "0")}`, pad, H - pad * 1.5, {
+      fontSize: Math.round(W * 0.018), font: fonts.body, fg: "#FFFFFF", img: o.image, W, H, escuro: true,
+    });
+  }
+}
+
+// ── Layout CAPA ──────────────────────────────────────────────────────────
+function layoutCapa(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrome) {
+  const { W, H, pad } = c;
+  const fonts = FONT_PAIRS[o.theme.fontPair];
+  drawFundoFoto(ctx, o, c);
+
+  // Paleta clara da marca => texto escuro sobre véu claro (e vice-versa).
+  const textoClaro = !isLight(o.theme.bg);
+  const fg = textoClaro ? "#FFFFFF" : "#0B0D10";
+
+  const scrim = ctx.createLinearGradient(0, H * 0.3, 0, H);
+  scrim.addColorStop(0, textoClaro ? "rgba(0,0,0,0)" : "rgba(255,255,255,0)");
+  scrim.addColorStop(1, textoClaro ? "rgba(0,0,0,0.74)" : "rgba(255,255,255,0.8)");
+  ctx.fillStyle = scrim;
+  ctx.fillRect(0, 0, W, H);
+
+  drawGlassHeader(ctx, o, c, textoClaro);
+
+  const bottomLimit = H - pad * 3.1;
+
+  const t = fitText(ctx, o.slide.titulo, {
+    font: (sz) => `${fonts.displayWeight} ${sz}px ${fonts.display}`,
+    maxWidth: W - pad * 2,
+    maxHeight: H * 0.3,
+    max: o.slide.tipo === "capa" ? W * 0.096 : W * 0.084,
+    min: W * 0.042,
+    lh: 1.08,
+    tracking: -0.02,
+  });
+
+  const corpoBlock = o.slide.corpo
+    ? fitText(ctx, o.slide.corpo, {
+        font: (sz) => `400 ${sz}px ${fonts.body}`,
+        maxWidth: W * 0.86,
+        maxHeight: H * 0.12,
+        max: W * 0.03,
+        min: W * 0.021,
+        lh: 1.55,
+      })
+    : null;
+
+  const bloco = t.height + (corpoBlock ? corpoBlock.height + W * 0.032 : 0);
+  const startY = bottomLimit - bloco;
+
+  // Seta diagonal de entrada, logo acima do título
+  const s = W * 0.05;
+  const setaY = startY - W * 0.055;
+  ctx.strokeStyle = fg;
+  ctx.lineWidth = Math.max(3, W * 0.0065);
+  ctx.lineCap = "square";
+  ctx.beginPath();
+  ctx.moveTo(pad + s, setaY - s * 0.7);
+  ctx.lineTo(pad, setaY);
+  ctx.moveTo(pad, setaY);
+  ctx.lineTo(pad + s * 0.6, setaY);
+  ctx.moveTo(pad, setaY);
+  ctx.lineTo(pad, setaY - s * 0.6);
+  ctx.stroke();
+
+  ctx.fillStyle = fg;
+  drawBlock(ctx, t, pad, startY, {
+    font: (sz) => `${fonts.displayWeight} ${sz}px ${fonts.display}`,
+    tracking: -0.02,
+  });
+  if (corpoBlock) {
+    ctx.fillStyle = textoClaro ? "rgba(255,255,255,0.76)" : "rgba(11,13,16,0.7)";
+    drawBlock(ctx, corpoBlock, pad, startY + t.height + W * 0.032, { font: (sz) => `400 ${sz}px ${fonts.body}` });
+  }
+
+  if (o.slide.tipo === "cta" || (o.mostrarArraste !== false && o.total > 1)) {
+    drawSwipeButton(ctx, o.slide.tipo === "cta" ? (o.slide.destaque || "SAIBA MAIS") : "ARRASTE!", {
+      W, H, pad, accent: o.theme.accent, font: fonts.body, img: o.image, escuro: textoClaro,
+    });
+  }
+}
+
 // ── API pública ───────────────────────────────────────────────────────────
 export function renderSlide(canvas: HTMLCanvasElement, o: RenderOptions) {
   const [W, H] = FORMAT_SIZE[o.format];
@@ -928,6 +1227,12 @@ export function renderSlide(canvas: HTMLCanvasElement, o: RenderOptions) {
   };
 
   switch (o.layout) {
+    case "vidro":
+      layoutVidro(ctx, o, chrome);
+      break;
+    case "capa":
+      layoutCapa(ctx, o, chrome);
+      break;
     case "impacto":
       layoutImpacto(ctx, o, chrome);
       break;

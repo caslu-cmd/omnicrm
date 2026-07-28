@@ -198,7 +198,7 @@ LIMITES TÉCNICOS DE DESIGN (o texto é renderizado em canvas, respeite ou quebr
 - titulo: máximo 58 caracteres (capa: máximo 42).
 - corpo: máximo 190 caracteres. Pode ter no máximo 2 frases.
 - destaque: 1 a 3 palavras OU um número curto (ex.: "3 de 4", "R$ 12 mil", "48h"). É a palavra que vira gráfico no slide. Nunca repita o título inteiro.
-- prompt_imagem: prompt EM INGLÊS para gerador de imagem, descrevendo uma cena conceitual, fotográfica ou abstrata que combine com o slide. Sem texto na imagem, sem logotipos, sem rostos famosos. Sempre termine com: "editorial photography, high contrast, cinematic lighting, negative space".
+- prompt_imagem: prompt EM INGLÊS para gerador de imagem. O padrão que funciona no Instagram é FOTO REALISTA DE PESSOA — o profissional do nicho, o cliente ideal, ou alguém vivendo a situação do slide. Descreva: quem é a pessoa (idade aproximada, aparência brasileira, roupa coerente com o nicho), a expressão, o cenário e a luz. Composição com a pessoa de um lado e ESPAÇO VAZIO do outro/embaixo, porque o texto entra por cima. Sem nenhum texto na imagem, sem logotipos, sem pessoas famosas, sem colagem. Quando a ideia do slide for abstrata demais para uma pessoa, use objeto ou cena real do dia a dia do nicho — nunca ilustração genérica de banco de imagem. Sempre termine com: "shot on 85mm, editorial photography, natural skin texture, cinematic lighting, shallow depth of field, negative space for text".
 
 LEGENDA:
 - Abre com uma linha que repete o gancho de outro jeito, desenvolve em 3 a 6 linhas curtas com quebra de linha dupla, e fecha com o CTA + pergunta para comentário.

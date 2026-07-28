@@ -113,7 +113,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   const [tituloProjeto, setTituloProjeto] = useState("");
 
   // Design
-  const [layout, setLayout] = useState<LayoutId>("editorial");
+  const [layout, setLayout] = useState<LayoutId>("vidro");
   const [formatId, setFormatId] = useState<FormatId>("4:5");
   const [fontPair, setFontPair] = useState<FontPairId>("editorial");
   const [paleta, setPaleta] = useState(PALETTES[0]);
@@ -130,6 +130,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   const [aba, setAba] = useState<Aba>("roteiro");
   const [ativo, setAtivo] = useState(0);
   const [gerandoImg, setGerandoImg] = useState<number | null>(null);
+  const [gerandoTodasImgs, setGerandoTodasImgs] = useState(false);
   const [reescrevendo, setReescrevendo] = useState<number | null>(null);
   const [baixando, setBaixando] = useState(false);
   const [fontesOk, setFontesOk] = useState(false);
@@ -466,12 +467,24 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
       const img = await loadImage(url);
       if (img) imgCache.current.set(url, img);
       setSlides((prev) => prev.map((old, idx) => (idx === i ? { ...old, imagem: url } : old)));
-      if (layout !== "foto" && layout !== "revista") setLayout("foto");
       toast.success("Imagem gerada.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao gerar imagem.");
     } finally {
       setGerandoImg(null);
+    }
+  };
+
+  const gerarImagensDeTodos = async () => {
+    setGerandoTodasImgs(true);
+    try {
+      for (let i = 0; i < slides.length; i++) {
+        if (slides[i].imagem) continue;
+        await gerarImagem(i);
+      }
+      toast.success("Imagens geradas para o carrossel inteiro.");
+    } finally {
+      setGerandoTodasImgs(false);
     }
   };
 
@@ -944,6 +957,17 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                   </div>
                 );
               })}
+
+              <button onClick={gerarImagensDeTodos} disabled={gerandoTodasImgs || gerandoImg !== null}
+                className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[12px] font-bold"
+                style={{
+                  background: gerandoTodasImgs ? "rgba(255,255,255,0.05)" : `${LIME}16`,
+                  border: `1px solid ${gerandoTodasImgs ? "rgba(255,255,255,0.1)" : `${LIME}45`}`,
+                  color: gerandoTodasImgs ? "rgba(255,255,255,0.4)" : LIME,
+                }}>
+                {gerandoTodasImgs ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ImageIcon className="w-3.5 h-3.5" />}
+                {gerandoTodasImgs ? "Gerando as fotos..." : "Gerar foto para todos os slides"}
+              </button>
 
               <button onClick={addSlide}
                 className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[12px] font-semibold"
