@@ -10,6 +10,7 @@ import { useClients } from "@/contexts/ClientsContext";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import AgencyAlerts from "@/components/AgencyAlerts";
 
 const LIME = "#B9FF4B";
 
@@ -247,6 +248,9 @@ export default function AgencyDashboard() {
             </div>
           ))}
         </motion.div>
+
+        {/* Pendências reais da operação, lidas do banco */}
+        <AgencyAlerts />
 
         {/* ── Agentes da Agência ── */}
         <motion.div

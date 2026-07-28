@@ -6,7 +6,9 @@ import {
   Sparkles, Wand2, Download, Copy, Image as ImageIcon, Trash2, Plus,
   ChevronLeft, ChevronRight, Loader2, RefreshCw, Palette, Type, LayoutGrid,
   FileText, Lightbulb, Upload, X, CalendarClock, Send, CheckCircle2, Link2, Brain, TrendingUp,
+  Zap, Library, FolderOpen, Plus as PlusIcon, Package,
 } from "lucide-react";
+import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
 import { useClients } from "@/contexts/ClientsContext";
 import {
@@ -22,6 +24,7 @@ type Objetivo = "autoridade" | "educar" | "vender" | "engajar" | "lancamento";
 type Aba = "roteiro" | "design" | "legenda" | "agendar";
 
 interface Ideia { tema: string; gancho: string; formato: string; porque: string }
+interface Skill { id: string; tipo: "copy" | "design"; nome: string; resumo: string; instrucoes: string; nativa: boolean }
 interface Direcao {
   nome: string; referencia: string; porque: string;
   layout: LayoutId; fonte: FontPairId; bg: string; fg: string; accent: string;
@@ -142,6 +145,16 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   const [direcoes, setDirecoes] = useState<Direcao[]>([]);
   const [direcaoAtiva, setDirecaoAtiva] = useState<string | null>(null);
   const [buscandoDirecao, setBuscandoDirecao] = useState(false);
+  const [lendoReferencia, setLendoReferencia] = useState(false);
+  const [modoAuto, setModoAuto] = useState<string | null>(null);
+  const [mostrarBiblioteca, setMostrarBiblioteca] = useState(false);
+  const [novaSkill, setNovaSkill] = useState<{ tipo: "copy" | "design"; nome: string; resumo: string; instrucoes: string } | null>(null);
+  const [salvandoSkill, setSalvandoSkill] = useState(false);
+  const [skills, setSkills] = useState<Skill[]>([]);
+  const [skillsAtivas, setSkillsAtivas] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem(`carrossel-skills-${clientIdInicial}`) ?? "[]"); }
+    catch { return []; }
+  });
   const [usarBen, setUsarBen] = useState(true);
 
   // Agendamento
@@ -156,6 +169,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   const mainRef = useRef<HTMLCanvasElement | null>(null);
   const thumbRefs = useRef<(HTMLCanvasElement | null)[]>([]);
   const fileRef = useRef<HTMLInputElement | null>(null);
+  const refRef = useRef<HTMLInputElement | null>(null);
   const imgCache = useRef<Map<string, HTMLImageElement>>(new Map());
   const [logoImg, setLogoImg] = useState<HTMLImageElement | null>(null);
   const [imgTick, setImgTick] = useState(0);
@@ -290,6 +304,26 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     }
   };
 
+  useEffect(() => {
+    let vivo = true;
+    (supabase as any)
+      .from("content_skills")
+      .select("id, tipo, nome, resumo, instrucoes, nativa")
+      .order("nativa", { ascending: false })
+      .order("nome")
+      .then(({ data }: { data: Skill[] | null }) => { if (vivo) setSkills(data ?? []); });
+    return () => { vivo = false; };
+  }, []);
+
+  useEffect(() => {
+    try { localStorage.setItem(`carrossel-skills-${clienteId}`, JSON.stringify(skillsAtivas)); } catch { /* ignore */ }
+  }, [skillsAtivas, clienteId]);
+
+  const skillsParaIA = (tipo?: "copy" | "design") =>
+    skills
+      .filter((k) => skillsAtivas.includes(k.id) && (!tipo || k.tipo === tipo))
+      .map((k) => `${k.nome}: ${k.instrucoes}`);
+
   const chamarDiretorDeArte = async () => {
     setBuscandoDirecao(true);
     try {
@@ -300,6 +334,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           tema,
           corMarca: accent,
           benTrends: benParaIA(),
+          skills: skillsParaIA("design"),
           ...contextoCliente(),
         },
       });
@@ -316,6 +351,58 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     }
   };
 
+  /** Reduz a imagem antes de mandar para a IA — print de celular é pesado. */
+  const prepararReferencia = (file: File): Promise<{ base64: string; mediaType: string }> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          const max = 1100;
+          const escala = Math.min(1, max / Math.max(img.width, img.height));
+          const c = document.createElement("canvas");
+          c.width = Math.round(img.width * escala);
+          c.height = Math.round(img.height * escala);
+          c.getContext("2d")?.drawImage(img, 0, 0, c.width, c.height);
+          const dataUrl = c.toDataURL("image/jpeg", 0.85);
+          resolve({ base64: dataUrl.split(",")[1], mediaType: "image/jpeg" });
+        };
+        img.onerror = () => reject(new Error("Não consegui ler essa imagem."));
+        img.src = String(reader.result);
+      };
+      reader.onerror = () => reject(new Error("Não consegui ler essa imagem."));
+      reader.readAsDataURL(file);
+    });
+
+  const lerReferencia = async (file: File) => {
+    setLendoReferencia(true);
+    try {
+      const { base64, mediaType } = await prepararReferencia(file);
+      const { data, error } = await supabase.functions.invoke("carousel-studio", {
+        body: {
+          action: "referencia",
+          imagem: base64,
+          mediaType,
+          nicho: cliente?.industry || "",
+          corMarca: accent,
+          skills: skillsParaIA("design"),
+          ...contextoCliente(),
+        },
+      });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(data.error);
+      const lista: Direcao[] = data.direcoes ?? [];
+      if (!lista.length) throw new Error("Não consegui extrair uma direção dessa imagem.");
+      setDirecoes(lista);
+      aplicarDirecao(lista[0]);
+      toast.success("Referência lida — direção aplicada.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao ler a referência.");
+    } finally {
+      setLendoReferencia(false);
+    }
+  };
+
   const aplicarDirecao = (d: Direcao) => {
     setLayout(d.layout);
     setFontPair(d.fonte);
@@ -324,6 +411,96 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     setAccent(d.accent);
     setDirecaoAtiva(d.nome);
     toast.success(`Direção "${d.nome}" aplicada.`);
+  };
+
+  /** Faz o carrossel inteiro sozinha: roteiro, direção de arte e fotos. */
+  const fazerTudoSozinha = async () => {
+    if (!tema.trim()) { toast.error("Escreva o tema (ou peça uma pauta) antes."); return; }
+    try {
+      setModoAuto("Escrevendo o roteiro...");
+      await gerar();
+
+      setModoAuto("Definindo a direção de arte...");
+      const { data: dir } = await supabase.functions.invoke("carousel-studio", {
+        body: {
+          action: "direcao",
+          nicho: cliente?.industry || "",
+          tema,
+          corMarca: accent,
+          benTrends: benParaIA(),
+          skills: skillsParaIA("design"),
+          ...contextoCliente(),
+        },
+      });
+      const direcoesAuto: Direcao[] = dir?.direcoes ?? [];
+      if (direcoesAuto.length) {
+        setDirecoes(direcoesAuto);
+        aplicarDirecao(direcoesAuto[0]);
+      }
+      setModoAuto(null);
+      toast.success("Pronto. Confira o roteiro e gere as fotos quando quiser.");
+    } catch (e) {
+      setModoAuto(null);
+      toast.error(e instanceof Error ? e.message : "Erro no modo automático.");
+    }
+  };
+
+  const criarSkill = async () => {
+    if (!novaSkill?.nome.trim() || !novaSkill.instrucoes.trim()) {
+      toast.error("A skill precisa de nome e instruções.");
+      return;
+    }
+    setSalvandoSkill(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Sessão expirada.");
+      const { data, error } = await (supabase as any).from("content_skills").insert({
+        user_id: session.user.id,
+        tipo: novaSkill.tipo,
+        nome: novaSkill.nome.trim(),
+        resumo: novaSkill.resumo.trim() || novaSkill.nome.trim(),
+        instrucoes: novaSkill.instrucoes.trim(),
+        nativa: false,
+      }).select().single();
+      if (error) throw error;
+      setSkills((p) => [...p, data as Skill]);
+      setSkillsAtivas((p) => [...p, (data as Skill).id]);
+      setNovaSkill(null);
+      toast.success("Skill criada e ativada.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao criar a skill.");
+    } finally {
+      setSalvandoSkill(false);
+    }
+  };
+
+  /** Reabre um conteúdo da biblioteca do cliente. */
+  const abrirDaBiblioteca = async (id: string) => {
+    const { data, error } = await (supabase as any)
+      .from("carousel_memory")
+      .select("*")
+      .eq("id", id)
+      .maybeSingle();
+    if (error || !data) { toast.error("Não consegui abrir esse conteúdo."); return; }
+
+    setSlides((data.slides ?? []) as SlideData[]);
+    setLegenda(data.legenda ?? "");
+    setHashtags((data.hashtags ?? []) as string[]);
+    setAngulo(data.angulo ?? "");
+    setTema(data.tema ?? "");
+    setTituloProjeto(data.tema ?? "");
+    setMemoriaId(id);
+    const d = data.design ?? {};
+    if (d.layout) setLayout(d.layout);
+    if (d.fontPair) setFontPair(d.fontPair);
+    if (d.bg) setBg(d.bg);
+    if (d.fg) setFg(d.fg);
+    if (d.accent) setAccent(d.accent);
+    if (d.formatId) setFormatId(d.formatId);
+    setAtivo(0);
+    setAba("roteiro");
+    setMostrarBiblioteca(false);
+    toast.success("Conteúdo reaberto.");
   };
 
   const historicoParaIA = () =>
@@ -360,6 +537,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           plataforma: formatId === "9:16" ? "Instagram Stories" : "Instagram",
           benTrends: benParaIA(),
           historico: historicoParaIA(),
+          skills: skillsParaIA("copy"),
           ...ctx,
         },
       });
@@ -391,6 +569,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
             slides: novos,
             legenda: data.legenda ?? "",
             hashtags: data.hashtags ?? [],
+            design: { layout, fontPair, bg, fg, accent, formatId },
           }).select("id").single();
           if (salvo?.id) setMemoriaId(salvo.id as string);
           carregarMemoria();
@@ -551,6 +730,32 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     a.download = nomeArquivo(i);
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+  };
+
+  const baixarZip = async () => {
+    setBaixando(true);
+    try {
+      await ensureFonts();
+      const zip = new JSZip();
+      for (let i = 0; i < slides.length; i++) {
+        const canvas = document.createElement("canvas");
+        renderSlide(canvas, opcoesBase(i));
+        const blob = await canvasToBlob(canvas);
+        if (blob) zip.file(nomeArquivo(i), blob);
+      }
+      if (legendaCompleta.trim()) zip.file("legenda.txt", legendaCompleta);
+      const arquivo = await zip.generateAsync({ type: "blob" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(arquivo);
+      a.download = `${(tituloProjeto || tema || "carrossel").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9]+/g, "-").slice(0, 40)}.zip`;
+      a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 6000);
+      toast.success("ZIP com as artes e a legenda baixado.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao gerar o ZIP.");
+    } finally {
+      setBaixando(false);
+    }
   };
 
   const baixarTodos = async () => {
@@ -766,6 +971,91 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                 </Campo>
               </div>
 
+              {clienteId && memoria.length > 0 && (
+                <button onClick={() => setMostrarBiblioteca(true)}
+                  className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all"
+                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <span className="flex items-center gap-2 text-[12px] font-semibold" style={{ color: "#E6E6E6" }}>
+                    <Library className="w-3.5 h-3.5" style={{ color: LIME }} />
+                    Biblioteca de {cliente?.name ?? "cliente"}
+                  </span>
+                  <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
+                    {memoria.length} {memoria.length === 1 ? "conteúdo" : "conteúdos"} →
+                  </span>
+                </button>
+              )}
+
+              <Campo label="Skills de copy e design">
+                <div className="space-y-2">
+                  {(["copy", "design"] as const).map((tipo) => (
+                    <div key={tipo}>
+                      <div className="text-[9px] uppercase tracking-widest mb-1" style={{ color: "rgba(255,255,255,0.28)" }}>
+                        {tipo === "copy" ? "escrita" : "arte"}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {skills.filter((k) => k.tipo === tipo).map((k) => {
+                          const on = skillsAtivas.includes(k.id);
+                          return (
+                            <button key={k.id} title={k.resumo}
+                              onClick={() => setSkillsAtivas((p) => on ? p.filter((x) => x !== k.id) : [...p, k.id])}
+                              className="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all"
+                              style={{
+                                background: on ? `${LIME}1E` : "rgba(255,255,255,0.04)",
+                                border: `1px solid ${on ? `${LIME}5A` : "rgba(255,255,255,0.09)"}`,
+                                color: on ? LIME : "rgba(255,255,255,0.5)",
+                              }}>
+                              {k.nome}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                  {skillsAtivas.length > 0 && (
+                    <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>
+                      {skills.filter((k) => skillsAtivas.includes(k.id)).map((k) => k.resumo).join(" · ")}
+                    </div>
+                  )}
+
+                  {novaSkill ? (
+                    <div className="rounded-xl p-3 space-y-2" style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${LIME}40` }}>
+                      <div className="flex gap-1.5">
+                        {(["copy", "design"] as const).map((t) => (
+                          <Chip key={t} ativo={novaSkill.tipo === t} onClick={() => setNovaSkill({ ...novaSkill, tipo: t })}>
+                            {t === "copy" ? "escrita" : "arte"}
+                          </Chip>
+                        ))}
+                      </div>
+                      <input value={novaSkill.nome} onChange={(e) => setNovaSkill({ ...novaSkill, nome: e.target.value })}
+                        placeholder="Nome da skill" style={{ ...inputStyle, fontSize: 13 }} />
+                      <input value={novaSkill.resumo} onChange={(e) => setNovaSkill({ ...novaSkill, resumo: e.target.value })}
+                        placeholder="Resumo em uma linha" style={{ ...inputStyle, fontSize: 12 }} />
+                      <textarea value={novaSkill.instrucoes} onChange={(e) => setNovaSkill({ ...novaSkill, instrucoes: e.target.value })}
+                        rows={4} placeholder="Instruções para a IA: como escrever ou como desenhar. Quanto mais específico, melhor."
+                        style={{ ...inputStyle, resize: "none", fontSize: 12 }} />
+                      <div className="flex gap-1.5">
+                        <button onClick={criarSkill} disabled={salvandoSkill}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-bold"
+                          style={{ background: LIME, color: "#07080A" }}>
+                          {salvandoSkill ? <Loader2 className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
+                          Salvar skill
+                        </button>
+                        <button onClick={() => setNovaSkill(null)}
+                          className="px-3 py-2 rounded-lg text-[11px] font-semibold"
+                          style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)" }}>
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button onClick={() => setNovaSkill({ tipo: "copy", nome: "", resumo: "", instrucoes: "" })}
+                      className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: "rgba(255,255,255,0.45)" }}>
+                      <PlusIcon className="w-3 h-3" /> Criar uma skill minha
+                    </button>
+                  )}
+                </div>
+              </Campo>
+
               {clienteId && (
                 <div className="rounded-xl p-3.5 space-y-3"
                   style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
@@ -827,14 +1117,29 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                 </div>
               )}
 
-              <button
-                onClick={gerar} disabled={gerando}
-                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold transition-all"
-                style={{ background: gerando ? "rgba(185,255,75,0.4)" : LIME, color: "#07080A", boxShadow: "0 0 30px -6px rgba(185,255,75,0.4)" }}
-              >
-                {gerando ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
-                {gerando ? "Escrevendo o roteiro..." : formato === "post" ? "Criar post" : "Criar carrossel"}
-              </button>
+              <div className="space-y-2">
+                <button
+                  onClick={fazerTudoSozinha} disabled={gerando || !!modoAuto}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-bold transition-all"
+                  style={{ background: (gerando || modoAuto) ? "rgba(185,255,75,0.4)" : LIME, color: "#07080A", boxShadow: "0 0 30px -6px rgba(185,255,75,0.4)" }}
+                >
+                  {(gerando || modoAuto) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+                  {modoAuto ?? (gerando ? "Escrevendo o roteiro..." : "Fazer tudo sozinha")}
+                </button>
+
+                <button
+                  onClick={gerar} disabled={gerando || !!modoAuto}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 rounded-xl text-[13px] font-semibold transition-all"
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.7)" }}
+                >
+                  <Wand2 className="w-3.5 h-3.5" />
+                  {formato === "post" ? "Só escrever o post" : "Só escrever o roteiro"}
+                </button>
+
+                <p className="text-[10px] text-center" style={{ color: "rgba(255,255,255,0.3)" }}>
+                  No automático ela escreve o roteiro e já define a direção de arte. As fotos você gera no passo seguinte.
+                </p>
+              </div>
             </div>
           </motion.div>
         </div>
@@ -861,11 +1166,19 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
             style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)" }}>
             Novo conteúdo
           </button>
-          <button onClick={baixarTodos} disabled={baixando}
+          {slides.length > 1 && (
+            <button onClick={baixarTodos} disabled={baixando}
+              className="flex items-center gap-2 px-3 py-2 rounded-xl text-[12px] font-semibold"
+              style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.65)" }}>
+              <Download className="w-3.5 h-3.5" />
+              PNGs soltos
+            </button>
+          )}
+          <button onClick={baixarZip} disabled={baixando}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-[12px] font-bold"
             style={{ background: LIME, color: "#07080A" }}>
-            {baixando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
-            Baixar {slides.length > 1 ? `${slides.length} PNGs` : "PNG"}
+            {baixando ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Package className="w-3.5 h-3.5" />}
+            Baixar ZIP
           </button>
         </div>
       </div>
@@ -999,13 +1312,20 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                       Direções baseadas em marcas de referência do segmento
                     </div>
                   </div>
-                  <button onClick={chamarDiretorDeArte} disabled={buscandoDirecao}
+                  <button onClick={chamarDiretorDeArte} disabled={buscandoDirecao || lendoReferencia}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-bold flex-shrink-0"
                     style={{ background: buscandoDirecao ? "rgba(255,255,255,0.06)" : LIME, color: buscandoDirecao ? "rgba(255,255,255,0.4)" : "#07080A" }}>
                     {buscandoDirecao ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
                     {direcoes.length ? "De novo" : "Criar direções"}
                   </button>
                 </div>
+
+                <button onClick={() => refRef.current?.click()} disabled={lendoReferencia || buscandoDirecao}
+                  className="w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-[11px] font-semibold"
+                  style={{ background: "rgba(255,255,255,0.05)", border: "1px dashed rgba(255,255,255,0.2)", color: "rgba(255,255,255,0.6)" }}>
+                  {lendoReferencia ? <Loader2 className="w-3 h-3 animate-spin" /> : <ImageIcon className="w-3 h-3" />}
+                  {lendoReferencia ? "Lendo a referência..." : "Subir referência do Pinterest / Behance"}
+                </button>
 
                 {direcoes.map((d) => {
                   const ativa = direcaoAtiva === d.nome;
@@ -1342,6 +1662,59 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
 
       <input ref={fileRef} type="file" accept="image/*" className="hidden"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) subirImagem(ativo, f); e.target.value = ""; }} />
+      <input ref={refRef} type="file" accept="image/*" className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) lerReferencia(f); e.target.value = ""; }} />
+
+      {/* ── Biblioteca do cliente ── */}
+      {mostrarBiblioteca && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-5"
+          style={{ background: "rgba(0,0,0,0.86)", backdropFilter: "blur(10px)" }}
+          onClick={() => setMostrarBiblioteca(false)}>
+          <div onClick={(e) => e.stopPropagation()}
+            className="w-full rounded-2xl overflow-hidden flex flex-col"
+            style={{ maxWidth: 620, maxHeight: "82vh", background: "#0D0F12", border: "1px solid rgba(255,255,255,0.1)" }}>
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+              <div className="flex items-center gap-2">
+                <Library className="w-4 h-4" style={{ color: LIME }} />
+                <span className="text-sm font-bold" style={{ color: "#F0F0F0" }}>
+                  Biblioteca de {cliente?.name ?? "cliente"}
+                </span>
+              </div>
+              <button onClick={() => setMostrarBiblioteca(false)} className="p-1.5 rounded-lg"
+                style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}>
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            <div className="overflow-y-auto p-4 space-y-2">
+              {memoria.length === 0 && (
+                <div className="text-[12px] text-center py-8" style={{ color: "rgba(255,255,255,0.35)" }}>
+                  Nenhum conteúdo criado ainda para este cliente.
+                </div>
+              )}
+              {memoria.map((m) => (
+                <button key={m.id} onClick={() => abrirDaBiblioteca(m.id)}
+                  className="w-full text-left rounded-xl p-3.5 transition-all"
+                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.borderColor = `${LIME}55`)}
+                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)")}>
+                  <div className="flex items-start justify-between gap-3">
+                    <span className="text-[13px] font-semibold" style={{ color: "#EDEDED" }}>{m.tema}</span>
+                    <span className="text-[10px] flex-shrink-0 mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>
+                      {new Date(m.created_at).toLocaleDateString("pt-BR")}
+                    </span>
+                  </div>
+                  {m.angulo && (
+                    <div className="text-[11px] mt-1 leading-relaxed" style={{ color: "rgba(255,255,255,0.42)" }}>{m.angulo}</div>
+                  )}
+                  <div className="flex items-center gap-1.5 mt-2 text-[10px] font-semibold" style={{ color: LIME }}>
+                    <FolderOpen className="w-3 h-3" /> abrir e editar
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

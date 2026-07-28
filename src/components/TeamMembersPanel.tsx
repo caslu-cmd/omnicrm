@@ -2,13 +2,20 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Plus, Copy, Trash2, Users, CheckCircle, Clock, Crown, TrendingUp } from "lucide-react";
 import { toast } from "sonner";
+import { TEAM_ROLES, papelDoMembro } from "@/lib/teamRoles";
 
 const APP_URL = "https://caluagencia.com.br";
 
-const ROLES = [
-  { id: "comercial", label: "Comercial", icon: TrendingUp, color: "#B9FF4B", desc: "Vê leads, contatos e pipeline" },
-  { id: "financeiro", label: "Financeiro", icon: Crown, color: "#FBBF24", desc: "Vê dados financeiros e status de pagamento" },
-];
+// Papéis e o que cada um enxerga vêm de um lugar só (src/lib/teamRoles.ts),
+// o mesmo que o portal usa para montar as abas — assim o que é prometido aqui
+// é exatamente o que a pessoa recebe lá.
+const ICONES: Record<string, typeof Crown> = {
+  gestor: Crown,
+  comercial: TrendingUp,
+  atendimento: Users,
+};
+
+const ROLES = TEAM_ROLES.map((r) => ({ ...r, icon: ICONES[r.id] ?? Users }));
 
 interface Member {
   id: string;
@@ -179,7 +186,9 @@ export default function TeamMembersPanel({ clientId }: { clientId: string }) {
       ) : (
         <div className="space-y-3">
           {members.map(m => {
-            const roleInfo = ROLES.find(r => r.id === m.role) ?? ROLES[0];
+            // resolve inclusive papéis antigos (ex.: "financeiro")
+            const papel = papelDoMembro(m.role);
+            const roleInfo = ROLES.find(r => r.id === papel.id) ?? ROLES[0];
             return (
               <div key={m.id} className="rounded-2xl p-5"
                 style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>

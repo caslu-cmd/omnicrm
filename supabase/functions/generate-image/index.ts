@@ -5,29 +5,43 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const RATIO_MAP: Record<string, string> = {
-  "1:1":  "ASPECT_1_1",
-  "3:4":  "ASPECT_3_4",
-  "4:3":  "ASPECT_4_3",
-  "9:16": "ASPECT_9_16",
-  "16:9": "ASPECT_16_9",
-  "4:5":  "ASPECT_3_4",
-};
+/**
+ * Geração de imagem da Calu Agência.
+ *
+ * Motor: OpenAI (gpt-image-1, com queda para dall-e-3 quando a organização
+ * ainda não tem acesso ao gpt-image-1). O Ideogram saiu a pedido da Carol.
+ *
+ * Dois modos:
+ *  - `prompt` preenchido  → usa o prompt como veio (é o caso do Estúdio de
+ *    Carrossel, que quer FOTO limpa, sem texto, para o texto entrar no canvas).
+ *  - só `beatrizCopy`     → o Claude monta um briefing de arte antes de gerar.
+ */
 
-function normalizeRatio(r: string, prompt: string): string {
+type Ratio = "1:1" | "3:4" | "4:3" | "9:16" | "16:9" | "4:5";
+
+function normalizeRatio(r: string, prompt: string): Ratio {
   const v = String(r || "").trim();
   if (!v || v === "auto") {
     const d = prompt.toLowerCase();
     if (d.includes("stories") || d.includes("reels") || d.includes("tiktok")) return "9:16";
     if (d.includes("banner") || d.includes("youtube")) return "16:9";
-    if (d.includes("slide")) return "4:3";
     if (d.includes("quadrado") || d.includes("square")) return "1:1";
     return "3:4";
   }
-  return RATIO_MAP[v] ? v : "3:4";
+  return (["1:1", "3:4", "4:3", "9:16", "16:9", "4:5"].includes(v) ? v : "3:4") as Ratio;
 }
 
-async function buildDesignPromptWithClaude(
+/** A OpenAI só aceita três proporções — escolhemos a mais próxima. */
+function sizeFor(ratio: Ratio, modelo: "gpt-image-1" | "dall-e-3"): string {
+  const retrato = ratio === "3:4" || ratio === "9:16" || ratio === "4:5";
+  const paisagem = ratio === "16:9" || ratio === "4:3";
+  if (modelo === "dall-e-3") {
+    return retrato ? "1024x1792" : paisagem ? "1792x1024" : "1024x1024";
+  }
+  return retrato ? "1024x1536" : paisagem ? "1536x1024" : "1024x1024";
+}
+
+async function briefingComClaude(
   userRequest: string,
   clientContext: Record<string, unknown>,
   beatrizCopy: string,
@@ -35,41 +49,32 @@ async function buildDesignPromptWithClaude(
   benTrends: string,
   anthropicKey: string,
 ): Promise<string> {
-  const brandColor   = String(clientContext.brandColor ?? "");
-  const brandName    = String(clientContext.name ?? "marca");
-  const industry     = String(clientContext.industry ?? "negócio");
-  const secondaryColor = (clientContext.brandColors as any)?.secondary ?? "";
-  const logoUrl      = String(clientContext.logoUrl ?? "");
+  const brandColor = String(clientContext.brandColor ?? "");
+  const brandName = String(clientContext.name ?? "marca");
+  const industry = String(clientContext.industry ?? "negócio");
 
-  const systemMsg = `You are Marcela, a senior art director at a Brazilian digital marketing agency.
-Your job: write a detailed Ideogram AI prompt in English that generates a complete, ready-to-publish social media post — with text, design, and branding.
+  const systemMsg = `You are a senior art director at a Brazilian agency.
+Write ONE image-generation prompt in English for a social media visual.
 
-RULES (follow strictly):
-1. Ideogram V2 renders text PERFECTLY. You MUST include the post headline as quoted text directly in the prompt.
-2. Extract the strongest headline from the copy (max 7 words, keep it in Portuguese). Put it in quotes like: "Sua Headline Aqui"
-3. If a CTA exists in the copy (e.g. "Inscreva-se", "Saiba mais"), include it too as a smaller quoted label.
-4. The design must feel like a real social media creative: bold headline on top, supporting visual behind, accent color.
-5. Brand accent color: ${brandColor || "vibrant brand color"}${secondaryColor ? ` + secondary ${secondaryColor}` : ""}. These colors MUST appear in the design.
-6. Industry: ${industry} — brand: ${brandName}.
-7. Style: modern, professional, bold typography, high contrast. Think award-winning Brazilian agency work.
-8. No stock-photo clichés. Specific, conceptual, purposeful composition.
-9. End your prompt with: sharp text rendering, professional graphic design, social media ready.
+RULES:
+1. Photographic and realistic. Real people, real scenes, natural skin texture. No 3D renders, no clip art, no stock-photo clichés.
+2. Describe subject, expression, wardrobe, setting and lighting. Brazilian people when a person appears.
+3. Composition must leave clear NEGATIVE SPACE for text overlay.
+4. Brand accent color ${brandColor || "vibrant"} should appear in the scene (wardrobe, prop or light), never as a graphic overlay.
+5. NO text, NO letters, NO logos, NO watermarks in the image.
+6. End with: shot on 85mm, editorial photography, natural skin texture, cinematic lighting, shallow depth of field, negative space for text.
 
-PROMPT STRUCTURE TO FOLLOW:
-Social media post design, bold headline text "[HEADLINE IN PORTUGUESE]" in [font style] typography, [optional smaller CTA text "[CTA]"], [background: scene/gradient/abstract with brand color], [mood/style], [composition], sharp text rendering, professional graphic design, social media ready.
-
-Brand context: ${brandName} | ${industry} | accent color ${brandColor}`;
+Context: ${brandName} | ${industry}`;
 
   const userMsg = [
-    beatrizCopy   ? `COPY DA BEATRIZ (use o headline e CTA daqui):\n${beatrizCopy.slice(0, 900)}` : "",
+    beatrizCopy ? `COPY:\n${beatrizCopy.slice(0, 900)}` : "",
     carolinaStrategy ? `ESTRATÉGIA:\n${carolinaStrategy.slice(0, 300)}` : "",
-    benTrends     ? `TENDÊNCIAS DO BEN:\n${benTrends.slice(0, 250)}` : "",
-    `PEDIDO DO USUÁRIO: ${userRequest}`,
+    benTrends ? `TENDÊNCIAS:\n${benTrends.slice(0, 250)}` : "",
+    `PEDIDO: ${userRequest}`,
   ].filter(Boolean).join("\n\n---\n\n");
 
-  let res: Response | null = null;
   for (let attempt = 0; attempt < 3; attempt++) {
-    if (attempt > 0) await new Promise(r => setTimeout(r, 1500 * attempt));
+    if (attempt > 0) await new Promise((r) => setTimeout(r, 1200 * attempt));
     const r = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -84,66 +89,62 @@ Brand context: ${brandName} | ${industry} | accent color ${brandColor}`;
         messages: [{ role: "user", content: userMsg }],
       }),
     });
-    if (r.status === 529) continue;
-    res = r; break;
+    if (r.status === 429 || r.status === 529 || r.status >= 500) continue;
+    if (!r.ok) return userRequest;
+    const data = await r.json();
+    return data.content?.[0]?.text?.trim() ?? userRequest;
   }
-  if (!res || !res.ok) return userRequest;
-  const data = await res.json();
-  return data.content?.[0]?.text?.trim() ?? userRequest;
+  return userRequest;
 }
 
-function toBase64Chunked(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  const chunkSize = 8192;
-  let binary = "";
-  for (let i = 0; i < bytes.length; i += chunkSize) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
-  }
-  return btoa(binary);
-}
-
-async function generateWithIdeogram(
+async function gerarNaOpenAI(
   prompt: string,
-  aspectRatio: string,
-  ideogramKey: string,
-): Promise<{ imageData: string; mimeType: string; imageUrl: string }> {
-  const ratio = normalizeRatio(aspectRatio, prompt);
-  const ideogramRatio = RATIO_MAP[ratio] ?? "ASPECT_3_4";
+  ratio: Ratio,
+  openaiKey: string,
+): Promise<{ imageData: string; mimeType: string; modelo: string }> {
+  const tentativas: Array<"gpt-image-1" | "dall-e-3"> = ["gpt-image-1", "dall-e-3"];
+  let ultimoErro = "";
 
-  const res = await fetch("https://api.ideogram.ai/generate", {
-    method: "POST",
-    headers: {
-      "Api-Key": ideogramKey,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      image_request: {
-        prompt,
-        aspect_ratio: ideogramRatio,
-        model: "V_2",
-        magic_prompt_option: "OFF",
+  for (const modelo of tentativas) {
+    const body: Record<string, unknown> = {
+      model: modelo,
+      prompt,
+      n: 1,
+      size: sizeFor(ratio, modelo),
+    };
+    if (modelo === "gpt-image-1") {
+      body.quality = "medium";
+    } else {
+      body.quality = "hd";
+      body.response_format = "b64_json";
+    }
+
+    const res = await fetch("https://api.openai.com/v1/images/generations", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${openaiKey}`,
+        "Content-Type": "application/json",
       },
-    }),
-  });
+      body: JSON.stringify(body),
+    });
 
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Ideogram error ${res.status}: ${err}`);
+    if (!res.ok) {
+      ultimoErro = `${modelo}: ${(await res.text()).slice(0, 300)}`;
+      // 403/404 costuma ser organização sem acesso ao modelo: tenta o próximo.
+      if (res.status === 403 || res.status === 404 || res.status === 400) continue;
+      throw new Error(ultimoErro);
+    }
+
+    const data = await res.json();
+    const b64: string | undefined = data?.data?.[0]?.b64_json;
+    if (!b64) {
+      ultimoErro = `${modelo}: resposta sem imagem`;
+      continue;
+    }
+    return { imageData: b64, mimeType: "image/png", modelo };
   }
 
-  const data = await res.json();
-  const imageUrl: string = data.data?.[0]?.url ?? "";
-
-  if (!imageUrl) throw new Error("Ideogram returned no image URL");
-
-  const imgRes = await fetch(imageUrl);
-  if (!imgRes.ok) throw new Error(`Failed to fetch generated image: ${imgRes.status}`);
-
-  const buffer = await imgRes.arrayBuffer();
-  const mimeType = imgRes.headers.get("content-type") ?? "image/jpeg";
-  const imageData = toBase64Chunked(buffer);
-
-  return { imageData, mimeType, imageUrl };
+  throw new Error(`Não consegui gerar a imagem. ${ultimoErro}`);
 }
 
 Deno.serve(async (req) => {
@@ -159,54 +160,53 @@ Deno.serve(async (req) => {
       benTrends = "",
     } = await req.json();
 
-    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY") || Deno.env.get("LOVABLE_API_KEY");
-    const ideogramKey  = Deno.env.get("IDEOGRAM_API_KEY");
+    const openaiKey = Deno.env.get("OPENAI_API_KEY");
+    const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
 
-    if (!anthropicKey) {
-      return new Response(JSON.stringify({ error: "ANTHROPIC_API_KEY não configurada" }), {
-        status: 500, headers: { ...cors, "Content-Type": "application/json" },
-      });
-    }
-
-    if (!prompt && !beatrizCopy) {
-      return new Response(JSON.stringify({ error: "prompt ou beatrizCopy obrigatório" }), {
-        status: 400, headers: { ...cors, "Content-Type": "application/json" },
-      });
-    }
-
-    // Step 1: Claude builds the professional design prompt with text
-    const finalPrompt = await buildDesignPromptWithClaude(
-      prompt || "criar post para redes sociais",
-      clientContext,
-      beatrizCopy,
-      carolinaStrategy,
-      benTrends,
-      anthropicKey,
-    );
-
-    // Step 2: If no Ideogram key, return the briefing
-    if (!ideogramKey) {
+    if (!openaiKey) {
       return new Response(
-        JSON.stringify({
-          success: false,
-          briefing: finalPrompt,
-          message: "IDEOGRAM_API_KEY não configurada. Configure a chave no painel do Supabase → Edge Functions → Secrets.",
-        }),
-        { headers: { ...cors, "Content-Type": "application/json" } },
+        JSON.stringify({ error: "OPENAI_API_KEY não configurada nas secrets do Supabase." }),
+        { status: 500, headers: { ...cors, "Content-Type": "application/json" } },
+      );
+    }
+    if (!prompt && !beatrizCopy) {
+      return new Response(
+        JSON.stringify({ error: "prompt ou beatrizCopy obrigatório" }),
+        { status: 400, headers: { ...cors, "Content-Type": "application/json" } },
       );
     }
 
-    // Step 3: Generate image with Ideogram
-    const { imageData, mimeType, imageUrl } = await generateWithIdeogram(finalPrompt, aspectRatio, ideogramKey);
+    // Prompt explícito (Estúdio de Carrossel) vai direto; senão o Claude monta.
+    let finalPrompt: string = String(prompt ?? "").trim();
+    if (!finalPrompt) {
+      if (!anthropicKey) {
+        return new Response(
+          JSON.stringify({ error: "ANTHROPIC_API_KEY não configurada." }),
+          { status: 500, headers: { ...cors, "Content-Type": "application/json" } },
+        );
+      }
+      finalPrompt = await briefingComClaude(
+        "criar imagem para post de redes sociais",
+        clientContext, beatrizCopy, carolinaStrategy, benTrends, anthropicKey,
+      );
+    }
+
+    // Reforço anti-texto: o texto do post entra depois, no canvas.
+    if (!/no text/i.test(finalPrompt)) {
+      finalPrompt += " No text, no letters, no logos, no watermarks in the image.";
+    }
+
+    const ratio = normalizeRatio(aspectRatio, finalPrompt);
+    const { imageData, mimeType, modelo } = await gerarNaOpenAI(finalPrompt, ratio, openaiKey);
 
     return new Response(
-      JSON.stringify({ success: true, imageData, mimeType, imageUrl, promptUsed: finalPrompt }),
+      JSON.stringify({ success: true, imageData, mimeType, promptUsed: finalPrompt, modelo }),
       { headers: { ...cors, "Content-Type": "application/json" } },
     );
-
   } catch (e) {
-    return new Response(JSON.stringify({ error: String(e) }), {
-      status: 500, headers: { ...cors, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: e instanceof Error ? e.message : String(e) }),
+      { status: 500, headers: { ...cors, "Content-Type": "application/json" } },
+    );
   }
 });

@@ -25,33 +25,62 @@ interface AppSidebarProps {
   hideToggle?: boolean;
 }
 
-// ── CRM default nav ───────────────────────────────────────────
-const crmItems = [
-  { to: "/agency", icon: Star, label: "Minha Agência" },
-  { to: "/", icon: LayoutDashboard, label: "Dashboard" },
-  { to: "/inbox", icon: Inbox, label: "Inbox", badge: 12 },
-  { to: "/whatsapp", icon: MessageSquare, label: "WhatsApp" },
-  { to: "/groups",   icon: BookUser,     label: "Grupos" },
-  { to: "/contacts", icon: Users,        label: "Contatos" },
-  { to: "/pipelines", icon: GitBranch, label: "Pipelines" },
-  { to: "/propostas", icon: FileText, label: "Propostas" },
-  { to: "/automations", icon: Zap, label: "Automações" },
-  { to: "/campaigns", icon: Send, label: "Campanhas" },
-  { to: "/scheduling", icon: Calendar, label: "Agendamentos" },
-  { to: "/voice", icon: Phone, label: "Voz & Chamadas" },
-  { to: "/video-editor", icon: Clapperboard, label: "Editor de Vídeo" },
-  { to: "/tomas", icon: Layout, label: "Criador de LPs" },
-  { to: "/pages", icon: Globe, label: "Landing Pages" },
-  { to: "/forms", icon: FormInput, label: "Formulários" },
-  { to: "/ben", icon: TrendingUp, label: "Tendências — Ben" },
-  { to: "/fisco", icon: FileBarChart, label: "Contabilidade — Fisco" },
-  { to: "/notebook", icon: BookOpen, label: "Notebook IA" },
-  { to: "/wordpress", icon: Globe, label: "WordPress" },
-  { to: "/members", icon: GraduationCap, label: "Membros" },
-  { to: "/payments", icon: CreditCard, label: "Pagamentos" },
-  { to: "/reports", icon: BarChart3, label: "Relatórios" },
-  { to: "/integrations", icon: Puzzle, label: "Integrações" },
-  { to: "/import-export", icon: ArrowLeftRight, label: "Importar/Exportar" },
+// ── Menu da agência, agrupado por nível de uso ────────────────
+// Antes era uma lista corrida de 25 itens misturando o negócio da agência
+// (clientes, dinheiro, conexões) com ferramentas de produção. Agora cada
+// grupo responde a uma pergunta: "onde está meu negócio", "com que eu
+// produzo", "onde falo com as pessoas", "o que é da casa".
+const crmGroups: { titulo: string; itens: { to: string; icon: any; label: string; badge?: number }[] }[] = [
+  {
+    titulo: "Minha Agência",
+    itens: [
+      { to: "/agency", icon: Star, label: "Clientes" },
+      { to: "/", icon: LayoutDashboard, label: "Painel" },
+      { to: "/reports", icon: BarChart3, label: "Relatórios" },
+      { to: "/payments", icon: CreditCard, label: "Pagamentos" },
+      { to: "/propostas", icon: FileText, label: "Propostas" },
+    ],
+  },
+  {
+    titulo: "Atendimento",
+    itens: [
+      { to: "/inbox", icon: Inbox, label: "Inbox" },
+      { to: "/whatsapp", icon: MessageSquare, label: "WhatsApp" },
+      { to: "/groups", icon: BookUser, label: "Grupos" },
+      { to: "/contacts", icon: Users, label: "Contatos" },
+      { to: "/pipelines", icon: GitBranch, label: "Pipelines" },
+      { to: "/voice", icon: Phone, label: "Voz & Chamadas" },
+    ],
+  },
+  {
+    titulo: "Produção",
+    itens: [
+      { to: "/campaigns", icon: Send, label: "Campanhas" },
+      { to: "/scheduling", icon: Calendar, label: "Agendamentos" },
+      { to: "/video-editor", icon: Clapperboard, label: "Editor de Vídeo" },
+      { to: "/tomas", icon: Layout, label: "Criador de LPs" },
+      { to: "/pages", icon: Globe, label: "Landing Pages" },
+      { to: "/forms", icon: FormInput, label: "Formulários" },
+      { to: "/wordpress", icon: Globe, label: "WordPress" },
+      { to: "/automations", icon: Zap, label: "Automações" },
+    ],
+  },
+  {
+    titulo: "Agentes de IA",
+    itens: [
+      { to: "/ben", icon: TrendingUp, label: "Tendências — Ben" },
+      { to: "/fisco", icon: FileBarChart, label: "Contabilidade — Fisco" },
+      { to: "/notebook", icon: BookOpen, label: "Notebook IA" },
+    ],
+  },
+  {
+    titulo: "Casa",
+    itens: [
+      { to: "/members", icon: GraduationCap, label: "Membros" },
+      { to: "/integrations", icon: Puzzle, label: "Integrações" },
+      { to: "/import-export", icon: ArrowLeftRight, label: "Importar/Exportar" },
+    ],
+  },
 ];
 
 const adminItems = [
@@ -66,26 +95,56 @@ const bottomItems = [
   { to: "/help", icon: HelpCircle, label: "Ajuda" },
 ];
 
-// ── Client workspace tools ────────────────────────────────────
-const clientTools = [
-  { tab: "",             icon: LayoutDashboard, label: "Visão Geral" },
-  { tab: "crm",          icon: Users,           label: "CRM" },
-  { tab: "leads",        icon: Filter,          label: "Funil de Leads" },
-  { tab: "campaigns",    icon: Megaphone,       label: "Campanhas" },
-  { tab: "teo",          icon: Code2,           label: "Site — Teo" },
-  { tab: "agents",       icon: Bot,             label: "Agentes IA" },
-  { tab: "agent-links",  icon: Share2,          label: "Links Compartilhados" },
-  { tab: "sales-agents", icon: Zap,             label: "Agentes Autônomos" },
-  { tab: "portal",       icon: ExternalLink,    label: "Portal do Cliente" },
-  { tab: "activities",   icon: Activity,        label: "Atividades" },
-  { tab: "tasks",        icon: ListTodo,        label: "O que fazer" },
-  { tab: "social",      icon: Share2,       label: "Redes Sociais" },
-  { tab: "carrossel",   icon: Images,       label: "Carrossel & Posts" },
-  { tab: "calendario",  icon: CalendarDays, label: "Calendário Editorial" },
-  { tab: "brand",         icon: Palette,      label: "Identidade Visual" },
-  { tab: "integrations", icon: Link2,        label: "Integrações" },
-  { tab: "webhooks",     icon: Webhook,      label: "Webhooks" },
-  { tab: "time",         icon: Users,        label: "Time do Cliente" },
+// ── Ferramentas dentro do cliente, agrupadas pelo que a pessoa vai fazer ──
+// `equipe: true` = também aparece para membro convidado do cliente; o resto
+// (dinheiro, conexões, agentes) é só da agência.
+const clientToolGroups: {
+  titulo: string;
+  itens: { tab: string; icon: any; label: string; equipe?: boolean }[];
+}[] = [
+  {
+    titulo: "Acompanhar",
+    itens: [
+      { tab: "",           icon: LayoutDashboard, label: "Visão Geral", equipe: true },
+      { tab: "activities", icon: Activity,        label: "Atividades",  equipe: true },
+      { tab: "tasks",      icon: ListTodo,        label: "O que fazer", equipe: true },
+    ],
+  },
+  {
+    titulo: "Relacionamento",
+    itens: [
+      { tab: "crm",    icon: Users,        label: "CRM",             equipe: true },
+      { tab: "leads",  icon: Filter,       label: "Funil de Leads",  equipe: true },
+      { tab: "portal", icon: ExternalLink, label: "Portal do Cliente" },
+      { tab: "time",   icon: Users,        label: "Time do Cliente" },
+    ],
+  },
+  {
+    titulo: "Conteúdo",
+    itens: [
+      { tab: "carrossel",  icon: Images,       label: "Carrossel & Posts",    equipe: true },
+      { tab: "calendario", icon: CalendarDays, label: "Calendário Editorial", equipe: true },
+      { tab: "social",     icon: Share2,       label: "Redes Sociais" },
+      { tab: "campaigns",  icon: Megaphone,    label: "Campanhas" },
+      { tab: "brand",      icon: Palette,      label: "Identidade Visual",    equipe: true },
+    ],
+  },
+  {
+    titulo: "Produção",
+    itens: [
+      { tab: "teo",          icon: Code2,  label: "Site — Teo" },
+      { tab: "agents",       icon: Bot,    label: "Agentes IA" },
+      { tab: "sales-agents", icon: Zap,    label: "Agentes Autônomos" },
+      { tab: "agent-links",  icon: Share2, label: "Links Compartilhados" },
+    ],
+  },
+  {
+    titulo: "Configuração",
+    itens: [
+      { tab: "integrations", icon: Link2,   label: "Integrações" },
+      { tab: "webhooks",     icon: Webhook, label: "Webhooks" },
+    ],
+  },
 ];
 
 interface WPSite { id: string; name: string; url: string; client_name?: string; }
@@ -254,15 +313,27 @@ export const AppSidebar = ({ collapsed, onToggle, hideToggle }: AppSidebarProps)
 
           {/* Tool nav */}
           <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-            {[
-              ...clientTools,
-              ...(client.name.toLowerCase().includes("licita")
+            {clientToolGroups.flatMap((grupo, gi) => [
+              !collapsed ? (
+                <div key={`t-${grupo.titulo}`} className={cn("px-3 pb-1", gi === 0 ? "" : "pt-3")}>
+                  <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.25)" }}>
+                    {grupo.titulo}
+                  </p>
+                </div>
+              ) : gi > 0 ? (
+                <div key={`t-${grupo.titulo}`} className="my-2 mx-3 border-t border-sidebar-border" />
+              ) : null,
+              ...grupo.itens,
+            ]).concat(
+              client.name.toLowerCase().includes("licita")
                 ? [{ tab: "courses", icon: GraduationCap, label: "Cursos" }]
-                : []),
-              ...(wpSites.find(s => s.client_name?.toLowerCase() === client.name.toLowerCase())
+                : [],
+              wpSites.find(s => s.client_name?.toLowerCase() === client.name.toLowerCase())
                 ? [{ tab: "pixel", icon: Globe, label: "Pixel — WordPress" }]
-                : []),
-            ].map((tool) => {
+                : [],
+            ).map((tool: any) => {
+              // separadores de grupo já vêm prontos como elemento
+              if (!tool || !("tab" in tool)) return tool;
               const isActive = currentTab === tool.tab;
               const href = `/agency/clients/${client.id}${tool.tab ? `?tab=${tool.tab}` : ""}`;
               return (
@@ -404,7 +475,19 @@ export const AppSidebar = ({ collapsed, onToggle, hideToggle }: AppSidebarProps)
         className="flex flex-col h-full"
       >
         <nav className="flex-1 overflow-y-auto scrollbar-thin py-3 px-2 space-y-0.5">
-          {crmItems.map((item, idx) => renderNavItem(item, idx))}
+          {crmGroups.map((grupo, gi) => (
+            <div key={grupo.titulo} className={gi === 0 ? "" : "pt-3"}>
+              {!collapsed && (
+                <div className="pb-1 px-3">
+                  <p className="text-[10px] uppercase tracking-widest font-semibold text-sidebar-muted">{grupo.titulo}</p>
+                </div>
+              )}
+              {collapsed && gi > 0 && <div className="my-2 mx-3 border-t border-sidebar-border" />}
+              <div className="space-y-0.5">
+                {grupo.itens.map((item, idx) => renderNavItem(item, gi * 100 + idx))}
+              </div>
+            </div>
+          ))}
 
           {isAdmin && (
             <>

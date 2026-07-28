@@ -5,6 +5,7 @@ import { Zap, Users, LogOut, Search, Phone, Mail, Building2, KanbanSquare, FileI
 import LeadsKanbanTab from "@/components/LeadsKanbanTab";
 import FormGenerator from "@/components/FormGenerator";
 import InboxTab from "@/components/InboxTab";
+import { papelDoMembro } from "@/lib/teamRoles";
 
 const SOURCES: Record<string, { label: string; color: string }> = {
   instagram: { label: "Instagram", color: "#E1306C" },
@@ -47,6 +48,12 @@ export default function TeamPortalPage() {
   const [search, setSearch]     = useState("");
   const [authLoading, setAuthLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("funil");
+
+  // Se o papel não dá acesso à aba atual, cai na primeira que ele pode ver.
+  useEffect(() => {
+    const permitidas = papelDoMembro(member?.role).tabs;
+    if (permitidas.length && !permitidas.includes(tab)) setTab(permitidas[0]);
+  }, [member?.role, tab]);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -92,7 +99,8 @@ export default function TeamPortalPage() {
     </div>
   );
 
-  const roleLabel = member?.role === "financeiro" ? "Financeiro" : "Comercial";
+  const papel = papelDoMembro(member?.role);
+  const roleLabel = papel.label;
 
   const filtered = contacts.filter(c => {
     if (!search) return true;
@@ -100,12 +108,13 @@ export default function TeamPortalPage() {
     return (c.name?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q) || c.phone?.includes(q) || c.company?.toLowerCase().includes(q));
   });
 
-  const TABS: { id: Tab; label: string; icon: typeof KanbanSquare }[] = [
+  // Só as abas que o papel do convidado permite.
+  const TABS: { id: Tab; label: string; icon: typeof KanbanSquare }[] = ([
     { id: "funil",    label: "Funil de Leads", icon: KanbanSquare },
     { id: "inbox",    label: "Inbox",          icon: MessageCircle },
     { id: "contatos", label: "Contatos",       icon: Users },
     { id: "captacao", label: "Captação",       icon: FileInput },
-  ];
+  ] as const).filter((t) => papel.tabs.includes(t.id)) as { id: Tab; label: string; icon: typeof KanbanSquare }[];
 
   return (
     <div style={{ minHeight: "100vh", background: "#07080A", color: "#F0F0F0" }}>
