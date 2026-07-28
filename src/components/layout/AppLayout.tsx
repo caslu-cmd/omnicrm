@@ -3,6 +3,7 @@ import { useLocation, useOutlet } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
 import { TopBar } from "./TopBar";
 import { MobileBottomNav } from "./MobileBottomNav";
+import InboxFeedColumn from "@/components/InboxFeedColumn";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 
@@ -26,6 +27,10 @@ export const AppLayout = () => {
   useEffect(() => {
     setMobileSidebarOpen(false);
   }, [location.pathname, location.search]);
+
+  // Dentro do CRM de um cliente → mostra a coluna de conversas depois do sidebar
+  const clientMatch = location.pathname.match(/^\/agency\/clients\/([^/]+)/);
+  const workspaceClientId = clientMatch?.[1] ?? null;
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -51,6 +56,13 @@ export const AppLayout = () => {
           onToggle={() => setSidebarCollapsed(!sidebarCollapsed)}
         />
       </div>
+
+      {/* Coluna de conversas — logo depois do sidebar, só no CRM do cliente */}
+      {workspaceClientId && (
+        <div className="hidden lg:flex">
+          <InboxFeedColumn clientId={workspaceClientId} rail />
+        </div>
+      )}
 
       <div className="flex flex-1 flex-col overflow-hidden min-w-0">
         <TopBar

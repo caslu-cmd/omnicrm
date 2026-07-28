@@ -35,6 +35,7 @@ import MetaAdsCampaignsSection from "@/components/MetaAdsCampaignsSection";
 import AdsSection from "@/components/AdsSection";
 import EditorialCalendarPanel from "@/components/EditorialCalendarPanel";
 import LeadsKanbanTab from "@/components/LeadsKanbanTab";
+import InboxTab from "@/components/InboxTab";
 import AgentLinksTab from "@/components/AgentLinksTab";
 import OrchestratorPanel from "@/components/OrchestratorPanel";
 
@@ -853,7 +854,7 @@ export default function ClientWorkspace() {
   const [shareCopiedWithPwd, setShareCopiedWithPwd] = useState(false);
   const [openingShare, setOpeningShare] = useState(false);
   const [tasks, setTasks] = useState(MOCK_TASKS_TEMPLATE);
-  const [crmView, setCrmView] = useState<"contacts" | "pipeline" | "approvals" | "insights" | "whatsapp" | "deliverables" | "campaigns">("contacts");
+  const [crmView, setCrmView] = useState<"contacts" | "pipeline" | "approvals" | "insights" | "whatsapp" | "deliverables" | "campaigns" | "inbox">("contacts");
 
   type PipelineCampaign = {
     enabled: boolean;
@@ -1501,9 +1502,10 @@ export default function ClientWorkspace() {
 
   const fetchSocialIntegrations = async () => {
     if (!id) return;
+    const map: Record<string, boolean> = {};
+    // 1) Toggles do sistema de conectores (integrations)
     try {
       const data: { connector_name: string; connected: boolean }[] = await invokeMgmt("list");
-      const map: Record<string, boolean> = {};
       for (const row of data) {
         const prefix = `social_${id}_`;
         if (row.connector_name.startsWith(prefix)) {
@@ -1511,8 +1513,18 @@ export default function ClientWorkspace() {
           map[platform] = row.connected;
         }
       }
-      setSocialConnected(map);
     } catch { /* silent */ }
+    // 2) Fonte real: conexões OAuth em social_connections (Instagram/Facebook/etc.)
+    try {
+      const { data: sc } = await (supabase as any)
+        .from("social_connections")
+        .select("platform, connected")
+        .eq("client_id", id);
+      for (const row of (sc ?? [])) {
+        if (row.connected) map[row.platform] = true;
+      }
+    } catch { /* silent */ }
+    setSocialConnected(map);
   };
 
   const handleSocialToggle = async (platformId: string, connect: boolean) => {
@@ -5523,6 +5535,7 @@ Regras:
                     ["deliverables", "Entregas"],
                     ["insights",     "Insights IA"],
                     ["whatsapp",     "📲 WhatsApp"],
+                    ["inbox",        "💬 Canais / Inbox"],
                   ] as const).map(([v, label]) => (
                     <button key={v} onClick={() => setCrmView(v as any)}
                       className="px-4 py-1.5 rounded-lg text-xs font-medium transition-all relative"
@@ -5538,6 +5551,11 @@ Regras:
                     </button>
                   ))}
                 </div>
+
+                {/* ── CANAIS / INBOX (conectar WhatsApp, Instagram, Facebook, Site) ── */}
+                {crmView === "inbox" && (
+                  <InboxTab clientId={client.id} accent={client.color} />
+                )}
 
                 {/* ── CONTATOS ── */}
                 {crmView === "contacts" && (

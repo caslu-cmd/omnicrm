@@ -5,23 +5,23 @@ export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-[#07080A] text-white">
       <header className="border-b border-white/10 px-6 py-4 flex items-center justify-between">
-        <Link to="/landing" className="flex items-center gap-2 text-[#B9FF4B] font-bold text-xl tracking-tight">
+        <Link to="/" className="flex items-center gap-2 text-[#B9FF4B] font-bold text-xl tracking-tight">
           <img src={caluLogo} alt="Calu Agência" className="h-8 w-8 rounded-md object-cover" />
           Calu Agência
         </Link>
-        <Link to="/landing" className="text-sm text-white/50 hover:text-white transition-colors">
+        <Link to="/" className="text-sm text-white/50 hover:text-white transition-colors">
           ← Voltar
         </Link>
       </header>
 
       <main className="max-w-3xl mx-auto px-6 py-16">
         <h1 className="text-4xl font-bold mb-2">Política de Privacidade</h1>
-        <p className="text-white/40 text-sm mb-12">Última atualização: 28 de abril de 2026</p>
+        <p className="text-white/40 text-sm mb-12">Última atualização: 9 de julho de 2026</p>
 
         <Section title="1. Quem somos">
           <p>
             A <strong className="text-[#B9FF4B]">Calu Agência</strong> opera a plataforma de gestão de
-            agências de marketing disponível em <strong>omnicrm.lovable.app</strong>. Esta política
+            agências de marketing disponível em <strong>caluagencia.com.br</strong>. Esta política
             descreve como coletamos, usamos e protegemos os dados dos nossos usuários, em conformidade
             com a Lei Geral de Proteção de Dados (LGPD — Lei nº 13.709/2018) e com as políticas da
             plataforma Meta (Facebook e Instagram).
@@ -38,7 +38,8 @@ export default function PrivacyPage() {
           <ul className="list-disc list-inside space-y-2 text-white/80">
             <li><strong>Dados de cadastro:</strong> nome, e-mail e senha (autenticados via Supabase Auth).</li>
             <li><strong>Dados de negócio:</strong> informações de clientes, contatos, campanhas e conteúdos cadastrados na plataforma.</li>
-            <li><strong>Tokens de acesso às redes sociais:</strong> tokens OAuth do Facebook e Instagram fornecidos pelo usuário para integração com as APIs da Meta — usados exclusivamente para realizar ações autorizadas pelo próprio usuário (publicar posts, agendar conteúdos, ler métricas e gerenciar anúncios).</li>
+            <li><strong>Tokens de acesso às redes sociais:</strong> tokens OAuth do Facebook e Instagram fornecidos pelo usuário para integração com as APIs da Meta — usados exclusivamente para realizar ações autorizadas pelo próprio usuário (publicar posts, agendar conteúdos, ler métricas, gerenciar anúncios e enviar/receber mensagens diretas).</li>
+            <li><strong>Mensagens e conversas:</strong> quando você conecta um canal de atendimento (WhatsApp, Instagram Direct ou Facebook Messenger), recebemos e armazenamos as mensagens trocadas entre a sua agência/cliente e os contatos que iniciam conversa, incluindo nome de perfil e identificador do remetente, para exibir e responder no inbox unificado do CRM. Essas mensagens são usadas exclusivamente para o atendimento e nunca para publicidade ou venda a terceiros.</li>
             <li><strong>Dados de uso:</strong> logs de acesso, interações com a plataforma e informações de sessão para segurança e melhorias do serviço.</li>
             <li><strong>Dados de Inteligência Artificial:</strong> mensagens trocadas com a assistente Calu IA, processadas pela API da Anthropic (Claude), sem armazenamento permanente pela Anthropic.</li>
           </ul>
@@ -81,6 +82,9 @@ export default function PrivacyPage() {
             <li><code className="bg-white/10 px-1 rounded text-sm">instagram_basic</code> — acessar informações básicas do perfil do Instagram.</li>
             <li><code className="bg-white/10 px-1 rounded text-sm">instagram_content_publish</code> — publicar conteúdo no Instagram.</li>
             <li><code className="bg-white/10 px-1 rounded text-sm">instagram_manage_insights</code> — visualizar métricas do Instagram.</li>
+            <li><code className="bg-white/10 px-1 rounded text-sm">pages_messaging</code> — receber e responder mensagens do Facebook Messenger das páginas conectadas, dentro do inbox do CRM.</li>
+            <li><code className="bg-white/10 px-1 rounded text-sm">instagram_manage_messages</code> — receber e responder mensagens do Instagram Direct das contas profissionais conectadas.</li>
+            <li><code className="bg-white/10 px-1 rounded text-sm">instagram_manage_comments</code> — ler e responder comentários das contas profissionais do Instagram.</li>
             <li><code className="bg-white/10 px-1 rounded text-sm">ads_management</code> — criar e editar campanhas de anúncios.</li>
             <li><code className="bg-white/10 px-1 rounded text-sm">ads_read</code> — ler dados e resultados de campanhas.</li>
             <li><code className="bg-white/10 px-1 rounded text-sm">business_management</code> — gerenciar ativos do Business Manager vinculados.</li>

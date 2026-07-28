@@ -5,23 +5,23 @@ export default function TermsPage() {
   return (
     <div className="min-h-screen bg-[#07080A] text-white">
       <header className="border-b border-white/10 px-6 py-4 flex items-center justify-between">
-        <Link to="/landing" className="flex items-center gap-2 text-[#B9FF4B] font-bold text-xl tracking-tight">
+        <Link to="/" className="flex items-center gap-2 text-[#B9FF4B] font-bold text-xl tracking-tight">
           <img src={caluLogo} alt="Calu Agência" className="h-8 w-8 rounded-md object-cover" />
           Calu Agência
         </Link>
-        <Link to="/landing" className="text-sm text-white/50 hover:text-white transition-colors">
+        <Link to="/" className="text-sm text-white/50 hover:text-white transition-colors">
           ← Voltar
         </Link>
       </header>
 
       <main className="max-w-3xl mx-auto px-6 py-16">
         <h1 className="text-4xl font-bold mb-2">Termos de Serviço</h1>
-        <p className="text-white/40 text-sm mb-12">Última atualização: 28 de abril de 2026</p>
+        <p className="text-white/40 text-sm mb-12">Última atualização: 9 de julho de 2026</p>
 
         <Section title="1. Aceitação dos termos">
           <p>
             Ao acessar ou utilizar a plataforma <strong className="text-[#B9FF4B]">Calu Agência</strong>{" "}
-            (disponível em <strong>omnicrm.lovable.app</strong>), você concorda com estes Termos de Serviço.
+            (disponível em <strong>caluagencia.com.br</strong>), você concorda com estes Termos de Serviço.
             Caso não concorde com qualquer disposição, não utilize a plataforma.
           </p>
           <p className="mt-3">
@@ -39,6 +39,7 @@ export default function TermsPage() {
             <li><strong>CRM:</strong> gestão de contatos, leads e pipelines de vendas.</li>
             <li><strong>Criação de Conteúdo:</strong> planejamento e aprovação de posts.</li>
             <li><strong>Agendamento de Posts:</strong> publicação automática no Facebook e Instagram.</li>
+            <li><strong>Inbox Omnichannel:</strong> central unificada de mensagens para receber e responder conversas de WhatsApp, Instagram Direct e Facebook Messenger dos canais conectados pelo usuário.</li>
             <li><strong>Campanhas:</strong> gestão de anúncios no Facebook Ads e Google Ads.</li>
             <li><strong>Relatórios:</strong> dashboards de desempenho e métricas.</li>
             <li><strong>Calu IA:</strong> assistente de inteligência artificial para operações da agência.</li>
