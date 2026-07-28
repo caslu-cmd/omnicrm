@@ -13687,11 +13687,21 @@ ${clientSection}${originalSection}`;
                         </div>
                         {isConn ? (
                           <div className="flex gap-2">
-                            <button onClick={() => openSocialConfig(integ.id)}
-                              className="flex-1 py-2 rounded-xl text-[11px] font-medium flex items-center justify-center gap-1 transition-all"
-                              style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.1)" }}>
-                              <Settings2 className="w-3 h-3" /> Gerenciar
-                            </button>
+                            {tokenHealth(integ.id) ? (
+                              // Token vencido/vencendo: "Gerenciar" abre chaves manuais e não
+                              // resolve — o que reconecta de verdade é o OAuth da aba Redes Sociais.
+                              <button onClick={() => navigate(`/agency/clients/${id}?tab=social`)}
+                                className="flex-1 py-2 rounded-xl text-[11px] font-bold flex items-center justify-center gap-1 transition-all"
+                                style={{ background: "rgba(251,191,36,0.12)", color: "#FBBF24", border: "1px solid rgba(251,191,36,0.35)" }}>
+                                <RefreshCw className="w-3 h-3" /> Reconectar
+                              </button>
+                            ) : (
+                              <button onClick={() => openSocialConfig(integ.id)}
+                                className="flex-1 py-2 rounded-xl text-[11px] font-medium flex items-center justify-center gap-1 transition-all"
+                                style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.1)" }}>
+                                <Settings2 className="w-3 h-3" /> Gerenciar
+                              </button>
+                            )}
                             <button onClick={() => handleSocialToggle(integ.id, false)}
                               className="py-2 px-3 rounded-xl text-[11px] font-medium transition-all"
                               style={{ background: "rgba(239,68,68,0.08)", color: "#F87171", border: "1px solid rgba(239,68,68,0.2)" }}>
