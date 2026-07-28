@@ -327,7 +327,7 @@ const AdminPage = () => {
                           )}
                         </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-4 text-xs">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 text-xs">
                         <div className="p-3 rounded-lg bg-muted/30">
                           <p className="text-muted-foreground mb-0.5">Domínio</p>
                           <p className="font-medium text-foreground">{wl.custom_domain || "Não configurado"}</p>

@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 export default function TermsPage() {
   return (
     <div className="min-h-screen bg-[#07080A] text-white">
-      <header className="border-b border-white/10 px-6 py-4 flex items-center justify-between">
+      <header className="border-b border-white/10 px-4 sm:px-6 py-4 flex items-center justify-between gap-3 flex-wrap">
         <Link to="/" className="flex items-center gap-2 text-[#B9FF4B] font-bold text-xl tracking-tight">
           <img src={caluLogo} alt="Calu Agência" className="h-8 w-8 rounded-md object-cover" />
           Calu Agência
@@ -14,8 +14,8 @@ export default function TermsPage() {
         </Link>
       </header>
 
-      <main className="max-w-3xl mx-auto px-6 py-16">
-        <h1 className="text-4xl font-bold mb-2">Termos de Serviço</h1>
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
+        <h1 className="text-3xl sm:text-4xl font-bold mb-2">Termos de Serviço</h1>
         <p className="text-white/40 text-sm mb-12">Última atualização: 9 de julho de 2026</p>
 
         <Section title="1. Aceitação dos termos">

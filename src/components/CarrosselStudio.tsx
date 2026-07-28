@@ -628,15 +628,30 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     }
   };
 
-  const gerarImagem = async (i: number) => {
+  /** Extrai o base64 puro de uma data URL, para mandar como referência. */
+  const base64De = (dataUrl?: string | null) =>
+    dataUrl && dataUrl.startsWith("data:") ? dataUrl.split(",")[1] : null;
+
+  const gerarImagem = async (i: number, comReferencia = true) => {
     setGerandoImg(i);
     try {
       const s = slides[i];
+
+      // A primeira foto do carrossel vira referência das outras: mesma pessoa,
+      // mesma luz, mesma paleta em todos os slides.
+      const referencias: Array<{ data: string; mediaType: string }> = [];
+      if (comReferencia && i > 0) {
+        const primeira = slides.find((sl, idx) => idx < i && sl.imagem);
+        const b64 = base64De(primeira?.imagem);
+        if (b64) referencias.push({ data: b64, mediaType: "image/jpeg" });
+      }
+
       const { data, error } = await supabase.functions.invoke("generate-image", {
         body: {
-          prompt: s.prompt_imagem || `abstract editorial background about ${s.titulo}`,
-          aspectRatio: formatId === "9:16" ? "9:16" : formatId === "1:1" ? "1:1" : "3:4",
+          prompt: s.prompt_imagem || `editorial photo about ${s.titulo}`,
+          aspectRatio: formatId === "9:16" ? "9:16" : formatId === "1:1" ? "1:1" : "4:5",
           clientContext: { name: marca, industry: cliente?.industry ?? "", brandColor: accent },
+          referencias,
         },
       });
       if (error) throw new Error(error.message);
@@ -646,7 +661,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
       const img = await loadImage(url);
       if (img) imgCache.current.set(url, img);
       setSlides((prev) => prev.map((old, idx) => (idx === i ? { ...old, imagem: url } : old)));
-      toast.success("Imagem gerada.");
+      toast.success(data.modelo ? `Imagem gerada (${data.modelo}).` : "Imagem gerada.");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao gerar imagem.");
     } finally {

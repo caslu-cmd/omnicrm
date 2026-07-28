@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 export default function PrivacyPage() {
   return (
     <div className="min-h-screen bg-[#07080A] text-white">
-      <header className="border-b border-white/10 px-6 py-4 flex items-center justify-between">
+      <header className="border-b border-white/10 px-4 sm:px-6 py-4 flex items-center justify-between gap-3 flex-wrap">
         <Link to="/" className="flex items-center gap-2 text-[#B9FF4B] font-bold text-xl tracking-tight">
           <img src={caluLogo} alt="Calu Agência" className="h-8 w-8 rounded-md object-cover" />
           Calu Agência
@@ -14,8 +14,8 @@ export default function PrivacyPage() {
         </Link>
       </header>
 
-      <main className="max-w-3xl mx-auto px-6 py-16">
-        <h1 className="text-4xl font-bold mb-2">Política de Privacidade</h1>
+      <main className="max-w-3xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
+        <h1 className="text-3xl sm:text-4xl font-bold mb-2">Política de Privacidade</h1>
         <p className="text-white/40 text-sm mb-12">Última atualização: 9 de julho de 2026</p>
 
         <Section title="1. Quem somos">
@@ -122,6 +122,26 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
+        <Section title="7.1. Cookies e armazenamento local">
+          <p className="text-white/80">
+            Usamos armazenamento essencial (sessão de login) e, mediante o seu consentimento,
+            preferências que lembram ajustes das telas. Não utilizamos pixels de publicidade nem
+            cookies de rastreamento entre sites. Você escolhe no aviso exibido no primeiro acesso e
+            pode rever a decisão a qualquer momento na{" "}
+            <Link to="/cookies" className="text-[#B9FF4B] underline">Política de Cookies</Link>.
+          </p>
+        </Section>
+
+        <Section title="7.2. Bases legais do tratamento">
+          <p className="text-white/80 mb-3">Cada finalidade se apoia em uma base legal do art. 7º da LGPD:</p>
+          <ul className="list-disc list-inside space-y-2 text-white/80">
+            <li><strong>Execução de contrato</strong> — dados de cadastro, conteúdos e entregas necessários para prestar o serviço contratado.</li>
+            <li><strong>Consentimento</strong> — cookies de preferência, conexão de contas de redes sociais e envio de comunicações.</li>
+            <li><strong>Legítimo interesse</strong> — segurança da plataforma, prevenção a fraude e melhoria do serviço, sempre sem sobrepor seus direitos.</li>
+            <li><strong>Obrigação legal</strong> — guarda de registros exigida pelo Marco Civil da Internet e pela legislação fiscal.</li>
+          </ul>
+        </Section>
+
         <Section title="8. Segurança">
           <p className="text-white/80">
             Adotamos medidas técnicas e organizacionais adequadas para proteger seus dados contra acesso
@@ -138,15 +158,25 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="10. Contato">
+        <Section title="10. Encarregada pelo tratamento de dados">
           <p className="text-white/80">
             Calu Agência — Caroline Lucas<br />
+            Encarregada (DPO): Caroline Lucas<br />
             E-mail:{" "}
-            <a href="mailto:carolinielucas.cl@gmail.com" className="text-[#B9FF4B] underline">
-              carolinielucas.cl@gmail.com
+            <a href="mailto:contato@caluagencia.com.br" className="text-[#B9FF4B] underline">
+              contato@caluagencia.com.br
             </a>
           </p>
+          <p className="mt-3 text-white/60 text-sm">
+            Pedidos relativos a dados pessoais são respondidos em até 15 dias. Você também pode
+            registrar reclamação junto à Autoridade Nacional de Proteção de Dados (ANPD).
+          </p>
         </Section>
+
+        <div className="flex gap-4 flex-wrap pt-4 border-t border-white/10">
+          <Link to="/cookies" className="text-sm text-[#B9FF4B] underline">Política de Cookies</Link>
+          <Link to="/terms" className="text-sm text-[#B9FF4B] underline">Termos de Serviço</Link>
+        </div>
       </main>
 
       <footer className="border-t border-white/10 text-center py-8 text-white/30 text-sm">

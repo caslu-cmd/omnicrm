@@ -736,7 +736,7 @@ function CampaignModal({
                   </select>
                 )}
               </div>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {field("Orçamento/dia (R$)",
                   <input type="number" className={inputCls} style={inputStyle} min={6} value={draft.daily_budget_brl}
                     onChange={(e) => setDraft({ ...draft, daily_budget_brl: +e.target.value })} />

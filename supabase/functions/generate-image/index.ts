@@ -8,13 +8,16 @@ const cors = {
 /**
  * Geração de imagem da Calu Agência.
  *
- * Motor: OpenAI (gpt-image-1, com queda para dall-e-3 quando a organização
- * ainda não tem acesso ao gpt-image-1). O Ideogram saiu a pedido da Carol.
+ * Ordem dos motores (o Ideogram saiu a pedido da Carol):
+ *  1. Gemini — preferido, porque aceita imagens de referência: o primeiro slide
+ *     do carrossel vira referência dos seguintes e a MESMA pessoa aparece na
+ *     série inteira. Precisa de GEMINI_API_KEY.
+ *  2. OpenAI — gpt-image-1 e, se a organização não tiver acesso, dall-e-3.
  *
- * Dois modos:
- *  - `prompt` preenchido  → usa o prompt como veio (é o caso do Estúdio de
- *    Carrossel, que quer FOTO limpa, sem texto, para o texto entrar no canvas).
- *  - só `beatrizCopy`     → o Claude monta um briefing de arte antes de gerar.
+ * Dois modos de prompt:
+ *  - `prompt` preenchido  → usa como veio (Estúdio de Carrossel: foto limpa,
+ *    sem texto, porque o texto entra depois no canvas).
+ *  - só `beatrizCopy`     → o Claude monta o briefing de arte antes de gerar.
  */
 
 type Ratio = "1:1" | "3:4" | "4:3" | "9:16" | "16:9" | "4:5";
@@ -97,6 +100,62 @@ Context: ${brandName} | ${industry}`;
   return userRequest;
 }
 
+/**
+ * Gemini. É o motor preferido porque aceita imagens de referência: o slide 1
+ * vira referência dos demais e o carrossel inteiro fica com a MESMA pessoa.
+ */
+async function gerarNoGemini(
+  prompt: string,
+  ratio: Ratio,
+  geminiKey: string,
+  referencias: Array<{ data: string; mediaType: string }>,
+): Promise<{ imageData: string; mimeType: string; modelo: string }> {
+  const modelos = ["gemini-3.1-flash-image", "gemini-2.5-flash-image"];
+  let ultimoErro = "";
+
+  const input: Array<Record<string, unknown>> = [{ type: "text", text: prompt }];
+  for (const ref of referencias.slice(0, 3)) {
+    input.push({ type: "image", mime_type: ref.mediaType, data: ref.data });
+  }
+
+  for (const modelo of modelos) {
+    const res = await fetch("https://generativelanguage.googleapis.com/v1beta/interactions", {
+      method: "POST",
+      headers: {
+        "x-goog-api-key": geminiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: modelo,
+        input,
+        response_format: {
+          type: "image",
+          mime_type: "image/jpeg",
+          aspect_ratio: ratio === "4:5" ? "4:5" : ratio,
+          image_size: "2K",
+        },
+      }),
+    });
+
+    if (!res.ok) {
+      ultimoErro = `${modelo}: ${(await res.text()).slice(0, 300)}`;
+      if (res.status === 400 || res.status === 404) continue;
+      throw new Error(ultimoErro);
+    }
+
+    const data = await res.json();
+    const b64: string | undefined =
+      data?.output_image?.data ?? data?.interaction?.output_image?.data;
+    if (!b64) {
+      ultimoErro = `${modelo}: resposta sem imagem`;
+      continue;
+    }
+    return { imageData: b64, mimeType: "image/jpeg", modelo };
+  }
+
+  throw new Error(ultimoErro || "Gemini não retornou imagem.");
+}
+
 async function gerarNaOpenAI(
   prompt: string,
   ratio: Ratio,
@@ -151,6 +210,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
   try {
+    const body = await req.json();
     const {
       prompt,
       aspectRatio = "3:4",
@@ -158,14 +218,15 @@ Deno.serve(async (req) => {
       beatrizCopy = "",
       carolinaStrategy = "",
       benTrends = "",
-    } = await req.json();
+    } = body;
 
     const openaiKey = Deno.env.get("OPENAI_API_KEY");
+    const geminiKey = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_AI_API_KEY");
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
 
-    if (!openaiKey) {
+    if (!openaiKey && !geminiKey) {
       return new Response(
-        JSON.stringify({ error: "OPENAI_API_KEY não configurada nas secrets do Supabase." }),
+        JSON.stringify({ error: "Configure GEMINI_API_KEY (recomendado) ou OPENAI_API_KEY nas secrets do Supabase." }),
         { status: 500, headers: { ...cors, "Content-Type": "application/json" } },
       );
     }
@@ -197,10 +258,46 @@ Deno.serve(async (req) => {
     }
 
     const ratio = normalizeRatio(aspectRatio, finalPrompt);
-    const { imageData, mimeType, modelo } = await gerarNaOpenAI(finalPrompt, ratio, openaiKey);
+
+    // Referências (ex.: o primeiro slide do carrossel) para manter a mesma
+    // pessoa e a mesma atmosfera nas peças seguintes.
+    const referencias: Array<{ data: string; mediaType: string }> = Array.isArray(body.referencias)
+      ? body.referencias
+          .filter((r: { data?: string }) => r?.data)
+          .map((r: { data: string; mediaType?: string }) => ({
+            data: r.data,
+            mediaType: r.mediaType ?? "image/jpeg",
+          }))
+      : [];
+
+    let resultado: { imageData: string; mimeType: string; modelo: string } | null = null;
+    let erroGemini = "";
+
+    if (geminiKey) {
+      try {
+        const promptComRef = referencias.length
+          ? `${finalPrompt} Keep the SAME person, wardrobe, color grading and lighting as the reference image, so the images work as one series.`
+          : finalPrompt;
+        resultado = await gerarNoGemini(promptComRef, ratio, geminiKey, referencias);
+      } catch (e) {
+        erroGemini = e instanceof Error ? e.message : String(e);
+      }
+    }
+
+    if (!resultado) {
+      if (!openaiKey) throw new Error(erroGemini || "Gemini falhou e não há OPENAI_API_KEY para o fallback.");
+      resultado = await gerarNaOpenAI(finalPrompt, ratio, openaiKey);
+    }
 
     return new Response(
-      JSON.stringify({ success: true, imageData, mimeType, promptUsed: finalPrompt, modelo }),
+      JSON.stringify({
+        success: true,
+        imageData: resultado.imageData,
+        mimeType: resultado.mimeType,
+        promptUsed: finalPrompt,
+        modelo: resultado.modelo,
+        avisoGemini: erroGemini || undefined,
+      }),
       { headers: { ...cors, "Content-Type": "application/json" } },
     );
   } catch (e) {

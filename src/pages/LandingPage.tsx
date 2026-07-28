@@ -1,5 +1,6 @@
 import caluLogo from "@/assets/calu-logo.png";
 import { useState, useEffect, useRef } from "react";
+import { Link } from "react-router-dom";
 import { Zap, ArrowUpRight, MessageCircle, Instagram, Linkedin, ArrowRight, Check } from "lucide-react";
 
 const LIME  = "#B9FF4B";
@@ -131,6 +132,9 @@ const CSS = `
     @media (max-width: 640px) {
       .cl-grid-4 { grid-template-columns: 1fr !important; }
       .cl-footer-grid { grid-template-columns: 1fr !important; }
+      /* rodapé empilhado no celular, sem estourar a largura */
+      .cl-footer-bar { padding: 28px 20px !important; }
+      .cl-footer-row { flex-direction: column !important; text-align: center !important; }
     }
   }
 `;
@@ -1023,8 +1027,8 @@ export default function LandingPage() {
       </section>
 
       {/* FOOTER */}
-      <footer style={{ padding: "32px 64px", borderTop: "1px solid rgba(255,255,255,.06)" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <footer className="cl-footer-bar" style={{ padding: "32px 64px", borderTop: "1px solid rgba(255,255,255,.06)" }}>
+        <div className="cl-footer-row" style={{ maxWidth: 1200, margin: "0 auto", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
           <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
             <img src={caluLogo} alt="Calu Agência" style={{ width: 26, height: 26, borderRadius: 7, objectFit: "cover" }} />
             <div>
@@ -1032,7 +1036,14 @@ export default function LandingPage() {
               <div style={{ fontFamily: mono, fontSize: 9, color: MUTED }}>Publicidade · Tecnologia · IA · São Paulo</div>
             </div>
           </div>
-          <div style={{ fontFamily: mono, fontSize: 9, color: "rgba(240,239,232,.18)" }}>© {new Date().getFullYear()} Calu Agência</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 14, flexWrap: "wrap", justifyContent: "center" }}>
+              <Link to="/privacy" style={{ fontFamily: mono, fontSize: 10, color: DIM }}>Privacidade</Link>
+              <Link to="/cookies" style={{ fontFamily: mono, fontSize: 10, color: DIM }}>Cookies</Link>
+              <Link to="/terms" style={{ fontFamily: mono, fontSize: 10, color: DIM }}>Termos</Link>
+            </div>
+            <div style={{ fontFamily: mono, fontSize: 9, color: "rgba(240,239,232,.18)" }}>© {new Date().getFullYear()} Calu Agência</div>
+          </div>
           <div style={{ display: "flex", gap: 8 }}>
             {[Instagram, Linkedin, MessageCircle].map((Icon, i) => (
               <a key={i} href="#" className="cl-social"

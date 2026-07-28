@@ -926,7 +926,7 @@ export default function SocialMediaTab({
       {/* ── Connections ─────────────────────────────────────── */}
       <div>
         <h3 className="text-xs font-semibold uppercase tracking-widest mb-4" style={{ color: s(0.3) }}>Conexões</h3>
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {(["instagram", "facebook", "linkedin"] as const).map((platform) => {
             const cfg = PLATFORM_CFG[platform];
             const conn = connections.find((c) => c.platform === platform);
@@ -1111,7 +1111,7 @@ export default function SocialMediaTab({
                       <cfg.Icon className="w-3.5 h-3.5" style={{ color: cfg.color }} />
                       <span className="text-xs font-medium" style={{ color: cfg.color }}>{m.account_name}</span>
                     </div>
-                    <div className="grid grid-cols-4 gap-3">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                       {[
                         { label: "Seguidores", value: fmtNum(m.followers), Icon: Users },
                         { label: "Alcance",     value: fmtNum(m.reach),     Icon: Wifi },
@@ -1492,7 +1492,7 @@ export default function SocialMediaTab({
                         </div>
 
                         {storyLote ? (
-                          <div className="grid grid-cols-4 gap-2">
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                             {batchItems.map((item, idx) => (
                               <div key={item.id} className="relative rounded-xl overflow-hidden" style={{ aspectRatio: "9/16", background: "rgba(255,255,255,0.04)" }}>
                                 <img src={item.url} alt="" className="w-full h-full object-cover" />
@@ -1740,7 +1740,7 @@ export default function SocialMediaTab({
                         </div>
 
                         {/* Thumbnails grid 9:16 */}
-                        <div className="grid grid-cols-4 gap-2">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
                           {batchItems.map((item, idx) => (
                             <div key={item.id} className="relative rounded-lg overflow-hidden" style={{ aspectRatio: "9/16" }}>
                               <img src={item.url} alt="" className="w-full h-full object-cover" />

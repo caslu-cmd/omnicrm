@@ -1510,37 +1510,12 @@ export default function ClientWorkspace() {
   };
 
   // ── Social integrations helpers ─────────────────────────────
-  const invokeMgmt = async (action: string, method: "GET" | "POST" = "GET", body?: unknown) => {
-    const baseUrl = `${SUPABASE_URL}/functions/v1/manage-integrations`;
-    const session = (await supabase.auth.getSession()).data.session;
-    const res = await fetch(`${baseUrl}?action=${action}`, {
-      method,
-      headers: {
-        "Authorization": `Bearer ${session?.access_token}`,
-        "apikey": SUPABASE_PUBLISHABLE_KEY,
-        "Content-Type": "application/json",
-      },
-      body: body ? JSON.stringify(body) : undefined,
-    });
-    if (!res.ok) { const err = await res.json(); throw new Error(err.error || "Request failed"); }
-    return res.json();
-  };
-
   const fetchSocialIntegrations = async () => {
     if (!id) return;
+    // Fonte única: as conexões OAuth reais. O antigo "sistema de conectores"
+    // chamava a edge function manage-integrations, que não existe — dava 404 e
+    // o erro era engolido aqui, deixando a tela dizer "conectado" sem nada salvo.
     const map: Record<string, boolean> = {};
-    // 1) Toggles do sistema de conectores (integrations)
-    try {
-      const data: { connector_name: string; connected: boolean }[] = await invokeMgmt("list");
-      for (const row of data) {
-        const prefix = `social_${id}_`;
-        if (row.connector_name.startsWith(prefix)) {
-          const platform = row.connector_name.replace(prefix, "");
-          map[platform] = row.connected;
-        }
-      }
-    } catch { /* silent */ }
-    // 2) Fonte real: conexões OAuth em social_connections (Instagram/Facebook/etc.)
     const status: Record<string, SocialStatus> = {};
     try {
       const { data: sc } = await (supabase as any)
@@ -1571,42 +1546,42 @@ export default function ClientWorkspace() {
     return null;
   };
 
+  // Instagram, Facebook e Meta Ads são desconectados de verdade, apagando a
+  // credencial em social_connections. Os demais conectores do catálogo ainda
+  // não têm backend — antes o app fingia que salvava.
+  const REDES_OAUTH = ["instagram", "facebook", "meta_ads"];
+
   const handleSocialToggle = async (platformId: string, connect: boolean) => {
     if (!id) return;
-    const name = `social_${id}_${platformId}`;
+
+    if (!REDES_OAUTH.includes(platformId)) {
+      toast.info("Este conector ainda não está disponível.");
+      return;
+    }
+
+    if (connect) { navigate(`/agency/clients/${id}?tab=social`); return; }
+
     try {
-      await invokeMgmt("toggle", "POST", { connector_name: name, connected: connect });
-      setSocialConnected(prev => ({ ...prev, [platformId]: connect }));
-      toast.success(connect ? `${platformId} conectado!` : `${platformId} desconectado`);
-    } catch { toast.error("Erro ao atualizar integração"); }
+      const { data: { session } } = await supabase.auth.getSession();
+      const { error } = await supabase.functions.invoke("smm", {
+        body: { action: "disconnect", client_id: id, platform: platformId },
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+      });
+      if (error) throw error;
+      setSocialConnected(prev => ({ ...prev, [platformId]: false }));
+      setSocialStatus(prev => { const p = { ...prev }; delete p[platformId]; return p; });
+      toast.success("Desconectado.");
+    } catch { toast.error("Não consegui desconectar. Tente pela aba Redes Sociais."); }
   };
 
   const openSocialConfig = async (platformId: string) => {
-    if (!id) return;
-    const name = `social_${id}_${platformId}`;
-    try {
-      const data = await invokeMgmt(`get-config&connector=${encodeURIComponent(name)}`);
-      setSocialConfigValues(data?.config || {});
-    } catch { setSocialConfigValues({}); }
-    setSocialConfigModal(platformId);
+    if (REDES_OAUTH.includes(platformId)) { navigate(`/agency/clients/${id}?tab=social`); return; }
+    toast.info("Este conector ainda não está disponível.");
   };
 
   const saveSocialConfig = async () => {
-    if (!socialConfigModal || !id) return;
-    setSocialConfigSaving(true);
-    const name = `social_${id}_${socialConfigModal}`;
-    try {
-      await invokeMgmt("save-config", "POST", {
-        connector_name: name,
-        config: socialConfigValues,
-        connected: true,
-        status: "active",
-      });
-      setSocialConnected(prev => ({ ...prev, [socialConfigModal]: true }));
-      toast.success("Integração salva e conectada!");
-      setSocialConfigModal(null);
-    } catch { toast.error("Erro ao salvar configurações"); }
-    setSocialConfigSaving(false);
+    toast.info("Este conector ainda não está disponível.");
+    setSocialConfigModal(null);
   };
 
   const handleSaveClient = () => {
@@ -5359,12 +5334,12 @@ Regras:
                 { label: "Publicados",           value: ovCounts.published },
               ];
               return (
-                <div className="grid grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                   <div className="col-span-2 space-y-5">
                     {overviewLoading
                       ? <div className="flex items-center justify-center py-16"><Loader2 className="w-5 h-5 animate-spin" style={{ color: "rgba(255,255,255,0.3)" }} /></div>
                       : <>
-                        <div className="grid grid-cols-4 gap-3">
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                           {ovMetrics.map((m) => (
                             <div key={m.label} className="rounded-xl p-4"
                               style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
@@ -5570,7 +5545,7 @@ Regras:
               <div className="space-y-5">
 
                 {/* Quick stats */}
-                <div className="grid grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {[
                     { label: "Contatos",        value: dbContacts.length || client.contacts.length,                    icon: Users },
                     { label: "Negócios ativos",  value: client.pipeline.filter(d => d.stage !== "ganho").length,       icon: TrendingUp },
@@ -9999,7 +9974,7 @@ ${clientSection}${originalSection}`;
 
                         <div className="border-t pt-4 space-y-3" style={{ borderColor: "rgba(185,255,75,0.1)" }}>
                           <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.3)" }}>Z-API — Conexão WhatsApp</p>
-                          <div className="grid grid-cols-3 gap-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             <div>
                               <label className="text-[10px] uppercase tracking-widest font-semibold mb-1 block" style={{ color: "rgba(255,255,255,0.4)" }}>Instance ID</label>
                               <input
@@ -10589,7 +10564,7 @@ ${clientSection}${originalSection}`;
                                       checked={students.length > 0 && students.every(s => isContactSelected(s.id))}
                                       onChange={() => toggleAllStudents(students)}
                                       className="w-3.5 h-3.5 rounded cursor-pointer flex-shrink-0 accent-[#B9FF4B]" />
-                                    <div className="grid grid-cols-4 gap-2 flex-1 min-w-0">
+                                    <div className="grid grid-cols-2 md:grid-cols-4 gap-2 flex-1 min-w-0">
                                       {["Nome", "E-mail", "WhatsApp", ""].map(h => (
                                         <div key={h || "act"} className="text-[9px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.25)" }}>{h}</div>
                                       ))}
@@ -10603,7 +10578,7 @@ ${clientSection}${originalSection}`;
                                       <input type="checkbox" checked={sel}
                                         onChange={() => toggleContact({ id: s.id, name: s.student_name, phone: s.student_phone || "", email: s.student_email || "" })}
                                         className="w-3.5 h-3.5 rounded cursor-pointer flex-shrink-0 accent-[#B9FF4B]" />
-                                      <div className="grid grid-cols-4 gap-2 flex-1 min-w-0 items-center">
+                                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 flex-1 min-w-0 items-center">
                                         <div className="flex items-center gap-2">
                                           <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
                                             style={{ background: `${client.color}20`, color: client.color }}>
@@ -11575,7 +11550,7 @@ ${clientSection}${originalSection}`;
                                           checked={members.length > 0 && members.every(m => isContactSelected(m.id))}
                                           onChange={() => toggleAllMembers(members)}
                                           className="w-3.5 h-3.5 rounded cursor-pointer flex-shrink-0 accent-[#B9FF4B]" />
-                                        <div className="grid grid-cols-4 gap-2 flex-1 min-w-0">
+                                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 flex-1 min-w-0">
                                           {["Nome", "E-mail", "WhatsApp", "Status"].map(h => (
                                             <div key={h} className="text-[9px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.25)" }}>{h}</div>
                                           ))}
@@ -11589,7 +11564,7 @@ ${clientSection}${originalSection}`;
                                           <input type="checkbox" checked={sel}
                                             onChange={() => toggleContact({ id: m.id, name: m.name, phone: m.phone || "", email: m.email || "" })}
                                             className="w-3.5 h-3.5 rounded cursor-pointer flex-shrink-0 accent-[#B9FF4B]" />
-                                          <div className="grid grid-cols-4 gap-2 flex-1 min-w-0 items-center">
+                                          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 flex-1 min-w-0 items-center">
                                             <div className="flex items-center gap-2">
                                               <div className="w-6 h-6 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0"
                                                 style={{ background: `${group.color}20`, color: group.color }}>
@@ -13563,7 +13538,7 @@ ${clientSection}${originalSection}`;
                       <p className="text-[11px]" style={{ color: "rgba(255,255,255,0.35)" }}>Credenciais para o Tomás publicar landing pages no site do cliente</p>
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                     {[
                       { label: "URL do site", key: "wp_url", ph: "https://clientesite.com.br", type: "url" },
                       { label: "Usuário WP",  key: "wp_user", ph: "admin", type: "text" },
@@ -13669,7 +13644,7 @@ ${clientSection}${originalSection}`;
                 </div>
 
                 {/* Social media cards */}
-                <div className="grid grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {INTEGRATIONS_BASE.filter((i) => i.id !== "whatsapp").map((integ) => {
                     const isConn = socialConnected[integ.id] ?? false;
                     return (
@@ -14200,7 +14175,7 @@ ${clientSection}${originalSection}`;
                     <div>
                       <h3 className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.85)" }}>Todas as plataformas</h3>
                       <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>
-                        {CONNECTOR_DEFS.filter(c => socialConnected[c.name]).length} conectadas · {CONNECTOR_DEFS.length} disponíveis
+                        {CONNECTOR_DEFS.length} no roadmap · ainda não disponíveis para conectar
                       </p>
                     </div>
                     <div className="relative">
@@ -14272,12 +14247,12 @@ ${clientSection}${originalSection}`;
                                 </button>
                               </div>
                             ) : (
-                              <button
-                                onClick={() => (c.configFields.length > 0 ? openSocialConfig(c.name) : handleSocialToggle(c.name, true))}
-                                className="w-full py-1.5 rounded-lg text-[10px] font-medium flex items-center justify-center gap-1 transition-all"
-                                style={{ background: "rgba(185,255,75,0.08)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.15)" }}>
-                                <Plus className="w-2.5 h-2.5" /> Conectar
-                              </button>
+                              // Catálogo de roadmap: estes conectores ainda não têm
+                              // backend, então o botão não promete conexão.
+                              <div className="w-full py-1.5 rounded-lg text-[10px] font-medium flex items-center justify-center gap-1"
+                                style={{ background: "rgba(255,255,255,0.03)", color: "rgba(255,255,255,0.3)", border: "1px dashed rgba(255,255,255,0.12)" }}>
+                                Em breve
+                              </div>
                             )}
                           </motion.div>
                         );

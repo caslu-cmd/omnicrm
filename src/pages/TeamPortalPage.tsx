@@ -147,14 +147,15 @@ export default function TeamPortalPage() {
       </div>
 
       {/* Tab bar */}
-      <div style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", padding: "0 24px" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", gap: 4 }}>
+      <div style={{ borderBottom: "1px solid rgba(255,255,255,0.06)", padding: "0 16px" }}>
+        {/* rola na horizontal no celular em vez de espremer as abas */}
+        <div style={{ maxWidth: 1200, margin: "0 auto", display: "flex", gap: 4, overflowX: "auto", scrollbarWidth: "none" }}>
           {TABS.map(t => {
             const active = tab === t.id;
             const Icon = t.icon;
             return (
               <button key={t.id} onClick={() => setTab(t.id)}
-                style={{ display: "flex", alignItems: "center", gap: 7, padding: "13px 16px", background: "transparent",
+                style={{ display: "flex", alignItems: "center", gap: 7, padding: "13px 16px", background: "transparent", whiteSpace: "nowrap", flexShrink: 0,
                   border: "none", borderBottom: `2px solid ${active ? accent : "transparent"}`, cursor: "pointer",
                   color: active ? "#F0F0F0" : "rgba(255,255,255,0.4)", fontSize: 13, fontWeight: active ? 600 : 500 }}>
                 <Icon style={{ width: 15, height: 15, color: active ? accent : "rgba(255,255,255,0.4)" }} /> {t.label}
@@ -164,7 +165,7 @@ export default function TeamPortalPage() {
         </div>
       </div>
 
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "28px 24px" }}>
+      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 16px" }}>
         {/* ── Funil (kanban) ── */}
         {tab === "funil" && clientId && (
           <LeadsKanbanTab clientId={clientId} clientColor={accent} />

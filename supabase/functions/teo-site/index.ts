@@ -26,6 +26,18 @@ Formato OBRIGATÓRIO de resposta:
 Se a solicitação for de análise ou consulta (sem edição), responda diretamente sem bloco de código.
 Sempre em português brasileiro.`;
 
+// O repositório é digitado à mão no cadastro do cliente, então chega em
+// formatos variados ("https://github.com/dono/repo", com .git, com barra).
+// A API do GitHub só aceita "dono/repo" — sem isto a URL vira lixo e a
+// função devolvia 500 sem dizer o motivo.
+function normalizarRepo(valor: string): string {
+  return valor
+    .trim()
+    .replace(/^https?:\/\/(www\.)?github\.com\//i, "")
+    .replace(/\.git$/i, "")
+    .replace(/^\/+|\/+$/g, "");
+}
+
 function ghHeaders(token: string) {
   return {
     Authorization: `Bearer ${token}`,
@@ -56,11 +68,19 @@ async function listFiles(token: string, repo: string, path = "") {
 }
 
 async function listPages(token: string, repo: string) {
+  // Antes qualquer falha do GitHub virava "nenhuma página": token expirado,
+  // repositório privado sem permissão e pasta inexistente davam o mesmo
+  // resultado vazio. Agora só a pasta ausente (404) é silenciosa.
   const candidates = ["src/pages", "pages", "src/app", "app"];
+  let ultimoErro: string | null = null;
+
   for (const dir of candidates) {
     const url = `${GITHUB_API}/repos/${repo}/contents/${dir}`;
     const r = await fetch(url, { headers: ghHeaders(token) });
-    if (!r.ok) continue;
+    if (!r.ok) {
+      if (r.status !== 404) ultimoErro = `GitHub ${r.status}: ${(await r.text()).slice(0, 200)}`;
+      continue;
+    }
     const data = await r.json();
     if (!Array.isArray(data)) continue;
     const pageFiles = data.filter((f: any) =>
@@ -72,7 +92,9 @@ async function listPages(token: string, repo: string) {
     const pages = pageFiles.map((f: any) => fileToPageInfo(f.name, f.path));
     return { pages, dir };
   }
-  return { pages: [], dir: null };
+
+  if (ultimoErro) throw new Error(`Não consegui ler ${repo} — ${ultimoErro}`);
+  return { pages: [], dir: null, aviso: `Nenhuma pasta de páginas encontrada em ${repo}` };
 }
 
 async function readFile(token: string, repo: string, path: string) {
@@ -136,7 +158,13 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json();
     const { action } = body;
-    const repo: string = body.repo ?? DEFAULT_REPO;
+    const repo: string = normalizarRepo(body.repo || DEFAULT_REPO);
+
+    if (!/^[\w.-]+\/[\w.-]+$/.test(repo)) {
+      return new Response(JSON.stringify({
+        error: `Repositório inválido: "${body.repo}". Use o formato dono/repositorio.`,
+      }), { status: 400, headers: { ...cors, "Content-Type": "application/json" } });
+    }
 
     const githubToken = Deno.env.get("GITHUB_TOKEN") ?? "";
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY") ?? Deno.env.get("LOVABLE_API_KEY") ?? "";

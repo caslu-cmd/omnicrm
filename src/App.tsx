@@ -11,6 +11,7 @@ import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import { AppLayout } from "@/components/layout/AppLayout";
 import AiAssistant from "@/components/AiAssistant";
 import AIFieldPanel from "@/components/AIFieldPanel";
+import CookieConsent from "@/components/CookieConsent";
 import { AIFieldProvider } from "@/contexts/AIFieldContext";
 import AuthPage from "@/pages/AuthPage";
 import LandingPage from "@/pages/LandingPage";
@@ -69,6 +70,8 @@ const SharedAgentPage = lazy(() => import("@/pages/SharedAgentPage"));
 const SharedAgentChatPage = lazy(() => import("@/pages/SharedAgentChatPage"));
 const TriagemSefazPage = lazy(() => import("@/pages/TriagemSefazPage"));
 const RicoGuidePage = lazy(() => import("@/pages/RicoGuidePage"));
+
+const CookiesPage = lazy(() => import("@/pages/CookiesPage"));
 
 const queryClient = new QueryClient();
 
@@ -213,6 +216,7 @@ const AppRoutes = () => (
 
     {/* Páginas legais */}
     <Route path="/privacy" element={<PrivacyPage />} />
+    <Route path="/cookies" element={<CookiesPage />} />
     <Route path="/terms" element={<TermsPage />} />
 
     {/* Telas exclusivas sem sidebar — exigem sessão */}
@@ -242,6 +246,7 @@ const App = () => (
                 <AIFieldProvider>
                   <AppRoutes />
                   <AIFieldPanel />
+                  <CookieConsent />
                 </AIFieldProvider>
               </SocialPostingProvider>
             </PageContextProvider>

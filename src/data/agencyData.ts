@@ -387,7 +387,7 @@ export const CLIENTS: Client[] = [
     revenue: "—",
     nextAction: "—",
     siteUrl: "https://forplace.com.br",
-    siteRepo: "https://github.com/caslu-cmd/forplace",
+    siteRepo: "caslu-cmd/forplace",
     whatsappUrl: "https://wa.me/5585989370471",
     followers: { instagram: "—", facebook: "—" },
     teamInstructions: `# Briefing Completo — Forplace
