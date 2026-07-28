@@ -62,7 +62,7 @@ Deno.serve(async (req) => {
     const encKey = Deno.env.get("INTEGRATION_ENCRYPTION_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const metaAppId = Deno.env.get("META_APP_ID") ?? "";
     const metaAppSecret = Deno.env.get("META_APP_SECRET") ?? "";
-    const redirectUri = Deno.env.get("META_REDIRECT_URI") ?? "https://www.caluagencia.com.br/oauth/meta";
+    const redirectUri = Deno.env.get("META_REDIRECT_URI") ?? "https://caluagencia.com.br/oauth/meta";
 
     const supabase = createClient(supabaseUrl, supabaseAnonKey, {
       global: { headers: { Authorization: authHeader } },
