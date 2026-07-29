@@ -101,6 +101,48 @@ Context: ${brandName} | ${industry}`;
 }
 
 /**
+ * A API de interactions devolve a imagem dentro de `steps[].content[]`, no passo
+ * de `model_output` — não num campo `output_image` na raiz. Como o formato ainda
+ * muda de versão para versão, varremos a resposta inteira atrás do primeiro
+ * pedaço com `data` base64 de imagem, e mantemos os formatos antigos como plano B.
+ */
+function acharImagemNaResposta(data: unknown): { data: string; mimeType: string } | null {
+  const visitados = new Set<unknown>();
+
+  const varrer = (no: unknown): { data: string; mimeType: string } | null => {
+    if (!no || typeof no !== "object" || visitados.has(no)) return null;
+    visitados.add(no);
+
+    if (Array.isArray(no)) {
+      for (const item of no) {
+        const achado = varrer(item);
+        if (achado) return achado;
+      }
+      return null;
+    }
+
+    const obj = no as Record<string, unknown>;
+    const mime = typeof obj.mime_type === "string"
+      ? obj.mime_type
+      : typeof obj.mimeType === "string"
+      ? obj.mimeType
+      : "";
+    const ehImagem = obj.type === "image" || mime.startsWith("image/");
+    if (ehImagem && typeof obj.data === "string" && obj.data.length > 100) {
+      return { data: obj.data, mimeType: mime || "image/jpeg" };
+    }
+
+    for (const valor of Object.values(obj)) {
+      const achado = varrer(valor);
+      if (achado) return achado;
+    }
+    return null;
+  };
+
+  return varrer(data);
+}
+
+/**
  * Gemini. É o motor preferido porque aceita imagens de referência: o slide 1
  * vira referência dos demais e o carrossel inteiro fica com a MESMA pessoa.
  */
@@ -144,13 +186,12 @@ async function gerarNoGemini(
     }
 
     const data = await res.json();
-    const b64: string | undefined =
-      data?.output_image?.data ?? data?.interaction?.output_image?.data;
-    if (!b64) {
+    const achado = acharImagemNaResposta(data);
+    if (!achado) {
       ultimoErro = `${modelo}: resposta sem imagem`;
       continue;
     }
-    return { imageData: b64, mimeType: "image/jpeg", modelo };
+    return { imageData: achado.data, mimeType: achado.mimeType, modelo };
   }
 
   throw new Error(ultimoErro || "Gemini não retornou imagem.");
