@@ -11,6 +11,7 @@ import {
 import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
 import { useClients } from "@/contexts/ClientsContext";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   renderSlide, ensureFonts, loadImage, canvasToBlob,
   FORMAT_SIZE, FORMAT_LABEL, FONT_PAIRS, LAYOUTS, PALETTES,
@@ -93,6 +94,7 @@ interface CarrosselStudioProps {
 
 export default function CarrosselStudio({ clientIdInicial = "", embutido = false }: CarrosselStudioProps) {
   const { clients } = useClients();
+  const isMobile = useIsMobile();
 
   // Briefing
   const [clienteId, setClienteId] = useState(clientIdInicial);
@@ -885,9 +887,10 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     setDicaVisual(""); setMelhorHorario(""); setIdeias([]); setAtivo(0); setMemoriaId(null); setAgendado(null);
   };
 
-  const alturaPainel = embutido ? "calc(100vh - 300px)" : "calc(100vh - 130px)";
-  // O slide inteiro precisa caber na tela sem rolar: limitamos pela ALTURA.
-  const alturaSlide = embutido ? "calc(100vh - 430px)" : "calc(100vh - 300px)";
+  // No desktop cada painel rola sozinho e o slide cabe inteiro na tela.
+  // No celular isso vira armadilha (duas rolagens aninhadas): a página rola uma vez só.
+  const alturaPainel = isMobile ? undefined : embutido ? "calc(100vh - 300px)" : "calc(100vh - 130px)";
+  const alturaSlide = isMobile ? "62vh" : embutido ? "calc(100vh - 430px)" : "calc(100vh - 300px)";
   const fundo = embutido ? "transparent" : BG;
 
   const [prevW, prevH] = FORMAT_SIZE[formatId];
@@ -954,7 +957,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Campo label="Formato">
                   <div className="flex gap-1.5">
                     <Chip ativo={formato === "carrossel"} onClick={() => setFormato("carrossel")}>Carrossel</Chip>
@@ -977,7 +980,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                 </div>
               </Campo>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Campo label="Público (opcional)">
                   <input value={publico} onChange={(e) => setPublico(e.target.value)} placeholder="donos de PME" style={inputStyle} />
                 </Campo>
@@ -1168,7 +1171,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   return (
     <div className={embutido ? "" : "min-h-full"} style={{ background: fundo }}>
       {/* Topo */}
-      <div className="flex items-center justify-between px-6 py-4 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 md:px-6 py-4 border-b" style={{ borderColor: "rgba(255,255,255,0.07)" }}>
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 flex-shrink-0" style={{ color: LIME }} />
@@ -1405,7 +1408,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                     </button>
                   ))}
                 </div>
-                <div className="grid grid-cols-3 gap-2 mt-2">
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2">
                   {([["Fundo", bg, setBg], ["Texto", fg, setFg], ["Acento", accent, setAccent]] as const).map(([lab, val, set]) => (
                     <label key={lab} className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg cursor-pointer"
                       style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>

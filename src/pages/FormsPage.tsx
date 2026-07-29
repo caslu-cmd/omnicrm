@@ -270,7 +270,7 @@ function FormBuilder({ initial, onSave, onClose, saving }: BuilderProps) {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <div>
                         <label className="block text-[9px] uppercase tracking-widest mb-1" style={{ color: s(0.25) }}>Rótulo *</label>
                         <input value={newLabel} onChange={e => setNewLabel(e.target.value)} placeholder="Ex: Cidade, Orçamento…"
@@ -360,7 +360,7 @@ function FormBuilder({ initial, onSave, onClose, saving }: BuilderProps) {
                     )}
                   </div>
                   {field.enabled && (
-                    <div className="mt-2 grid grid-cols-2 gap-2">
+                    <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <div>
                         <label className="block text-[9px] uppercase tracking-widest mb-1" style={{ color: s(0.2) }}>Rótulo</label>
                         <input value={field.label} onChange={e => setFieldProp(field.key, "label", e.target.value)}
@@ -391,15 +391,15 @@ function FormBuilder({ initial, onSave, onClose, saving }: BuilderProps) {
           {/* Tab: Configurações */}
           {tab === "settings" && (
             <div className="space-y-4">
-              {[
+              {([
                 { key: "title",           label: "Título do formulário",   ph: "Ex: Fale conosco" },
                 { key: "button_text",     label: "Texto do botão",         ph: "Enviar" },
                 { key: "success_message", label: "Mensagem de sucesso",    ph: "Obrigado! Entraremos em contato." },
                 { key: "source",          label: "Tag de origem (no CRM)", ph: "formulario" },
-              ].map(({ key, label, ph }) => (
+              ] as { key: keyof FormSettings; label: string; ph: string }[]).map(({ key, label, ph }) => (
                 <div key={key}>
                   <label className="block text-[10px] font-semibold uppercase tracking-widest mb-1.5" style={{ color: s(0.3) }}>{label}</label>
-                  <input value={(settings as Record<string, string>)[key]} onChange={e => setSettings(p => ({ ...p, [key]: e.target.value }))}
+                  <input value={settings[key]} onChange={e => setSettings(p => ({ ...p, [key]: e.target.value }))}
                     placeholder={ph} className={inputCls} style={inputStyle} />
                 </div>
               ))}

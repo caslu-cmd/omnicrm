@@ -482,7 +482,7 @@ export default function PropostasPage() {
           </DialogHeader>
 
           <div className="space-y-4 pt-2">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="col-span-2 space-y-1.5">
                 <Label>Empresa do cliente *</Label>
                 <Input placeholder="Locus Contabilidade" {...f("cliente")} />

@@ -1627,7 +1627,7 @@ export default function SocialMediaTab({
                           <button onClick={() => setCarouselItems([])} className="text-[10px]" style={{ color: "#F87171" }}>Limpar tudo</button>
                         </div>
 
-                        <div className="grid grid-cols-5 gap-2">
+                        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                           {carouselItems.map((item, idx) => (
                             <div key={item.id} className="relative rounded-xl overflow-hidden group" style={{ aspectRatio: "1/1", background: "rgba(255,255,255,0.04)" }}>
                               <img src={item.url} alt="" className="w-full h-full object-cover" />
@@ -1959,7 +1959,7 @@ export default function SocialMediaTab({
                             {reelTitle && (
                               <div className="space-y-2">
                                 <div className="text-[9px] uppercase tracking-wider font-semibold" style={{ color: s(0.3) }}>Estilo do título</div>
-                                <div className="grid grid-cols-3 gap-2">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                   {([
                                     { id: "bold-white" as const, label: "Branco Bold", preview: { color: "#fff", fontWeight: 800, textShadow: "0 2px 8px rgba(0,0,0,0.8)" } },
                                     { id: "minimal" as const, label: "Minimalista", preview: { color: "rgba(255,255,255,0.85)", fontWeight: 400, letterSpacing: "0.04em" } },

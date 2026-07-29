@@ -405,7 +405,7 @@ export default function AgencyDashboard() {
                   )}
 
                   {/* Mini stats */}
-                  <div className="grid grid-cols-3 gap-2 mb-5">
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mb-5">
                     {[
                       { label: "Posts/mês",  value: client.postsMonth },
                       { label: "Campanhas",  value: client.campaigns },
@@ -597,7 +597,7 @@ export default function AgencyDashboard() {
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
                     <label className="block text-xs font-medium mb-1.5" style={{ color: "rgba(255,255,255,0.4)" }}>Status</label>
                     <select

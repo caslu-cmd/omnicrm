@@ -617,7 +617,7 @@ const ModalActions = ({ onCancel, onConfirm, confirmLabel }: { onCancel: () => v
 );
 
 const SourceSelect = ({ value, onChange }: { value: string; onChange: (v: string) => void }) => (
-  <div className="grid grid-cols-4 gap-1.5">
+  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
     {SOURCE_OPTIONS.map(s => {
       const cfg = SOURCES[s];
       const Icon = cfg.Icon;

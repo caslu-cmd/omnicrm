@@ -435,7 +435,7 @@ export default function LeadsKanbanTab({ clientId, clientColor }: Props) {
                         className="w-full px-3 py-2.5 rounded-xl text-sm"
                         style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#F0F0F0" }} />
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <div>
                         <label className="text-[10px] uppercase tracking-wider font-semibold block mb-1" style={{ color: "rgba(255,255,255,0.3)" }}>Potência (kW)</label>
                         <input value={form.potenciaKw ?? ""} onChange={e => setForm(f => ({ ...f, potenciaKw: e.target.value }))}
@@ -461,7 +461,7 @@ export default function LeadsKanbanTab({ clientId, clientColor }: Props) {
                 {/* Associado fields */}
                 {isAssociado && (
                   <>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       <div>
                         <label className="text-[10px] uppercase tracking-wider font-semibold block mb-1" style={{ color: "rgba(255,255,255,0.3)" }}>UC</label>
                         <input value={form.uc ?? ""} onChange={e => setForm(f => ({ ...f, uc: e.target.value }))}

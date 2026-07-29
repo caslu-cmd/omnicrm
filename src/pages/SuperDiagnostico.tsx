@@ -92,7 +92,7 @@ function DiagnosisScreen({ diagnosis, nome, empresa }: { diagnosis: string; nome
               Este foi apenas o diagnóstico. A Calu Agência tem 11 especialistas em IA prontos para implementar cada estratégia.
             </p>
           </div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {[
               { icon: Zap, label: "Resultados em 30 dias" },
               { icon: Target, label: "Estratégia personalizada" },

@@ -105,7 +105,7 @@ export default function TeamMembersPanel({ clientId }: { clientId: string }) {
       </div>
 
       {/* Role cards */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {ROLES.map(r => (
           <div key={r.id} className="rounded-2xl p-4"
             style={{ background: "rgba(255,255,255,0.025)", border: `1px solid ${r.color}20` }}>
@@ -123,7 +123,7 @@ export default function TeamMembersPanel({ clientId }: { clientId: string }) {
         <div className="rounded-2xl p-5 space-y-4"
           style={{ background: `${G}0.04)`, border: `1px solid ${G}0.15)` }}>
           <p className="text-sm font-semibold" style={{ color: accent }}>Novo convite</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-[11px] uppercase tracking-wider font-semibold mb-1.5 block" style={{ color: "rgba(255,255,255,0.4)" }}>E-mail *</label>
               <input value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))}

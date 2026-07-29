@@ -411,7 +411,7 @@ export default function PostCanvas({
 
         {/* ── Right: format grid ── */}
         <div className="flex-1 overflow-y-auto">
-          <div className="grid grid-cols-2 gap-4" style={{ minHeight: "100%" }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4" style={{ minHeight: "100%" }}>
             {FORMATS.map((fmt, i) => {
               const { w, h } = previewSize(fmt.ratio);
               const [cW, cH] = CANVAS_SIZES[fmt.ratio];

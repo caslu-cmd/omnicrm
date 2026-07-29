@@ -5180,7 +5180,7 @@ Regras:
                       style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }}
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <label className="text-[11px] uppercase tracking-wider font-semibold mb-1.5 block" style={{ color: "rgba(255,255,255,0.4)" }}>Tipo</label>
                       <select value={manualForm.type} onChange={(e) => setManualForm(f => ({ ...f, type: e.target.value as GeneratedOutput["type"] }))}
@@ -5652,7 +5652,7 @@ Regras:
                     {showNewContact && (
                       <div className="rounded-2xl p-4 space-y-3" style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${client.color}30` }}>
                         <p className="text-xs font-semibold" style={{ color: client.color }}>Novo Lead</p>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           {[
                             { key: "name",    ph: "Nome *" },
                             { key: "company", ph: "Empresa" },
@@ -6603,7 +6603,7 @@ Regras:
                             <p className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "#25D366" }}>
                               Credenciais ZApi — {client.name}
                             </p>
-                            <div className="grid grid-cols-3 gap-2">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                               {[
                                 { label: "Instance ID", key: "zapi_instance", ph: "Ex: 3EBC0C..." },
                                 { label: "Token", key: "zapi_token", ph: "Ex: BA4478..." },
@@ -7236,7 +7236,7 @@ Regras:
                                 <Repeat2 className="w-3.5 h-3.5" style={{ color: "#F97316" }} />
                                 <h4 className="text-xs font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>Audiências de Remarketing</h4>
                               </div>
-                              <div className="grid grid-cols-2 gap-3">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                 {camp.remarketing.map((aud) => {
                                   const Icon = REMARK_TYPE_ICON[aud.type] ?? Target;
                                   const isActive = aud.status === "ativa";
@@ -7574,11 +7574,11 @@ Regras:
                       { label: "Diferenciais",       value: b.diferencial,                               full: true  },
                     ];
                     return (
-                      <div className="px-5 pb-4 grid grid-cols-2 gap-2"
+                      <div className="px-5 pb-4 grid grid-cols-1 sm:grid-cols-2 gap-2"
                         style={{ borderTop: "1px solid rgba(56,189,248,0.1)", paddingTop: "12px" }}>
                         {fields.map(({ label, value, full }) => (
                           <div key={label}
-                            className={`rounded-xl p-3 ${full ? "col-span-2" : ""}`}
+                            className={`rounded-xl p-3 ${full ? "sm:col-span-2" : ""}`}
                             style={{ background: value ? "rgba(56,189,248,0.04)" : "rgba(255,255,255,0.02)", border: `1px solid ${value ? "rgba(56,189,248,0.15)" : "rgba(255,255,255,0.04)"}` }}>
                             <div className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: value ? "rgba(56,189,248,0.6)" : "rgba(255,255,255,0.15)" }}>
                               {label}
@@ -8050,7 +8050,7 @@ Regras:
                         </div>
                         <div>
                           <label className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: "rgba(255,255,255,0.4)" }}>Tipo de reunião</label>
-                          <div className="grid grid-cols-3 gap-2 mt-1">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-1">
                             {([
                               { v: "mic", t: "🎙️ Presencial", d: "Microfone capta a sala" },
                               { v: "system", t: "💻 Online", d: "Áudio da reunião virtual" },
@@ -8764,7 +8764,7 @@ Regras:
                               <div className="space-y-4 mb-2">
                                 <div>
                                   <div className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: "rgba(255,255,255,0.3)" }}>Plataforma destino</div>
-                                  <div className="grid grid-cols-4 gap-1.5">
+                                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                                     {VIDEO_FORMATS.map(f => (
                                       <button key={f.id} onClick={() => setVideoPlatform(f.id)}
                                         className="flex flex-col items-center gap-1 py-2 px-1 rounded-xl border text-center transition-all"
@@ -9898,8 +9898,8 @@ ${clientSection}${originalSection}`;
                       <div className="rounded-2xl p-5 space-y-4" style={{ background: "rgba(185,255,75,0.04)", border: "1px solid rgba(185,255,75,0.15)" }}>
                         <p className="text-xs font-semibold uppercase tracking-widest" style={{ color: "#B9FF4B" }}>Novo Agente</p>
 
-                        <div className="grid grid-cols-2 gap-3">
-                          <div className="col-span-2 flex gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="sm:col-span-2 flex gap-3">
                             <div className="flex-1">
                               <label className="text-[10px] uppercase tracking-widest font-semibold mb-1 block" style={{ color: "rgba(255,255,255,0.4)" }}>Nome do agente *</label>
                               <input
@@ -9939,7 +9939,7 @@ ${clientSection}${originalSection}`;
                             />
                           </div>
 
-                          <div className="col-span-2">
+                          <div className="sm:col-span-2">
                             <label className="text-[10px] uppercase tracking-widest font-semibold mb-1 block" style={{ color: "rgba(255,255,255,0.4)" }}>Descrição do produto</label>
                             <textarea
                               value={salesAgentForm.product_description}
@@ -9950,7 +9950,7 @@ ${clientSection}${originalSection}`;
                             />
                           </div>
 
-                          <div className="col-span-2">
+                          <div className="sm:col-span-2">
                             <label className="text-[10px] uppercase tracking-widest font-semibold mb-1 block" style={{ color: "rgba(255,255,255,0.4)" }}>Link de compra</label>
                             <input
                               value={salesAgentForm.product_url}
@@ -9960,7 +9960,7 @@ ${clientSection}${originalSection}`;
                             />
                           </div>
 
-                          <div className="col-span-2">
+                          <div className="sm:col-span-2">
                             <label className="text-[10px] uppercase tracking-widest font-semibold mb-1 block" style={{ color: "rgba(255,255,255,0.4)" }}>Persona / Instruções extras</label>
                             <textarea
                               value={salesAgentForm.persona}
@@ -10246,10 +10246,10 @@ ${clientSection}${originalSection}`;
                       transition={{ duration: 0.2 }} className="overflow-hidden">
                       <div className="rounded-2xl p-4 space-y-3" style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${client.color}30` }}>
                         <p className="text-xs font-semibold" style={{ color: client.color }}>Novo Curso</p>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                           <input placeholder="Nome do curso *" value={newCourseForm.title}
                             onChange={e => setNewCourseForm(p => ({ ...p, title: e.target.value }))}
-                            className="col-span-2 rounded-lg px-3 py-2 text-xs focus:outline-none"
+                            className="sm:col-span-2 rounded-lg px-3 py-2 text-xs focus:outline-none"
                             style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#F0F0F0" }} />
                           <input placeholder="Descrição" value={newCourseForm.description}
                             onChange={e => setNewCourseForm(p => ({ ...p, description: e.target.value }))}
@@ -10267,7 +10267,7 @@ ${clientSection}${originalSection}`;
                               className="w-12 text-center text-xs focus:outline-none bg-transparent"
                               style={{ color: "#F0F0F0" }} />
                           </div>
-                          <div className="col-span-2 flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}>
+                          <div className="sm:col-span-2 flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}>
                             <span className="text-xs flex-1" style={{ color: "rgba(255,255,255,0.5)" }}>Data de início (Dia 1)</span>
                             <input type="date" value={newCourseForm.start_date}
                               onChange={e => setNewCourseForm(p => ({ ...p, start_date: e.target.value }))}
@@ -10437,10 +10437,10 @@ ${clientSection}${originalSection}`;
                             style={{ borderTop: "1px solid rgba(185,255,75,0.15)" }}>
                             <div className="px-5 py-4 space-y-3">
                               <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: "#B9FF4B" }}>Editar curso</p>
-                              <div className="grid grid-cols-2 gap-2">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 <input placeholder="Nome do curso *" value={editCourseForm.title}
                                   onChange={e => setEditCourseForm(p => ({ ...p, title: e.target.value }))}
-                                  className="col-span-2 rounded-lg px-3 py-2 text-xs focus:outline-none"
+                                  className="sm:col-span-2 rounded-lg px-3 py-2 text-xs focus:outline-none"
                                   style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#F0F0F0" }} />
                                 <input placeholder="Descrição" value={editCourseForm.description}
                                   onChange={e => setEditCourseForm(p => ({ ...p, description: e.target.value }))}
@@ -10458,7 +10458,7 @@ ${clientSection}${originalSection}`;
                                     className="w-12 text-center text-xs focus:outline-none bg-transparent"
                                     style={{ color: "#F0F0F0" }} />
                                 </div>
-                                <div className="col-span-2 flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}>
+                                <div className="sm:col-span-2 flex items-center gap-2 rounded-lg px-3 py-2" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)" }}>
                                   <span className="text-xs flex-1" style={{ color: "rgba(255,255,255,0.5)" }}>Data de início (Dia 1)</span>
                                   <input type="date" value={editCourseForm.start_date}
                                     onChange={e => setEditCourseForm(p => ({ ...p, start_date: e.target.value }))}
@@ -10515,7 +10515,7 @@ ${clientSection}${originalSection}`;
                             style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
                             <div className="px-5 py-4 space-y-2">
                               <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: client.color }}>Adicionar aluno</p>
-                              <div className="grid grid-cols-3 gap-2">
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                 {[
                                   { key: "student_name", ph: "Nome *" },
                                   { key: "student_email", ph: "E-mail" },
@@ -10899,7 +10899,7 @@ ${clientSection}${originalSection}`;
                                           onChange={e => setNewChecklistItem(p => ({ ...p, title: e.target.value }))}
                                           className="w-full rounded-lg px-3 py-2 text-xs focus:outline-none"
                                           style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#F0F0F0" }} />
-                                        <div className="grid grid-cols-2 gap-2">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                           <input placeholder="Descrição (opcional)"
                                             value={newChecklistItem.description}
                                             onChange={e => setNewChecklistItem(p => ({ ...p, description: e.target.value }))}
@@ -10981,7 +10981,7 @@ ${clientSection}${originalSection}`;
                                 <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.3)" }}>— envie o template, a ferramenta preenche o nome</span>
                               </div>
 
-                              <div className="grid grid-cols-2 gap-6">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                 {/* Esquerda: Template + Configuração */}
                                 <div className="space-y-4">
                                   <div>
@@ -11002,7 +11002,7 @@ ${clientSection}${originalSection}`;
                                     <>
                                       <div className="space-y-3">
                                         <label className="text-[10px] uppercase tracking-widest font-semibold block" style={{ color: "rgba(255,255,255,0.3)" }}>Posição do nome</label>
-                                        <div className="grid grid-cols-2 gap-3">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                           {[
                                             { label: `Horizontal: ${certNameX}%`, state: certNameX, set: (v: number) => { setCertNameX(v); setCertPreview(null); } },
                                             { label: `Vertical: ${certNameY}%`, state: certNameY, set: (v: number) => { setCertNameY(v); setCertPreview(null); } },
@@ -11209,7 +11209,7 @@ ${clientSection}${originalSection}`;
                                 </button>
                               </div>
 
-                              <div className="grid grid-cols-2 gap-6">
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                 {/* QR Code */}
                                 <div className="space-y-3">
                                   <label className="text-[10px] uppercase tracking-widest font-semibold block" style={{ color: "rgba(255,255,255,0.3)" }}>
@@ -11598,7 +11598,7 @@ ${clientSection}${originalSection}`;
                                     <p className="text-sm font-semibold" style={{ color: "#FBBF24" }}>Emissão de Certificados — {group.name}</p>
                                   </div>
 
-                                  <div className="grid grid-cols-2 gap-6">
+                                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                     {/* Template + Config */}
                                     <div className="space-y-4">
                                       <div>
@@ -11616,7 +11616,7 @@ ${clientSection}${originalSection}`;
                                         <>
                                           <div className="space-y-3">
                                             <label className="text-[10px] uppercase tracking-widest font-semibold block" style={{ color: "rgba(255,255,255,0.3)" }}>Posição do nome</label>
-                                            <div className="grid grid-cols-2 gap-3">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                               {[
                                                 { label: `Horizontal: ${certNameX}%`, v: certNameX, set: (n: number) => { setCertNameX(n); setCertPreview(null); } },
                                                 { label: `Vertical: ${certNameY}%`, v: certNameY, set: (n: number) => { setCertNameY(n); setCertPreview(null); } },
@@ -11901,7 +11901,7 @@ ${clientSection}${originalSection}`;
                                 exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.22 }}
                                 className="overflow-hidden"
                                 style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-                                <div className="px-5 py-5 grid grid-cols-3 gap-6">
+                                <div className="px-5 py-5 grid grid-cols-1 md:grid-cols-3 gap-6">
 
                                   {/* Col 1: Specs */}
                                   <div className="space-y-3">
@@ -12046,7 +12046,7 @@ ${clientSection}${originalSection}`;
                                           </div>
                                         </div>
 
-                                        <div className="grid grid-cols-2 gap-6">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                           {/* Coluna Esquerda: Config */}
                                           <div className="space-y-4">
 
@@ -12071,7 +12071,7 @@ ${clientSection}${originalSection}`;
                                                 <label className="text-[10px] uppercase tracking-widest font-semibold block" style={{ color: "rgba(255,255,255,0.3)" }}>
                                                   Posição do nome
                                                 </label>
-                                                <div className="grid grid-cols-2 gap-3">
+                                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                                   <div>
                                                     <div className="text-[10px] mb-1" style={{ color: "rgba(255,255,255,0.4)" }}>Horizontal: {certNameX}%</div>
                                                     <input type="range" min="5" max="95" value={certNameX}
@@ -12290,7 +12290,7 @@ ${clientSection}${originalSection}`;
                         <span className="relative inline-flex rounded-full h-1.5 w-1.5" style={{ background: "#F59E0B" }} />
                       </span>
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {(client.whatsappLeads ?? []).map((lead) => {
                         const course = (client.courses ?? []).find(c => c.id === lead.courseId);
                         const STAGE_LABEL: Record<string, string> = { prospeccao: "Prospecção", qualificacao: "Qualificação", proposta: "Proposta", negociacao: "Negociação", ganho: "Ganho" };
@@ -12664,7 +12664,7 @@ ${clientSection}${originalSection}`;
                           <button onClick={() => setAiPortalSuggestions(null)}
                             style={{ color: "rgba(255,255,255,0.3)", background: "none", border: "none", cursor: "pointer", fontSize: 16, lineHeight: 1 }}>×</button>
                         </div>
-                        <div className="grid grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {sections.map(({ key, label, items, addFn }) => (
                             <div key={key} className="rounded-xl overflow-hidden" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
                               <div className="px-3 py-2 flex items-center justify-between flex-wrap gap-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
@@ -14923,7 +14923,7 @@ ${clientSection}${originalSection}`;
             </div>
 
             <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[10px] uppercase tracking-widest font-semibold mb-1.5" style={{ color: "rgba(255,255,255,0.3)" }}>Nome</label>
                   <input value={editForm.name} onChange={(e) => setEditForm(f => f && { ...f, name: e.target.value })}
@@ -14936,7 +14936,7 @@ ${clientSection}${originalSection}`;
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[10px] uppercase tracking-widest font-semibold mb-1.5" style={{ color: "rgba(255,255,255,0.3)" }}>Status</label>
                   <select value={editForm.status} onChange={(e) => setEditForm(f => f && { ...f, status: e.target.value as any })}
@@ -14960,7 +14960,7 @@ ${clientSection}${originalSection}`;
                   className="w-full rounded-xl px-3 py-2 text-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }} />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[10px] uppercase tracking-widest font-semibold mb-1.5" style={{ color: "rgba(255,255,255,0.3)" }}>Seguidores Instagram</label>
                   <input value={editForm.followersIg} onChange={(e) => setEditForm(f => f && { ...f, followersIg: e.target.value })}

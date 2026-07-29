@@ -436,7 +436,7 @@ const AdminPage = () => {
                 <h3 className="text-base font-semibold font-display text-foreground flex items-center gap-2">
                   <Send className="h-5 w-5 text-primary" /> Enviar Notificação
                 </h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-medium text-muted-foreground">Título *</label>
                     <input
@@ -554,7 +554,7 @@ const AdminPage = () => {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-medium text-muted-foreground">Nome da Plataforma</label>
                     <input value={wlSettings.platform_name} onChange={e => setWlSettings(p => ({ ...p, platform_name: e.target.value }))} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" />
@@ -647,7 +647,7 @@ const AdminPage = () => {
               </div>
               <div className="rounded-xl border border-border bg-card p-6 shadow-card space-y-3">
                 <h3 className="text-base font-semibold text-foreground">Clientes por Plano</h3>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="p-4 rounded-lg border border-border text-center">
                     <p className="text-2xl font-bold text-foreground">{totalClients - brandingRemoved}</p>
                     <p className="text-xs text-muted-foreground">Standard (com branding)</p>

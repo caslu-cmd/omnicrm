@@ -187,7 +187,7 @@ const SitesPage = () => {
                   <button onClick={() => toast.success("CTA clicado!")} className="px-6 py-3 rounded-lg bg-accent text-accent-foreground font-semibold text-sm">Aproveitar Agora</button>
                 </div>
                 <div className="p-8 space-y-6">
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     {["✨ Inbox Ilimitado", "🚀 Automações Pro", "📊 Relatórios Full"].map(f => (
                       <div key={f} className="p-4 rounded-lg bg-muted text-center text-sm font-medium text-foreground">{f}</div>
                     ))}

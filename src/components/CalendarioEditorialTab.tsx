@@ -234,9 +234,9 @@ Entregue o calendário completo e detalhado seguindo sua metodologia especializa
         )}
       </div>
 
-      <div className={cn("grid gap-6", result ? "grid-cols-5" : "grid-cols-1 max-w-2xl")}>
+      <div className={cn("grid gap-6", result ? "grid-cols-1 lg:grid-cols-5" : "grid-cols-1 max-w-2xl")}>
         {/* ── Form ──────────────────────────────────────────── */}
-        <div className={cn("space-y-5", result ? "col-span-2" : "")}>
+        <div className={cn("space-y-5", result ? "lg:col-span-2" : "")}>
           {/* Calendar type */}
           <div
             className="rounded-2xl p-5 space-y-4"
@@ -365,7 +365,7 @@ Entregue o calendário completo e detalhado seguindo sua metodologia especializa
               initial={{ opacity: 0, x: 12 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 12 }}
-              className="col-span-3 rounded-2xl overflow-hidden flex flex-col"
+              className="lg:col-span-3 rounded-2xl overflow-hidden flex flex-col"
               style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)", minHeight: 400 }}
             >
               {/* Output header */}

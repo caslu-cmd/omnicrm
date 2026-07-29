@@ -247,7 +247,7 @@ function ApostilaPageInner() {
             <p className="text-[10px] uppercase tracking-widest mb-3 font-semibold" style={{ color: "#444466" }}>
               1. Layout (PDFs)
             </p>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
               {SLOTS.map((slot) => (
                 <DropZone key={slot.key} slot={slot} onFile={onSlotFile} disabled={processando} />
               ))}
@@ -410,7 +410,7 @@ function ApostilaPageInner() {
                   O agente organiza, formata e monta a apostila completa como um editor profissional.
                 </p>
               </div>
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                 {[
                   { emoji: "📄", label: "Upload Layout", desc: "3 PDFs de layout" },
                   { emoji: "🧠", label: "IA Edita", desc: "Claude organiza o conteúdo" },

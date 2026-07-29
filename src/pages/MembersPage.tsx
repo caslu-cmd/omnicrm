@@ -437,7 +437,7 @@ const MembersPage = () => {
     <>
       <div><label className="text-xs font-medium text-muted-foreground">Título *</label><input value={courseTitle} onChange={e => setCourseTitle(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20" /></div>
       <div><label className="text-xs font-medium text-muted-foreground">Descrição</label><textarea value={courseDesc} onChange={e => setCourseDesc(e.target.value)} rows={2} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring/20 resize-none" /></div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div><label className="text-xs font-medium text-muted-foreground">Nível</label>
           <select value={courseLevel} onChange={e => setCourseLevel(e.target.value)} className="w-full mt-1 rounded-lg border border-input bg-background py-2 px-3 text-sm">
             {["Básico", "Intermediário", "Avançado", "Pro", "Premium"].map(l => <option key={l} value={l}>{l}</option>)}

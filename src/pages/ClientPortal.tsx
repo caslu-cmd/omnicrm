@@ -1323,7 +1323,7 @@ export default function ClientPortal() {
                 const rate = marketRates[m.id];
                 if (!rate) return null;
                 return (
-                  <div key={m.id} className="grid grid-cols-3 gap-2 items-center px-3 py-2.5 rounded-xl"
+                  <div key={m.id} className="grid grid-cols-2 sm:grid-cols-3 gap-2 items-center px-3 py-2.5 rounded-xl"
                     style={{ background: i % 2 === 0 ? "#F9F8F6" : "transparent" }}>
                     <div className="flex items-center gap-2">
                       <div className="w-6 h-6 rounded-md flex items-center justify-center text-[9px] font-bold flex-shrink-0"
@@ -1345,7 +1345,7 @@ export default function ClientPortal() {
               })}
             </div>
             <div className="mx-5 mb-5 rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(0,0,0,0.08)" }}>
-              <div className="grid grid-cols-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2">
                 <div className="p-4" style={{ background: "#FEF2F2", borderRight: "1px solid rgba(0,0,0,0.06)" }}>
                   <div className="text-[10px] uppercase tracking-widest font-semibold mb-1" style={{ color: "#ef4444" }}>Contratar individualmente</div>
                   <div className="text-xl font-black" style={{ color: "#DC2626" }}>R$ {MARKET_TOTAL_MIN.toLocaleString("pt-BR")}+</div>

@@ -214,7 +214,7 @@ const SettingsPage = () => {
               <div className="rounded-xl border border-border bg-card p-6 shadow-card space-y-4">
                 <h3 className="text-base font-semibold font-display text-foreground flex items-center gap-2"><Globe className="h-5 w-5 text-primary" /> Data Residency</h3>
                 <p className="text-xs text-muted-foreground">Configure a região de armazenamento dos dados</p>
-                <div className="grid grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   {[
                     { region: "🇧🇷 São Paulo", active: true },
                     { region: "🇺🇸 Virginia", active: false },

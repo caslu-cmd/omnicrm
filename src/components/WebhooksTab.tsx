@@ -297,7 +297,7 @@ export default function WebhooksTab({ clientId }: { clientId: string }) {
         <div className="rounded-2xl p-5 space-y-4"
           style={{ background: "rgba(185,255,75,0.04)", border: `1px solid ${G}0.15)` }}>
           <p className="text-sm font-semibold" style={{ color: accent }}>Novo endpoint de webhook</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="text-[11px] uppercase tracking-wider font-semibold mb-1.5 block" style={{ color: "rgba(255,255,255,0.4)" }}>
                 Nome *
@@ -485,7 +485,7 @@ export default function WebhooksTab({ clientId }: { clientId: string }) {
                           return (
                             <div key={lead.id} className="flex items-center gap-4 px-3 py-2.5 rounded-xl text-xs"
                               style={{ background: "rgba(255,255,255,0.03)" }}>
-                              <div className="flex-1 grid grid-cols-3 gap-3">
+                              <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
                                 <span style={{ color: "rgba(255,255,255,0.7)" }}>{String(name)}</span>
                                 <span style={{ color: "rgba(255,255,255,0.4)" }}>{String(email)}</span>
                                 <span style={{ color: "rgba(255,255,255,0.4)" }}>{String(phone)}</span>

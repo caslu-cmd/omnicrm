@@ -479,7 +479,7 @@ function applySplitColumns(html: string, sectionId: string, cols: 2 | 3 | 4): st
 
   // No existing grid — create one from the section content
   const container = el.querySelector("div > div, section > div, .container, .wrapper") || el.querySelector("div") || el;
-  const gridCls = cols === 2 ? "grid grid-cols-2 gap-8" : cols === 3 ? "grid grid-cols-3 gap-6" : "grid grid-cols-4 gap-4";
+  const gridCls = cols === 2 ? "grid grid-cols-2 gap-8" : cols === 3 ? "grid grid-cols-1 md:grid-cols-3 gap-6" : "grid grid-cols-2 md:grid-cols-4 gap-4";
   const children = Array.from(container.children);
   const grid = doc.createElement("div");
   grid.className = gridCls;

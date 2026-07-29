@@ -722,7 +722,7 @@ function CampaignModal({
                 <input className={inputCls} style={inputStyle} value={draft.name}
                   onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
               )}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {field("Objetivo",
                   <select className={inputCls} style={inputStyle} value={draft.objective}
                     onChange={(e) => setDraft({ ...draft, objective: e.target.value })}>
@@ -750,7 +750,7 @@ function CampaignModal({
                     onChange={(e) => setDraft({ ...draft, age_max: +e.target.value })} />
                 )}
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {field("Gênero",
                   <select className={inputCls} style={inputStyle} value={draft.genders}
                     onChange={(e) => setDraft({ ...draft, genders: e.target.value as any })}>

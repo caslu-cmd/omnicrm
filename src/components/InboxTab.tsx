@@ -166,10 +166,12 @@ export default function InboxTab({ clientId, accent = "#B9FF4B", initialConversa
         </button>
       </div>
 
-      {/* Split: lista + thread */}
-      <div className="grid gap-3" style={{ gridTemplateColumns: "320px 1fr", height: "62vh" }}>
+      {/* Split: lista + thread. No celular vira uma coluna só: a lista dá lugar
+          à conversa escolhida, com botão de voltar. */}
+      <div className="grid gap-3 grid-cols-1 md:grid-cols-[320px_1fr]" style={{ height: "62vh" }}>
         {/* Lista */}
-        <div className="rounded-2xl overflow-y-auto" style={{ background: card, border: `1px solid ${border}` }}>
+        <div className={`rounded-2xl overflow-y-auto ${active ? "hidden md:block" : "block"}`}
+          style={{ background: card, border: `1px solid ${border}` }}>
           {loading ? (
             <div className="p-6 text-center text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>Carregando…</div>
           ) : convs.length === 0 ? (
@@ -199,7 +201,8 @@ export default function InboxTab({ clientId, accent = "#B9FF4B", initialConversa
         </div>
 
         {/* Thread */}
-        <div className="rounded-2xl flex flex-col" style={{ background: card, border: `1px solid ${border}` }}>
+        <div className={`rounded-2xl flex-col ${active ? "flex" : "hidden md:flex"}`}
+          style={{ background: card, border: `1px solid ${border}` }}>
           {!active ? (
             <div className="flex-1 flex items-center justify-center text-xs" style={{ color: "rgba(255,255,255,0.3)" }}>
               Selecione uma conversa
@@ -207,10 +210,18 @@ export default function InboxTab({ clientId, accent = "#B9FF4B", initialConversa
           ) : (
             <>
               {/* Header da conversa */}
-              <div className="px-4 py-3 flex items-center justify-between" style={{ borderBottom: `1px solid ${border}` }}>
-                <div>
-                  <div className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.9)" }}>{active.contact_name ?? active.external_id}</div>
-                  <div className="text-[11px]" style={{ color: "rgba(255,255,255,0.35)" }}>{(CHANNELS[active.channel] ?? CHANNELS.webchat).label} · {active.external_id}</div>
+              <div className="px-4 py-3 flex items-center justify-between gap-2" style={{ borderBottom: `1px solid ${border}` }}>
+                <div className="flex items-center gap-2 min-w-0">
+                  {/* volta para a lista no celular */}
+                  <button onClick={() => setActive(null)}
+                    className="md:hidden shrink-0 px-2 py-1 rounded-lg text-xs"
+                    style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.6)" }}>
+                    ←
+                  </button>
+                  <div className="min-w-0">
+                    <div className="text-sm font-semibold truncate" style={{ color: "rgba(255,255,255,0.9)" }}>{active.contact_name ?? active.external_id}</div>
+                    <div className="text-[11px] truncate" style={{ color: "rgba(255,255,255,0.35)" }}>{(CHANNELS[active.channel] ?? CHANNELS.webchat).label} · {active.external_id}</div>
+                  </div>
                 </div>
                 {active.assignee === uid ? (
                   <span className="text-[11px] px-2.5 py-1 rounded-full font-medium flex items-center gap-1" style={{ background: "rgba(52,211,153,0.12)", color: "#34D399" }}>
