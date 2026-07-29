@@ -128,9 +128,28 @@ const CSS = `
     .cl-track { padding: 4px 24px 36px !important; }
     .cl-hero-agent { margin: 0 auto !important; max-width: 400px !important; }
     .cl-hero-a1 { justify-content: center !important; margin: 0 auto 28px !important; }
-    
+    .cl-flow-grid { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+    .cl-services-grid { grid-template-columns: 1fr !important; }
+    .cl-services-grid > div { border-right: none !important; }
+    .cl-results-grid { grid-template-columns: 1fr 1fr !important; }
+    .cl-results-grid > div { padding: 16px 0 !important; border-right: none !important; }
+
+    /* linha do tempo: zigue-zague vira coluna única com a espinha à esquerda */
+    .cl-tl-row { grid-template-columns: 52px 1fr !important; align-items: stretch !important; }
+    .cl-tl-spine { grid-column: 1 !important; grid-row: 1 !important; }
+    .cl-tl-left, .cl-tl-right { grid-column: 2 !important; grid-row: 1 !important; padding-left: 0 !important; padding-right: 0 !important; min-width: 0 !important; }
+    .cl-tl-head { flex-wrap: wrap !important; }
+    .cl-tl-node { width: 48px !important; height: 48px !important; font-size: 13px !important; }
+    .cl-tl-card { padding: 22px 20px !important; }
+    .cl-tl-card h3 { font-size: 22px !important; }
+    .cl-cta-box { flex-direction: column !important; align-items: stretch !important; padding: 36px 24px !important; gap: 24px !important; }
+    .cl-cta-actions { width: 100% !important; }
+    .cl-cta-actions > a { justify-content: center !important; padding-left: 18px !important; padding-right: 18px !important; }
+
     @media (max-width: 640px) {
       .cl-grid-4 { grid-template-columns: 1fr !important; }
+      .cl-flow-grid { grid-template-columns: 1fr !important; }
+      .cl-results-grid { grid-template-columns: 1fr !important; }
       .cl-footer-grid { grid-template-columns: 1fr !important; }
       /* rodapé empilhado no celular, sem estourar a largura */
       .cl-footer-bar { padding: 28px 20px !important; }
@@ -372,6 +391,7 @@ function ProcessTimeline() {
             const isHov = hovStep === i && !isActive;
             const card = (
               <div
+                className="cl-tl-card"
                 onClick={() => setActiveStep(isActive ? null : i)}
                 onMouseEnter={() => setHovStep(i)}
                 onMouseLeave={() => setHovStep(null)}
@@ -410,7 +430,7 @@ function ProcessTimeline() {
                 }} />
 
                 {/* Top: step label + agents */}
-                <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 16, position: "relative" }}>
+                <div className="cl-tl-head" style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16, marginBottom: 16, position: "relative" }}>
                   <div>
                     <div style={{ fontFamily: mono, fontSize: 11, color: step.color, letterSpacing: "0.1em", textTransform: "uppercase" as const, marginBottom: 8, opacity: 0.9 }}>{step.n} · {step.duration}</div>
                     <h3 style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.038em", lineHeight: 1.08, color: isActive ? OFF : "rgba(240,239,232,.8)" }}>{step.title}</h3>
@@ -456,15 +476,15 @@ function ProcessTimeline() {
             );
 
             return (
-              <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 100px 1fr", alignItems: "start", gap: "0 0" }}>
+              <div key={i} className="cl-tl-row" style={{ display: "grid", gridTemplateColumns: "1fr 100px 1fr", alignItems: "start", gap: "0 0" }}>
 
                 {/* Left slot */}
-                <div style={{ paddingRight: 32, paddingBottom: isLast ? 0 : 28 }}>
+                <div className="cl-tl-left" style={{ paddingRight: 32, paddingBottom: isLast ? 0 : 28 }}>
                   {!isRight ? card : <div />}
                 </div>
 
                 {/* Spine */}
-                <div style={{ display: "flex", flexDirection: "column" as const, alignItems: "center" }}>
+                <div className="cl-tl-spine" style={{ display: "flex", flexDirection: "column" as const, alignItems: "center" }}>
                   <div
                     className="cl-tl-node"
                     onClick={() => setActiveStep(isActive ? null : i)}
@@ -499,7 +519,7 @@ function ProcessTimeline() {
                 </div>
 
                 {/* Right slot */}
-                <div style={{ paddingLeft: 32, paddingBottom: isLast ? 0 : 28 }}>
+                <div className="cl-tl-right" style={{ paddingLeft: 32, paddingBottom: isLast ? 0 : 28 }}>
                   {isRight ? card : <div />}
                 </div>
 
@@ -789,7 +809,7 @@ export default function LandingPage() {
       <ProcessTimeline />
 
       {/* MARKETING + IA */}
-      <section style={{ padding: "100px 64px", borderBottom: "1px solid rgba(255,255,255,.06)" }}>
+      <section className="cl-section" style={{ padding: "100px 64px", borderBottom: "1px solid rgba(255,255,255,.06)" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <div style={{ textAlign: "center", marginBottom: 64 }}>
             <span style={{ fontFamily: mono, fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" }}>Como funciona</span>
@@ -802,7 +822,7 @@ export default function LandingPage() {
           </div>
 
           {/* Flow */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 2, marginBottom: 64 }}>
+          <div className="cl-flow-grid" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 2, marginBottom: 64 }}>
             {[
               { agent: "Queila",   role: "Estratégia",   color: "#FBBF24", desc: "Define o que dizer, para quem e quando", icon: "01" },
               { agent: "Beatriz",  role: "Copy & Texto", color: "#A78BFA", desc: "Escreve cada palavra para converter",    icon: "02" },
@@ -828,7 +848,7 @@ export default function LandingPage() {
           </div>
 
           {/* Result bar */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+          <div className="cl-grid-3" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
             {[
               { label: "Estratégia → Publicação",  value: "em até 48h",         color: LIME      },
               { label: "Ciclo de aprovação",        value: "via portal do cliente", color: "#A78BFA" },
@@ -860,7 +880,7 @@ export default function LandingPage() {
               Serviços integrados que trabalham juntos para crescer seu negócio.
             </p>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", border: "1px solid rgba(255,255,255,.07)", borderRadius: 18, overflow: "hidden" }}>
+          <div className="cl-services-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", border: "1px solid rgba(255,255,255,.07)", borderRadius: 18, overflow: "hidden" }}>
             {SERVICES.map((s, i) => (
               <div key={s.n} className="cl-card"
                 style={{ padding: "34px 28px", background: BLACK, borderRight: i%3!==2?"1px solid rgba(255,255,255,.07)":"none", borderBottom: i<3?"1px solid rgba(255,255,255,.07)":"none" }}>
@@ -886,7 +906,7 @@ export default function LandingPage() {
             </p>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
+          <div className="cl-product-grid" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
             {PRODUCTS.map(p => (
               <div key={p.name} className="cl-prod" style={{ borderRadius: 20, background: "rgba(255,255,255,.025)", border: `1px solid ${p.color}20`, padding: "34px 28px", position: "relative", overflow: "hidden" }}>
                 <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: p.color }} />
@@ -916,7 +936,7 @@ export default function LandingPage() {
       <TeamCarousel />
 
       {/* PROCESS */}
-      <section style={{ padding: "100px 64px", borderTop: "1px solid rgba(255,255,255,.05)" }}>
+      <section className="cl-section" style={{ padding: "100px 64px", borderTop: "1px solid rgba(255,255,255,.05)" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
           <div style={{ marginBottom: 56 }}>
             <span style={{ fontFamily: mono, fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" }}>Como funciona</span>
@@ -924,7 +944,7 @@ export default function LandingPage() {
               Do briefing<br />aos resultados.
             </h2>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 28 }}>
+          <div className="cl-grid-4" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 28 }}>
             {[
               { n:"01", t:"Briefing",   d:"Uma conversa sobre seu negócio, público, metas e tom de voz." },
               { n:"02", t:"Estratégia", d:"Em até 48h, plano editorial, campanhas e calendário prontos." },
@@ -944,8 +964,8 @@ export default function LandingPage() {
       </section>
 
       {/* SAVINGS */}
-      <section style={{ padding: "100px 64px", borderTop: "1px solid rgba(255,255,255,.05)" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 72, alignItems: "center" }}>
+      <section className="cl-section" style={{ padding: "100px 64px", borderTop: "1px solid rgba(255,255,255,.05)" }}>
+        <div className="cl-grid-2" style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 72, alignItems: "center" }}>
           <div>
             <span style={{ fontFamily: mono, fontSize: 11, color: LIME, letterSpacing: "0.1em", textTransform: "uppercase" }}>Por que faz sentido</span>
             <h2 style={{ fontSize: "clamp(20px, 3vw, 38px)", fontWeight: 800, lineHeight: 1.1, letterSpacing: "-0.04em", marginTop: 10, marginBottom: 16 }}>
@@ -976,7 +996,7 @@ export default function LandingPage() {
               ["Web Designer / Dev WordPress",   "R$ 4.000–6.500" ],
               ["Revisora de Conteúdo",           "R$ 2.500–4.000" ],
             ].map(([r, v], i, arr) => (
-              <div key={i} className="cl-card" style={{ padding: "11px 18px", borderBottom: i<arr.length-1?"1px solid rgba(255,255,255,.04)":"none", display: "flex", justifyContent: "space-between", alignItems: "center", background: BLACK }}>
+              <div key={i} className="cl-card" style={{ padding: "11px 18px", borderBottom: i<arr.length-1?"1px solid rgba(255,255,255,.04)":"none", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", background: BLACK }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <Check size={11} color={LIME} strokeWidth={2.5} />
                   <span style={{ fontSize: 13, color: "rgba(240,239,232,.5)", fontWeight: 500 }}>{r}</span>
@@ -993,8 +1013,8 @@ export default function LandingPage() {
       </section>
 
       {/* RESULTS */}
-      <section id="resultados" style={{ padding: "80px 64px", background: LIME }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0 }}>
+      <section className="cl-section" id="resultados" style={{ padding: "80px 64px", background: LIME }}>
+        <div className="cl-results-grid" style={{ maxWidth: 1200, margin: "0 auto", display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 0 }}>
           {[{ n:"14", l:"Clientes ativos" },{ n:"3.8×", l:"ROAS médio" },{ n:"94", l:"Posts/mês por cliente" },{ n:"30 dias", l:"Para ver resultados" }].map((s, i) => (
             <div key={i} style={{ padding: "8px 0", paddingRight: i<3?40:0, paddingLeft: i>0?40:0, borderRight: i<3?"1px solid rgba(8,8,8,.15)":"none" }}>
               <div style={{ fontSize: "clamp(36px, 4vw, 58px)", fontWeight: 800, color: BLACK, letterSpacing: "-0.05em", lineHeight: 1 }}>{s.n}</div>
@@ -1005,15 +1025,15 @@ export default function LandingPage() {
       </section>
 
       {/* CTA */}
-      <section id="contato" style={{ padding: "72px 64px" }}>
-        <div style={{ maxWidth: 1200, margin: "0 auto", background: LIME, borderRadius: 22, padding: "60px 52px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 36 }}>
+      <section className="cl-section" id="contato" style={{ padding: "72px 64px" }}>
+        <div className="cl-cta-box" style={{ maxWidth: 1200, margin: "0 auto", background: LIME, borderRadius: 22, padding: "60px 52px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 36 }}>
           <div>
             <div style={{ fontFamily: mono, fontSize: 10, color: "rgba(8,8,8,.38)", letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 12 }}>Pronto para escalar?</div>
             <h2 style={{ fontFamily: syne, fontSize: "clamp(18px, 2.5vw, 34px)", fontWeight: 800, color: BLACK, lineHeight: 1.08, letterSpacing: "-0.04em" }}>
               Seu time completo<br />começa hoje.
             </h2>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, flexShrink: 0 }}>
+          <div className="cl-cta-actions" style={{ display: "flex", flexDirection: "column", gap: 10, flexShrink: 0 }}>
             <a href="/briefing" className="cl-pill"
               style={{ display: "inline-flex", alignItems: "center", gap: 9, background: BLACK, color: LIME, fontWeight: 700, fontSize: 14, padding: "13px 26px", borderRadius: 100, whiteSpace: "nowrap" }}>
               <Zap size={15} /> Diagnóstico gratuito com IA
