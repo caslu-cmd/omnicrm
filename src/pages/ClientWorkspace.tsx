@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect } from "react";
+﻿import { useState, useRef, useEffect, useMemo } from "react";
 import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -1407,6 +1407,58 @@ export default function ClientWorkspace() {
   const [ariaLoading, setAriaLoading] = useState(false);
   const cancelAriaRef = useRef(false);
   const [showManualOutput, setShowManualOutput] = useState(false);
+  // Quais agentes atuam NESTE cliente. null = nunca escolhido → time padrão.
+  const [enabledAgentIds, setEnabledAgentIds] = useState<string[] | null>(null);
+  const [showAgentPicker, setShowAgentPicker] = useState(false);
+  const [agentPickerDraft, setAgentPickerDraft] = useState<string[]>([]);
+  const [savingAgents, setSavingAgents] = useState(false);
+
+  // Time padrão de quem nunca escolheu: o que a tela já mostrava antes desta feature.
+  const defaultAgentIds = useMemo(
+    () => MARKETING_TEAM
+      .filter(a => a.id !== "briefing"
+        && (a.id !== "rico" || id === "gnx")
+        && (a.id !== "ana" || id === "gnx")
+        && (a.id !== "apolo" || id === "grupo-licita"))
+      .map(a => a.id),
+    [id],
+  );
+
+  // O time que realmente atua neste cliente — usado na grade, na ARIA e nas demandas.
+  const activeTeam = useMemo(() => {
+    const permitidos = enabledAgentIds ?? defaultAgentIds;
+    return MARKETING_TEAM.filter(a => permitidos.includes(a.id));
+  }, [enabledAgentIds, defaultAgentIds]);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelado = false;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("client_agents").select("agent_ids").eq("client_id", id).maybeSingle();
+      if (!cancelado && data?.agent_ids) setEnabledAgentIds(data.agent_ids as string[]);
+    })();
+    return () => { cancelado = true; };
+  }, [id]);
+
+  const salvarAgentesDoCliente = async (ids: string[]) => {
+    if (!id) return;
+    setSavingAgents(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { toast.error("Sessão expirada."); return; }
+      const { error } = await (supabase as any).from("client_agents").upsert({
+        user_id: user.id, client_id: id, agent_ids: ids, updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id,client_id" });
+      if (error) { toast.error(error.message); return; }
+      setEnabledAgentIds(ids);
+      setShowAgentPicker(false);
+      toast.success(`Time atualizado: ${ids.length} agente${ids.length === 1 ? "" : "s"} neste cliente.`);
+    } finally {
+      setSavingAgents(false);
+    }
+  };
+
   const [manualForm, setManualForm] = useState<{
     name: string; type: GeneratedOutput["type"]; preview: string;
     status: GeneratedOutput["status"]; platform: string;
@@ -1858,27 +1910,42 @@ Cliente: ${client.name} | Segmento: ${segmento}${client.teamInstructions ? `\nIn
       ben:        "Ben, pesquise agora as tendências mais quentes do nicho no Google Trends Brasil, Instagram e TikTok.",
     };
 
+    // Só os agentes escolhidos para ESTE cliente entram no planejamento da ARIA.
+    const ARIA_ESPECIALIDADES: Record<string, string> = {
+      strategist: "Queila — Estrategista, posicionamento, personas, pilares",
+      copywriter: "Beatriz — Copy, legendas, roteiros, anúncios",
+      traffic:    "Rafaela — Tráfego pago, campanhas, ads",
+      analyst:    "Lucas — Métricas, benchmarks, dados",
+      social:     "Marina — Calendário editorial, social media",
+      site:       "Valentina — SEO, blog, conteúdo orgânico",
+      designer:   "Marcela — Gera imagens reais: posts, criativos, campanhas",
+      sales:      "Eduardo — WhatsApp, vendas, qualificação de leads, CRM",
+      briefing:   "Lia — Diagnóstico, onboarding, briefing inicial de novos clientes",
+      revisor:    "Vitória — Revisão ortográfica e gramatical de textos prontos",
+      video:      "Bobby — Edição de vídeo: cortes, efeitos, legendas, color grade",
+      ben:        "Ben — Pesquisa de tendências em tempo real: Google Trends Brasil, Instagram, TikTok, Twitter",
+    };
+    const idsDoCliente = activeTeam.map(a => a.id).filter(aid => ARIA_ESPECIALIDADES[aid]);
+    const listaAgentesTxt = idsDoCliente.map(aid => `- ${aid} (${ARIA_ESPECIALIDADES[aid]})`).join("\n");
+    const trioConteudo = ["ben", "copywriter", "designer"].filter(aid => idsDoCliente.includes(aid));
+
+    if (!idsDoCliente.length) {
+      toast.error("Nenhum agente habilitado para este cliente. Use “Escolher agentes”.");
+      setAriaLoading(false);
+      return;
+    }
+
     try {
       // ━━━━━━━━━━ PASSO 1 — ARIA planeja (chamada curta) ━━━━━━━━━━
       const planSystem = `Você é ARIA, Diretora Sênior de Marketing da Calu Agência.
 Decida QUAIS AGENTES acionar para a demanda. NÃO gere conteúdo agora.
 Agentes disponíveis (use exatamente esses IDs):
-- strategist (Queila — Estrategista, posicionamento, personas, pilares)
-- copywriter (Beatriz — Copy, legendas, roteiros, anúncios)
-- traffic (Rafaela — Tráfego pago, campanhas, ads)
-- analyst (Lucas — Métricas, benchmarks, dados)
-- social (Marina — Calendário editorial, social media)
-- site (Valentina — SEO, blog, conteúdo orgânico)
-- designer (Marcela — Gera imagens reais com Ideogram: posts, criativos, campanhas)
-- sales (Eduardo — WhatsApp, vendas, qualificação de leads, CRM)
-- briefing (Lia — Diagnóstico, onboarding, briefing inicial de novos clientes)
-- revisor (Vitória — Revisão ortográfica e gramatical de textos prontos)
-- video (Bobby — Edição de vídeo: cortes, efeitos, legendas, color grade)
-- ben (Ben — Pesquisa de tendências em tempo real: Google Trends Brasil, Instagram, TikTok, Twitter)
+${listaAgentesTxt}
 
 Escolha SOMENTE os agentes que realmente fazem sentido. Máximo 3 agentes por vez.
+NUNCA acione um agente que não esteja na lista acima — ele não atende este cliente.
 REGRAS:
-- Para posts/conteúdo/imagens/campanhas: use EXATAMENTE ["ben","copywriter","designer"] — nada mais
+- Para posts/conteúdo/imagens/campanhas: use EXATAMENTE ${JSON.stringify(trioConteudo)} — nada mais
 - Para estratégia/planejamento sem imagem: use até 3 agentes relevantes
 - Não adicione agentes desnecessários — menos é mais rápido e eficiente
 
@@ -1906,12 +1973,13 @@ Responda APENAS JSON válido, sem markdown, sem texto extra:
         const fromRaw   = planRaw.match(/(\{[\s\S]*\})/)?.[1]?.trim();
         plan = JSON.parse(fromBlock ?? fromRaw ?? planRaw);
       } catch {
-        plan = { plan: planRaw.slice(0, 240), agents: ["strategist", "copywriter"] };
+        plan = { plan: planRaw.slice(0, 240), agents: idsDoCliente.slice(0, 2) };
       }
 
+      // Vale o id existir E o agente estar habilitado para este cliente.
       const validIds = new Set(Object.keys(AGENT_PROMPTS));
-      const agents = (plan.agents ?? []).filter((a) => validIds.has(a));
-      if (agents.length === 0) agents.push("strategist", "copywriter");
+      const agents = (plan.agents ?? []).filter((a) => validIds.has(a) && idsDoCliente.includes(a));
+      if (agents.length === 0) agents.push(...idsDoCliente.slice(0, 2));
 
       // Divisor visual: Onda 1
       addConvMsgs([{
@@ -2167,7 +2235,8 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
           .map(([aId, txt]) => `- ${aId}: ${txt.replace(/\n+/g, " ").slice(0, 220)}…`)
           .join("\n");
 
-        const remaining = Object.keys(AGENT_PROMPTS).filter((a) => !alreadyRan.has(a));
+        const remaining = Object.keys(AGENT_PROMPTS)
+          .filter((a) => !alreadyRan.has(a) && idsDoCliente.includes(a));
         if (remaining.length === 0) break;
 
         const handoffSystem = `Você é ARIA, Diretora Sênior. Avalie se a demanda do cliente exige continuidade por OUTROS agentes que ainda não atuaram.
@@ -2204,7 +2273,7 @@ Responda APENAS JSON:
         } catch { break; }
 
         const nextAgents = (handoff.agents ?? [])
-          .filter((a) => validIds.has(a) && !alreadyRan.has(a))
+          .filter((a) => validIds.has(a) && !alreadyRan.has(a) && idsDoCliente.includes(a))
           .slice(0, MAX_PER_WAVE);
 
         // Wave 2 (first handoff) always runs automatically; from wave 3+ only if AI says so
@@ -4402,20 +4471,33 @@ Português brasileiro. Máximo 200 palavras.`,
     const briefingBlock = buildBriefingBlock();
     const clientCtx = `Cliente: ${client?.name} | Segmento: ${clientBriefing?.segmento || client?.industry || "–"}${client?.teamInstructions ? `\nInstruções permanentes: ${client.teamInstructions}` : ""}`;
 
+    // As demandas usam o primeiro nome do agente como id; só entram os do time deste cliente.
+    const DEMANDA_POR_AGENTE: Record<string, { id: string; desc: string }> = {
+      strategist: { id: "queila",  desc: "estratégia de marketing, posicionamento de marca, planejamento estratégico, pauta editorial" },
+      copywriter: { id: "beatriz", desc: "copywriting, redação de copy para anúncios, legendas, artigos, roteiros, e-mail marketing" },
+      designer:   { id: "marcela", desc: "design gráfico, identidade visual, criação de artes, peças visuais, banners" },
+      traffic:    { id: "rafaela", desc: "tráfego pago, campanhas Meta Ads, Google Ads, gestão de performance e CPA" },
+      social:     { id: "marina",  desc: "social media orgânico, publicação de posts, gestão de redes sociais, engajamento" },
+      calendario: { id: "pedro",   desc: "calendário editorial, planejamento de conteúdo, cronograma de publicações" },
+      analyst:    { id: "lucas",   desc: "análise de dados, relatórios de métricas, BI, acompanhamento de resultados" },
+      site:       { id: "teo",     desc: "criação e edição de sites, landing pages, SEO técnico, editor WordPress" },
+      video:      { id: "bobby",   desc: "edição de vídeo, reels, stories em vídeo, cortes, legendas animadas" },
+    };
+    const demandaAtivos = activeTeam
+      .map(a => DEMANDA_POR_AGENTE[a.id])
+      .filter(Boolean) as { id: string; desc: string }[];
+    // Luna é a orquestradora — sempre disponível para o que não tem especialista.
+    const demandaIds = [...demandaAtivos.map(a => a.id), "luna"];
+    const demandaAgentesTxt = [
+      ...demandaAtivos.map(a => `- ${a.id}: ${a.desc}`),
+      "- luna: orquestração geral, onboarding, tarefas transversais sem especialista definido",
+    ].join("\n");
+
     const systemPrompt = `Você é a ARIA, orquestradora estratégica da Calu Agência de Marketing Digital.
 Analise o briefing do cliente e distribua as demandas do próximo ciclo (30 dias) entre os agentes especialistas do time.
 
 Agentes disponíveis e suas especialidades:
-- queila: estratégia de marketing, posicionamento de marca, planejamento estratégico, pauta editorial
-- beatriz: copywriting, redação de copy para anúncios, legendas, artigos, roteiros, e-mail marketing
-- marcela: design gráfico, identidade visual, criação de artes, peças visuais, banners
-- rafaela: tráfego pago, campanhas Meta Ads, Google Ads, gestão de performance e CPA
-- marina: social media orgânico, publicação de posts, gestão de redes sociais, engajamento
-- pedro: calendário editorial, planejamento de conteúdo, cronograma de publicações
-- lucas: análise de dados, relatórios de métricas, BI, acompanhamento de resultados
-- teo: criação e edição de sites, landing pages, SEO técnico, editor WordPress
-- bobby: edição de vídeo, reels, stories em vídeo, cortes, legendas animadas
-- luna: orquestração geral, onboarding, tarefas transversais sem especialista definido`;
+${demandaAgentesTxt}`;
 
     const userMsg = `${clientCtx}${briefingBlock}
 
@@ -4426,14 +4508,14 @@ Retorne SOMENTE um array JSON válido, sem texto antes ou depois:
   {
     "title": "título curto e claro (máx 60 chars)",
     "description": "o que será entregue e qual resultado o cliente verá",
-    "agent": "queila",
+    "agent": "${demandaIds[0]}",
     "priority": "high",
     "due_days": 7
   }
 ]
 
 Regras:
-- agent: use exatamente um dos IDs: queila, beatriz, marcela, rafaela, marina, pedro, lucas, teo, bobby, luna
+- agent: use exatamente um dos IDs: ${demandaIds.join(", ")}
 - Atribua cada tarefa ao agente cuja especialidade melhor se encaixa
 - due_days: prazo realista em dias corridos a partir de hoje
 - priority: "low", "medium" ou "high"
@@ -5138,6 +5220,90 @@ Regras:
                     className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
                     style={{ background: "#FBBF24", color: "#07080A" }}>
                     Limpar dados
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Modal: Escolher agentes deste cliente ── */}
+        <AnimatePresence>
+          {showAgentPicker && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+              style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
+              onClick={(e) => { if (e.target === e.currentTarget) setShowAgentPicker(false); }}>
+              <motion.div initial={{ opacity: 0, scale: 0.95, y: 8 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95 }}
+                className="w-full max-w-2xl rounded-2xl overflow-hidden flex flex-col"
+                style={{ background: "#0D0D14", border: "1px solid rgba(185,255,75,0.2)", maxHeight: "88vh" }}>
+                <div className="flex items-start justify-between gap-4 px-6 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div>
+                    <p className="text-sm font-bold text-white">Agentes de {client.name}</p>
+                    <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
+                      Só os agentes marcados aparecem no time e recebem demandas deste cliente.
+                    </p>
+                  </div>
+                  <button onClick={() => setShowAgentPicker(false)} style={{ color: "rgba(255,255,255,0.3)" }}>
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-3 px-6 py-2.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                  <span className="text-[11px] font-semibold" style={{ color: "#B9FF4B" }}>
+                    {agentPickerDraft.length} selecionado{agentPickerDraft.length === 1 ? "" : "s"}
+                  </span>
+                  <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
+                  <button onClick={() => setAgentPickerDraft(MARKETING_TEAM.map(a => a.id))}
+                    className="text-[11px] underline" style={{ color: "rgba(255,255,255,0.45)" }}>Todos</button>
+                  <button onClick={() => setAgentPickerDraft([])}
+                    className="text-[11px] underline" style={{ color: "rgba(255,255,255,0.45)" }}>Nenhum</button>
+                  <button onClick={() => setAgentPickerDraft(defaultAgentIds)}
+                    className="text-[11px] underline" style={{ color: "rgba(255,255,255,0.45)" }}>Padrão</button>
+                </div>
+
+                <div className="p-5 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {MARKETING_TEAM.map(agent => {
+                    const marcado = agentPickerDraft.includes(agent.id);
+                    return (
+                      <label key={agent.id}
+                        className="flex items-start gap-3 rounded-xl p-3 cursor-pointer transition-all"
+                        style={{
+                          background: marcado ? `${agent.color}0F` : "rgba(255,255,255,0.03)",
+                          border: `1px solid ${marcado ? `${agent.color}55` : "rgba(255,255,255,0.07)"}`,
+                        }}>
+                        <input
+                          type="checkbox"
+                          checked={marcado}
+                          onChange={(e) => setAgentPickerDraft(prev =>
+                            e.target.checked ? [...prev, agent.id] : prev.filter(x => x !== agent.id))}
+                          className="mt-1 accent-[#B9FF4B]"
+                        />
+                        <div
+                          className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold flex-shrink-0"
+                          style={{ background: `${agent.color}1A`, border: `1px solid ${agent.color}55`, color: agent.color }}>
+                          {agent.initial}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-white truncate">{agent.name}</p>
+                          <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.45)" }}>{agent.role}</p>
+                          <p className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.28)" }}>{agent.skill}</p>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center justify-end gap-2 px-6 py-4" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+                  <button onClick={() => setShowAgentPicker(false)}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold"
+                    style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.7)" }}>
+                    Cancelar
+                  </button>
+                  <button onClick={() => salvarAgentesDoCliente(agentPickerDraft)} disabled={savingAgents}
+                    className="px-4 py-2 rounded-xl text-xs font-bold disabled:opacity-50"
+                    style={{ background: "#B9FF4B", color: "#07080A" }}>
+                    {savingAgents ? "Salvando…" : "Salvar time"}
                   </button>
                 </div>
               </motion.div>
@@ -8462,7 +8628,17 @@ Regras:
                       Time de Especialistas
                     </h3>
                     <div className="h-px flex-1" style={{ background: "rgba(255,255,255,0.06)" }} />
-                    <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.2)" }}>{MARKETING_TEAM.length - 1} especialistas</span>
+                    <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.2)" }}>
+                      {activeTeam.length} de {MARKETING_TEAM.length} especialistas
+                    </span>
+                    <button
+                      onClick={() => { setAgentPickerDraft(activeTeam.map(a => a.id)); setShowAgentPicker(true); }}
+                      className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold transition-all flex-shrink-0"
+                      style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.12)" }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.09)"; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.05)"; }}>
+                      <Users className="w-3 h-3" /> Escolher agentes
+                    </button>
                     <button
                       onClick={() => setShowManualOutput(true)}
                       className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-[11px] font-semibold transition-all flex-shrink-0"
@@ -8475,9 +8651,9 @@ Regras:
 
                   {/* ── Barra de progresso do time ── */}
                   {(() => {
-                    const done = MARKETING_TEAM.filter(a => client.agentTasks[a.id]?.status === "concluído").length;
-                    const working = MARKETING_TEAM.filter(a => client.agentTasks[a.id]?.status === "trabalhando").length;
-                    const pct = Math.round((done / MARKETING_TEAM.length) * 100);
+                    const done = activeTeam.filter(a => client.agentTasks[a.id]?.status === "concluído").length;
+                    const working = activeTeam.filter(a => client.agentTasks[a.id]?.status === "trabalhando").length;
+                    const pct = activeTeam.length ? Math.round((done / activeTeam.length) * 100) : 0;
                     return (
                       <div className="mb-4 rounded-xl px-3 py-2.5" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
                         <div className="flex items-center justify-between flex-wrap gap-4 mb-2">
@@ -8492,7 +8668,7 @@ Regras:
                                 {working} trabalhando
                               </span>
                             )}
-                            <span style={{ color: "rgba(255,255,255,0.25)" }}>{MARKETING_TEAM.length - done - working} aguardando</span>
+                            <span style={{ color: "rgba(255,255,255,0.25)" }}>{activeTeam.length - done - working} aguardando</span>
                           </div>
                           <span className="text-[10px] font-bold" style={{ color: pct === 100 ? "#34D399" : "#B9FF4B" }}>{pct}%</span>
                         </div>
@@ -8506,7 +8682,7 @@ Regras:
                   })()}
 
                   <div className="flex flex-col gap-2.5 sm:grid sm:grid-cols-2 lg:grid-cols-3 sm:gap-3">
-                    {MARKETING_TEAM.filter(a => a.id !== "briefing" && (a.id !== "rico" || id === "gnx") && (a.id !== "ana" || id === "gnx") && (a.id !== "apolo" || id === "grupo-licita")).map((agent, i) => {
+                    {activeTeam.map((agent, i) => {
                       const task = client.agentTasks[agent.id];
                       const isWorking = task?.status === "trabalhando";
                       const isDone = task?.status === "concluído";
