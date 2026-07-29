@@ -371,6 +371,8 @@ Deno.serve(async (req) => {
 
       const longToken = longData.access_token;
       const expiresIn = longData.expires_in ?? 5184000;
+      // guardado para o cron (meta-token-refresh) renovar o page token sem exigir novo OAuth
+      const encUserToken = obfuscate(longToken, encKey);
 
       // Meta Ads: use user token to connect ad account
       if (platform === "meta_ads") {
@@ -387,6 +389,7 @@ Deno.serve(async (req) => {
           account_id: adAcc.id, account_name: adAcc.name,
           account_username: null, followers_count: 0,
           access_token: encToken, token_expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
+          user_access_token: encUserToken, last_refresh_at: new Date().toISOString(), refresh_error: null,
           connected: true, connected_at: new Date().toISOString(),
         }, { onConflict: "user_id,client_id,platform" });
         if (upsertErr) return respond({ error: upsertErr.message }, 500);
@@ -441,6 +444,7 @@ Deno.serve(async (req) => {
             account_id: accountId, account_name: accountName,
             account_username: accountUsername, followers_count: followersCount,
             access_token: encryptedToken, token_expires_at: tokenExpiresAt,
+            user_access_token: encUserToken, last_refresh_at: new Date().toISOString(), refresh_error: null,
             connected: true, connected_at: new Date().toISOString(),
           }, { onConflict: "user_id,client_id,platform" });
         if (upsertError) return respond({ error: upsertError.message }, 500);
@@ -459,6 +463,7 @@ Deno.serve(async (req) => {
           account_id: accountId, account_name: accountName,
           account_username: accountUsername, followers_count: followersCount,
           access_token: encryptedToken, token_expires_at: tokenExpiresAt,
+          user_access_token: encUserToken, last_refresh_at: new Date().toISOString(), refresh_error: null,
           connected: true, connected_at: new Date().toISOString(),
         }, { onConflict: "user_id,client_id,platform" });
       if (upsertError) return respond({ error: upsertError.message }, 500);
@@ -484,6 +489,7 @@ Deno.serve(async (req) => {
               account_id: igId, account_name: igName,
               account_username: igUsername, followers_count: igFollowers,
               access_token: encryptedToken, token_expires_at: tokenExpiresAt,
+              user_access_token: encUserToken, last_refresh_at: new Date().toISOString(), refresh_error: null,
               connected: true, connected_at: new Date().toISOString(),
             }, { onConflict: "user_id,client_id,platform" });
             igConnected = true;
@@ -518,6 +524,7 @@ Deno.serve(async (req) => {
       let spAccountUsername: string | null = null;
       let spFollowersCount = 0;
       const spEncToken = obfuscate(spToken, encKey);
+      const spEncUserToken = obfuscate(payload.longToken, encKey);
       const spTokenExpiresAt = new Date(Date.now() + payload.expiresIn * 1000).toISOString();
       const { clientId: spClientId, userId: spUserId, platform: spPlatform } = payload;
 
@@ -537,6 +544,7 @@ Deno.serve(async (req) => {
           account_id: spAccountId, account_name: spAccountName,
           account_username: spAccountUsername, followers_count: spFollowersCount,
           access_token: spEncToken, token_expires_at: spTokenExpiresAt,
+          user_access_token: spEncUserToken, last_refresh_at: new Date().toISOString(), refresh_error: null,
           connected: true, connected_at: new Date().toISOString(),
         }, { onConflict: "user_id,client_id,platform" });
         if (upsertError) return respond({ error: upsertError.message }, 500);
@@ -552,6 +560,7 @@ Deno.serve(async (req) => {
         account_id: spAccountId, account_name: spAccountName,
         account_username: spAccountUsername, followers_count: spFollowersCount,
         access_token: spEncToken, token_expires_at: spTokenExpiresAt,
+        user_access_token: spEncUserToken, last_refresh_at: new Date().toISOString(), refresh_error: null,
         connected: true, connected_at: new Date().toISOString(),
       }, { onConflict: "user_id,client_id,platform" });
       if (upsertError) return respond({ error: upsertError.message }, 500);
@@ -575,6 +584,7 @@ Deno.serve(async (req) => {
               account_id: igId, account_name: spIgName,
               account_username: spIgUsername, followers_count: spIgFollowers,
               access_token: spEncToken, token_expires_at: spTokenExpiresAt,
+              user_access_token: spEncUserToken, last_refresh_at: new Date().toISOString(), refresh_error: null,
               connected: true, connected_at: new Date().toISOString(),
             }, { onConflict: "user_id,client_id,platform" });
             spIgConnected = true;
