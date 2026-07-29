@@ -185,6 +185,162 @@ const IDEAS_SCHEMA = {
   additionalProperties: false,
 };
 
+// ── Contraste garantido nas direções de arte ─────────────────────────────
+// O modo automático aplica a PRIMEIRA direção sem ninguém olhar, e o Opus
+// escolhe cor por intenção estética (verde da marca sobre vermelho de alerta,
+// por exemplo). Pedir contraste no prompt não resolve: modelo de linguagem não
+// calcula WCAG. Então medimos aqui e corrigimos o mínimo necessário, mantendo
+// a INTENÇÃO da direção (mesma matiz, só a luminosidade muda).
+// <<contraste>>
+type Rgb = [number, number, number];
+
+function lerHex(hex: string): Rgb | null {
+  const m = /^#?([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(String(hex ?? "").trim());
+  if (!m) return null;
+  const h = m[1].length === 3 ? m[1].replace(/./g, (c) => c + c) : m[1];
+  return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)) as Rgb;
+}
+
+function paraHex([r, g, b]: Rgb): string {
+  const clamp = (v: number) => Math.max(0, Math.min(255, Math.round(v)));
+  return "#" + [r, g, b].map((v) => clamp(v).toString(16).padStart(2, "0")).join("").toUpperCase();
+}
+
+function luminancia([r, g, b]: Rgb): number {
+  const [lr, lg, lb] = [r, g, b].map((v) => {
+    const s = v / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+  });
+  return 0.2126 * lr + 0.7152 * lg + 0.0722 * lb;
+}
+
+function contraste(a: Rgb, b: Rgb): number {
+  const [alta, baixa] = [luminancia(a), luminancia(b)].sort((x, y) => y - x);
+  return (alta + 0.05) / (baixa + 0.05);
+}
+
+function paraHsl([r, g, b]: Rgb): [number, number, number] {
+  const [rn, gn, bn] = [r / 255, g / 255, b / 255];
+  const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn);
+  const l = (max + min) / 2;
+  const d = max - min;
+  if (d === 0) return [0, 0, l];
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  const h = max === rn
+    ? ((gn - bn) / d + (gn < bn ? 6 : 0))
+    : max === gn
+    ? (bn - rn) / d + 2
+    : (rn - gn) / d + 4;
+  return [h / 6, s, l];
+}
+
+function deHsl([h, s, l]: [number, number, number]): Rgb {
+  if (s === 0) return [l * 255, l * 255, l * 255];
+  const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+  const p = 2 * l - q;
+  const canal = (t: number) => {
+    let v = t;
+    if (v < 0) v += 1;
+    if (v > 1) v -= 1;
+    if (v < 1 / 6) return p + (q - p) * 6 * v;
+    if (v < 1 / 2) return q;
+    if (v < 2 / 3) return p + (q - p) * (2 / 3 - v) * 6;
+    return p;
+  };
+  return [canal(h + 1 / 3) * 255, canal(h) * 255, canal(h - 1 / 3) * 255];
+}
+
+/**
+ * Move a luminosidade da cor (matiz e saturação intactas) até bater o contraste
+ * mínimo com o fundo. `sentido` +1 só clareia, -1 só escurece, 0 aceita os dois
+ * e fica com a mudança menor. Devolve null quando aquele caminho não alcança.
+ */
+function moverLuz(cor: Rgb, fundo: Rgb, minimo: number, sentido: -1 | 0 | 1): Rgb | null {
+  if (contraste(cor, fundo) >= minimo) return cor;
+  const [h, s, l] = paraHsl(cor);
+  for (let passo = 0.02; passo <= 1.0001; passo += 0.02) {
+    const alvos = sentido === 1 ? [l + passo] : sentido === -1 ? [l - passo] : [l + passo, l - passo];
+    for (const alvo of alvos) {
+      if (alvo < 0 || alvo > 1) continue;
+      const tentativa = deHsl([h, s, alvo]);
+      if (contraste(tentativa, fundo) >= minimo) return tentativa;
+    }
+  }
+  return null;
+}
+
+/** fg é texto corrido (AA = 4.5:1); accent vira número gigante, tarja e ponto (3:1). */
+const MIN_FG = 4.5;
+const MIN_ACCENT = 3;
+
+function garantirContraste<T extends { bg: string; fg: string; accent: string }>(
+  direcoes: T[],
+): Array<T & { ajuste_contraste?: string }> {
+  return (direcoes ?? []).map((dir) => {
+    const bgOriginal = lerHex(dir.bg), fg = lerHex(dir.fg), accent = lerHex(dir.accent);
+    if (!bgOriginal || !fg || !accent) return dir;
+
+    const notas: string[] = [];
+    let bgFinal = bgOriginal, fgFinal = fg;
+
+    // A polaridade é a decisão de design (texto claro sobre fundo escuro, ou o
+    // contrário). Preservá-la vale mais que economizar ajuste: um creme sobre
+    // vermelho virando preto passa no WCAG e joga a direção no lixo.
+    if (contraste(fg, bgOriginal) < MIN_FG) {
+      const luzFg = luminancia(fg), luzBg = luminancia(bgOriginal);
+      // Quando as duas luminosidades são quase iguais (creme sobre papel), não
+      // existe polaridade a preservar — manda o fundo: claro pede texto escuro.
+      const sentidoTexto: -1 | 1 = Math.abs(luzFg - luzBg) < 0.08
+        ? (luzBg > 0.184 ? -1 : 1)
+        : (luzFg >= luzBg ? 1 : -1);
+      const antes = contraste(fg, bgOriginal).toFixed(1);
+
+      const textoAjustado = moverLuz(fg, bgOriginal, MIN_FG, sentidoTexto);
+      if (textoAjustado) {
+        fgFinal = textoAjustado;
+        notas.push(`texto ${dir.fg}→${paraHex(fgFinal)} (era ${antes}:1)`);
+      } else {
+        // O texto já está no extremo (creme quase branco, por exemplo): então
+        // quem cede é o fundo, indo para o lado oposto e mantendo a matiz.
+        const fundoAjustado = moverLuz(bgOriginal, fg, MIN_FG, sentidoTexto === 1 ? -1 : 1);
+        if (fundoAjustado) {
+          bgFinal = fundoAjustado;
+          notas.push(`fundo ${dir.bg}→${paraHex(bgFinal)} para o texto ${dir.fg} se ler (era ${antes}:1)`);
+        } else {
+          fgFinal = moverLuz(fg, bgOriginal, MIN_FG, 0)
+            ?? (contraste([255, 255, 255], bgOriginal) >= contraste([11, 11, 11], bgOriginal)
+              ? [255, 255, 255] as Rgb
+              : [11, 11, 11] as Rgb);
+          notas.push(`texto ${dir.fg}→${paraHex(fgFinal)} (era ${antes}:1)`);
+        }
+      }
+    }
+
+    // O accent é medido contra o fundo FINAL, senão a correção do texto
+    // invalidaria a conta. Aqui a matiz é a identidade; a luz pode ir aos dois lados.
+    let accentFinal = accent;
+    if (contraste(accent, bgFinal) < MIN_ACCENT) {
+      const antes = contraste(accent, bgFinal).toFixed(1);
+      accentFinal = moverLuz(accent, bgFinal, MIN_ACCENT, 0)
+        ?? (contraste([255, 255, 255], bgFinal) >= contraste([11, 11, 11], bgFinal)
+          ? [255, 255, 255] as Rgb
+          : [11, 11, 11] as Rgb);
+      notas.push(`destaque ${dir.accent}→${paraHex(accentFinal)} (era ${antes}:1)`);
+    }
+
+    if (!notas.length) return dir;
+
+    return {
+      ...dir,
+      bg: paraHex(bgFinal),
+      fg: paraHex(fgFinal),
+      accent: paraHex(accentFinal),
+      ajuste_contraste: `Ajustei para o texto ficar legível: ${notas.join("; ")}.`,
+    };
+  });
+}
+// <</contraste>>
+
 // ── Prompt base ──────────────────────────────────────────────────────────
 const BASE_SYSTEM = `Você é MARCELA, diretora de conteúdo sênior de uma agência brasileira premiada.
 Você escreve carrosséis e posts únicos para Instagram e LinkedIn que param o scroll, ensinam de verdade e vendem sem soar vendedor.
@@ -214,7 +370,8 @@ Seu trabalho: olhar o segmento do cliente, lembrar de como as MARCAS E AGÊNCIAS
 REGRAS:
 1. "referencia" cita marcas ou agências REAIS e reconhecíveis daquele segmento (ou de segmento vizinho, quando o mercado é visualmente pobre) e diz o que se rouba de cada uma. Nunca invente marca.
 2. As 3 direções precisam ser REALMENTE diferentes entre si, não três variações da mesma ideia. Uma segura e alinhada ao mercado, uma contemporânea, uma que quebra o padrão do segmento.
-3. Cores em hex. bg é o fundo, fg é o texto principal (contraste alto e legível sobre bg, verifique isso), accent é a cor de destaque (precisa brigar com o bg, nunca ser quase igual).
+3. Cores em hex. bg é o fundo, fg é o TEXTO principal, accent é a cor de destaque (número gigante, tarja, ponto do indicador — também aparece como texto sobre o bg).
+   Legibilidade é requisito, não gosto: fg tem que ser claramente claro sobre bg escuro, ou claramente escuro sobre bg claro — nunca dois tons de intensidade parecida. O accent precisa se destacar do bg pela LUMINOSIDADE, não só pela matiz: laranja sobre vermelho, verde sobre vermelho ou azul sobre roxo têm matiz diferente e continuam ilegíveis. Se a direção pede uma cor de marca que briga com o fundo, mude a intensidade dela (mais clara ou mais escura) em vez de entregar algo que não se lê.
 4. Nada de roxo-degradê-em-fundo-branco, nada de "corporativo azul genérico" a não ser que o segmento realmente peça e você justifique.
 5. "porque" tem no máximo 2 linhas e fala de negócio, não de estética: o que essa direção comunica para ESSE público.
 6. Layouts disponíveis: "vidro" (foto + cartão translúcido com o título, o padrão campeão de Instagram), "capa" (foto + título gigante direto na imagem), "editorial" (fundo escuro tipográfico), "impacto" (cor cheia), "revista" (papel claro serifado), "gradiente", "minimal" (branco), "foto". Prefira "vidro" ou "capa" quando a marca puder usar fotos de pessoas.
@@ -297,7 +454,8 @@ As cores devem ser AMOSTRADAS da imagem sempre que fizerem sentido para a marca.
           },
         ],
       });
-      return respond({ success: true, ...parseJson(raw) });
+      const lida = parseJson<{ direcoes?: Array<{ bg: string; fg: string; accent: string }> }>(raw);
+      return respond({ ...lida, success: true, direcoes: garantirContraste(lida.direcoes ?? []) });
     }
 
     // ── Diretor de arte ────────────────────────────────────────────────
@@ -320,7 +478,8 @@ As cores devem ser AMOSTRADAS da imagem sempre que fizerem sentido para a marca.
         maxTokens: 8000,
         user: partes.join("\n\n"),
       });
-      return respond({ success: true, ...parseJson(raw) });
+      const lida = parseJson<{ direcoes?: Array<{ bg: string; fg: string; accent: string }> }>(raw);
+      return respond({ ...lida, success: true, direcoes: garantirContraste(lida.direcoes ?? []) });
     }
 
     // ── Pautas ─────────────────────────────────────────────────────────
