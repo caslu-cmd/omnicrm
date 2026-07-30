@@ -6,23 +6,25 @@ const cors = {
 };
 
 /**
- * Geração de imagem da Calu Agência.
+ * Geração de imagem da Calu Agência. **Motor único: Gemini.**
  *
- * Os dois motores trabalham juntos (o Ideogram saiu a pedido da Carol):
- *  - Gemini — padrão da FOTO, porque aceita imagens de referência: o primeiro
- *    slide do carrossel vira referência dos seguintes e a MESMA pessoa aparece
- *    na série inteira. Precisa de GEMINI_API_KEY.
- *  - OpenAI — vai na frente quando o pedido tem TEXTO dentro da imagem, e é a
- *    rede de segurança do Gemini no resto. Tenta do modelo mais novo ao mais
- *    velho (ver MODELOS_OPENAI), porque o acesso varia por conta.
- * `motor: "gemini" | "openai" | "auto"` força a ordem quando necessário.
+ * O Ideogram saiu a pedido da Carol, e a OpenAI saiu depois pelo mesmo motivo
+ * (29/07): ela não quer usar. Não há fallback de propósito — se o Gemini falhar,
+ * a função devolve o erro dele em vez de trocar de motor por trás.
+ * `gemini-3.1-flash-image`, com queda para `gemini-2.5-flash-image`.
+ * Precisa de GEMINI_API_KEY nas secrets.
+ *
+ * O Gemini aceita imagens de referência, e é isso que sustenta o carrossel: o
+ * primeiro slide vira referência dos seguintes e a MESMA pessoa aparece na
+ * série inteira.
  *
  * Modos de prompt:
  *  - `prompt` preenchido  → usa como veio (Estúdio de Carrossel: foto limpa,
  *    sem texto, porque o texto entra depois no canvas).
  *  - só `beatrizCopy`     → o Claude monta o briefing de arte antes de gerar.
  *  - `textoNaImagem`      → até 3 frases que devem aparecer DENTRO da cena
- *    (letreiro, placa, embalagem). Desliga o reforço anti-texto.
+ *    (letreiro, placa, embalagem). Desliga o reforço anti-texto. Testado: o
+ *    Gemini escreve português correto nesse formato.
  */
 
 type Ratio = "1:1" | "3:4" | "4:3" | "9:16" | "16:9" | "4:5";
@@ -37,24 +39,6 @@ function normalizeRatio(r: string, prompt: string): Ratio {
     return "3:4";
   }
   return (["1:1", "3:4", "4:3", "9:16", "16:9", "4:5"].includes(v) ? v : "3:4") as Ratio;
-}
-
-/**
- * Candidatos da OpenAI, do mais novo para o mais velho. A conta da Carol pode
- * não ter acesso a todos: 400/403/404 cai para o próximo, e o campo `modelo`
- * da resposta diz qual respondeu de verdade. Assim não precisamos adivinhar
- * qual geração está liberada hoje.
- */
-const MODELOS_OPENAI = ["gpt-image-2", "gpt-image-1.5", "gpt-image-1", "dall-e-3"];
-
-/** A OpenAI só aceita três proporções — escolhemos a mais próxima. */
-function sizeFor(ratio: Ratio, modelo: string): string {
-  const retrato = ratio === "3:4" || ratio === "9:16" || ratio === "4:5";
-  const paisagem = ratio === "16:9" || ratio === "4:3";
-  if (modelo.startsWith("dall-e")) {
-    return retrato ? "1024x1792" : paisagem ? "1792x1024" : "1024x1024";
-  }
-  return retrato ? "1024x1536" : paisagem ? "1536x1024" : "1024x1024";
 }
 
 /**
@@ -169,8 +153,8 @@ function acharImagemNaResposta(data: unknown): { data: string; mimeType: string 
 }
 
 /**
- * Gemini. É o motor preferido porque aceita imagens de referência: o slide 1
- * vira referência dos demais e o carrossel inteiro fica com a MESMA pessoa.
+ * Gemini, o motor da casa. Aceita imagens de referência: o slide 1 vira
+ * referência dos demais e o carrossel inteiro fica com a MESMA pessoa.
  */
 async function gerarNoGemini(
   prompt: string,
@@ -223,55 +207,6 @@ async function gerarNoGemini(
   throw new Error(ultimoErro || "Gemini não retornou imagem.");
 }
 
-async function gerarNaOpenAI(
-  prompt: string,
-  ratio: Ratio,
-  openaiKey: string,
-): Promise<{ imageData: string; mimeType: string; modelo: string }> {
-  let ultimoErro = "";
-
-  for (const modelo of MODELOS_OPENAI) {
-    const body: Record<string, unknown> = {
-      model: modelo,
-      prompt,
-      n: 1,
-      size: sizeFor(ratio, modelo),
-    };
-    if (modelo.startsWith("dall-e")) {
-      body.quality = "hd";
-      body.response_format = "b64_json";
-    } else {
-      body.quality = "medium";
-    }
-
-    const res = await fetch("https://api.openai.com/v1/images/generations", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${openaiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (!res.ok) {
-      ultimoErro = `${modelo}: ${(await res.text()).slice(0, 300)}`;
-      // 403/404 costuma ser organização sem acesso ao modelo: tenta o próximo.
-      if (res.status === 403 || res.status === 404 || res.status === 400) continue;
-      throw new Error(ultimoErro);
-    }
-
-    const data = await res.json();
-    const b64: string | undefined = data?.data?.[0]?.b64_json;
-    if (!b64) {
-      ultimoErro = `${modelo}: resposta sem imagem`;
-      continue;
-    }
-    return { imageData: b64, mimeType: "image/png", modelo };
-  }
-
-  throw new Error(`Não consegui gerar a imagem. ${ultimoErro}`);
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
@@ -286,13 +221,12 @@ Deno.serve(async (req) => {
       benTrends = "",
     } = body;
 
-    const openaiKey = Deno.env.get("OPENAI_API_KEY");
     const geminiKey = Deno.env.get("GEMINI_API_KEY") || Deno.env.get("GOOGLE_AI_API_KEY");
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY");
 
-    if (!openaiKey && !geminiKey) {
+    if (!geminiKey) {
       return new Response(
-        JSON.stringify({ error: "Configure GEMINI_API_KEY (recomendado) ou OPENAI_API_KEY nas secrets do Supabase." }),
+        JSON.stringify({ error: "Configure GEMINI_API_KEY nas secrets do Supabase (Project Settings → Edge Functions → Secrets)." }),
         { status: 500, headers: { ...cors, "Content-Type": "application/json" } },
       );
     }
@@ -350,55 +284,13 @@ Deno.serve(async (req) => {
           }))
       : [];
 
-    /*
-     * Ordem dos motores. Os dois trabalham juntos, cada um no que é melhor:
-     *  - Gemini é o padrão da foto: aceita imagem de referência, então o slide 1
-     *    dita a MESMA pessoa nos seguintes (a OpenAI não faz isso aqui).
-     *  - OpenAI vai na frente quando o pedido tem texto dentro da imagem ou
-     *    quando quem chamou escolheu `motor: "openai"`.
-     * Quem não é o primeiro continua sendo a rede de segurança do outro.
-     */
-    const motorPedido: string = String(body.motor ?? "auto").toLowerCase();
-    const comTexto = textos.length > 0;
-    const ordem: Array<"gemini" | "openai"> = motorPedido === "openai"
-      ? ["openai", "gemini"]
-      : motorPedido === "gemini"
-      ? ["gemini", "openai"]
-      : comTexto
-      ? ["openai", "gemini"]
-      : ["gemini", "openai"];
-
-    let resultado: { imageData: string; mimeType: string; modelo: string } | null = null;
-    const falhas: string[] = [];
-
-    for (const motor of ordem) {
-      if (resultado) break;
-      if (motor === "gemini") {
-        // Registra a ausência de chave: motor pulado calado já custou uma
-        // investigação (pedi "openai", veio Gemini, e nada explicava por quê).
-        if (!geminiKey) { falhas.push("gemini: GEMINI_API_KEY não configurada nas secrets"); continue; }
-        try {
-          const promptComRef = referencias.length
-            ? `${finalPrompt} Keep the SAME person, wardrobe, color grading and lighting as the reference image, so the images work as one series.`
-            : finalPrompt;
-          resultado = await gerarNoGemini(promptComRef, ratio, geminiKey, referencias);
-        } catch (e) {
-          falhas.push(`gemini: ${e instanceof Error ? e.message : String(e)}`);
-        }
-      } else {
-        if (!openaiKey) { falhas.push("openai: OPENAI_API_KEY não configurada nas secrets"); continue; }
-        try {
-          resultado = await gerarNaOpenAI(finalPrompt, ratio, openaiKey);
-        } catch (e) {
-          falhas.push(`openai: ${e instanceof Error ? e.message : String(e)}`);
-        }
-      }
-    }
-
-    if (!resultado) throw new Error(falhas.join(" | ") || "Nenhum motor de imagem disponível.");
-    // `avisoGemini` conta o que ficou pelo caminho — inclusive motor sem chave —
-    // para não parecer que a ordem pedida foi respeitada quando não foi.
-    const aviso = falhas.join(" | ");
+    // Sem fallback de motor: se o Gemini falhar, o erro dele sobe. Trocar de
+    // motor por trás esconde cota estourada e chave errada, que é justamente o
+    // que a gente precisa ver.
+    const promptComRef = referencias.length
+      ? `${finalPrompt} Keep the SAME person, wardrobe, color grading and lighting as the reference image, so the images work as one series.`
+      : finalPrompt;
+    const resultado = await gerarNoGemini(promptComRef, ratio, geminiKey, referencias);
 
     return new Response(
       JSON.stringify({
@@ -407,7 +299,6 @@ Deno.serve(async (req) => {
         mimeType: resultado.mimeType,
         promptUsed: finalPrompt,
         modelo: resultado.modelo,
-        avisoGemini: aviso || undefined,
       }),
       { headers: { ...cors, "Content-Type": "application/json" } },
     );
