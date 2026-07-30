@@ -53,7 +53,24 @@ interface Metric {
 
 // ── Meta OAuth ─────────────────────────────────────────────────
 const META_APP_ID = "1718744112773878";
-const META_SCOPE = "pages_show_list,pages_read_engagement,pages_manage_posts,business_management,public_profile,instagram_basic,instagram_content_publish";
+/**
+ * Permissões pedidas no OAuth da Meta.
+ *
+ * MANTENHA IDÊNTICA à lista do `supabase/functions/smm/index.ts` — são duas
+ * cópias da mesma verdade, e é ESTA (do front) que monta o diálogo que a pessoa
+ * aprova.
+ *
+ * `pages_manage_metadata` entrou em 30/07: sem ela a Meta responde
+ * `(#200) Requires pages_manage_metadata permission to manage the object` ao
+ * tentar inscrever a Página no webhook — era o que impedia comentário do
+ * Instagram de chegar. `instagram_manage_comments` é o que permite RESPONDER
+ * comentário, não só recebê-lo.
+ *
+ * Se a Meta recusar o diálogo com "Invalid Scopes", é porque o app não tem o
+ * caso de uso correspondente: remova a permissão nova, reconecte, e trate o
+ * caso de uso no painel antes de tentar de novo.
+ */
+const META_SCOPE = "pages_show_list,pages_read_engagement,pages_manage_posts,pages_manage_metadata,business_management,public_profile,instagram_basic,instagram_content_publish,instagram_manage_comments";
 // Redirect goes through Supabase edge function (trusted domain — avoids browser security warnings)
 const META_REDIRECT_URI = "https://caluagencia.com.br/oauth/meta";
 

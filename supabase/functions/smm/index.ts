@@ -274,14 +274,19 @@ function normalizeMetaDatePreset(value: unknown): string {
   return aliases[preset] ?? preset;
 }
 
+// MANTENHA IDÊNTICA à lista de `src/components/SocialMediaTab.tsx` — lá está a
+// explicação de cada permissão e o que fazer se a Meta recusar com
+// "Invalid Scopes".
 const META_SCOPE = [
   "pages_manage_posts",
   "pages_read_engagement",
   "pages_show_list",
+  "pages_manage_metadata",   // inscrever a Página no webhook (erro #200 sem ela)
   "business_management",
   "public_profile",
   "instagram_basic",
   "instagram_content_publish",
+  "instagram_manage_comments", // responder comentário, não só receber
 ].join(",");
 
 const LINKEDIN_SCOPE = "w_member_social";
