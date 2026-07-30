@@ -66,6 +66,18 @@ Deno.serve(async (req) => {
       agentConfig = agentRow?.config?.channels ?? null;
     }
 
+    /**
+     * Responder no perfil de um cliente é OPT-IN, por canal.
+     *
+     * O guarda anterior era `if (agentConfig && cfg?.active === false) continue`
+     * — ou seja, cliente sem configuração salva (o caso de TODOS hoje: não
+     * existe nenhuma linha `agent_<cliente>` em integrations) caía no "else" e
+     * o agente respondia. Bastava assinar o webhook no app Meta para a IA
+     * começar a falar sozinha no Instagram dos clientes, sem ninguém ter ligado
+     * nada. Agora só responde quem foi ligado e salvo de propósito.
+     */
+    const canalLigado = (canal: string) => agentConfig?.[canal]?.active === true;
+
     const platform = object === "instagram" ? "instagram" : "facebook";
 
     // --- DMs (messaging events) ---
@@ -76,7 +88,7 @@ Deno.serve(async (req) => {
       if (!text || senderId === pageId) continue; // ignore echo
 
       // Check if channel is active for this client
-      if (agentConfig && agentConfig[platform]?.active === false) continue;
+      if (!canalLigado(platform)) continue;
 
       const systemPrompt = agentConfig?.[platform]?.system_prompt || undefined;
       const aiReply = await generateReply(anthropicKey, text, "dm", systemPrompt);
@@ -106,7 +118,7 @@ Deno.serve(async (req) => {
         const commentText = val.message as string | undefined;
         const senderId = val.from?.id as string;
         if (!commentText || senderId === pageId) continue;
-        if (agentConfig && agentConfig["facebook"]?.active === false) continue;
+        if (!canalLigado("facebook")) continue;
 
         const fbPrompt = agentConfig?.["facebook"]?.system_prompt || undefined;
         const aiReply = await generateReply(anthropicKey, commentText, "comment", fbPrompt);
@@ -131,7 +143,7 @@ Deno.serve(async (req) => {
         const commentText = val.text as string;
         const senderId = val.from?.id as string;
         if (!commentText) continue;
-        if (agentConfig && agentConfig["instagram"]?.active === false) continue;
+        if (!canalLigado("instagram")) continue;
 
         const igPrompt = agentConfig?.["instagram"]?.system_prompt || undefined;
         const aiReply = await generateReply(anthropicKey, commentText, "comment", igPrompt);
