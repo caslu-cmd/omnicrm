@@ -256,9 +256,15 @@ export default function SharedAgentChatPage() {
     setSending(true);
     try {
       const history = [...messages, userMsg].map(m => ({ role: m.role, content: m.content }));
+      // A função confere a sessão: sem este cabeçalho o link vira porta aberta
+      // para qualquer um gastar a conta de IA.
+      const { data: { session: authSession } } = await supabase.auth.getSession();
       const res  = await fetch(SUBMIT_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(authSession?.access_token ? { Authorization: `Bearer ${authSession.access_token}` } : {}),
+        },
         body: JSON.stringify({ token, messages: history }),
       });
       const data = await res.json();
