@@ -2,6 +2,13 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "caluagencia",
   "compatibility_date": "2026-07-01",
+  // O subdomínio *.workers.dev é da CONTA, não do projeto — como Calu e Vera
+  // Juris moram na mesma conta Cloudflare, a URL saía como
+  // caluagencia.verajuris.workers.dev: marca de um cliente na porta do outro,
+  // e uma segunda entrada pública para a plataforma fora do domínio oficial.
+  // Fechada a pedido da Carol (29/07). Para ver antes de publicar, use
+  // `npx wrangler dev` em vez da URL de preview.
+  "workers_dev": false,
   "assets": {
     "directory": "./dist",
     "not_found_handling": "single-page-application"
