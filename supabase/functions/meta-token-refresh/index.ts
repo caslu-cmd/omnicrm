@@ -122,12 +122,32 @@ Deno.serve(async (req) => {
       continue;
     }
 
-    // Conexões antigas não guardaram o token de usuário; nesse caso o próprio
-    // page token serve de moeda de troca no fb_exchange_token.
-    const seed = (row.user_access_token ?? row.access_token) as string | null;
+    /**
+     * SEM `user_access_token`, NÃO RENOVA — e isso é a correção mais importante
+     * desta função.
+     *
+     * A versão anterior usava o próprio page token como moeda de troca no
+     * `fb_exchange_token`, na premissa de que "o que volta já É o page token
+     * renovado". Não é: o token que volta perde o vínculo com a Página, e toda
+     * chamada de Página passa a responder
+     * `190 — Any of the pages_read_engagement… must be granted before
+     * impersonating a user's page`. Como a função gravava esse token por cima
+     * do bom e ainda carimbava +60 dias de validade, a conexão ficava com cara
+     * de saudável e não publicava mais nada.
+     *
+     * Foi o que derrubou os posts agendados do ABCER em junho e o que impediu
+     * a inscrição do webhook do Grupo Licita hoje. Page token derivado de um
+     * user token de longa duração já não expira sozinho, então o certo aqui é
+     * NÃO TOCAR e pedir reconexão — melhor um token velho que funciona do que
+     * um novo que não serve.
+     */
+    const seed = row.user_access_token as string | null;
     if (!seed) {
       await supabase.from("social_connections")
-        .update({ refresh_error: "reconectar", last_refresh_at: new Date().toISOString() })
+        .update({
+          refresh_error: "sem user_access_token — reconectar pela aba Redes Sociais (o token da Página foi preservado)",
+          last_refresh_at: new Date().toISOString(),
+        })
         .eq("id", row.id);
       results.push({ conexao: label, status: "precisa_reconectar" });
       continue;
@@ -148,10 +168,10 @@ Deno.serve(async (req) => {
       let expiresIn: number = exData.expires_in ?? 5184000;
       let newPageToken = newToken;
 
-      // 2) Com token de usuário dá para redescobrir a Página. Sem ele, o que
-      //    voltou do exchange já É o page token renovado (page token não tem
-      //    permissão para listar /me/accounts).
-      if (row.user_access_token) {
+      // 2) Redescobre a Página pelo token de usuário renovado e pega dela um
+      //    page token novo. Este é o ÚNICO caminho que devolve token com poder
+      //    de Página — daí a exigência do `user_access_token` lá em cima.
+      {
         const pagesRes = await fetch(`${GRAPH}/me/accounts?access_token=${newToken}`);
         const pagesData = await pagesRes.json();
         if (pagesData.error) throw new Error(pagesData.error.message);
@@ -191,7 +211,7 @@ Deno.serve(async (req) => {
 
       await supabase.from("social_connections").update({
         access_token: obfuscate(newPageToken, encKey),
-        user_access_token: row.user_access_token ? obfuscate(newToken, encKey) : null,
+        user_access_token: obfuscate(newToken, encKey),
         token_expires_at: new Date(Date.now() + expiresIn * 1000).toISOString(),
         last_refresh_at: new Date().toISOString(),
         refresh_error: null,
