@@ -8,6 +8,30 @@ const cors = {
 const json = (d: unknown, s = 200) =>
   new Response(JSON.stringify(d), { status: s, headers: { ...cors, "Content-Type": "application/json" } });
 
+/**
+ * O token em `social_connections.access_token` está OFUSCADO (XOR + base64 com
+ * INTEGRATION_ENCRYPTION_KEY) — quem grava é a `smm`, e `publish-scheduled`,
+ * `meta-token-refresh` e `social-media` já desfaziam antes de usar.
+ *
+ * Esta função não desfazia: mandava o texto cifrado direto para o Graph e
+ * levava `OAuthException 190 — Cannot parse access token`. Como ela nunca
+ * chegou a rodar em produção (webhook não estava assinado), o erro ficou
+ * invisível — apareceria no primeiro comentário real.
+ */
+function deobfuscate(encoded: string, key: string): string {
+  try {
+    const decoded = atob(encoded);
+    const out: number[] = [];
+    for (let i = 0; i < decoded.length; i++) {
+      out.push(decoded.charCodeAt(i) ^ key.charCodeAt(i % key.length));
+    }
+    return String.fromCharCode(...out);
+  } catch {
+    // Token gravado antes da ofuscação, ou vindo de env: usa como veio.
+    return encoded;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
 
@@ -15,6 +39,8 @@ Deno.serve(async (req) => {
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
   const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY")!;
   const verifyToken = Deno.env.get("WEBHOOK_VERIFY_TOKEN") ?? "calu_verify_2025";
+  // Mesma chave e mesmo fallback usados pela smm/publish-scheduled.
+  const encKey = Deno.env.get("INTEGRATION_ENCRYPTION_KEY") || serviceKey;
 
   const adminSb = createClient(supabaseUrl, serviceKey);
 
@@ -54,7 +80,9 @@ Deno.serve(async (req) => {
       .eq("account_id", pageId)
       .maybeSingle();
 
-    const accessToken = conn?.access_token ?? Deno.env.get("META_PAGE_ACCESS_TOKEN") ?? "";
+    const accessToken = conn?.access_token
+      ? deobfuscate(conn.access_token, encKey)
+      : (Deno.env.get("META_PAGE_ACCESS_TOKEN") ?? "");
     const userId = conn?.user_id ?? null;
     const clientId = conn?.client_id ?? null;
 
