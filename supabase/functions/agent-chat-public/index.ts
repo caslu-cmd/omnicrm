@@ -35,11 +35,26 @@ interface Msg {
   content: string;
 }
 
-/** Agentes com edge function própria: o link usa o agente de verdade. */
-const FUNCAO_PROPRIA: Record<string, (msgs: Msg[]) => Record<string, unknown>> = {
-  fisco: (msgs) => ({
+/**
+ * Agentes com edge function própria: o link usa o agente de verdade.
+ * O `contexto` vem do `context_note` do link — é assim que um link do Fisco
+ * criado para uma empresa de contabilidade já chega no perfil certo, sem quem
+ * abriu ter que dizer quem é.
+ */
+const FUNCAO_PROPRIA: Record<
+  string,
+  (msgs: Msg[], contexto: string) => Record<string, unknown>
+> = {
+  fisco: (msgs, contexto) => ({
     mensagem: msgs[msgs.length - 1]?.content ?? "",
     historico: msgs.slice(0, -1),
+    perfil: /contabil/i.test(contexto)
+      ? "contabilidade"
+      : /empresa|cnpj|pj/i.test(contexto)
+      ? "empresa"
+      : /pessoa|física|fisica|pf/i.test(contexto)
+      ? "pessoa"
+      : "geral",
   }),
 };
 
@@ -145,7 +160,7 @@ Deno.serve(async (req) => {
 
     const { data: link } = await admin
       .from("agent_links")
-      .select("id, agent_id, agent_name, system_prompt, active")
+      .select("id, agent_id, agent_name, system_prompt, context_note, active")
       .eq("token", token).maybeSingle();
     if (!link) return json({ error: "Link não encontrado" }, 404);
     if (!link.active) return json({ error: "Este link foi desativado" }, 403);
@@ -183,7 +198,7 @@ Deno.serve(async (req) => {
           apikey: serviceKey,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(montarCorpo(historico)),
+        body: JSON.stringify(montarCorpo(historico, String(link.context_note ?? ""))),
       });
       if (!res.ok) throw new Error(`${link.agent_id} ${res.status}`);
       content = await juntarStream(res);

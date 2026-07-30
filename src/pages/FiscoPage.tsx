@@ -26,14 +26,52 @@ const GOLD = "#F59E0B";
 const GOLD_DIM = "#F59E0B22";
 const GOLD_BORDER = "#F59E0B44";
 
-// ── Perguntas rápidas ──────────────────────────────────────────────────────────
-const PERGUNTAS_RAPIDAS = [
-  "Quais são minhas obrigações fiscais mensais?",
-  "Como emitir NFS-e em Fortaleza?",
-  "Qual regime tributário é melhor para mim?",
-  "Quando vence o DAS do Simples Nacional?",
-  "O que é ISS e como é calculado?",
-  "Como obter Inscrição Municipal em Fortaleza?",
+// ── Perfis de atendimento ──────────────────────────────────────────────────────
+// O Fisco fala com três públicos e isso muda o que ele assume que a pessoa já
+// sabe. As perguntas rápidas seguem o perfil: as antigas só serviam a empresa
+// de Fortaleza e não faziam sentido para quem só quer declarar o IRPF.
+type PerfilId = "pessoa" | "empresa" | "contabilidade";
+
+const PERFIS: { id: PerfilId; label: string; desc: string; perguntas: string[] }[] = [
+  {
+    id: "pessoa",
+    label: "Pessoa física",
+    desc: "IRPF, autônomo, INSS, venda de bens",
+    perguntas: [
+      "Sou obrigado a declarar o Imposto de Renda este ano?",
+      "Trabalho por conta própria: preciso pagar carnê-leão?",
+      "Vendi um imóvel — vou pagar imposto sobre o lucro?",
+      "Quais despesas posso deduzir na declaração?",
+      "Quanto preciso contribuir para o INSS como autônomo?",
+      "Vale mais a pena abrir CNPJ ou continuar como pessoa física?",
+    ],
+  },
+  {
+    id: "empresa",
+    label: "Empresa",
+    desc: "Regime, DAS, notas, obrigações",
+    perguntas: [
+      "Qual regime tributário é melhor para a minha empresa?",
+      "Quanto minha empresa paga de imposto por mês?",
+      "Quais obrigações mensais eu não posso perder?",
+      "Como funciona pró-labore e distribuição de lucros?",
+      "Quando vence o DAS do Simples Nacional?",
+      "Como emitir NFS-e em Fortaleza?",
+    ],
+  },
+  {
+    id: "contabilidade",
+    label: "Contabilidade",
+    desc: "Técnico, com base legal — para quem é da área",
+    perguntas: [
+      "Como fica o Fator R no Anexo V com pró-labore no limite?",
+      "Cronograma da CBS/IBS: o que muda na rotina do escritório em 2026?",
+      "Quais adições e exclusões costumam ser questionadas no LALUR?",
+      "EFD-Reinf x eSocial: onde as retenções se sobrepõem?",
+      "Reenquadramento de regime no meio do ano: quando cabe?",
+      "Distribuição de lucros acima da presunção: qual o risco atual?",
+    ],
+  },
 ];
 
 function copyToClipboard(text: string) {
@@ -48,6 +86,10 @@ function uid() {
 // ── Componente ─────────────────────────────────────────────────────────────────
 export default function FiscoPage() {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [perfil, setPerfil] = useState<PerfilId>(() => {
+    const salvo = localStorage.getItem("fisco-perfil");
+    return (salvo === "pessoa" || salvo === "empresa" || salvo === "contabilidade") ? salvo : "empresa";
+  });
   const [input, setInput] = useState("");
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
@@ -85,7 +127,7 @@ export default function FiscoPage() {
           "Authorization": `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
           "apikey": SUPABASE_PUBLISHABLE_KEY,
         },
-        body: JSON.stringify({ mensagem: msg, historico }),
+        body: JSON.stringify({ mensagem: msg, historico, perfil }),
       });
 
       if (!resp.ok) throw new Error(`Erro ${resp.status} — Fisco indisponível.`);
@@ -135,7 +177,7 @@ export default function FiscoPage() {
       setCarregando(false);
       inputRef.current?.focus();
     }
-  }, [carregando, historico]);
+  }, [carregando, historico, perfil]);
 
   const limpar = () => {
     readerRef.current?.cancel();
@@ -199,13 +241,43 @@ export default function FiscoPage() {
           </div>
         </div>
 
+        {/* Para quem ele está falando */}
+        <div className="px-5 pt-4">
+          <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "#444466" }}>
+            Estou atendendo
+          </p>
+          <div className="flex flex-col gap-1.5">
+            {PERFIS.map((p) => {
+              const ativo = p.id === perfil;
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => { setPerfil(p.id); localStorage.setItem("fisco-perfil", p.id); }}
+                  className="text-left px-3 py-2 rounded-xl transition-all"
+                  style={{
+                    background: ativo ? GOLD_DIM : "#141420",
+                    border: `1px solid ${ativo ? GOLD : "#2A2A3A"}`,
+                  }}
+                >
+                  <span className="block text-[12px] font-semibold" style={{ color: ativo ? GOLD : "#C0C0D0" }}>
+                    {p.label}
+                  </span>
+                  <span className="block text-[10px] mt-0.5" style={{ color: "#77778A" }}>
+                    {p.desc}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Perguntas rápidas */}
         <div className="flex-1 overflow-y-auto px-5 py-4">
           <p className="text-[10px] uppercase tracking-widest mb-3" style={{ color: "#444466" }}>
             Perguntas frequentes
           </p>
           <div className="flex flex-col gap-2">
-            {PERGUNTAS_RAPIDAS.map((q) => (
+            {(PERFIS.find((p) => p.id === perfil) ?? PERFIS[1]).perguntas.map((q) => (
               <button
                 key={q}
                 onClick={() => enviar(q)}
