@@ -282,11 +282,14 @@ const META_SCOPE = [
   "pages_read_engagement",
   "pages_show_list",
   "pages_manage_metadata",   // inscrever a Página no webhook (erro #200 sem ela)
+  "pages_manage_engagement", // responder comentário na Página
   "business_management",
   "public_profile",
   "instagram_basic",
   "instagram_content_publish",
-  "instagram_manage_comments", // responder comentário, não só receber
+  // instagram_manage_comments fica FORA de propósito — ver comentário em
+  // SocialMediaTab.tsx: o app usa o setup de login da empresa (instagram_business_*),
+  // e pedir permissão inexistente derruba o diálogo com "Invalid Scopes".
 ].join(",");
 
 const LINKEDIN_SCOPE = "w_member_social";

@@ -60,17 +60,22 @@ const META_APP_ID = "1718744112773878";
  * cópias da mesma verdade, e é ESTA (do front) que monta o diálogo que a pessoa
  * aprova.
  *
- * `pages_manage_metadata` entrou em 30/07: sem ela a Meta responde
- * `(#200) Requires pages_manage_metadata permission to manage the object` ao
- * tentar inscrever a Página no webhook — era o que impedia comentário do
- * Instagram de chegar. `instagram_manage_comments` é o que permite RESPONDER
- * comentário, não só recebê-lo.
+ * Entraram em 30/07, as duas conferidas como disponíveis no app ("Pronto para
+ * teste", caso de uso Gerenciar Páginas):
+ *  - `pages_manage_metadata` — inscrever a Página no webhook. Sem ela a Meta
+ *    responde `(#200) Requires pages_manage_metadata permission to manage the
+ *    object`, e era isso que impedia o comentário do Instagram de chegar.
+ *  - `pages_manage_engagement` — responder comentário na Página.
  *
- * Se a Meta recusar o diálogo com "Invalid Scopes", é porque o app não tem o
- * caso de uso correspondente: remova a permissão nova, reconecte, e trate o
- * caso de uso no painel antes de tentar de novo.
+ * NÃO pedir `instagram_manage_comments` aqui: ela pertence ao setup
+ * "Instagram API com login do Facebook", e o app da Carol tem configurado o
+ * "API do Instagram com login da empresa" (outro app id, outra família de
+ * permissões: instagram_business_*). Pedir permissão que o app não tem faz a
+ * Meta recusar o diálogo inteiro com "Invalid Scopes" — quebraria a conexão
+ * que hoje funciona. Para o agente RESPONDER comentário no Instagram, o
+ * caminho é adicionar aquele caso de uso ao app primeiro.
  */
-const META_SCOPE = "pages_show_list,pages_read_engagement,pages_manage_posts,pages_manage_metadata,business_management,public_profile,instagram_basic,instagram_content_publish,instagram_manage_comments";
+const META_SCOPE = "pages_show_list,pages_read_engagement,pages_manage_posts,pages_manage_metadata,pages_manage_engagement,business_management,public_profile,instagram_basic,instagram_content_publish";
 // Redirect goes through Supabase edge function (trusted domain — avoids browser security warnings)
 const META_REDIRECT_URI = "https://caluagencia.com.br/oauth/meta";
 
