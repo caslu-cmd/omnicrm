@@ -535,6 +535,55 @@ O que começa AMANHÃ — lista de ações com responsável e formato (reunião,
 Uma mensagem motivacional personalizada para o cliente, reforçando o potencial identificado.
 
 Linguagem executiva, direta e orientada a resultado. Seja específica — cite números, nomes, ferramentas. Português brasileiro.`,
+
+  // Os três abaixo nasceram amarrados a um cliente (Rico e Ana no GNX, Apolo no
+  // Grupo Licita) e por isso nunca tiveram persona escrita — caíam no fallback
+  // genérico. Agora que todo agente atende qualquer conta, a competência está
+  // descrita de forma que sirva a qualquer nicho; o mercado vem do contexto.
+  rico: `Você é RICO, especialista em Prestação de Contas da Calu Agência.
+Você organiza o dinheiro que passa pela conta do cliente e devolve isso em relatório que ele entende sem ser da área.
+
+SUAS SKILLS — detecte automaticamente qual aplicar:
+
+• LANÇAMENTO → registre entrada/saída com data, categoria, descrição e valor; aponte o que ficou sem comprovante ou sem categoria.
+
+• HONORÁRIOS E REPASSES → calcule o que é da agência, o que é repasse e o que é reembolso, mostrando a conta aberta linha por linha.
+
+• RELATÓRIO DO PERÍODO → entregue: total de entradas e saídas + resultado + quebra por categoria (tabela) + os 3 maiores itens + o que explica a variação contra o período anterior.
+
+• PREVISÃO DE CAIXA → projete o mês a partir dos recorrentes já conhecidos e separe o que é compromisso firme do que é estimativa.
+
+Regras: nunca invente valor nem comprovante — se o dado não veio, diga exatamente qual falta. Toda conta apresentada precisa ser conferível (mostre a fórmula). Valores em R$ com duas casas. Português brasileiro, tom de quem presta contas: direto, sem jargão contábil desnecessário.`,
+
+  ana: `Você é ANA, especialista em Triagem e Qualificação de Leads da Calu Agência.
+Você recebe lead cru (formulário, WhatsApp, campanha, planilha) e decide o que fazer com cada um.
+
+SUAS SKILLS — detecte automaticamente qual aplicar:
+
+• TRIAGEM → classifique cada lead em Quente / Morno / Frio / Descartar, com o motivo em uma linha e o próximo passo concreto.
+
+• CRITÉRIOS DE QUALIFICAÇÃO → monte o filtro do nicho: quem é perfil, quem não é, quais perguntas fazer na primeira conversa e qual resposta desqualifica na hora.
+
+• ROTEIRO DE PRIMEIRO CONTATO → escreva a abordagem (WhatsApp e telefone), o tratamento das 3 objeções mais comuns desse mercado e quando devolver para o time comercial.
+
+• RELATÓRIO DA BASE → volume por origem, taxa de aproveitamento, onde a base está furando e o que ajustar na captação.
+
+Regras: lead é pessoa — nada de julgamento, só critério de negócio. Não invente dado de contato nem histórico que não veio na base; aponte o campo faltante. Português brasileiro, objetiva e prática.`,
+
+  apolo: `Você é APOLO, Editor de Apostilas e Material Didático da Calu Agência.
+Você transforma conteúdo bruto (aula, PDF, texto de especialista) em material que a pessoa consegue estudar sozinha.
+
+SUAS SKILLS — detecte automaticamente qual aplicar:
+
+• ESTRUTURA DA APOSTILA → sumário completo: módulos, capítulos, ordem pedagógica (do pré-requisito ao avançado) e tempo estimado de estudo por parte.
+
+• EDITORAÇÃO DE CONTEÚDO → reescreva o material mantendo a voz do especialista: parágrafos curtos, exemplos do nicho, destaques do que é regra e do que é recomendação, e caixas de atenção onde erra-se mais.
+
+• APOIO AO ESTUDO → exercícios com gabarito comentado, resumo de fim de capítulo, glossário dos termos técnicos e checklist de revisão.
+
+• ESPECIFICAÇÃO GRÁFICA → hierarquia de títulos, o que vira tabela, o que vira infográfico, e onde entram capa, abertura de módulo e contracapa.
+
+Regras: fidelidade ao conteúdo do especialista vem antes de estilo — não invente norma, lei, número nem citação; se faltar, marque [CONFIRMAR COM O ESPECIALISTA]. Cite fonte e data quando o assunto tiver validade (norma, legislação, preço). Português brasileiro.`,
 };
 
 // ── CRM Pipeline Stages ────────────────────────────────────────
@@ -1413,16 +1462,18 @@ export default function ClientWorkspace() {
   const [agentPickerDraft, setAgentPickerDraft] = useState<string[]>([]);
   const [savingAgents, setSavingAgents] = useState(false);
 
-  // Time padrão de quem nunca escolheu: o que a tela já mostrava antes desta feature.
-  const defaultAgentIds = useMemo(
-    () => MARKETING_TEAM
-      .filter(a => a.id !== "briefing"
-        && (a.id !== "rico" || id === "gnx")
-        && (a.id !== "ana" || id === "gnx")
-        && (a.id !== "apolo" || id === "grupo-licita"))
-      .map(a => a.id),
-    [id],
-  );
+  /**
+   * Time padrão: TODOS. Decisão da Carol (29/07) — "todos os agentes devem
+   * trabalhar pra Calu Agência e se adaptarem ao nicho do cliente quando eu
+   * marcar ativo".
+   *
+   * Antes daqui saíam exceções chumbadas no código: Lia escondida sempre, Rico
+   * e Ana só no GNX, Apolo só no Grupo Licita. Isso amarrava um agente a um
+   * cliente, quando o que muda por cliente é o NICHO em que ele fala (ver
+   * `contextoDoCliente`), não a competência. Quem não serve para a conta, a
+   * Carol desmarca em "Escolher agentes".
+   */
+  const defaultAgentIds = useMemo(() => MARKETING_TEAM.map(a => a.id), []);
 
   // O time que realmente atua neste cliente — usado na grade, na ARIA e nas demandas.
   const activeTeam = useMemo(() => {
@@ -1721,6 +1772,55 @@ export default function ClientWorkspace() {
     return lines.length ? `\n\n${lines.join("\n")}` : "";
   };
 
+  /**
+   * O que faz um agente da Calu virar agente DESTE cliente.
+   *
+   * Todos os 17 trabalham para a agência; marcar ativo não muda a competência
+   * dele, muda o mercado em que ele fala. Este bloco é a única fonte disso —
+   * antes cada caminho (chat lateral, envio direto, ARIA, demandas) montava um
+   * contexto diferente, então o mesmo agente respondia mais genérico ou mais
+   * afiado dependendo de onde a Carol clicava.
+   *
+   * Vai no SYSTEM prompt, não na mensagem do usuário: instrução de papel que
+   * viaja como texto do usuário compete com o pedido e se perde no histórico.
+   */
+  const diretrizDeNicho = () => {
+    const segmento = clientBriefing?.segmento || client.industry || "não informado";
+    const publico = clientBriefing?.clienteIdeal || "";
+    const linhas = [
+      "=== CONTA EM QUE VOCÊ ESTÁ TRABALHANDO ===",
+      `Cliente: ${client.name} | Segmento: ${segmento}`,
+      publico ? `Público: ${publico}` : "",
+      client.teamInstructions ? `Instruções permanentes desta conta: ${client.teamInstructions}` : "",
+      "",
+      `Você é da Calu Agência e foi ativada NESTA conta: responda no vocabulário de ${segmento}, com os canais, a sazonalidade, as objeções e os benchmarks desse mercado. Sem exemplo genérico de marketing e sem exemplo de outro segmento. Se a sua especialidade não tiver tradução óbvia para este nicho, diga como ela se aplica aqui em vez de responder no vazio.`,
+    ].filter(Boolean);
+    return `\n\n${linhas.join("\n")}`;
+  };
+
+  /** Diretriz de nicho + briefing. Use quando o briefing NÃO viaja na mensagem. */
+  const contextoDoCliente = (extra?: string) =>
+    `${diretrizDeNicho()}${buildBriefingBlock(extra)}`;
+
+  /**
+   * Versão para link público de agente (`/conversar/:token`): nicho sim,
+   * números não. O briefing tem faturamento, budget e preocupações da conta —
+   * isso não pode viajar num link que qualquer pessoa abre.
+   */
+  const contextoPublicoDoCliente = () => {
+    const b = clientBriefing;
+    const segmento = b?.segmento || client.industry || "";
+    const linhas = [
+      client.name ? `Cliente: ${client.name}` : "",
+      segmento ? `Segmento: ${segmento}` : "",
+      b?.clienteIdeal ? `Público: ${b.clienteIdeal}` : "",
+      b?.produtos ? `Produtos/Serviços: ${b.produtos}` : "",
+      b?.diferencial ? `Diferencial: ${b.diferencial}` : "",
+      segmento ? `Fale no vocabulário de ${segmento}, com exemplos desse mercado.` : "",
+    ].filter(Boolean);
+    return linhas.join("\n");
+  };
+
   // Send a message directly to one specific agent (without ARIA orchestration)
   const handleSendToSingleAgent = async (agentId: string, instruction: string) => {
     if (!instruction.trim()) return;
@@ -1752,19 +1852,18 @@ export default function ClientWorkspace() {
       const isPostAgent = ["social", "copywriter"].includes(agentId);
       const { data: { session } } = await supabase.auth.getSession();
       const agentUserId = session?.user?.id ?? null;
-      const segmentoSingle = clientBriefing?.segmento || client.industry;
-      const ctxBase = `Cliente: ${client.name} | Segmento: ${segmentoSingle} | Cor: ${client.color}${client.teamInstructions ? `\nInstruções permanentes: ${client.teamInstructions}` : ""}`;
-      const briefingBlock = buildBriefingBlock();
       const { data: agData, error: agErr } = await supabase.functions.invoke("chat-ai", {
         body: {
-          systemPrompt: AGENT_PROMPTS[agentId] ?? `Você é ${agent.name}, ${agent.role} da Calu Agência.`,
+          // Mesmo bloco de nicho do chat lateral: o agente não pode responder
+          // mais genérico só porque a Carol acionou por aqui.
+          systemPrompt: `${AGENT_PROMPTS[agentId] ?? `Você é ${agent.name}, ${agent.role} da Calu Agência.`}${contextoDoCliente()}`,
           maxTokens: agCfg.maxTokens,
           enableThinking: agCfg.thinking,
           thinkingBudget: agCfg.thinkingBudget,
           ...(isPostAgent && agentUserId && id
             ? { enableDraftTool: true, client_id: id, user_id: agentUserId }
             : {}),
-          messages: [{ role: "user", content: `${instruction}\n\n${ctxBase}${briefingBlock}` }],
+          messages: [{ role: "user", content: instruction }],
         },
       });
       if (agErr) throw agErr;
@@ -1820,13 +1919,9 @@ export default function ClientWorkspace() {
       const isDesignerAgent = ["designer", "marcela"].includes(agentId);
       const { data: { session } } = await supabase.auth.getSession();
       const agentUserId = session?.user?.id ?? null;
-      const segmento = clientBriefing?.segmento || client.industry;
-      const systemWithCtx = `${AGENT_PROMPTS[agentId] ?? `Você é ${agent?.name}, ${agent?.role} da Calu Agência.`}
-
-CONTEXTO DO CLIENTE:
-Cliente: ${client.name} | Segmento: ${segmento}${client.teamInstructions ? `\nInstruções permanentes: ${client.teamInstructions}` : ""}${buildBriefingBlock()}
-
-⚠️ REGRA: Estratégias, prazos estimados e benchmarks do setor são bem-vindos. O que é proibido é citar estado atual inventado — não mencione propostas no CRM, leads cadastrados, campanhas em andamento ou resultados que não foram fornecidos no briefing. Use futuro para o que será feito, condicional para estimativas.`;
+      // A regra de "não invente estado atual" já vem dentro do bloco de nicho —
+      // estava duplicada aqui, em duas redações diferentes.
+      const systemWithCtx = `${AGENT_PROMPTS[agentId] ?? `Você é ${agent?.name}, ${agent?.role} da Calu Agência.`}${contextoDoCliente()}`;
       const clientCtx = isDesignerAgent ? {
         name: client.name,
         brandColor: client.color ?? clientBriefing?.corPrimaria ?? "",
@@ -2141,7 +2236,9 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
             );
             const invokePromise = supabase.functions.invoke("chat-ai", {
               body: {
-                systemPrompt: AGENT_PROMPTS[agentId],
+                // Só a diretriz: nas ondas da ARIA o briefing já vai no ctxBlock
+                // da mensagem, e mandar duas vezes só gasta contexto.
+                systemPrompt: `${AGENT_PROMPTS[agentId] ?? ""}${diretrizDeNicho()}`,
                 maxTokens: agCfg.maxTokens,
                 enableThinking: agCfg.thinking,
                 thinkingBudget: agCfg.thinkingBudget,
@@ -2365,7 +2462,9 @@ ${priorBlock}`;
             );
             const invoke2 = supabase.functions.invoke("chat-ai", {
               body: {
-                systemPrompt: AGENT_PROMPTS[agentId],
+                // Só a diretriz: nas ondas da ARIA o briefing já vai no ctxBlock
+                // da mensagem, e mandar duas vezes só gasta contexto.
+                systemPrompt: `${AGENT_PROMPTS[agentId] ?? ""}${diretrizDeNicho()}`,
                 maxTokens: agCfg2.maxTokens,
                 enableThinking: agCfg2.thinking,
                 thinkingBudget: agCfg2.thinkingBudget,
@@ -3601,7 +3700,9 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
   const openShareAgentModal = (agentId: string) => {
     const meta = AGENT_META[agentId] ?? { name: agentId, color: "#B9FF4B" };
     setShareAgentId(agentId);
-    setShareContextNote(client.name ? `Cliente: ${client.name}${(client as any).industry ? ` | Segmento: ${(client as any).industry}` : ""}` : "");
+    // Nicho do cliente já preenchido (sem faturamento/budget — o link é público
+    // e a Carol pode editar o texto antes de gerar).
+    setShareContextNote(contextoPublicoDoCliente());
     setShareWelcomeMsg(`Olá! Sou ${meta.name}${AGENT_ROLES[agentId] ? `, especialista em ${AGENT_ROLES[agentId].toLowerCase()}` : ""}. Como posso te ajudar?`);
   };
 
@@ -5241,7 +5342,12 @@ Regras:
                   <div>
                     <p className="text-sm font-bold text-white">Agentes de {client.name}</p>
                     <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-                      Só os agentes marcados aparecem no time e recebem demandas deste cliente.
+                      Todo o time da Calu atende qualquer cliente. Marcar aqui é dizer quem entra
+                      NESTA conta: o agente marcado passa a responder no nicho
+                      {clientBriefing?.segmento || client.industry
+                        ? ` de ${clientBriefing?.segmento || client.industry}`
+                        : " do cliente"}, com o briefing dela na mão. Desmarcado não aparece no time,
+                      não entra no plano da ARIA e não recebe demanda.
                     </p>
                   </div>
                   <button onClick={() => setShowAgentPicker(false)} style={{ color: "rgba(255,255,255,0.3)" }}>
@@ -5258,8 +5364,7 @@ Regras:
                     className="text-[11px] underline" style={{ color: "rgba(255,255,255,0.45)" }}>Todos</button>
                   <button onClick={() => setAgentPickerDraft([])}
                     className="text-[11px] underline" style={{ color: "rgba(255,255,255,0.45)" }}>Nenhum</button>
-                  <button onClick={() => setAgentPickerDraft(defaultAgentIds)}
-                    className="text-[11px] underline" style={{ color: "rgba(255,255,255,0.45)" }}>Padrão</button>
+                  {/* "Padrão" saiu: o padrão agora É todos, então era o mesmo botão duas vezes. */}
                 </div>
 
                 <div className="p-5 overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-2">
