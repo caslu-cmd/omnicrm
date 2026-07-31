@@ -1925,7 +1925,8 @@ export default function ClientWorkspace() {
       const clientCtx = isDesignerAgent ? {
         name: client.name,
         brandColor: client.color ?? clientBriefing?.corPrimaria ?? "",
-        industry: segmento,
+        // Mesmo critério das outras chamadas: briefing manda, industry é o reserva.
+        industry: clientBriefing?.segmento || client.industry || "",
         brandColors: { secondary: clientBriefing?.corSecundaria ?? "" },
         logoUrl: clientBriefing?.logoUrl ?? "",
       } : undefined;
