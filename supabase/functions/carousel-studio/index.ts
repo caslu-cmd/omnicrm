@@ -90,6 +90,57 @@ async function callClaude(opts: {
   throw new Error("Não foi possível falar com o Claude.");
 }
 
+/**
+ * Baixa as imagens de referência para o diretor de arte OLHAR.
+ * Vem URL, não binário, porque a referência mora num CDN público (Behance) e
+ * guardar megabytes por peça no banco não se paga.
+ * Limite de 3 imagens e ~1,2 MB cada: acima disso a chamada fica cara e lenta
+ * sem melhorar a decisão.
+ */
+async function baixarReferencias(
+  refs: unknown,
+): Promise<Array<{ data: string; mediaType: string }>> {
+  if (!Array.isArray(refs) || !refs.length) return [];
+  const saida: Array<{ data: string; mediaType: string }> = [];
+
+  // Referência já embutida (base64). É o caminho de quem sobe a peça pelo app,
+  // sem depender de a imagem estar publicada em algum CDN.
+  const embutidas = refs
+    .filter((r): r is { data: string; mediaType?: string } =>
+      !!r && typeof r === "object" && typeof (r as { data?: unknown }).data === "string")
+    .slice(0, 3);
+  for (const e of embutidas) {
+    saida.push({ data: e.data, mediaType: e.mediaType ?? "image/jpeg" });
+  }
+  if (saida.length >= 3) return saida.slice(0, 3);
+
+  const urls = refs
+    .map((r) => (typeof r === "string" ? r : (r as { url?: string })?.url))
+    .filter((u): u is string => typeof u === "string" && /^https:\/\//.test(u))
+    .slice(0, 3 - saida.length);
+
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, {
+        headers: { "User-Agent": "Mozilla/5.0 (compatible; CaluAgencia/1.0)" },
+      });
+      if (!res.ok) continue;
+      const tipo = res.headers.get("content-type") ?? "image/jpeg";
+      if (!tipo.startsWith("image/") || tipo.includes("webp")) continue; // Claude não lê webp
+      const buf = new Uint8Array(await res.arrayBuffer());
+      if (buf.byteLength > 1_200_000) continue;
+      let bin = "";
+      for (let i = 0; i < buf.length; i += 8192) {
+        bin += String.fromCharCode(...buf.subarray(i, i + 8192));
+      }
+      saida.push({ data: btoa(bin), mediaType: tipo.split(";")[0] });
+    } catch {
+      /* referência que não baixa é ignorada: o diretor decide sem ela */
+    }
+  }
+  return saida;
+}
+
 function parseJson<T>(raw: string): T {
   try {
     return JSON.parse(raw) as T;
@@ -153,8 +204,12 @@ const DIRECAO_SCHEMA = {
           bg: { type: "string" },
           fg: { type: "string" },
           accent: { type: "string" },
+          acabamento: {
+            type: "string",
+            enum: ["nenhum", "grao", "glow", "cinema"],
+          },
         },
-        required: ["nome", "referencia", "porque", "layout", "fonte", "bg", "fg", "accent"],
+        required: ["nome", "referencia", "porque", "layout", "fonte", "bg", "fg", "accent", "acabamento"],
         additionalProperties: false,
       },
     },
@@ -356,9 +411,20 @@ REGRAS INEGOCIÁVEIS DE COPY:
 
 LIMITES TÉCNICOS DE DESIGN (o texto é renderizado em canvas, respeite ou quebra o layout):
 - titulo: máximo 58 caracteres (capa: máximo 42).
+- ÊNFASE NO TÍTULO: marque UM trecho com asteriscos — *assim* — e ele sai na cor de destaque, mais encorpado, no meio da frase. É o recurso que faz o título parecer desenhado em vez de digitado, e aparece em toda peça boa de social media. Regras: no máximo UMA marcação por título (duas viram enfeite), de 1 a 3 palavras, e marque a palavra que carrega o argumento — o número, o valor, o verbo da ação, o nome do erro. Nunca marque artigo, preposição ou o título inteiro. Os asteriscos NÃO contam no limite de caracteres. Se nenhuma palavra for claramente mais importante, não marque nada.
 - corpo: máximo 190 caracteres. Pode ter no máximo 2 frases.
 - destaque: 1 a 3 palavras OU um número curto (ex.: "3 de 4", "R$ 12 mil", "48h"). É a palavra que vira gráfico no slide. Nunca repita o título inteiro. No slide de CTA, o destaque vira o TEXTO DO BOTÃO (ex.: "CHAMAR NO DIRECT", "BAIXAR O GUIA").
-- prompt_imagem: prompt EM INGLÊS para gerador de imagem. O padrão que funciona no Instagram é FOTO REALISTA DE PESSOA — o profissional do nicho, o cliente ideal, ou alguém vivendo a situação do slide. Descreva quem é a pessoa (idade aproximada, aparência brasileira, roupa coerente com o nicho), a expressão, o cenário e a luz. Composição com a pessoa de um lado e ESPAÇO VAZIO do outro ou embaixo, porque o texto entra por cima. Sem nenhum texto na imagem, sem logotipos, sem pessoas famosas, sem colagem. Quando a ideia do slide for abstrata demais para uma pessoa, use objeto ou cena real do dia a dia do nicho, nunca ilustração genérica de banco de imagem. Sempre termine com: "shot on 85mm, editorial photography, natural skin texture, cinematic lighting, shallow depth of field, negative space for text".
+- prompt_imagem: prompt EM INGLÊS para gerador de imagem. A foto não ilustra o tema do carrossel: ela mostra o MOMENTO DAQUELE SLIDE. Se o slide fala do erro, a foto é o erro acontecendo; se fala da virada, é a virada; se é o CTA, é o resultado já conquistado. Sete retratos da mesma pessoa sorrindo é o que faz um carrossel passar batido.
+  O que faz a foto parar o dedo, em ordem de importância:
+  1. UMA emoção específica e legível — irritação contida, alívio, concentração, susto, orgulho. Nunca "sorrindo simpático".
+  2. UM assunto só, grande no quadro, com contraste forte de claro e escuro. O feed é pequeno: se não lê em miniatura, não existe.
+  3. Momento pego, não posado. Pessoa no meio da ação, olhando para o trabalho e não para a lente (exceto na capa, onde olhar na câmera funciona).
+  4. Cenário concreto e específico do nicho, com objeto de trabalho de verdade na mão.
+  Descreva quem é a pessoa (idade aproximada, aparência brasileira, roupa coerente com o nicho), a emoção exata, a ação, o cenário e a luz. MANTENHA A MESMA PESSOA, a mesma roupa e a mesma luz em todos os slides do carrossel — muda a cena e a ação, nunca o personagem.
+  PROIBIDO: texto na imagem, logotipo, pessoa famosa, colagem, ilustração, aperto de mão em escritório, polegar para cima, gente de terno em fundo branco, "equipe diversa reunida em volta do notebook" — é banco de imagem e o público reconhece na hora.
+  Quando o slide for abstrato demais para uma pessoa, use um objeto ou cena real do dia a dia do nicho, fotografado de perto.
+  Sempre termine com: "shot on 85mm, editorial photography, natural skin texture, cinematic lighting, shallow depth of field, negative space for text".
+  Não descreva onde fica o espaço vazio: o app acrescenta essa exigência conforme o layout que o diretor de arte escolher.
 
 LEGENDA:
 - Abre com uma linha que repete o gancho de outro jeito, desenvolve em 3 a 6 linhas curtas com quebra de linha dupla, e fecha com o CTA + pergunta para comentário.
@@ -375,7 +441,13 @@ REGRAS:
 4. Nada de roxo-degradê-em-fundo-branco, nada de "corporativo azul genérico" a não ser que o segmento realmente peça e você justifique.
 5. "porque" tem no máximo 2 linhas e fala de negócio, não de estética: o que essa direção comunica para ESSE público.
 6. Layouts disponíveis: "vidro" (foto + cartão translúcido com o título, o padrão campeão de Instagram), "capa" (foto + título gigante direto na imagem), "editorial" (fundo escuro tipográfico), "impacto" (cor cheia), "revista" (papel claro serifado), "gradiente", "minimal" (branco), "foto". Prefira "vidro" ou "capa" quando a marca puder usar fotos de pessoas.
-7. Escolha fonte coerente com o layout: serifada + revista/minimal para autoridade; condensada + impacto para urgência; grotesk + vidro/capa/editorial para moderno.`;
+7. Escolha fonte coerente com o layout: serifada + revista/minimal para autoridade; condensada + impacto para urgência; grotesk + vidro/capa/editorial para moderno.
+8. "acabamento" é o tratamento aplicado por cima da peça pronta. Escolha:
+   - "nenhum": cor chapada. Use quando a direção é limpa, suíça, institucional, ou o fundo é claro.
+   - "grao": ruído de filme. Use quando quer tirar o ar de digital chapado — editorial, documental, artesanal, moda.
+   - "glow": a tipografia e o accent espalham luz. Só em FUNDO ESCURO, e quando a direção é noturna, tech, neon, evento, música.
+   - "cinema": glow discreto + vinheta + grão. O mais dramático. Use em fundo escuro quando a direção pede peso cinematográfico.
+   Não use "glow" nem "cinema" com bg claro — o efeito lava a peça. Nesses casos use "grao" ou "nenhum".`;
 
 // ── Handler ──────────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
@@ -461,14 +533,40 @@ As cores devem ser AMOSTRADAS da imagem sempre que fizerem sentido para a marca.
     // ── Diretor de arte ────────────────────────────────────────────────
     if (action === "direcao") {
       const segmento = cliente.segmento || body.nicho || "negócios";
+
+      // Referências visuais da casa. O diretor OLHA e decide; não copia.
+      const imagensRef = await baixarReferencias(body.refs);
+
       const partes = [
         `${cabecalhoMarca}SEGMENTO: ${segmento}`,
         body.tema ? `CONTEÚDO QUE VAI SER DESENHADO: ${body.tema}` : "",
-        body.corMarca ? `COR ATUAL DA MARCA: ${body.corMarca} (pode manter, ajustar ou contrariar; se contrariar, justifique)` : "",
+        body.corMarca
+          ? `COR DA MARCA DO CLIENTE: ${body.corMarca}. Esta é a origem da cor das suas 3 direções. PELO MENOS DUAS precisam usá-la como fundo, texto ou destaque — pode variar a intensidade, a saturação e o papel dela na peça. A terceira pode ousar, mas ainda dentro do que o segmento aceita, e você justifica em "porque".`
+          : "",
         body.benTrends ? `O QUE ESTÁ EM ALTA NESSE SEGMENTO AGORA:\n${String(body.benTrends).slice(0, 2000)}` : "",
+        imagensRef.length
+          ? `As imagens acima são o PADRÃO DE ACABAMENTO da casa — peças de social media escolhidas como referência de qualidade. Leia com atenção o que elas fazem BEM e traduza para este cliente.
+
+REGRA DURA SOBRE COR: a paleta da referência é IRRELEVANTE para você. A cor sai da MARCA DO CLIENTE (a cor informada acima) e do que o segmento pede. Se a referência é verde e a marca do cliente é azul, a sua peça é AZUL. Não existe hipótese de a cor da referência aparecer na sua resposta. Se você devolver a paleta da referência, errou a tarefa.
+
+O que SE COPIA da referência: o rigor da hierarquia (o que é grande, o que é pequeno, o que respira), a disciplina de usar poucas cores, a relação entre foto e texto, o cuidado com o espaço vazio, o nível de acabamento dos detalhes.
+O que NÃO se copia: paleta, assunto, marca, tipo de negócio, nicho, ou o desenho literal dos elementos.
+
+Se a referência é uma agência verde e o cliente é uma clínica, a resposta não é uma clínica verde — é uma clínica com o MESMO capricho, no vocabulário visual e nas cores da clínica.`
+          : "",
         blocoSkills,
         "Entregue 3 direções de arte para os carrosséis desta marca.",
       ].filter(Boolean);
+
+      const userContent = imagensRef.length
+        ? [
+            ...imagensRef.map((img) => ({
+              type: "image",
+              source: { type: "base64", media_type: img.mediaType, data: img.data },
+            })),
+            { type: "text", text: partes.join("\n\n") },
+          ]
+        : undefined;
 
       const raw = await callClaude({
         apiKey,
@@ -477,6 +575,7 @@ As cores devem ser AMOSTRADAS da imagem sempre que fizerem sentido para a marca.
         effort: "high",
         maxTokens: 8000,
         user: partes.join("\n\n"),
+        userContent,
       });
       const lida = parseJson<{ direcoes?: Array<{ bg: string; fg: string; accent: string }> }>(raw);
       return respond({ ...lida, success: true, direcoes: garantirContraste(lida.direcoes ?? []) });
