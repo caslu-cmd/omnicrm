@@ -59,6 +59,7 @@ const NotebookPage = lazy(() => import("@/pages/NotebookPage"));
 const ApostilaPage = lazy(() => import("@/pages/ApostilaPage"));
 const WordPressPage = lazy(() => import("@/pages/WordPressPage"));
 const FiscoPage = lazy(() => import("@/pages/FiscoPage"));
+const FiscoCompartilhado = lazy(() => import("@/pages/FiscoCompartilhado"));
 const AttendancePage = lazy(() => import("@/pages/AttendancePage"));
 const PagesPage = lazy(() => import("@/pages/PagesPage"));
 const PropostaPage = lazy(() => import("@/pages/PropostaPage"));
@@ -202,6 +203,9 @@ const AppRoutes = () => (
     <Route path="/agente/:token" element={<SharedAgentPage />} />
     {/* Public interactive agent chat — no auth required */}
     <Route path="/conversar/:token" element={<SharedAgentChatPage />} />
+
+    {/* Fisco compartilhado — só a tela do agente, com senha e sem a barra da agência */}
+    <Route path="/fisco/:token" element={<FiscoCompartilhado />} />
 
     {/* Convite para membros do time do cliente */}
     <Route path="/invite/:token" element={<InvitePage />} />

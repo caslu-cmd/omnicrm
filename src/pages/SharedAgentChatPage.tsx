@@ -219,11 +219,14 @@ export default function SharedAgentChatPage() {
   useEffect(() => {
     if (!token) { setNotFound(true); setLoading(false); return; }
     (async () => {
-      const { data, error } = await (supabase as any)
-        .from("agent_links")
-        .select("id,agent_name,agent_color,agent_role,client_name,welcome_msg")
-        .eq("token", token).eq("active", true).maybeSingle();
-      if (error || !data) { setNotFound(true); setLoading(false); return; }
+      // Ler a tabela direto deixava qualquer um baixar todos os links ativos
+      // (com prompt e hash de senha). Agora quem responde é a função, que
+      // devolve só o necessário.
+      const { data, error } = await (supabase as any).rpc("abrir_link_agente", {
+        p_token: token,
+        p_senha: null,
+      });
+      if (error || !data || data.erro) { setNotFound(true); setLoading(false); return; }
       setLink(data as AgentLink);
       if (data.welcome_msg) setMessages([{ role: "assistant", content: data.welcome_msg }]);
       setLoading(false);
