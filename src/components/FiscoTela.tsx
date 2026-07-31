@@ -165,7 +165,8 @@ function PainelLinks() {
             <p className="text-[11px]" style={{ color: "#55556A" }}>Nenhum link criado ainda.</p>
           )}
           {links.map((l) => {
-            const rotulo = PERFIS.find((p) => p.id === perfilDoTexto(l.context_note))?.label ?? l.context_note ?? "Link";
+            const rotulo = PERFIS.find((p) => p.id === perfilDoTexto(l.context_note))?.label
+              ?? "Link único — a pessoa escolhe o perfil";
             return (
               <div key={l.token} className="rounded-xl p-3" style={{ background: "#0D0D14", border: "1px solid #1E1E2E" }}>
                 <div className="flex items-center justify-between gap-2 mb-2">
@@ -231,15 +232,19 @@ function PainelLinks() {
  * link, o público já vem definido pelo link — quem recebe não escolhe o perfil.
  */
 interface Props {
+  /** Link dedicado a um público: trava o perfil e some com o seletor. */
   perfilFixo?: PerfilId;
+  /** Link único: começa no que a pessoa escolheu, mas ela pode trocar. */
+  perfilInicial?: PerfilId;
   /** Só na agência: painel para gerar link e definir a senha de acesso. */
   gerenciarLinks?: boolean;
 }
 
-export default function FiscoTela({ perfilFixo, gerenciarLinks = false }: Props) {
+export default function FiscoTela({ perfilFixo, perfilInicial, gerenciarLinks = false }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [perfil, setPerfil] = useState<PerfilId>(() => {
     if (perfilFixo) return perfilFixo;
+    if (perfilInicial) return perfilInicial;
     const salvo = localStorage.getItem("fisco-perfil");
     return (salvo === "pessoa" || salvo === "empresa" || salvo === "contabilidade") ? salvo : "empresa";
   });

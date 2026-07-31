@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Receipt, Lock, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Receipt, Lock, Eye, EyeOff, Loader2, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
-import FiscoTela, { perfilDoTexto } from "@/components/FiscoTela";
+import FiscoTela, { perfilDoTexto, type PerfilId } from "@/components/FiscoTela";
 
 /**
  * Fisco compartilhado — a tela do agente e mais nada.
@@ -30,9 +30,81 @@ const ERROS: Record<string, string> = {
   muitas_tentativas: "Muitas tentativas seguidas. Espere 15 minutos e tente de novo.",
 };
 
+/**
+ * Link único: antes de abrir a tela, a pessoa diz quem é. Isso muda o que o
+ * Fisco assume que ela já sabe e o questionário do diagnóstico — e sem
+ * perguntar, o padrão erraria em dois de cada três casos.
+ */
+const PUBLICOS: { id: PerfilId; titulo: string; desc: string; exemplos: string }[] = [
+  {
+    id: "pessoa",
+    titulo: "Sou pessoa física",
+    desc: "Não tenho empresa, ou tenho dúvida sobre a minha vida pessoal",
+    exemplos: "Imposto de Renda, autônomo, INSS, venda de imóvel ou carro",
+  },
+  {
+    id: "empresa",
+    titulo: "Tenho uma empresa",
+    desc: "Sou dono ou responsável, mas não sou da área contábil",
+    exemplos: "Regime tributário, quanto pago por mês, notas, obrigações, pró-labore",
+  },
+  {
+    id: "contabilidade",
+    titulo: "Sou da contabilidade",
+    desc: "Trabalho na área e quero resposta técnica, com base legal",
+    exemplos: "Enquadramento, Fator R, LALUR, retenções, malha, Reforma Tributária",
+  },
+];
+
+function EscolhaDePublico({ onEscolher }: { onEscolher: (p: PerfilId) => void }) {
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "#07080A" }}>
+      <div className="w-full max-w-lg">
+        <div className="flex flex-col items-center gap-3 mb-7">
+          <div className="w-14 h-14 rounded-2xl flex items-center justify-center"
+            style={{ background: GOLD_DIM, border: `1px solid ${GOLD_BORDER}` }}>
+            <Receipt className="w-7 h-7" style={{ color: GOLD }} />
+          </div>
+          <div className="text-center">
+            <h1 className="text-lg font-bold" style={{ color: "#F0F0F0" }}>Fisco</h1>
+            <p className="text-sm mt-1" style={{ color: "#77778A" }}>
+              Antes de começar: com quem eu estou falando?
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2.5">
+          {PUBLICOS.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => onEscolher(p.id)}
+              className="text-left px-5 py-4 rounded-2xl transition-all group"
+              style={{ background: "#0D0D14", border: "1px solid #1E1E2E" }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = GOLD; e.currentTarget.style.background = "#12121A"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = "#1E1E2E"; e.currentTarget.style.background = "#0D0D14"; }}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-sm font-bold" style={{ color: "#E0E0F0" }}>{p.titulo}</span>
+                <ChevronRight className="w-4 h-4 flex-shrink-0" style={{ color: GOLD }} />
+              </div>
+              <p className="text-xs mt-1" style={{ color: "#8888A0" }}>{p.desc}</p>
+              <p className="text-[11px] mt-1.5" style={{ color: "#55556A" }}>{p.exemplos}</p>
+            </button>
+          ))}
+        </div>
+
+        <p className="text-[11px] text-center mt-5" style={{ color: "#3A3A50" }}>
+          Você pode trocar depois, na coluna da esquerda.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export default function FiscoCompartilhado() {
   const { token = "" } = useParams();
   const chaveLocal = `fisco-link-${token}`;
+  const [quemSou, setQuemSou] = useState<PerfilId | null>(null);
 
   const [link, setLink] = useState<Link | null>(null);
   const [carregando, setCarregando] = useState(true);
@@ -106,7 +178,12 @@ export default function FiscoCompartilhado() {
   }
 
   if (link) {
-    return <FiscoTela perfilFixo={perfilDoTexto(link.context_note) ?? "empresa"} />;
+    const perfilDoLink = perfilDoTexto(link.context_note);
+    // Link dedicado a um público: entra direto, sem escolha.
+    if (perfilDoLink) return <FiscoTela perfilFixo={perfilDoLink} />;
+    // Link único: a pessoa diz quem é, e depois pode trocar na barra lateral.
+    if (!quemSou) return <EscolhaDePublico onEscolher={setQuemSou} />;
+    return <FiscoTela perfilInicial={quemSou} />;
   }
 
   return (
