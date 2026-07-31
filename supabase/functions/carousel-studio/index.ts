@@ -447,7 +447,8 @@ REGRAS:
    - "grao": ruído de filme. Use quando quer tirar o ar de digital chapado — editorial, documental, artesanal, moda.
    - "glow": a tipografia e o accent espalham luz. Só em FUNDO ESCURO, e quando a direção é noturna, tech, neon, evento, música.
    - "cinema": glow discreto + vinheta + grão. O mais dramático. Use em fundo escuro quando a direção pede peso cinematográfico.
-   Não use "glow" nem "cinema" com bg claro — o efeito lava a peça. Nesses casos use "grao" ou "nenhum".`;
+   Não use "glow" nem "cinema" com bg claro — o efeito lava a peça. Nesses casos use "grao" ou "nenhum".
+9. FOTO NÃO É OPCIONAL POR PADRÃO. O sistema gera a foto de cada slide automaticamente, e peça com foto de pessoa real é o que sustenta alcance no feed — as referências de qualidade desta casa são quase todas fotográficas. Só três layouts usam foto: "vidro", "capa" e "foto". Portanto: **pelo menos DUAS das suas três direções precisam usar um desses três layouts.** Direção sem foto (editorial, impacto, revista, gradiente, minimal) só como a terceira opção, e só quando houver um motivo real — dado numérico que pede tipografia gigante, marca que não pode mostrar pessoas, ou assunto sensível em que foto de gente empobrece. Se você entregar as três sem foto, errou a tarefa.`;
 
 // ── Handler ──────────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
