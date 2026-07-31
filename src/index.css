@@ -276,3 +276,26 @@ body::before {
   z-index: 9999;
   opacity: 0.4;
 }
+
+/* ── Impressão do relatório do Fisco ──
+   O diagnóstico é feito para ser levado ao contador: imprimir a tela inteira
+   sairia com menu, fundo escuro e nada legível. Aqui só o relatório vai ao
+   papel, em preto no branco. */
+@media print {
+  body::before { display: none; }
+  body * { visibility: hidden; }
+  #fisco-relatorio, #fisco-relatorio * {
+    visibility: visible;
+    color: #000 !important;
+    background: transparent !important;
+    border-color: #ccc !important;
+  }
+  #fisco-relatorio {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 0;
+  }
+  #fisco-relatorio button { display: none !important; }
+}

@@ -2,10 +2,11 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Send, RefreshCw, Copy, Loader2, AlertCircle, Receipt,
-  ChevronRight
+  ChevronRight, MessageSquare, ClipboardCheck
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import FiscoDiagnostico from "@/components/FiscoDiagnostico";
 
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
 
@@ -90,6 +91,9 @@ export default function FiscoPage() {
     const salvo = localStorage.getItem("fisco-perfil");
     return (salvo === "pessoa" || salvo === "empresa" || salvo === "contabilidade") ? salvo : "empresa";
   });
+  // Duas formas de usar o Fisco: tirar uma dúvida solta, ou fazer o diagnóstico
+  // completo (questionário + documentos + relatório do que precisa ser feito).
+  const [modo, setModo] = useState<"chat" | "diagnostico">("chat");
   const [input, setInput] = useState("");
   const [carregando, setCarregando] = useState(false);
   const [erro, setErro] = useState("");
@@ -220,6 +224,27 @@ export default function FiscoPage() {
           </div>
         </div>
 
+        {/* Como usar */}
+        <div className="px-5 pt-4 pb-3 border-b" style={{ borderColor: "#1E1E2E" }}>
+          <div className="grid grid-cols-2 gap-2">
+            {([
+              { id: "chat", label: "Conversar", desc: "Dúvida solta", Icone: MessageSquare },
+              { id: "diagnostico", label: "Diagnóstico", desc: "Com relatório", Icone: ClipboardCheck },
+            ] as const).map((m) => {
+              const ativo = modo === m.id;
+              return (
+                <button key={m.id} onClick={() => setModo(m.id)}
+                  className="flex flex-col items-center gap-1 py-2.5 rounded-xl transition-all"
+                  style={{ background: ativo ? GOLD_DIM : "#141420", border: `1px solid ${ativo ? GOLD : "#2A2A3A"}` }}>
+                  <m.Icone className="w-4 h-4" style={{ color: ativo ? GOLD : "#666680" }} />
+                  <span className="text-[11px] font-semibold" style={{ color: ativo ? GOLD : "#9999AA" }}>{m.label}</span>
+                  <span className="text-[9px]" style={{ color: "#55556A" }}>{m.desc}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
         {/* Skills */}
         <div className="px-5 py-3 border-b" style={{ borderColor: "#1E1E2E" }}>
           <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "#444466" }}>Especialidades</p>
@@ -271,7 +296,8 @@ export default function FiscoPage() {
           </div>
         </div>
 
-        {/* Perguntas rápidas */}
+        {/* Perguntas rápidas — só fazem sentido no chat */}
+        {modo === "chat" ? (
         <div className="flex-1 overflow-y-auto px-5 py-4">
           <p className="text-[10px] uppercase tracking-widest mb-3" style={{ color: "#444466" }}>
             Perguntas frequentes
@@ -298,8 +324,19 @@ export default function FiscoPage() {
             ))}
           </div>
         </div>
+        ) : (
+          <div className="flex-1 px-5 py-4">
+            <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "#444466" }}>Como funciona</p>
+            <ol className="flex flex-col gap-2 text-[11px]" style={{ color: "#77778A" }}>
+              <li>1. Você responde o questionário do seu perfil</li>
+              <li>2. Anexa documento se tiver (eu leio o conteúdo)</li>
+              <li>3. Recebe o relatório com o que precisa ser feito, em ordem de prioridade e com prazo</li>
+            </ol>
+          </div>
+        )}
 
         {/* Botão limpar */}
+        {modo === "chat" && (
         <div className="px-5 pb-5">
           <button
             onClick={limpar}
@@ -316,9 +353,13 @@ export default function FiscoPage() {
             Nova conversa
           </button>
         </div>
+        )}
       </div>
 
-      {/* ── Painel direito — chat ─────────────────────────────── */}
+      {/* ── Painel direito ────────────────────────────────────── */}
+      {modo === "diagnostico" ? (
+        <FiscoDiagnostico key={perfil} perfilInicial={perfil} />
+      ) : (
       <div className="flex-1 flex flex-col overflow-hidden min-h-[400px] md:min-h-0">
 
         {/* Mensagens */}
@@ -458,6 +499,7 @@ export default function FiscoPage() {
           </p>
         </div>
       </div>
+      )}
     </div>
   );
 }
