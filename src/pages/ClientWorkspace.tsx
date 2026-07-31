@@ -291,6 +291,7 @@ const DIAS_SEMANA = ["D", "S", "T", "Q", "Q", "S", "S"]; // 0 = domingo
 const ROTINAS: { id: string; label: string; desc: string }[] = [
   { id: "pauta", label: "Pautas da semana", desc: "8 ideias novas para o nicho, sem repetir o que já foi publicado" },
   { id: "carrossel", label: "Carrossel pronto para revisão", desc: "Escolhe o tema, escreve os 7 slides e a legenda, e deixa na biblioteca" },
+  { id: "calendario", label: "Calendário da semana", desc: "Pedro planeja os 7 próximos dias e deixa na fila de aprovação — você libera o que vai para o cliente" },
   { id: "relatorio", label: "Relatório do período", desc: "Seguidores, o que saiu e o que está na fila — só número real" },
 ];
 

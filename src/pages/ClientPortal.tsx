@@ -157,6 +157,46 @@ const MISSING_LABEL: Record<string, string> = {
   differentials:   "Diferenciais da marca",
 };
 
+/**
+ * O que os agentes escrevem vem em markdown (**negrito**, listas com "*", "#").
+ * No portal isso apareceria cru para o cliente — aqui vira texto limpo.
+ */
+function semMarcacao(texto: string | null | undefined): string {
+  return (texto ?? "")
+    .replace(/\*+/g, "")
+    .replace(/^#{1,6}\s*/gm, "")
+    .replace(/`+/g, "")
+    .replace(/^\s*[-–—•]\s+/gm, "")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
+/** Cada item da entrega em sua própria linha, sem marcação e sem linha vazia. */
+function linhasDaEntrega(texto: string | null | undefined): string[] {
+  return semMarcacao(texto)
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+}
+
+const fmtDia = (iso: string | null | undefined) =>
+  iso ? new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+
+/**
+ * A Carol pediu que toda entrega carregue uma frase sobre o valor de ter a
+ * agência por trás. Rotaciona pelo índice para não repetir a mesma na sequência.
+ */
+const FRASES_CALU = [
+  "Com a Calu Agência, isso saiu do papel sem você precisar tirar o dia para pensar nisso.",
+  "É a Calu Agência cuidando da sua marca enquanto você cuida do seu negócio.",
+  "Um time inteiro trabalhando pela sua marca — esse é o dia a dia com a Calu Agência.",
+  "Enquanto a concorrência posta sem plano, a Calu Agência entrega estratégia pronta para você.",
+  "Ter a Calu Agência é ter quem pensa, cria e executa a sua presença digital.",
+  "Mais uma entrega saindo no prazo, do jeito que a Calu Agência trabalha.",
+  "Sua marca ganhando consistência semana após semana com a Calu Agência.",
+];
+const fraseCalu = (i: number) => FRASES_CALU[i % FRASES_CALU.length];
+
 function statusOnboarding(status: OnboardingItem["status"]) {
   if (status === "completed")  return { icon: CheckCircle2, color: "#34D399", label: "Concluído" };
   if (status === "in_progress") return { icon: Loader2,     color: "#B9FF4B", label: "Em andamento" };
@@ -786,7 +826,7 @@ export default function ClientPortal() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                            <span className="text-xs font-semibold" style={{ color: "#111" }}>{proposal.titulo}</span>
+                            <span className="text-xs font-semibold" style={{ color: "#111" }}>{semMarcacao(proposal.titulo)}</span>
                             <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0"
                               style={{ background: st.bg, color: st.color, border: `1px solid ${st.border}` }}>
                               {proposal.status === "in_progress" && (
@@ -796,7 +836,7 @@ export default function ClientPortal() {
                             </span>
                           </div>
                           <p className="text-[11px]" style={{ color: "#888" }}>
-                            {proposal.agent_name} · {proposal.descricao?.slice(0, 90)}{(proposal.descricao?.length ?? 0) > 90 ? "…" : ""}
+                            {proposal.agent_name} · {semMarcacao(proposal.descricao).slice(0, 90)}{semMarcacao(proposal.descricao).length > 90 ? "…" : ""}
                           </p>
                         </div>
                       </div>
@@ -817,19 +857,50 @@ export default function ClientPortal() {
                 <p className="text-xs" style={{ color: "#888" }}>{deliverables.length} entrega{deliverables.length !== 1 ? "s" : ""} registrada{deliverables.length !== 1 ? "s" : ""}</p>
               </div>
               <div className="divide-y" style={{ borderColor: "rgba(0,0,0,0.05)" }}>
-                {deliverables.map((d) => (
-                  <div key={d.id} className="px-6 py-4 flex items-center gap-4">
-                    <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(185,255,75,0.12)" }}>
-                      <CheckCircle2 className="w-4 h-4" style={{ color: "#5BAD2F" }} />
+                {deliverables.map((d, i) => {
+                  // O título é a entrega; a descrição vem do agente e pode ter
+                  // vários itens — cada um ganha sua linha, já sem marcação.
+                  const titulo = semMarcacao(d.title) || linhasDaEntrega(d.description)[0] || "Entrega realizada";
+                  const itens = linhasDaEntrega(d.description).filter((l) => l !== titulo);
+                  return (
+                    <div key={d.id} className="px-6 py-5 flex items-start gap-4">
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(185,255,75,0.12)" }}>
+                        <CheckCircle2 className="w-4 h-4" style={{ color: "#5BAD2F" }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-3 flex-wrap">
+                          <p className="text-sm font-semibold" style={{ color: "#111" }}>{titulo}</p>
+                          {d.category && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0"
+                              style={{ background: "rgba(0,0,0,0.04)", color: "#666" }}>
+                              {d.category}
+                            </span>
+                          )}
+                        </div>
+
+                        {itens.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            {itens.map((linha, n) => (
+                              <p key={n} className="text-[13px] leading-relaxed flex gap-2" style={{ color: "#444" }}>
+                                <span className="flex-shrink-0" style={{ color: "#5BAD2F" }}>›</span>
+                                <span className="min-w-0">{linha}</span>
+                              </p>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-x-4 gap-y-1 flex-wrap mt-2.5 text-[11px]" style={{ color: "#999" }}>
+                          <span>Criada em <strong style={{ color: "#666" }}>{fmtDia(d.created_at)}</strong></span>
+                          <span>Entregue em <strong style={{ color: "#666" }}>{fmtDia(d.done_at)}</strong></span>
+                        </div>
+
+                        <p className="text-[11px] italic mt-2" style={{ color: "#5BAD2F" }}>
+                          {fraseCalu(i)}
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium" style={{ color: "#111" }}>{d.description}</p>
-                      <p className="text-xs mt-0.5" style={{ color: "#999" }}>
-                        {new Date(d.done_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" })}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </motion.div>
@@ -981,18 +1052,18 @@ export default function ClientPortal() {
                       <div className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0" style={{ background: PRIORITY_COLOR[d.priority] }} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap mb-1">
-                          <span className="text-xs font-semibold" style={{ color: "#111" }}>{d.title}</span>
+                          <span className="text-xs font-semibold" style={{ color: "#111" }}>{semMarcacao(d.title)}</span>
                           <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0" style={{ background: st.bg, color: st.color }}>{st.label}</span>
                           {isOverdue && <span className="text-[10px] px-1.5 py-0.5 rounded-full font-semibold" style={{ background: "rgba(239,68,68,0.1)", color: "#EF4444" }}>Atrasado</span>}
                         </div>
                         <div className="flex items-center gap-2 flex-wrap">
-                          {/* Elapsed time */}
-                          <span className="text-[10px] flex items-center gap-1" style={{ color: "#aaa" }}>
-                            <Clock className="w-3 h-3" /> {timeAgo(d.created_at)}
+                          {/* Datas explícitas: o cliente quer ver quando pediu e quando recebe */}
+                          <span className="text-[10px] flex items-center gap-1" style={{ color: "#aaa" }} title={timeAgo(d.created_at)}>
+                            <Clock className="w-3 h-3" /> Criada em {fmtDia(d.created_at)}
                           </span>
-                          {d.due_date && (
-                            <span className="text-[10px]" style={{ color: isOverdue ? "#EF4444" : "#aaa" }}>· Prazo: {new Date(d.due_date).toLocaleDateString("pt-BR")}</span>
-                          )}
+                          <span className="text-[10px]" style={{ color: isOverdue ? "#EF4444" : "#aaa" }}>
+                            · Entrega em {d.due_date ? fmtDia(d.due_date) : "a combinar"}
+                          </span>
                           {/* Agent avatars */}
                           {agents.length > 0 && (
                             <span className="text-[10px]" style={{ color: "#aaa" }}>·</span>
@@ -1037,9 +1108,11 @@ export default function ClientPortal() {
 
                             {/* Description */}
                             {d.description && (
-                              <p className="text-xs leading-relaxed p-3 rounded-xl" style={{ background: "rgba(0,0,0,0.03)", color: "#555", border: "1px solid rgba(0,0,0,0.05)" }}>
-                                {d.description}
-                              </p>
+                              <div className="text-xs leading-relaxed p-3 rounded-xl space-y-1" style={{ background: "rgba(0,0,0,0.03)", color: "#555", border: "1px solid rgba(0,0,0,0.05)" }}>
+                                {linhasDaEntrega(d.description).map((linha, n) => (
+                                  <p key={n}>{linha}</p>
+                                ))}
+                              </div>
                             )}
 
                             {/* Activity timeline */}
@@ -1058,7 +1131,7 @@ export default function ClientPortal() {
                                           <span className="text-[11px] font-semibold" style={{ color: "#333" }}>{act.agent_name}</span>
                                           <span className="text-[10px]" style={{ color: "#bbb" }}>{timeAgo(act.created_at)}</span>
                                         </div>
-                                        <p className="text-xs leading-snug" style={{ color: "#555" }}>{act.content}</p>
+                                        <p className="text-xs leading-snug" style={{ color: "#555" }}>{semMarcacao(act.content)}</p>
                                       </div>
                                     </div>
                                   ))}

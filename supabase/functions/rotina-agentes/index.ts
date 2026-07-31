@@ -68,6 +68,8 @@ export interface Resultado {
   titulo: string;
   categoria: string;
   texto: string;
+  /** Rascunho que ainda depende de aprovação não vai para o portal do cliente. */
+  publicar?: boolean;
 }
 
 Deno.serve(async (req) => {
@@ -122,9 +124,10 @@ Deno.serve(async (req) => {
       const resultado = await executarRotina({
         sb, supabaseUrl, serviceKey, anthropicKey,
         rotina: r.rotina, cliente, agentes, config: r.config ?? {},
+        userId: r.user_id, hoje: data,
       });
 
-      await publicarNoPortal(sb, r.client_id, resultado);
+      if (resultado.publicar !== false) await publicarNoPortal(sb, r.client_id, resultado);
 
       await sb.from("client_routines").update({
         last_run_at: new Date().toISOString(),
@@ -203,6 +206,8 @@ async function executarRotina(ctx: {
   cliente: Cliente;
   agentes: string[] | null;
   config: Record<string, unknown>;
+  userId: string;
+  hoje: string;
 }): Promise<Resultado> {
   const { sb, supabaseUrl, serviceKey, rotina, cliente, agentes } = ctx;
 
@@ -233,8 +238,9 @@ async function executarRotina(ctx: {
     const ideias = (r.ideias ?? []) as Array<{ tema: string; gancho: string; formato: string; porque: string }>;
     if (!ideias.length) throw new Error("a IA não devolveu pautas");
 
+    // Sem markdown: o portal do cliente mostra esse texto como está.
     const texto = ideias
-      .map((i, n) => `${n + 1}. **${i.gancho}**\n   Tema: ${i.tema}\n   Formato: ${i.formato}\n   Por quê: ${i.porque}`)
+      .map((i, n) => `${n + 1}. ${i.gancho}\n   Tema: ${i.tema}\n   Formato: ${i.formato}\n   Por quê: ${i.porque}`)
       .join("\n\n");
     return {
       titulo: `Pautas da semana — ${ideias.length} ideias novas`,
@@ -274,14 +280,96 @@ async function executarRotina(ctx: {
     });
 
     const texto =
-      `**${r.titulo_projeto ?? primeira.tema}**\n\n` +
+      `${r.titulo_projeto ?? primeira.tema}\n\n` +
       slides.map((s, n) => `${n + 1}. ${s.titulo}\n   ${s.corpo}`).join("\n\n") +
-      `\n\n**Legenda:**\n${r.legenda ?? ""}` +
-      `\n\n**Melhor horário:** ${r.melhor_horario ?? "—"}`;
+      `\n\nLegenda: ${r.legenda ?? ""}` +
+      `\n\nMelhor horário: ${r.melhor_horario ?? "—"}`;
     return {
       titulo: `Carrossel pronto para revisão: ${primeira.tema}`,
       categoria: "Conteúdo",
       texto,
+    };
+  }
+
+  if (rotina === "calendario") {
+    if (!podeUsar(agentes, "calendario")) throw new Error("Pedro (calendário) não está ativo neste cliente");
+    if (!ctx.anthropicKey) throw new Error("ANTHROPIC_API_KEY não configurada");
+
+    // Só os próximos 7 dias, e só datas que existem — a IA erra data quando
+    // fica livre para inventar.
+    const dias: string[] = [];
+    for (let i = 1; i <= 7; i++) {
+      const d = new Date(`${ctx.hoje}T12:00:00Z`);
+      d.setUTCDate(d.getUTCDate() + i);
+      dias.push(d.toISOString().slice(0, 10));
+    }
+
+    const itens = await planejarSemana(ctx.anthropicKey, cliente, dias, historico);
+    if (!itens.length) throw new Error("a IA não devolveu itens de calendário");
+
+    const linhas = itens.map((it) => {
+      const data = dias.includes(it.scheduled_date) ? it.scheduled_date : dias[0];
+      const hora = /^\d{2}:\d{2}$/.test(it.scheduled_time ?? "") ? it.scheduled_time : "10:00";
+      return { ...it, scheduled_date: data, scheduled_time: hora };
+    });
+
+    const autoAprovar = ctx.config.auto_aprovar === true;
+
+    if (autoAprovar) {
+      // A Carol confiou a rotina: já entra no calendário que o cliente vê.
+      const { error } = await sb.from("client_calendar_events").insert(
+        linhas.map((it) => ({
+          user_id: ctx.userId,
+          client_id: cliente.workspace,
+          kind: it.kind,
+          title: it.title,
+          description: it.description,
+          event_date: it.scheduled_date,
+          event_time: it.scheduled_time,
+          payload: { platform: it.platform, origem: "rotina" },
+          status: "scheduled",
+        })),
+      );
+      if (error) throw new Error(`calendário: ${error.message}`);
+    } else {
+      // Padrão: fila de aprovação. O cliente não vê antes de a Carol liberar.
+      const { error } = await sb.from("agent_proposals").insert(
+        linhas.map((it) => ({
+          user_id: ctx.userId,
+          client_id: cliente.workspace,
+          agent_id: "pedro",
+          agent_name: "Pedro",
+          agent_color: "#2DD4BF",
+          kind: "editorial",
+          title: it.title,
+          titulo: it.title,
+          descricao: it.description,
+          payload: {
+            inner_kind: it.kind,
+            description: it.description,
+            platform: it.platform,
+            scheduled_date: it.scheduled_date,
+            scheduled_time: it.scheduled_time,
+            origem: "rotina",
+          },
+          scheduled_for: `${it.scheduled_date}T${it.scheduled_time}:00-03:00`,
+          status: "pending",
+        })),
+      );
+      if (error) throw new Error(`propostas: ${error.message}`);
+    }
+
+    const texto = linhas
+      .map((it) => `${formatarDia(it.scheduled_date)} ${it.scheduled_time} — ${it.title} (${it.kind})\n${it.description}`)
+      .join("\n\n");
+
+    return {
+      titulo: autoAprovar
+        ? `Calendário da semana — ${linhas.length} ações programadas`
+        : `Calendário da semana — ${linhas.length} ações para aprovar`,
+      categoria: "Planejamento",
+      texto,
+      publicar: autoAprovar,   // rascunho pendente não vai para o portal
     };
   }
 
@@ -303,13 +391,13 @@ async function executarRotina(ctx: {
 
     const linhasRedes = (conexoes ?? [])
       .map((c: { platform: string; account_username: string | null; followers_count: number | null }) =>
-        `- ${c.platform}: ${c.account_username ?? "conta conectada"} — ${c.followers_count ?? 0} seguidores`)
-      .join("\n") || "- nenhuma rede conectada ainda";
+        `${c.platform}: ${c.account_username ?? "conta conectada"} — ${c.followers_count ?? 0} seguidores`)
+      .join("\n") || "Nenhuma rede conectada ainda";
 
     const texto =
-      `**Redes conectadas**\n${linhasRedes}\n\n` +
-      `**Últimos 30 dias**\n- Publicações realizadas: ${publicados}\n- Agendadas para sair: ${agendados}\n\n` +
-      `**Conteúdo criado no período**: ${historico.length} peça(s) na biblioteca da marca.`;
+      `Redes conectadas\n${linhasRedes}\n\n` +
+      `Últimos 30 dias\nPublicações realizadas: ${publicados}\nAgendadas para sair: ${agendados}\n\n` +
+      `Conteúdo criado no período: ${historico.length} peça(s) na biblioteca da marca.`;
     return {
       titulo: "Relatório do período",
       categoria: "Relatório",
@@ -318,6 +406,65 @@ async function executarRotina(ctx: {
   }
 
   throw new Error(`rotina desconhecida: ${rotina}`);
+}
+
+interface ItemCalendario {
+  kind: string;
+  title: string;
+  description: string;
+  scheduled_date: string;
+  scheduled_time: string;
+  platform: string;
+}
+
+const formatarDia = (iso: string) => {
+  const [a, m, d] = iso.split("-");
+  return `${d}/${m}/${a}`;
+};
+
+/** Pedro planejando a semana. Datas fechadas na mão para a IA não inventar dia. */
+async function planejarSemana(
+  anthropicKey: string, cliente: Cliente, dias: string[], historico: string[],
+): Promise<ItemCalendario[]> {
+  const prompt =
+    `Você é o Pedro, coordenador de calendário editorial da Calu Agência.\n\n` +
+    `Cliente: ${cliente.nome}${cliente.segmento ? ` — segmento: ${cliente.segmento}` : ""}.\n` +
+    `Planeje a semana usando SOMENTE estas datas: ${dias.join(", ")}.\n` +
+    (historico.length ? `Já foi produzido recentemente (não repita): ${historico.join("; ")}.\n` : "") +
+    `\nMisture posts de rede social, disparo de WhatsApp, e-mail, campanha/anúncio quando fizer ` +
+    `sentido para o segmento, e tarefas internas da agência. Fale no vocabulário desse mercado, ` +
+    `com sazonalidade e objeções reais dele. Distribua sem amontoar tudo no mesmo dia.\n\n` +
+    `Responda APENAS com JSON válido, sem cercas de código:\n` +
+    `{"items":[{"kind":"post|whatsapp|email|task|campaign|ad","title":"...","description":"o que ` +
+    `exatamente será feito","scheduled_date":"YYYY-MM-DD","scheduled_time":"HH:MM",` +
+    `"platform":"instagram|linkedin|facebook|wpp|email|interno"}]}\n\n` +
+    `Entre 8 e 12 itens.`;
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": anthropicKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-opus-5",
+      max_tokens: 8000,
+      thinking: { type: "adaptive" },
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+  if (!res.ok) throw new Error(`anthropic ${res.status}: ${(await res.text()).slice(0, 200)}`);
+
+  const data = await res.json();
+  const texto = (data.content ?? [])
+    .filter((b: { type: string }) => b.type === "text")
+    .map((b: { text: string }) => b.text)
+    .join("\n");
+  const bloco = texto.match(/\{[\s\S]*\}/);
+  if (!bloco) throw new Error("Pedro não devolveu JSON");
+  const parsed = JSON.parse(bloco[0]);
+  return (parsed.items ?? []) as ItemCalendario[];
 }
 
 /**

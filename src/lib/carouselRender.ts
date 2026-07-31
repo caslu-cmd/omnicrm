@@ -948,6 +948,94 @@ function layoutMinimal(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrom
 }
 
 /**
+ * ── Onde a foto está ocupada ──────────────────────────────────────────────
+ * O gerador de imagem nem sempre obedece ao pedido de deixar espaço vazio, e a
+ * peça saía com o texto em cima do rosto. Em vez de confiar no prompt, aqui a
+ * gente OLHA a foto: mede tom de pele e nível de detalhe faixa a faixa, e
+ * devolve onde dá para escrever sem tapar ninguém.
+ *
+ * O perfil fica em cache por imagem — o preview e as miniaturas redesenham o
+ * tempo todo e ler pixel é caro.
+ */
+const FAIXAS = 24;
+const perfilCache = new WeakMap<HTMLImageElement, { pele: number[]; detalhe: number[] } | null>();
+
+function perfilDaFoto(img: HTMLImageElement): { pele: number[]; detalhe: number[] } | null {
+  const emCache = perfilCache.get(img);
+  if (emCache !== undefined) return emCache;
+
+  let perfil: { pele: number[]; detalhe: number[] } | null = null;
+  try {
+    if (typeof document === "undefined") throw new Error("sem DOM");
+    const w = 24;
+    const h = FAIXAS;
+    const c = document.createElement("canvas");
+    c.width = w;
+    c.height = h;
+    const g = c.getContext("2d", { willReadFrequently: true });
+    if (!g) throw new Error("sem contexto");
+    g.drawImage(img, 0, 0, w, h);
+    const d = g.getImageData(0, 0, w, h).data;
+
+    const pele = new Array(h).fill(0);
+    const detalhe = new Array(h).fill(0);
+    for (let y = 0; y < h; y++) {
+      let lumAnterior = -1;
+      for (let x = 0; x < w; x++) {
+        const i = (y * w + x) * 4;
+        const r = d[i], vd = d[i + 1], b = d[i + 2];
+        // Heurística clássica de tom de pele: cobre pele clara e escura.
+        const max = Math.max(r, vd, b), min = Math.min(r, vd, b);
+        if (r > 60 && vd > 30 && b > 15 && max - min > 12 && r > vd && r > b && Math.abs(r - vd) > 10) {
+          pele[y] += 1;
+        }
+        const lum = (r * 299 + vd * 587 + b * 114) / 1000;
+        if (lumAnterior >= 0) detalhe[y] += Math.abs(lum - lumAnterior);
+        lumAnterior = lum;
+      }
+      pele[y] /= w;
+      detalhe[y] /= w * 255;
+    }
+    perfil = { pele, detalhe };
+  } catch {
+    // Foto de outra origem sem CORS tinge o canvas e getImageData explode.
+    // Sem perfil, os layouts seguem com a posição padrão.
+    perfil = null;
+  }
+  perfilCache.set(img, perfil);
+  return perfil;
+}
+
+/**
+ * Melhor topo (0..1) para um bloco de altura `alturaFrac`, fugindo de rosto e
+ * de detalhe. `preferido` desempata para a posição que o layout gostaria.
+ */
+function faixaLivre(img: HTMLImageElement | null | undefined, alturaFrac: number, preferido: number): number {
+  if (!img?.width) return preferido;
+  const perfil = perfilDaFoto(img);
+  if (!perfil) return preferido;
+
+  const altura = Math.max(1, Math.round(alturaFrac * FAIXAS));
+  let melhor = preferido;
+  let menorCusto = Infinity;
+  for (let ini = 0; ini + altura <= FAIXAS; ini++) {
+    let custo = 0;
+    for (let k = ini; k < ini + altura; k++) {
+      // Rosto pesa muito mais que textura: tapar cara é o pecado.
+      custo += perfil.pele[k] * 6 + perfil.detalhe[k];
+    }
+    custo /= altura;
+    // Empurrão leve para a posição que o layout preferia, para não ficar pulando.
+    custo += Math.abs(ini / FAIXAS - preferido) * 0.35;
+    if (custo < menorCusto) {
+      menorCusto = custo;
+      melhor = ini / FAIXAS;
+    }
+  }
+  return melhor;
+}
+
+/**
  * Forma orgânica de marca — a "vírgula" gigante que atravessa a peça.
  * É o elemento que mais dá identidade nas referências da Carol: às vezes ela é
  * só cor de fundo, às vezes a foto vive recortada DENTRO dela.
@@ -1197,7 +1285,12 @@ function layoutFoto(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrome) 
     : null;
 
   const bloco = t.height + (corpoBlock ? corpoBlock.height + W * 0.04 : 0);
-  const startY = bottomLimit - bloco - W * 0.06;
+  // Reserva o pé: é onde entram a pílula de arraste e o rodapé. Sem isso o
+  // texto descia até colidir com o botão.
+  const pePeca = bottomLimit - bloco - W * 0.14;
+  const preferidoFoto = pePeca / H;
+  const topoLivreFoto = faixaLivre(o.image, (bloco + W * 0.14) / H, preferidoFoto);
+  const startY = Math.max(pad * 2.4, Math.min(topoLivreFoto * H, pePeca));
 
   ctx.save();
   ctx.shadowColor = "rgba(0,0,0,0.45)";
@@ -1391,7 +1484,12 @@ function layoutVidro(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrome)
     : null;
 
   const cardH = inner * 2 + t.height + (corpoBlock ? corpoBlock.height + W * 0.028 : 0);
-  const cardY = H - pad * 3.5 - cardH;
+  // Onde o cartão cabe sem tapar rosto. A preferência continua sendo embaixo;
+  // ele só sobe (ou desce) quando a foto tem gente justamente ali.
+  const preferido = (H - pad * 3.5 - cardH) / H;
+  const limiteBaixo = (H - pad * 2.6 - cardH) / H;
+  const topoLivre = faixaLivre(o.image, cardH / H, preferido);
+  const cardY = Math.max(pad * 2.2, Math.min(topoLivre * H, limiteBaixo * H));
 
   ctx.save();
   roundRectPath(ctx, cardX, cardY, cardW, cardH, W * 0.055);
@@ -1447,14 +1545,9 @@ function layoutCapa(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrome) 
   const textoClaro = !isLight(o.theme.bg);
   const fg = textoClaro ? "#FFFFFF" : "#0B0D10";
 
-  const scrim = ctx.createLinearGradient(0, H * 0.3, 0, H);
-  scrim.addColorStop(0, textoClaro ? "rgba(0,0,0,0)" : "rgba(255,255,255,0)");
-  scrim.addColorStop(1, textoClaro ? "rgba(0,0,0,0.74)" : "rgba(255,255,255,0.8)");
-  ctx.fillStyle = scrim;
-  ctx.fillRect(0, 0, W, H);
-
-  drawGlassHeader(ctx, o, c, textoClaro);
-
+  // O véu é desenhado DEPOIS, quando já se sabe onde o texto vai cair — ele
+  // precisa acompanhar o bloco. Antes era fixo embaixo e, quando o texto subia
+  // para não tapar o rosto, ficava branco sobre céu claro, ilegível.
   const bottomLimit = H - pad * 3.1;
 
   const t = fitText(ctx, fonts.upper ? o.slide.titulo.toUpperCase() : o.slide.titulo, {
@@ -1479,7 +1572,32 @@ function layoutCapa(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrome) 
     : null;
 
   const bloco = t.height + (corpoBlock ? corpoBlock.height + W * 0.032 : 0);
-  const startY = bottomLimit - bloco;
+  // A seta entra acima do título, então o bloco reserva ela na busca por espaço.
+  const blocoComSeta = bloco + W * 0.11;
+  const preferido = (bottomLimit - bloco) / H;
+  const topoLivre = faixaLivre(o.image, blocoComSeta / H, preferido);
+  const startY = Math.max(pad * 2.6, Math.min(topoLivre * H + W * 0.11, bottomLimit - bloco));
+
+  // Véu acompanhando o bloco: forte atrás do texto, dissolvendo para os lados.
+  const topoVeu = Math.max(0, startY - W * 0.16);
+  const veu = ctx.createLinearGradient(0, topoVeu, 0, Math.min(H, startY + bloco + W * 0.12));
+  const forte = textoClaro ? "rgba(0,0,0,0.72)" : "rgba(255,255,255,0.8)";
+  const zero = textoClaro ? "rgba(0,0,0,0)" : "rgba(255,255,255,0)";
+  veu.addColorStop(0, zero);
+  veu.addColorStop(0.35, forte);
+  veu.addColorStop(1, forte);
+  ctx.fillStyle = veu;
+  ctx.fillRect(0, topoVeu, W, H - topoVeu);
+  // Se o texto subiu, o pé da peça ainda precisa de base para as pílulas.
+  if (startY + bloco < H - pad * 4) {
+    const rodape = ctx.createLinearGradient(0, H - pad * 4, 0, H);
+    rodape.addColorStop(0, zero);
+    rodape.addColorStop(1, textoClaro ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.6)");
+    ctx.fillStyle = rodape;
+    ctx.fillRect(0, H - pad * 4, W, pad * 4);
+  }
+
+  drawGlassHeader(ctx, o, c, textoClaro);
 
   // Seta diagonal de entrada, logo acima do título
   const s = W * 0.05;
