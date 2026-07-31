@@ -214,46 +214,81 @@ Deno.serve(async (req) => {
 
   const system = `${BASE}\n\n${CONHECIMENTO}\n\n${PERFIS[perfil]}\n\n${FORMATO}`;
 
-  try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "claude-opus-5",
-        max_tokens: 16000,
-        thinking: { type: "adaptive" },
-        system,
-        messages: [{ role: "user", content: conteudo }],
-      }),
-    });
+  /**
+   * Resposta em streaming, e não porque o relatório apareça aos poucos: uma
+   * chamada única do Opus com raciocínio leva mais que o teto do gateway e
+   * volta 504. Com o stream, os bytes começam a sair na hora e a conexão fica
+   * viva até o fim. O cliente junta o texto e faz o parse quando terminar.
+   */
+  const sse = (o: unknown) => new TextEncoder().encode(`data: ${JSON.stringify(o)}\n\n`);
 
-    if (!res.ok) {
-      const txt = await res.text().catch(() => "");
-      return json({ error: `Anthropic ${res.status}: ${txt.slice(0, 300)}` }, 502);
-    }
+  const stream = new ReadableStream({
+    async start(controller) {
+      try {
+        const res = await fetch("https://api.anthropic.com/v1/messages", {
+          method: "POST",
+          headers: {
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "claude-opus-5",
+            max_tokens: 16000,
+            thinking: { type: "adaptive" },
+            system,
+            messages: [{ role: "user", content: conteudo }],
+            stream: true,
+          }),
+        });
 
-    const data = await res.json();
-    const texto = (data.content ?? [])
-      .filter((b: { type: string }) => b.type === "text")
-      .map((b: { text: string }) => b.text)
-      .join("\n");
+        if (!res.ok || !res.body) {
+          const txt = await res.text().catch(() => "");
+          controller.enqueue(sse({ tipo: "erro", mensagem: `Anthropic ${res.status}: ${txt.slice(0, 300)}` }));
+          controller.close();
+          return;
+        }
 
-    const bloco = texto.match(/\{[\s\S]*\}/);
-    if (!bloco) return json({ error: "O Fisco não devolveu um relatório legível." }, 502);
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
 
-    let relatorio: Record<string, unknown>;
-    try {
-      relatorio = JSON.parse(bloco[0]);
-    } catch {
-      return json({ error: "O relatório voltou malformado. Tente novamente." }, 502);
-    }
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          const linhas = buffer.split("\n");
+          buffer = linhas.pop() ?? "";
 
-    return json({ perfil, relatorio, gerado_em: new Date().toISOString() });
-  } catch (e) {
-    return json({ error: String(e).slice(0, 300) }, 500);
-  }
+          for (const linha of linhas) {
+            const l = linha.trim();
+            if (!l.startsWith("data:")) continue;
+            const payload = l.slice(5).trim();
+            if (!payload || payload === "[DONE]") continue;
+            try {
+              const evt = JSON.parse(payload);
+              if (evt.type === "content_block_delta") {
+                if (evt.delta?.type === "text_delta") {
+                  controller.enqueue(sse({ tipo: "texto", conteudo: evt.delta.text }));
+                } else if (evt.delta?.type === "thinking_delta") {
+                  // Só para a barra de progresso — o raciocínio não vai ao cliente.
+                  controller.enqueue(sse({ tipo: "pensando" }));
+                }
+              }
+            } catch { /* linha não-JSON do stream */ }
+          }
+        }
+
+        controller.enqueue(sse({ tipo: "fim", perfil, gerado_em: new Date().toISOString() }));
+        controller.close();
+      } catch (e) {
+        controller.enqueue(sse({ tipo: "erro", mensagem: String(e).slice(0, 300) }));
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(stream, {
+    headers: { ...cors, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+  });
 });

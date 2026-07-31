@@ -135,6 +135,24 @@ const GRAVIDADE: Record<string, { cor: string; label: string; Icone: typeof Aler
   ok: { cor: "#34D399", label: "Está certo", Icone: CheckCircle2 },
 };
 
+/** O erro cru da API não diz nada a quem está do outro lado da tela. */
+function erroLegivel(bruto: string): string {
+  const t = bruto.toLowerCase();
+  if (t.includes("credit balance")) {
+    return "A conta de IA está sem crédito. Recarregue em console.anthropic.com (Plans & Billing) e refaça o diagnóstico — nada do que você respondeu se perdeu.";
+  }
+  if (t.includes("rate_limit") || t.includes("429")) {
+    return "Muitas análises ao mesmo tempo. Espere um minuto e tente de novo.";
+  }
+  if (t.includes("overloaded") || t.includes("529")) {
+    return "O serviço de IA está sobrecarregado agora. Tente de novo em alguns minutos.";
+  }
+  if (t.includes("timeout") || t.includes("504")) {
+    return "A análise demorou mais que o permitido. Tente com menos documentos.";
+  }
+  return bruto;
+}
+
 function lerArquivo(f: File): Promise<string> {
   return new Promise((ok, erro) => {
     const r = new FileReader();
@@ -212,6 +230,8 @@ export default function FiscoDiagnostico({ perfilInicial = "empresa" as PerfilId
   const [arquivos, setArquivos] = useState<File[]>([]);
   const [observacoes, setObservacoes] = useState("");
   const [carregando, setCarregando] = useState(false);
+  const [progresso, setProgresso] = useState(0);   // caracteres já escritos do relatório
+  const [pensando, setPensando] = useState(0);     // pulsos de raciocínio, só para a UI
   const [erro, setErro] = useState("");
   const [relatorio, setRelatorio] = useState<Relatorio | null>(null);
   const inputFile = useRef<HTMLInputElement>(null);
@@ -257,6 +277,8 @@ export default function FiscoDiagnostico({ perfilInicial = "empresa" as PerfilId
     }
     setCarregando(true);
     setErro("");
+    setProgresso(0);
+    setPensando(0);
     try {
       const documentos = await Promise.all(
         arquivos.map(async (f) => ({ nome: f.name, tipo: f.type, base64: await lerArquivo(f) })),
@@ -279,14 +301,44 @@ export default function FiscoDiagnostico({ perfilInicial = "empresa" as PerfilId
         },
         body: JSON.stringify(payload),
       });
-      const data = await resp.json();
-      if (!resp.ok) throw new Error(data?.error ?? `Erro ${resp.status}`);
-      setRelatorio(data.relatorio as Relatorio);
+
+      // Erro de validação volta como JSON comum; o relatório vem em stream.
+      const contentType = resp.headers.get("content-type") ?? "";
+      if (!resp.ok && contentType.includes("application/json")) {
+        const data = await resp.json();
+        throw new Error(data?.error ?? `Erro ${resp.status}`);
+      }
+      if (!resp.body) throw new Error("Resposta sem conteúdo.");
+
+      const reader = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let texto = "";
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const partes = buffer.split("\n\n");
+        buffer = partes.pop() ?? "";
+        for (const parte of partes) {
+          const linha = parte.trim();
+          if (!linha.startsWith("data: ")) continue;
+          const evt = JSON.parse(linha.slice(6));
+          if (evt.tipo === "erro") throw new Error(evt.mensagem ?? "Falha na análise");
+          if (evt.tipo === "texto") { texto += evt.conteudo; setProgresso(texto.length); }
+          if (evt.tipo === "pensando") setPensando((n) => n + 1);
+        }
+      }
+
+      const bloco = texto.match(/\{[\s\S]*\}/);
+      if (!bloco) throw new Error("O Fisco não devolveu um relatório legível.");
+      setRelatorio(JSON.parse(bloco[0]) as Relatorio);
       setEtapa(3);
     } catch (e) {
-      const msg = e instanceof Error ? e.message : "Falha ao gerar o diagnóstico";
+      const msg = erroLegivel(e instanceof Error ? e.message : "Falha ao gerar o diagnóstico");
       setErro(msg);
-      toast.error(msg);
+      toast.error(msg.slice(0, 120));
     } finally {
       setCarregando(false);
     }
@@ -542,10 +594,25 @@ export default function FiscoDiagnostico({ perfilInicial = "empresa" as PerfilId
                 </button>
               </div>
               {carregando && (
-                <p className="text-[11px] mt-3 text-center" style={{ color: "#55556A" }}>
-                  Estou lendo os documentos, conferindo contra o questionário e montando a memória de cálculo.
-                  Costuma levar de 1 a 2 minutos.
-                </p>
+                <div className="mt-3 text-center">
+                  <p className="text-[11px]" style={{ color: "#55556A" }}>
+                    {progresso > 0
+                      ? "Escrevendo o relatório…"
+                      : pensando > 0
+                        ? "Analisando o caso, conferindo os números e a legislação…"
+                        : "Lendo o que você enviou…"}
+                  </p>
+                  <div className="h-1 rounded-full mt-2 overflow-hidden" style={{ background: "#1A1A28" }}>
+                    <div className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        background: GOLD,
+                        width: `${Math.min(95, progresso > 0 ? 40 + (progresso / 6000) * 55 : Math.min(35, pensando / 12))}%`,
+                      }} />
+                  </div>
+                  <p className="text-[10px] mt-2" style={{ color: "#3A3A50" }}>
+                    Costuma levar de 1 a 3 minutos. Não feche a aba.
+                  </p>
+                </div>
               )}
             </motion.div>
           )}
