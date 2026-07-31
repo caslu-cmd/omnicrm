@@ -193,7 +193,7 @@ const DIRECAO_SCHEMA = {
           porque: { type: "string" },
           layout: {
             type: "string",
-            enum: ["vidro", "capa", "editorial", "impacto", "revista", "gradiente", "minimal", "foto"],
+            enum: ["vidro", "capa", "organico", "editorial", "impacto", "revista", "gradiente", "minimal", "foto"],
           },
           fonte: {
             type: "string",
@@ -440,7 +440,7 @@ REGRAS:
    Legibilidade é requisito, não gosto: fg tem que ser claramente claro sobre bg escuro, ou claramente escuro sobre bg claro — nunca dois tons de intensidade parecida. O accent precisa se destacar do bg pela LUMINOSIDADE, não só pela matiz: laranja sobre vermelho, verde sobre vermelho ou azul sobre roxo têm matiz diferente e continuam ilegíveis. Se a direção pede uma cor de marca que briga com o fundo, mude a intensidade dela (mais clara ou mais escura) em vez de entregar algo que não se lê.
 4. Nada de roxo-degradê-em-fundo-branco, nada de "corporativo azul genérico" a não ser que o segmento realmente peça e você justifique.
 5. "porque" tem no máximo 2 linhas e fala de negócio, não de estética: o que essa direção comunica para ESSE público.
-6. Layouts disponíveis: "vidro" (foto + cartão translúcido com o título, o padrão campeão de Instagram), "capa" (foto + título gigante direto na imagem), "editorial" (fundo escuro tipográfico), "impacto" (cor cheia), "revista" (papel claro serifado), "gradiente", "minimal" (branco), "foto". Prefira "vidro" ou "capa" quando a marca puder usar fotos de pessoas.
+6. Layouts disponíveis: "vidro" (foto + cartão translúcido com o título, o padrão campeão de Instagram), "capa" (foto + título gigante direto na imagem), "organico" (título em cima no fundo limpo e uma FORMA DE MARCA gigante em cor cheia ocupando a parte de baixo, com a foto recortada dentro dela e selo circular com a marca correndo na curva — é o padrão de agência que a Carol usa como referência; escolha quando a marca tem uma cor forte e quer identidade própria), "editorial" (fundo escuro tipográfico), "impacto" (cor cheia), "revista" (papel claro serifado), "gradiente", "minimal" (branco), "foto". Prefira "vidro" ou "capa" quando a marca puder usar fotos de pessoas.
 7. Escolha fonte coerente com o layout: serifada + revista/minimal para autoridade; condensada + impacto para urgência; grotesk + vidro/capa/editorial para moderno.
 8. "acabamento" é o tratamento aplicado por cima da peça pronta. Escolha:
    - "nenhum": cor chapada. Use quando a direção é limpa, suíça, institucional, ou o fundo é claro.
@@ -448,7 +448,7 @@ REGRAS:
    - "glow": a tipografia e o accent espalham luz. Só em FUNDO ESCURO, e quando a direção é noturna, tech, neon, evento, música.
    - "cinema": glow discreto + vinheta + grão. O mais dramático. Use em fundo escuro quando a direção pede peso cinematográfico.
    Não use "glow" nem "cinema" com bg claro — o efeito lava a peça. Nesses casos use "grao" ou "nenhum".
-9. FOTO NÃO É OPCIONAL POR PADRÃO. O sistema gera a foto de cada slide automaticamente, e peça com foto de pessoa real é o que sustenta alcance no feed — as referências de qualidade desta casa são quase todas fotográficas. Só três layouts usam foto: "vidro", "capa" e "foto". Portanto: **pelo menos DUAS das suas três direções precisam usar um desses três layouts.** Direção sem foto (editorial, impacto, revista, gradiente, minimal) só como a terceira opção, e só quando houver um motivo real — dado numérico que pede tipografia gigante, marca que não pode mostrar pessoas, ou assunto sensível em que foto de gente empobrece. Se você entregar as três sem foto, errou a tarefa.`;
+9. FOTO NÃO É OPCIONAL POR PADRÃO. O sistema gera a foto de cada slide automaticamente, e peça com foto de pessoa real é o que sustenta alcance no feed — as referências de qualidade desta casa são quase todas fotográficas. Quatro layouts usam foto: "vidro", "capa", "organico" e "foto". Portanto: **pelo menos DUAS das suas três direções precisam usar um desses três layouts.** Direção sem foto (editorial, impacto, revista, gradiente, minimal) só como a terceira opção, e só quando houver um motivo real — dado numérico que pede tipografia gigante, marca que não pode mostrar pessoas, ou assunto sensível em que foto de gente empobrece. Se você entregar as três sem foto, errou a tarefa.`;
 
 // ── Handler ──────────────────────────────────────────────────────────────
 Deno.serve(async (req) => {

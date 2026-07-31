@@ -3,7 +3,7 @@
  * Desenha slides prontos para publicar (1080px) em canvas, sem depender de Canva/Figma.
  */
 
-export type LayoutId = "vidro" | "capa" | "editorial" | "impacto" | "revista" | "gradiente" | "minimal" | "foto";
+export type LayoutId = "vidro" | "capa" | "organico" | "editorial" | "impacto" | "revista" | "gradiente" | "minimal" | "foto";
 export type FormatId = "4:5" | "1:1" | "9:16";
 export type FontPairId =
   | "editorial" | "impacto" | "moderno" | "tecnico" | "manchete" | "esportivo"
@@ -89,6 +89,7 @@ export const FONT_PAIRS: Record<
 export const LAYOUTS: { id: LayoutId; label: string; desc: string; precisaImagem?: boolean }[] = [
   { id: "vidro", label: "Vidro", desc: "Foto + cartão de vidro com o título. O padrão que mais roda no feed.", precisaImagem: true },
   { id: "capa", label: "Capa", desc: "Foto + título gigante direto na imagem, com seta e pílulas.", precisaImagem: true },
+  { id: "organico", label: "Orgânico", desc: "Forma de marca gigante em cor cheia, foto recortada dentro dela e selo circular. O padrão de agência.", precisaImagem: true },
   { id: "editorial", label: "Editorial", desc: "Fundo escuro, número gigante, tipografia grande. O mais versátil." },
   { id: "impacto", label: "Impacto", desc: "Cor cheia e tipografia pesada. Para frase de efeito e dado forte." },
   { id: "revista", label: "Revista", desc: "Papel claro, serifada, filetes finos. Ar de publicação premium." },
@@ -946,6 +947,187 @@ function layoutMinimal(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrom
   drawFooter(ctx, o, local);
 }
 
+/**
+ * Forma orgânica de marca — a "vírgula" gigante que atravessa a peça.
+ * É o elemento que mais dá identidade nas referências da Carol: às vezes ela é
+ * só cor de fundo, às vezes a foto vive recortada DENTRO dela.
+ * O desenho varia com `semente` para os slides do carrossel não ficarem idênticos.
+ */
+function caminhoFormaOrganica(ctx: CanvasRenderingContext2D, W: number, H: number, semente: number, topoBase: number) {
+  // Variação sutil e determinística: mesma peça sempre desenha igual.
+  const v = ((semente % 3) - 1) * 0.035;
+  const topo = topoBase + H * v;
+
+  ctx.beginPath();
+  ctx.moveTo(-W * 0.15, topo + H * 0.16);
+  // Sobe pela esquerda e abre a barriga da forma
+  ctx.bezierCurveTo(W * 0.10, topo - H * 0.10, W * 0.42, topo - H * 0.04, W * 0.62, topo + H * 0.05);
+  // Ombro à direita
+  ctx.bezierCurveTo(W * 0.86, topo + H * 0.15, W * 1.06, topo + H * 0.02, W * 1.12, topo + H * 0.20);
+  // Desce e fecha por baixo
+  ctx.lineTo(W * 1.12, H * 1.1);
+  ctx.lineTo(-W * 0.15, H * 1.1);
+  ctx.closePath();
+}
+
+/** Selo circular com o texto correndo na curva — o "condição especial" girando. */
+function drawSeloCircular(
+  ctx: CanvasRenderingContext2D,
+  texto: string,
+  cx: number,
+  cy: number,
+  raio: number,
+  o: { cor: string; corTexto: string; font: string; miolo?: string },
+) {
+  ctx.save();
+  ctx.fillStyle = o.cor;
+  ctx.beginPath();
+  ctx.arc(cx, cy, raio, 0, Math.PI * 2);
+  ctx.fill();
+
+  const size = Math.round(raio * 0.17);
+  ctx.font = `700 ${size}px ${o.font}`;
+  ctx.fillStyle = o.corTexto;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  // Quantas repetições cabem na circunferência, medindo o texto de verdade.
+  const unidade = `${texto.toUpperCase()}  •  `;
+  const larguraUnidade = ctx.measureText(unidade).width;
+  const raioTexto = raio - size * 0.85;
+  const perimetro = 2 * Math.PI * raioTexto;
+  const repeticoes = Math.max(1, Math.round(perimetro / Math.max(1, larguraUnidade)));
+  const frase = unidade.repeat(repeticoes);
+
+  // Avanço PROPORCIONAL à largura de cada letra. Passo fixo espaça "I" igual a
+  // "M" e o texto sai gaguejado — é o detalhe que denuncia curva feita na mão.
+  const larguraTotal = ctx.measureText(frase).width;
+  const escala = (2 * Math.PI) / Math.max(1, larguraTotal);
+
+  ctx.translate(cx, cy);
+  ctx.rotate(-Math.PI / 2);
+  for (const ch of frase) {
+    const w = ctx.measureText(ch).width;
+    ctx.rotate((w / 2) * escala);
+    ctx.save();
+    ctx.translate(0, -raioTexto);
+    ctx.fillText(ch, 0, 0);
+    ctx.restore();
+    ctx.rotate((w / 2) * escala);
+  }
+  ctx.restore();
+
+  if (o.miolo) {
+    ctx.save();
+    ctx.fillStyle = o.corTexto;
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = `800 ${Math.round(raio * 0.42)}px ${o.font}`;
+    ctx.fillText(o.miolo, cx, cy);
+    ctx.restore();
+  }
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+}
+
+/**
+ * Layout ORGÂNICO — o padrão das referências que a Carol mandou: fundo claro,
+ * forma de marca gigante em cor cheia atravessando a peça, foto vivendo dentro
+ * dela, título em cima com uma palavra no accent e selo circular no CTA.
+ */
+function layoutOrganico(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrome) {
+  const { W, H, pad } = c;
+  const fonts = FONT_PAIRS[o.theme.fontPair];
+  // Respeita a marca: fundo escuro continua escuro. A forma é sempre o accent.
+  const bg = o.theme.bg;
+  const fg = o.theme.fg;
+  const accent = o.theme.accent;
+  const enfase = corEnfase(bg, fg, accent);
+  const temFoto = !!o.image?.width;
+  const local: Chrome = { ...c, fg, accent };
+
+  ctx.fillStyle = bg;
+  ctx.fillRect(0, 0, W, H);
+
+  drawLogo(ctx, o, local);
+
+  // 1) O texto é medido ANTES da forma: é ele que decide onde a forma começa,
+  //    senão o corpo cai em cima da foto e some.
+  const topY = pad * (o.logo?.width ? 2.0 : 1.05);
+  const t = fitText(ctx, fonts.upper ? o.slide.titulo.toUpperCase() : o.slide.titulo, {
+    font: (s) => `${fonts.displayWeight} ${s}px ${fonts.display}`,
+    maxWidth: W - pad * 2,
+    maxHeight: H * 0.24,
+    max: o.slide.tipo === "capa" ? W * 0.098 : W * 0.082,
+    min: W * 0.042,
+    lh: 1.1,
+    tracking: fonts.tracking,
+  });
+
+  const corpoBlock = o.slide.corpo
+    ? fitText(ctx, o.slide.corpo, {
+        font: (s) => `400 ${s}px ${fonts.body}`,
+        maxWidth: W * 0.74,
+        maxHeight: H * 0.11,
+        max: W * 0.031,
+        min: W * 0.022,
+        lh: 1.5,
+      })
+    : null;
+
+  const fimDoTexto = topY + t.height + (corpoBlock ? W * 0.03 + corpoBlock.height : 0);
+  // Sem foto a forma é só cor: encolhe, para não virar um bloco vazio enorme.
+  const topoForma = temFoto ? fimDoTexto + H * 0.045 : Math.max(fimDoTexto + H * 0.1, H * 0.56);
+
+  // 2) A forma, com a foto vivendo dentro dela.
+  ctx.save();
+  caminhoFormaOrganica(ctx, W, H, o.index, topoForma);
+  ctx.fillStyle = accent;
+  ctx.fill();
+  if (temFoto) {
+    ctx.clip();
+    drawCover(ctx, o.image as HTMLImageElement, 0, topoForma - H * 0.06, W, H - topoForma + H * 0.06);
+    // Véu na cor da marca: a foto pertence à peça em vez de parecer colada.
+    ctx.fillStyle = rgba(accent, 0.18);
+    ctx.fillRect(0, 0, W, H);
+  }
+  ctx.restore();
+
+  // 3) Texto por cima do fundo limpo, nunca sobre a foto.
+  ctx.fillStyle = fg;
+  drawBlock(ctx, t, pad, topY, {
+    font: (s) => `${fonts.displayWeight} ${s}px ${fonts.display}`,
+    tracking: fonts.tracking,
+    accent: enfase,
+  });
+  if (corpoBlock) {
+    ctx.fillStyle = rgba(fg, 0.72);
+    drawBlock(ctx, corpoBlock, pad, topY + t.height + W * 0.03, { font: (s) => `400 ${s}px ${fonts.body}` });
+  }
+
+  // 4) Selo circular: o texto que corre na curva é a marca ou a chamada do CTA,
+  //    nunca um rótulo genérico. O miolo é o número.
+  if (o.slide.destaque) {
+    const raio = W * 0.115;
+    const curva = o.slide.tipo === "cta"
+      ? (o.brand?.handle || "fale com a gente")
+      : (o.brand?.nome || o.brand?.handle || "");
+    const fundoSelo = isLight(accent) ? "#101512" : "#FFFFFF";
+    drawSeloCircular(ctx, curva || o.slide.destaque, W - pad - raio * 0.72, H - pad * 2.0, raio, {
+      cor: fundoSelo,
+      corTexto: corEnfase(fundoSelo, contrastOn(fundoSelo), accent),
+      font: fonts.body,
+      miolo: o.slide.destaque.length <= 9 ? o.slide.destaque : undefined,
+    });
+  }
+
+  if (o.total > 1 && o.mostrarNumero !== false) {
+    drawGlassPill(ctx, `${String(o.index + 1).padStart(2, "0")} / ${String(o.total).padStart(2, "0")}`, pad, H - pad * 1.2, {
+      fontSize: Math.round(W * 0.018), font: fonts.body, fg: contrastOn(accent), img: o.image, W, H, escuro: !isLight(accent),
+    });
+  }
+}
+
 function layoutFoto(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrome) {
   const { W, H, pad } = c;
   const fonts = FONT_PAIRS[o.theme.fontPair];
@@ -1469,6 +1651,9 @@ export function renderSlide(canvas: HTMLCanvasElement, o: RenderOptions) {
       break;
     case "capa":
       layoutCapa(ctx, o, chrome);
+      break;
+    case "organico":
+      layoutOrganico(ctx, o, chrome);
       break;
     case "impacto":
       layoutImpacto(ctx, o, chrome);
