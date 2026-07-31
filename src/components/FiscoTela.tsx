@@ -1,13 +1,17 @@
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Send, RefreshCw, Copy, Loader2, AlertCircle, Receipt,
-  ChevronRight, MessageSquare, ClipboardCheck, Share2
+  ChevronRight, MessageSquare, ClipboardCheck, Share2, Trash2, Paperclip, X, FileText
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import FiscoDiagnostico from "@/components/FiscoDiagnostico";
+import FiscoDiagnostico, { PERGUNTAS } from "@/components/FiscoDiagnostico";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  listarClientes, salvarCliente, removerCliente, contextoDoCliente,
+  type ClienteFisco,
+} from "@/lib/fiscoClientes";
 
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
 
@@ -258,6 +262,61 @@ export default function FiscoTela({ perfilFixo, perfilInicial, gerenciarLinks = 
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const readerRef = useRef<ReadableStreamDefaultReader | null>(null);
 
+  // Clientes salvos: quem já respondeu uma vez não redigita a cada conversa.
+  const [clientes, setClientes] = useState<ClienteFisco[]>(() => listarClientes());
+  const [clienteAtivo, setClienteAtivo] = useState<ClienteFisco | null>(null);
+
+  // Anexo na conversa (o diagnóstico tem o próprio passo de documentos).
+  const [anexos, setAnexos] = useState<File[]>([]);
+  const anexoRef = useRef<HTMLInputElement>(null);
+
+  const guardarCliente = (nome: string, perfilCliente: PerfilId, respostas: Record<string, string>) => {
+    const lista = salvarCliente(nome, perfilCliente, respostas);
+    setClientes(lista);
+    const salvo = lista.find((c) => c.nome.toLowerCase() === nome.trim().toLowerCase() && c.perfil === perfilCliente);
+    if (salvo) setClienteAtivo(salvo);
+    toast.success(`${nome.trim()} salvo.`);
+  };
+
+  const apagarCliente = (id: string) => {
+    setClientes(removerCliente(id));
+    setClienteAtivo((c) => (c?.id === id ? null : c));
+  };
+
+  const escolherCliente = (c: ClienteFisco | null) => {
+    setClienteAtivo(c);
+    if (c && !perfilFixo) setPerfil(c.perfil);
+  };
+
+  /** O que o Fisco sabe do cliente escolhido, para não perguntar de novo. */
+  const contexto = useMemo(() => {
+    if (!clienteAtivo) return "";
+    const rotulos: Record<string, string> = {};
+    for (const campo of PERGUNTAS[clienteAtivo.perfil]) rotulos[campo.id] = campo.pergunta;
+    return contextoDoCliente(clienteAtivo, rotulos);
+  }, [clienteAtivo]);
+
+  const adicionarAnexos = (lista: FileList | null) => {
+    if (!lista) return;
+    const novos: File[] = [];
+    for (const f of Array.from(lista)) {
+      if (anexos.length + novos.length >= 4) { toast.error("Máximo de 4 arquivos por mensagem."); break; }
+      if (f.size > 4 * 1024 * 1024) { toast.error(`${f.name} passa de 4 MB.`); continue; }
+      if (f.type !== "application/pdf" && !f.type.startsWith("image/")) {
+        toast.error(`${f.name}: envie PDF ou imagem.`); continue;
+      }
+      novos.push(f);
+    }
+    setAnexos((p) => [...p, ...novos]);
+  };
+
+  const lerBase64 = (f: File) => new Promise<string>((ok, erro) => {
+    const r = new FileReader();
+    r.onload = () => ok(String(r.result).split(",")[1] ?? "");
+    r.onerror = () => erro(new Error(`Não consegui ler ${f.name}`));
+    r.readAsDataURL(f);
+  });
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
@@ -268,19 +327,33 @@ export default function FiscoTela({ perfilFixo, perfilInicial, gerenciarLinks = 
 
   const enviar = useCallback(async (texto: string) => {
     const msg = texto.trim();
-    if (!msg || carregando) return;
+    if ((!msg && !anexos.length) || carregando) return;
 
     setErro("");
     setInput("");
     setCarregando(true);
 
-    const userMsg: Message = { id: uid(), role: "user", content: msg };
+    const enviados = anexos;
+    setAnexos([]);
+
+    const rotuloAnexos = enviados.length
+      ? `\n\n📎 ${enviados.map((f) => f.name).join(", ")}`
+      : "";
+    const userMsg: Message = {
+      id: uid(),
+      role: "user",
+      content: (msg || "Analise o arquivo que enviei.") + rotuloAnexos,
+    };
     const assistantId = uid();
     const assistantMsg: Message = { id: assistantId, role: "assistant", content: "", streaming: true };
 
     setMessages((prev) => [...prev, userMsg, assistantMsg]);
 
     try {
+      const documentos = await Promise.all(
+        enviados.map(async (f) => ({ nome: f.name, tipo: f.type, base64: await lerBase64(f) })),
+      );
+
       const resp = await fetch(API, {
         method: "POST",
         headers: {
@@ -288,7 +361,7 @@ export default function FiscoTela({ perfilFixo, perfilInicial, gerenciarLinks = 
           "Authorization": `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
           "apikey": SUPABASE_PUBLISHABLE_KEY,
         },
-        body: JSON.stringify({ mensagem: msg, historico, perfil }),
+        body: JSON.stringify({ mensagem: msg, historico, perfil, documentos, contexto }),
       });
 
       if (!resp.ok) throw new Error(`Erro ${resp.status} — Fisco indisponível.`);
@@ -338,7 +411,7 @@ export default function FiscoTela({ perfilFixo, perfilInicial, gerenciarLinks = 
       setCarregando(false);
       inputRef.current?.focus();
     }
-  }, [carregando, historico, perfil]);
+  }, [carregando, historico, perfil, anexos, contexto]);
 
   const limpar = () => {
     readerRef.current?.cancel();
@@ -346,6 +419,7 @@ export default function FiscoTela({ perfilFixo, perfilInicial, gerenciarLinks = 
     setErro("");
     setCarregando(false);
     setInput("");
+    setAnexos([]);
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -473,6 +547,65 @@ export default function FiscoTela({ perfilFixo, perfilInicial, gerenciarLinks = 
         </div>
         )}
 
+        {/* Clientes salvos */}
+        <div className="px-5 pt-4">
+          <p className="text-[10px] uppercase tracking-widest mb-2" style={{ color: "#444466" }}>
+            Cliente
+          </p>
+          {clientes.length === 0 ? (
+            <p className="text-[11px] leading-relaxed" style={{ color: "#55556A" }}>
+              Faça um diagnóstico e salve as respostas com um nome — depois é só escolher aqui,
+              sem redigitar nada.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              <button
+                onClick={() => escolherCliente(null)}
+                className="text-left px-3 py-1.5 rounded-lg text-[11px] transition-all"
+                style={{
+                  background: !clienteAtivo ? GOLD_DIM : "#141420",
+                  border: `1px solid ${!clienteAtivo ? GOLD : "#2A2A3A"}`,
+                  color: !clienteAtivo ? GOLD : "#8888A0",
+                }}
+              >
+                Nenhum — atendimento avulso
+              </button>
+              {clientes.map((c) => {
+                const ativo = clienteAtivo?.id === c.id;
+                return (
+                  <div key={c.id} className="flex items-center gap-1">
+                    <button
+                      onClick={() => escolherCliente(c)}
+                      className="flex-1 text-left px-3 py-1.5 rounded-lg text-[11px] truncate transition-all"
+                      style={{
+                        background: ativo ? GOLD_DIM : "#141420",
+                        border: `1px solid ${ativo ? GOLD : "#2A2A3A"}`,
+                        color: ativo ? GOLD : "#C0C0D0",
+                      }}
+                      title={`${c.nome} · ${PERFIS.find((p) => p.id === c.perfil)?.label ?? c.perfil}`}
+                    >
+                      {c.nome}
+                    </button>
+                    <button
+                      onClick={() => apagarCliente(c.id)}
+                      className="p-1 rounded-lg flex-shrink-0"
+                      style={{ color: "#44445A" }}
+                      title="Remover cliente salvo"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {clienteAtivo && (
+            <p className="text-[10px] mt-2 leading-relaxed" style={{ color: "#55556A" }}>
+              O Fisco já sabe os dados de {clienteAtivo.nome} e não vai perguntar de novo.
+            </p>
+          )}
+        </div>
+
         {gerenciarLinks && <PainelLinks />}
 
         {/* Perguntas rápidas — só fazem sentido no chat */}
@@ -537,7 +670,12 @@ export default function FiscoTela({ perfilFixo, perfilInicial, gerenciarLinks = 
 
       {/* ── Painel direito ────────────────────────────────────── */}
       {modo === "diagnostico" ? (
-        <FiscoDiagnostico key={perfil} perfilInicial={perfil} />
+        <FiscoDiagnostico
+          key={`${perfil}-${clienteAtivo?.id ?? "avulso"}`}
+          perfilInicial={perfil}
+          cliente={clienteAtivo}
+          onSalvarCliente={guardarCliente}
+        />
       ) : (
       <div className="flex-1 flex flex-col overflow-hidden min-h-[400px] md:min-h-0">
 
@@ -641,16 +779,49 @@ export default function FiscoTela({ perfilFixo, perfilInicial, gerenciarLinks = 
 
         {/* Input */}
         <div className="px-4 pb-4 pt-2 border-t" style={{ borderColor: "#1E1E2E" }}>
+          {/* Anexos escolhidos, antes de mandar */}
+          {anexos.length > 0 && (
+            <div className="flex flex-wrap gap-2 mb-2">
+              {anexos.map((f, i) => (
+                <div key={`${f.name}-${i}`} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px]"
+                  style={{ background: "#141420", border: `1px solid ${GOLD_BORDER}`, color: "#C0C0D0" }}>
+                  <FileText className="w-3 h-3 flex-shrink-0" style={{ color: GOLD }} />
+                  <span className="truncate max-w-[160px]">{f.name}</span>
+                  <button onClick={() => setAnexos((p) => p.filter((_, n) => n !== i))}>
+                    <X className="w-3 h-3" style={{ color: "#666680" }} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div
             className="flex items-end gap-2 rounded-2xl px-4 py-3"
             style={{ background: "#141420", border: `1px solid ${carregando ? GOLD_BORDER : "#2A2A3A"}` }}
           >
+            <button
+              onClick={() => anexoRef.current?.click()}
+              disabled={carregando}
+              className="flex items-center justify-center w-8 h-8 rounded-xl flex-shrink-0 transition-all"
+              style={{ background: "#1E1E2E", color: anexos.length ? GOLD : "#666680" }}
+              title="Anexar PDF ou imagem"
+            >
+              <Paperclip className="w-4 h-4" />
+            </button>
+            <input
+              ref={anexoRef}
+              type="file"
+              multiple
+              accept="application/pdf,image/*"
+              className="hidden"
+              onChange={(e) => { adicionarAnexos(e.target.files); e.currentTarget.value = ""; }}
+            />
             <textarea
               ref={inputRef}
               rows={1}
               className="flex-1 resize-none outline-none text-sm bg-transparent leading-relaxed"
               style={{ color: "#E0E0F0", fontFamily: "inherit", maxHeight: 160 }}
-              placeholder="Tire sua dúvida fiscal ou contábil..."
+              placeholder={anexos.length ? "O que você quer saber sobre esse arquivo?" : "Tire sua dúvida fiscal ou contábil..."}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKeyDown}
@@ -658,12 +829,12 @@ export default function FiscoTela({ perfilFixo, perfilInicial, gerenciarLinks = 
             />
             <button
               onClick={() => enviar(input)}
-              disabled={!input.trim() || carregando}
+              disabled={(!input.trim() && !anexos.length) || carregando}
               className="flex items-center justify-center w-8 h-8 rounded-xl flex-shrink-0 transition-all"
               style={{
-                background: input.trim() && !carregando ? GOLD : "#1E1E2E",
-                color: input.trim() && !carregando ? "#07080A" : "#333344",
-                cursor: input.trim() && !carregando ? "pointer" : "not-allowed",
+                background: (input.trim() || anexos.length) && !carregando ? GOLD : "#1E1E2E",
+                color: (input.trim() || anexos.length) && !carregando ? "#07080A" : "#333344",
+                cursor: (input.trim() || anexos.length) && !carregando ? "pointer" : "not-allowed",
               }}
             >
               {carregando ? (
@@ -674,7 +845,7 @@ export default function FiscoTela({ perfilFixo, perfilInicial, gerenciarLinks = 
             </button>
           </div>
           <p className="text-[11px] mt-2 text-center" style={{ color: "#333355" }}>
-            Enter para enviar · Shift+Enter para nova linha · O Fisco orienta, não substitui contador
+            📎 PDF ou foto, até 4 arquivos · Enter para enviar · O Fisco orienta, não substitui contador
           </p>
         </div>
       </div>

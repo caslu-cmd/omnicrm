@@ -74,6 +74,31 @@ interface Msg {
   content: string;
 }
 
+interface Documento {
+  nome: string;
+  tipo: string;
+  base64: string;
+}
+
+/** PDF vira bloco de documento, imagem vira bloco de imagem; o resto é ignorado. */
+function blocosDoArquivo(d: Documento): unknown[] {
+  const tipo = (d.tipo || "").toLowerCase();
+  if (tipo === "application/pdf") {
+    return [{
+      type: "document",
+      source: { type: "base64", media_type: "application/pdf", data: d.base64 },
+      title: d.nome,
+    }];
+  }
+  if (tipo.startsWith("image/")) {
+    return [
+      { type: "image", source: { type: "base64", media_type: tipo, data: d.base64 } },
+      { type: "text", text: `(imagem acima: ${d.nome})` },
+    ];
+  }
+  return [];
+}
+
 function sse(obj: unknown): Uint8Array {
   return new TextEncoder().encode(`data: ${JSON.stringify(obj)}\n\n`);
 }
@@ -94,12 +119,16 @@ Deno.serve(async (req) => {
   let mensagem = "";
   let historico: Msg[] = [];
   let perfil = "geral";
+  let documentos: Documento[] = [];
+  let contexto = "";
   try {
     const body = await req.json();
     mensagem = String(body.mensagem ?? "").trim();
     historico = Array.isArray(body.historico) ? body.historico : [];
     const pedido = String(body.perfil ?? "").trim().toLowerCase();
     if (pedido in PERFIS) perfil = pedido;
+    documentos = Array.isArray(body.documentos) ? body.documentos.slice(0, 4) : [];
+    contexto = String(body.contexto ?? "").trim().slice(0, 4000);
   } catch {
     return new Response(
       JSON.stringify({ error: "JSON inválido" }),
@@ -107,14 +136,29 @@ Deno.serve(async (req) => {
     );
   }
 
-  if (!mensagem) {
+  if (!mensagem && !documentos.length) {
     return new Response(
       JSON.stringify({ error: "mensagem vazia" }),
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 
-  const messages = [...historico, { role: "user", content: mensagem }];
+  // Com anexo, a última fala vira blocos (documento/imagem + texto). Sem anexo,
+  // continua sendo texto puro — o histórico antigo não muda de formato.
+  const ultima = documentos.length
+    ? [
+        ...documentos.flatMap(blocosDoArquivo),
+        { type: "text", text: mensagem || "Analise o(s) arquivo(s) que enviei." },
+      ]
+    : mensagem;
+
+  const messages = [...historico, { role: "user", content: ultima }];
+
+  // Cliente salvo: o que a pessoa já respondeu uma vez não precisa ser
+  // repetido a cada conversa.
+  const system = contexto
+    ? `${montarPrompt(perfil)}\n\n## Quem você está atendendo agora\n${contexto}\n\nUse esses dados como verdade e não peça de novo o que já está aqui. Se algo estiver desatualizado, a pessoa avisa.`
+    : montarPrompt(perfil);
 
   const stream = new ReadableStream({
     async start(controller) {
@@ -128,8 +172,8 @@ Deno.serve(async (req) => {
           },
           body: JSON.stringify({
             model: "claude-sonnet-4-6",
-            max_tokens: 4096,
-            system: montarPrompt(perfil),
+            max_tokens: documentos.length ? 8000 : 4096,
+            system,
             messages,
             stream: true,
           }),

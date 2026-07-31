@@ -1,9 +1,10 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { ClienteFisco } from "@/lib/fiscoClientes";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Upload, X, FileText, Loader2, AlertCircle, CheckCircle2, AlertTriangle,
   ChevronLeft, ChevronRight, Copy, Download, Printer, RefreshCw, Calculator,
-  ClipboardList, HelpCircle, ShieldAlert,
+  ClipboardList, HelpCircle, ShieldAlert, Save,
 } from "lucide-react";
 import { toast } from "sonner";
 import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
@@ -30,7 +31,7 @@ type Campo = {
   obrigatorio?: boolean;
 };
 
-const PERGUNTAS: Record<PerfilId, Campo[]> = {
+export const PERGUNTAS: Record<PerfilId, Campo[]> = {
   pessoa: [
     { id: "renda_tipo", pergunta: "De onde vem a sua renda hoje?", tipo: "multipla", obrigatorio: true,
       opcoes: ["Salário com carteira assinada", "Trabalho por conta própria / autônomo", "Aposentadoria ou pensão", "Aluguel de imóvel", "Sou sócio de empresa", "Investimentos", "Estou sem renda no momento"] },
@@ -223,10 +224,22 @@ function relatorioEmTexto(r: Relatorio, perfil: PerfilId): string {
   return L.join("\n");
 }
 
-export default function FiscoDiagnostico({ perfilInicial = "empresa" as PerfilId }) {
+interface DiagProps {
+  perfilInicial?: PerfilId;
+  /** Cliente escolhido na barra lateral: preenche o questionário de uma vez. */
+  cliente?: ClienteFisco | null;
+  onSalvarCliente?: (nome: string, perfil: PerfilId, respostas: Record<string, string>) => void;
+}
+
+export default function FiscoDiagnostico({
+  perfilInicial = "empresa" as PerfilId,
+  cliente = null,
+  onSalvarCliente,
+}: DiagProps) {
   const [etapa, setEtapa] = useState<0 | 1 | 2 | 3>(0);
-  const [perfil, setPerfil] = useState<PerfilId>(perfilInicial);
-  const [respostas, setRespostas] = useState<Record<string, string>>({});
+  const [perfil, setPerfil] = useState<PerfilId>(cliente?.perfil ?? perfilInicial);
+  const [respostas, setRespostas] = useState<Record<string, string>>(cliente?.respostas ?? {});
+  const [nomeCliente, setNomeCliente] = useState(cliente?.nome ?? "");
   const [arquivos, setArquivos] = useState<File[]>([]);
   const [observacoes, setObservacoes] = useState("");
   const [carregando, setCarregando] = useState(false);
@@ -235,6 +248,16 @@ export default function FiscoDiagnostico({ perfilInicial = "empresa" as PerfilId
   const [erro, setErro] = useState("");
   const [relatorio, setRelatorio] = useState<Relatorio | null>(null);
   const inputFile = useRef<HTMLInputElement>(null);
+
+  // Trocar de cliente na barra lateral repõe tudo — inclusive o perfil dele.
+  useEffect(() => {
+    if (!cliente) return;
+    setPerfil(cliente.perfil);
+    setRespostas(cliente.respostas);
+    setNomeCliente(cliente.nome);
+    setRelatorio(null);
+    setEtapa(1);
+  }, [cliente?.id]);
 
   const campos = PERGUNTAS[perfil];
   const faltando = useMemo(
@@ -497,6 +520,39 @@ export default function FiscoDiagnostico({ perfilInicial = "empresa" as PerfilId
                   </div>
                 ))}
               </div>
+
+              {/* Salvar o conjunto de respostas evita redigitar tudo na próxima conversa */}
+              {onSalvarCliente && (
+                <div className="rounded-2xl p-4 mt-4" style={{ background: "#0D0D14", border: "1px solid #1E1E2E" }}>
+                  <p className="text-[11px] font-semibold mb-1" style={{ color: "#C0C0D0" }}>
+                    Salvar como cliente
+                  </p>
+                  <p className="text-[10px] mb-2" style={{ color: "#55556A" }}>
+                    Da próxima vez você escolhe o nome na coluna da esquerda e tudo isso já vem preenchido.
+                    Fica salvo neste navegador.
+                  </p>
+                  <div className="flex gap-2">
+                    <input
+                      value={nomeCliente}
+                      onChange={(e) => setNomeCliente(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && nomeCliente.trim()) onSalvarCliente(nomeCliente, perfil, respostas);
+                      }}
+                      placeholder="Nome do cliente ou da empresa"
+                      className="flex-1 rounded-xl px-3 py-2 text-sm outline-none"
+                      style={{ background: "#141420", border: "1px solid #2A2A3A", color: "#E0E0F0" }}
+                    />
+                    <button
+                      onClick={() => onSalvarCliente(nomeCliente, perfil, respostas)}
+                      disabled={!nomeCliente.trim()}
+                      className="px-4 rounded-xl text-xs font-bold disabled:opacity-40 flex items-center gap-1.5"
+                      style={{ background: GOLD, color: "#07080A" }}
+                    >
+                      <Save className="w-3.5 h-3.5" /> Salvar
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="flex gap-2 mt-6">
                 <button onClick={() => setEtapa(0)} className="px-4 py-3 rounded-2xl text-sm flex items-center gap-2"
