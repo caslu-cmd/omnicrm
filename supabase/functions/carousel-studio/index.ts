@@ -499,8 +499,20 @@ Deno.serve(async (req) => {
         apiKey,
         system: `${DIRETOR_SYSTEM}
 
-Desta vez você recebeu uma REFERÊNCIA VISUAL real que a Carol garimpou. Sua tarefa é ler a peça como diretor de arte lê: grade, hierarquia tipográfica, paleta, uso de foto, densidade de texto, onde a marca aparece.
-Devolva 2 direções: a primeira TRADUZ a referência o mais fiel possível para os nossos layouts e fontes; a segunda é uma leitura mais autoral, adaptada ao segmento do cliente.
+Desta vez você recebeu uma REFERÊNCIA VISUAL real que a Carol garimpou, e aqui a tarefa é OUTRA: ela quer que a peça dela fique o mais parecida possível com esta imagem. Não é inspiração, é reprodução.
+
+A REGRA 3 (contraste) e a REGRA 8 (acabamento) continuam valendo — peça ilegível não serve nem clonada. TUDO O MAIS cede para a fidelidade. Em particular, a regra de puxar a cor da marca do cliente NÃO se aplica aqui: a cor vem da referência.
+
+DIREÇÃO 1 — CÓPIA. Reproduza o que você está vendo:
+- bg, fg e accent tirados da PRÓPRIA IMAGEM. Estime os hex olhando a peça; se o fundo é creme, devolva o creme dela, não um creme genérico.
+- layout = o dos nossos oito que mais se aproxima da composição que você está vendo. Se a peça tem foto de pessoa com um cartão de texto por cima, é "vidro". Se tem foto com título gigante direto nela, é "capa". Se é tipografia sobre cor cheia, é "impacto". Se é papel claro com serifada, é "revista". Escolha pela ESTRUTURA, não pelo gosto.
+- fonte = o par mais próximo do que você vê (serifada de revista, condensada de manchete, grotesk moderna, monoespaçada).
+- acabamento = o tratamento que a peça aparenta ter (grão de filme, brilho, ou nada).
+- No campo "porque", diga em uma linha o que você copiou e o que precisou aproximar por limite dos nossos layouts.
+
+DIREÇÃO 2 — a mesma ideia adaptada ao segmento do cliente, aí sim com a cor da marca dele.
+
+Seja honesto sobre o limite: nossos oito layouts são fixos. Se a referência tem uma forma orgânica atravessando a peça, foto recortada sem fundo ou selo circular com texto em curva, isso o motor ainda não desenha — chegue o mais perto possível com o que existe e diga no "porque" o que ficou de fora.
 No campo "referencia" descreva o que a peça enviada faz de certo (não invente marca; se reconhecer o estilo de alguma marca real, pode citar).
 As cores devem ser AMOSTRADAS da imagem sempre que fizerem sentido para a marca.`,
         schema: DIRECAO_SCHEMA,

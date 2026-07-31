@@ -214,6 +214,8 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   const [direcaoAtiva, setDirecaoAtiva] = useState<string | null>(null);
   const [buscandoDirecao, setBuscandoDirecao] = useState(false);
   const [lendoReferencia, setLendoReferencia] = useState(false);
+  /** Print que a Carol subiu para ESTE post. Manda mais que as referências da casa. */
+  const [refDoPost, setRefDoPost] = useState<{ base64: string; mediaType: string } | null>(null);
   const [modoAuto, setModoAuto] = useState<string | null>(null);
   const [mostrarBiblioteca, setMostrarBiblioteca] = useState(false);
   const [novaSkill, setNovaSkill] = useState<{ tipo: "copy" | "design"; nome: string; resumo: string; instrucoes: string } | null>(null);
@@ -510,6 +512,9 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     setLendoReferencia(true);
     try {
       const { base64, mediaType } = await prepararReferencia(file);
+      // Fica guardada: o "Fazer tudo sozinha" chamava o diretor do zero e jogava
+      // fora a referência que a Carol tinha acabado de subir.
+      setRefDoPost({ base64, mediaType });
       const { data, error } = await supabase.functions.invoke("carousel-studio", {
         body: {
           action: "referencia",
@@ -554,9 +559,19 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
       const novos = await gerar();
       if (!novos.length) { setModoAuto(null); return; }
 
-      setModoAuto("Definindo a direção de arte...");
+      // Referência que a Carol subiu para este post manda mais que as da casa:
+      // ali ela quer FIDELIDADE, não inspiração.
+      setModoAuto(refDoPost ? "Copiando a referência que você subiu..." : "Definindo a direção de arte...");
       const { data: dir } = await supabase.functions.invoke("carousel-studio", {
-        body: {
+        body: refDoPost ? {
+          action: "referencia",
+          imagem: refDoPost.base64,
+          mediaType: refDoPost.mediaType,
+          nicho: cliente?.industry || "",
+          corMarca: accent,
+          skills: skillsParaIA("design"),
+          ...contextoCliente(),
+        } : {
           action: "direcao",
           refs: refsParaIA(),
           nicho: cliente?.industry || "",
