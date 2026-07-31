@@ -10,6 +10,7 @@ export type FontPairId =
   | "luxo" | "revista" | "boutique" | "startup" | "corporativo" | "fino"
   | "brutalista" | "geometrico" | "classico" | "codigo";
 export type SlideTipo = "capa" | "conteudo" | "cta";
+export type AcabamentoId = "nenhum" | "grao" | "glow" | "cinema";
 
 export interface SlideData {
   tipo: SlideTipo;
@@ -45,6 +46,8 @@ export interface RenderOptions {
   logo?: HTMLImageElement | null;
   mostrarNumero?: boolean;
   mostrarArraste?: boolean;
+  /** Tratamento aplicado por cima do slide pronto. Ver ACABAMENTOS. */
+  acabamento?: AcabamentoId;
   /** Fator de escala do bitmap (1 = 1080px). Use 0.3 para miniaturas. */
   scale?: number;
 }
@@ -138,6 +141,23 @@ export function contrastOn(hex: string): string {
   return isLight(hex) ? "#0A0C0F" : "#FFFFFF";
 }
 
+/**
+ * Cor da ênfase do título. Precisa de duas coisas ao mesmo tempo: ler sobre o
+ * fundo e se DISTINGUIR do resto do texto. Alguns layouts invertem a peça e
+ * acabam com accent igual ao fg (o slide de CTA do editorial fazia isso) — aí a
+ * ênfase some sem avisar. Nesse caso escurecemos ou clareamos o accent original
+ * até ele voltar a se separar do texto.
+ */
+export function corEnfase(fundo: string, texto: string, accent: string): string {
+  const norm = (h: string) => String(h ?? "").replace("#", "").toLowerCase();
+  const colideComTexto = norm(accent) === norm(texto);
+  // Mesma faixa de luminosidade do fundo = não se lê, mesmo com matiz diferente.
+  const colideComFundo = norm(accent) === norm(fundo) || isLight(accent) === isLight(fundo);
+  if (!colideComTexto && !colideComFundo) return accent;
+  // Puxa o accent para o lado oposto do fundo, preservando a matiz da marca.
+  return shade(accent, isLight(fundo) ? -0.55 : 0.55);
+}
+
 // ── Texto ─────────────────────────────────────────────────────────────────
 function setTracking(ctx: CanvasRenderingContext2D, px: number) {
   try {
@@ -194,6 +214,89 @@ interface TextBlock {
   size: number;
   lineHeight: number;
   height: number;
+  /** Texto já sem as marcações, na forma em que foi medido. */
+  texto: string;
+  /** Trechos com ênfase, em índices de `texto`. */
+  enfase: Array<[number, number]>;
+}
+
+/**
+ * Ênfase dentro do título: `*palavra*` sai na cor de destaque e mais pesada.
+ * É o recurso que aparece em toda referência boa de social media — uma palavra
+ * do título em outra cor, no meio da frase.
+ *
+ * A marcação é retirada ANTES de medir, então a quebra de linha e o corpo da
+ * fonte são calculados com o texto limpo. O peso extra é feito com contorno
+ * fino sobre o preenchimento (faux bold) justamente para NÃO mudar a largura —
+ * trocar a família/peso de verdade mudaria a métrica e estouraria a caixa que
+ * já foi calculada.
+ */
+function extrairEnfase(txt: string): { limpo: string; enfase: Array<[number, number]> } {
+  const s = String(txt ?? "");
+  if (!s.includes("*")) return { limpo: s, enfase: [] };
+  const re = /\*([^*\n]+)\*/g;
+  const enfase: Array<[number, number]> = [];
+  let limpo = "";
+  let i = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(s)) !== null) {
+    limpo += s.slice(i, m.index);
+    const ini = limpo.length;
+    limpo += m[1];
+    enfase.push([ini, limpo.length]);
+    i = m.index + m[0].length;
+  }
+  limpo += s.slice(i);
+  return { limpo, enfase };
+}
+
+/** Desenha uma linha em pedaços, trocando a cor nos trechos com ênfase. */
+function desenharLinhaComEnfase(
+  ctx: CanvasRenderingContext2D,
+  linha: string,
+  inicioNaFrase: number,
+  block: TextBlock,
+  x: number,
+  cy: number,
+  align: CanvasTextAlign,
+  accent: string,
+) {
+  const fim = inicioNaFrase + linha.length;
+  // Fronteiras dos pedaços, em índices locais da linha.
+  const cortes = new Set<number>([0, linha.length]);
+  for (const [a, b] of block.enfase) {
+    if (b <= inicioNaFrase || a >= fim) continue;
+    cortes.add(Math.max(0, a - inicioNaFrase));
+    cortes.add(Math.min(linha.length, b - inicioNaFrase));
+  }
+  const pontos = [...cortes].sort((p, q) => p - q);
+
+  const alinhamentoAntigo = ctx.textAlign;
+  const corBase = ctx.fillStyle;
+  const total = ctx.measureText(linha).width;
+  let cursorX = align === "center" ? x - total / 2 : align === "right" ? x - total : x;
+  ctx.textAlign = "left";
+
+  for (let k = 0; k < pontos.length - 1; k++) {
+    const pedaco = linha.slice(pontos[k], pontos[k + 1]);
+    if (!pedaco) continue;
+    const absoluto = inicioNaFrase + pontos[k];
+    const marcado = block.enfase.some(([a, b]) => absoluto >= a && absoluto < b);
+    ctx.fillStyle = marcado ? accent : corBase;
+    ctx.fillText(pedaco, cursorX, cy);
+    if (marcado) {
+      ctx.save();
+      ctx.strokeStyle = accent;
+      ctx.lineWidth = Math.max(1, block.size * 0.022);
+      ctx.lineJoin = "round";
+      ctx.strokeText(pedaco, cursorX, cy);
+      ctx.restore();
+    }
+    cursorX += ctx.measureText(pedaco).width;
+  }
+
+  ctx.fillStyle = corBase;
+  ctx.textAlign = alinhamentoAntigo;
 }
 
 /** Encontra o maior corpo de fonte em que o texto ainda cabe na caixa. */
@@ -202,22 +305,24 @@ function fitText(
   text: string,
   o: { font: (size: number) => string; maxWidth: number; maxHeight: number; max: number; min: number; lh: number; tracking?: number },
 ): TextBlock {
+  // A marcação de ênfase sai antes de medir: tudo abaixo trabalha com o texto limpo.
+  const { limpo, enfase } = extrairEnfase(text);
   const step = Math.max(1, Math.round(o.max * 0.02));
   let reserva: TextBlock | null = null; // melhor opção caso nenhuma fonte evite corte de palavra
 
   for (let size = o.max; size >= o.min; size -= step) {
     ctx.font = o.font(size);
     setTracking(ctx, (o.tracking ?? 0) * size);
-    const { lines, quebrouPalavra } = wrapLines(ctx, text, o.maxWidth);
+    const { lines, quebrouPalavra } = wrapLines(ctx, limpo, o.maxWidth);
     const lineHeight = size * o.lh;
     const height = lines.length * lineHeight;
     if (height <= o.maxHeight) {
       // Só aceita se nenhuma palavra precisou ser cortada no meio.
       if (!quebrouPalavra) {
         setTracking(ctx, 0);
-        return { lines, size, lineHeight, height };
+        return { lines, size, lineHeight, height, texto: limpo, enfase };
       }
-      if (!reserva) reserva = { lines, size, lineHeight, height };
+      if (!reserva) reserva = { lines, size, lineHeight, height, texto: limpo, enfase };
     }
   }
 
@@ -226,9 +331,12 @@ function fitText(
 
   ctx.font = o.font(o.min);
   setTracking(ctx, (o.tracking ?? 0) * o.min);
-  const { lines } = wrapLines(ctx, text, o.maxWidth);
+  const { lines } = wrapLines(ctx, limpo, o.maxWidth);
   setTracking(ctx, 0);
-  return { lines, size: o.min, lineHeight: o.min * o.lh, height: lines.length * o.min * o.lh };
+  return {
+    lines, size: o.min, lineHeight: o.min * o.lh,
+    height: lines.length * o.min * o.lh, texto: limpo, enfase,
+  };
 }
 
 function drawBlock(
@@ -236,15 +344,28 @@ function drawBlock(
   block: TextBlock,
   x: number,
   y: number,
-  o: { font: (size: number) => string; align?: CanvasTextAlign; tracking?: number },
+  o: { font: (size: number) => string; align?: CanvasTextAlign; tracking?: number; accent?: string },
 ) {
   ctx.font = o.font(block.size);
   ctx.textAlign = o.align ?? "left";
   ctx.textBaseline = "alphabetic";
   setTracking(ctx, (o.tracking ?? 0) * block.size);
   let cy = y + block.size * 0.82;
+
+  const comEnfase = !!(o.accent && block.enfase?.length);
+  let cursor = 0; // por onde já passamos em block.texto, para achar cada linha
   for (const line of block.lines) {
-    ctx.fillText(line, x, cy);
+    if (!comEnfase) {
+      ctx.fillText(line, x, cy);
+    } else {
+      const ini = block.texto.indexOf(line, cursor);
+      if (ini < 0) {
+        ctx.fillText(line, x, cy); // não localizou: desenha normal, nunca deixa de desenhar
+      } else {
+        desenharLinhaComEnfase(ctx, line, ini, block, x, cy, o.align ?? "left", o.accent as string);
+        cursor = ini + line.length;
+      }
+    }
     cy += block.lineHeight;
   }
   setTracking(ctx, 0);
@@ -398,6 +519,8 @@ function layoutEditorial(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chr
   const bg = isCta ? o.theme.accent : o.theme.bg;
   const fg = isCta ? contrastOn(o.theme.accent) : o.theme.fg;
   const accent = isCta ? contrastOn(o.theme.accent) : o.theme.accent;
+  // No CTA o fundo vira o próprio accent — a ênfase precisa de outra cor.
+  const enfase = corEnfase(bg, fg, o.theme.accent);
 
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, W, H);
@@ -463,14 +586,14 @@ function layoutEditorial(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chr
     const totalH = t.height + (corpoBlock ? corpoBlock.height + W * 0.045 : 0);
     const startY = bottomLimit - totalH - W * 0.11;
     ctx.fillStyle = fg;
-    drawBlock(ctx, t, pad, startY, { font: (s) => `${fonts.displayWeight} ${s}px ${fonts.display}`, tracking: fonts.tracking });
+    drawBlock(ctx, t, pad, startY, { font: (s) => `${fonts.displayWeight} ${s}px ${fonts.display}`, tracking: fonts.tracking, accent: enfase });
     if (corpoBlock) {
       ctx.fillStyle = rgba(fg, 0.62);
       drawBlock(ctx, corpoBlock, pad, startY + t.height + W * 0.045, { font: (s) => `400 ${s}px ${fonts.body}` });
     }
   } else {
     ctx.fillStyle = fg;
-    drawBlock(ctx, t, pad, cursor, { font: (s) => `${fonts.displayWeight} ${s}px ${fonts.display}`, tracking: fonts.tracking });
+    drawBlock(ctx, t, pad, cursor, { font: (s) => `${fonts.displayWeight} ${s}px ${fonts.display}`, tracking: fonts.tracking, accent });
     cursor += t.height + W * 0.05;
 
     if (o.slide.corpo) {
@@ -552,6 +675,7 @@ function layoutImpacto(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrom
   drawBlock(ctx, t, pad, startY, {
     font: (s) => `${fonts.upper ? fonts.displayWeight : 800} ${s}px ${fonts.display}`,
     tracking: -0.025,
+    accent,
   });
 
   if (o.slide.corpo) {
@@ -625,7 +749,7 @@ function layoutRevista(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrom
     tracking: -0.005,
   });
   ctx.fillStyle = fg;
-  drawBlock(ctx, t, pad, cursor, { font: (s) => `${fonts.displayWeight} ${s}px ${fonts.display}`, tracking: -0.005 });
+  drawBlock(ctx, t, pad, cursor, { font: (s) => `${fonts.displayWeight} ${s}px ${fonts.display}`, tracking: -0.005, accent });
   cursor += t.height + W * 0.045;
 
   if (o.slide.corpo) {
@@ -724,7 +848,7 @@ function layoutGradiente(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chr
     tracking: fonts.tracking,
   });
   ctx.fillStyle = fg;
-  drawBlock(ctx, t, cardX + inner, cursor, { font: (s) => `${fonts.displayWeight} ${s}px ${fonts.display}`, tracking: fonts.tracking });
+  drawBlock(ctx, t, cardX + inner, cursor, { font: (s) => `${fonts.displayWeight} ${s}px ${fonts.display}`, tracking: fonts.tracking, accent });
   cursor += t.height + W * 0.04;
 
   if (o.slide.corpo) {
@@ -760,6 +884,7 @@ function layoutMinimal(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrom
   const bg = isLight(o.theme.bg) ? o.theme.bg : "#FBFBF9";
   const fg = "#101215";
   const accent = o.theme.accent;
+  const enfase = corEnfase(bg, fg, accent);
   const local: Chrome = { ...c, fg, accent };
 
   ctx.fillStyle = bg;
@@ -799,7 +924,7 @@ function layoutMinimal(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrom
   const startY = top + (bottomLimit - top - bloco) * 0.42;
 
   ctx.fillStyle = fg;
-  drawBlock(ctx, t, pad, startY, { font: (s) => `${fonts.displayWeight} ${s}px ${fonts.display}`, tracking: fonts.tracking });
+  drawBlock(ctx, t, pad, startY, { font: (s) => `${fonts.displayWeight} ${s}px ${fonts.display}`, tracking: fonts.tracking, accent: enfase });
 
   if (corpoBlock) {
     ctx.fillStyle = rgba(fg, 0.62);
@@ -855,6 +980,9 @@ function layoutFoto(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrome) 
   ctx.fillStyle = accent;
   ctx.fillRect(0, 0, W, Math.max(4, W * 0.007));
 
+  // O fundo aqui é a foto escurecida pelo véu: trate como escuro.
+  const enfase = corEnfase("#0A0C0F", fg, accent);
+
   drawLogo(ctx, o, local);
 
   const kickerY = pad * (o.logo?.width ? 2.0 : 1.0);
@@ -893,7 +1021,7 @@ function layoutFoto(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrome) 
   ctx.shadowColor = "rgba(0,0,0,0.45)";
   ctx.shadowBlur = W * 0.03;
   ctx.fillStyle = fg;
-  drawBlock(ctx, t, pad, startY, { font: (s) => `${fonts.displayWeight} ${s}px ${fonts.display}`, tracking: fonts.tracking });
+  drawBlock(ctx, t, pad, startY, { font: (s) => `${fonts.displayWeight} ${s}px ${fonts.display}`, tracking: fonts.tracking, accent: enfase });
   ctx.restore();
 
   if (corpoBlock) {
@@ -1059,14 +1187,14 @@ function layoutVidro(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrome)
   const cardX = (W - cardW) / 2;
   const inner = pad * 0.8;
 
-  const t = fitText(ctx, o.slide.titulo.toUpperCase(), {
+  const t = fitText(ctx, fonts.upper ? o.slide.titulo.toUpperCase() : o.slide.titulo, {
     font: (sz) => `${fonts.displayWeight} ${sz}px ${fonts.display}`,
     maxWidth: cardW - inner * 2,
     maxHeight: H * 0.32,
     max: o.slide.tipo === "capa" ? W * 0.086 : W * 0.074,
     min: W * 0.038,
     lh: 1.16,
-    tracking: -0.01,
+    tracking: fonts.tracking,
   });
 
   const corpoBlock = o.slide.corpo
@@ -1103,7 +1231,8 @@ function layoutVidro(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrome)
   drawBlock(ctx, t, W / 2, cardY + inner, {
     font: (sz) => `${fonts.displayWeight} ${sz}px ${fonts.display}`,
     align: "center",
-    tracking: -0.01,
+    tracking: fonts.tracking,
+    accent: o.theme.accent,
   });
   if (corpoBlock) {
     ctx.fillStyle = "rgba(255,255,255,0.8)";
@@ -1146,14 +1275,14 @@ function layoutCapa(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrome) 
 
   const bottomLimit = H - pad * 3.1;
 
-  const t = fitText(ctx, o.slide.titulo, {
+  const t = fitText(ctx, fonts.upper ? o.slide.titulo.toUpperCase() : o.slide.titulo, {
     font: (sz) => `${fonts.displayWeight} ${sz}px ${fonts.display}`,
     maxWidth: W - pad * 2,
     maxHeight: H * 0.3,
     max: o.slide.tipo === "capa" ? W * 0.096 : W * 0.084,
     min: W * 0.042,
     lh: 1.08,
-    tracking: -0.02,
+    tracking: fonts.tracking,
   });
 
   const corpoBlock = o.slide.corpo
@@ -1188,7 +1317,8 @@ function layoutCapa(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrome) 
   ctx.fillStyle = fg;
   drawBlock(ctx, t, pad, startY, {
     font: (sz) => `${fonts.displayWeight} ${sz}px ${fonts.display}`,
-    tracking: -0.02,
+    tracking: fonts.tracking,
+    accent: o.theme.accent,
   });
   if (corpoBlock) {
     ctx.fillStyle = textoClaro ? "rgba(255,255,255,0.76)" : "rgba(11,13,16,0.7)";
@@ -1203,6 +1333,113 @@ function layoutCapa(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrome) 
 }
 
 // ── API pública ───────────────────────────────────────────────────────────
+/**
+ * ── Acabamento ────────────────────────────────────────────────────────────
+ * Camada de pós-processo, aplicada sobre o slide já desenhado. Fica aqui e
+ * não dentro dos layouts de propósito: assim o mesmo acabamento vale para os
+ * oito layouts, em vez de virar oito layouts novos.
+ */
+
+/** Ruído em tile, gerado uma vez e reaproveitado (é caro). */
+let tileGrao: HTMLCanvasElement | null = null;
+
+function pegarTileGrao(): HTMLCanvasElement | null {
+  if (tileGrao) return tileGrao;
+  if (typeof document === "undefined") return null;
+  const lado = 160;
+  const c = document.createElement("canvas");
+  c.width = lado;
+  c.height = lado;
+  const g = c.getContext("2d");
+  if (!g) return null;
+  const dados = g.createImageData(lado, lado);
+  for (let i = 0; i < dados.data.length; i += 4) {
+    const v = 110 + Math.random() * 90;
+    dados.data[i] = v;
+    dados.data[i + 1] = v;
+    dados.data[i + 2] = v;
+    dados.data[i + 3] = 255;
+  }
+  g.putImageData(dados, 0, 0);
+  tileGrao = c;
+  return c;
+}
+
+function aplicarGrao(ctx: CanvasRenderingContext2D, w: number, h: number, forca: number) {
+  const tile = pegarTileGrao();
+  if (!tile) return;
+  const padrao = ctx.createPattern(tile, "repeat");
+  if (!padrao) return;
+  ctx.save();
+  ctx.globalCompositeOperation = "soft-light";
+  ctx.globalAlpha = forca;
+  ctx.fillStyle = padrao;
+  ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+}
+
+/**
+ * Bloom: reprojeta o próprio slide desfocado e clareado em modo "screen", então
+ * o que já era claro (tipografia, accent, luz da foto) espalha luz em volta.
+ */
+function aplicarGlow(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, w: number, h: number, forca: number) {
+  if (typeof document === "undefined") return;
+  const tmp = document.createElement("canvas");
+  tmp.width = w;
+  tmp.height = h;
+  const t = tmp.getContext("2d");
+  if (!t) return;
+  t.filter = `blur(${Math.round(w * 0.022)}px) brightness(1.5) saturate(1.25)`;
+  t.drawImage(canvas, 0, 0, w, h);
+  t.filter = "none";
+  ctx.save();
+  ctx.globalCompositeOperation = "screen";
+  ctx.globalAlpha = forca;
+  ctx.drawImage(tmp, 0, 0, w, h);
+  ctx.restore();
+}
+
+/** Vinheta suave: fecha os cantos e joga o olho para o centro. */
+function aplicarVinheta(ctx: CanvasRenderingContext2D, w: number, h: number, forca: number) {
+  const g = ctx.createRadialGradient(w / 2, h * 0.46, Math.min(w, h) * 0.32, w / 2, h * 0.5, Math.max(w, h) * 0.78);
+  g.addColorStop(0, "rgba(0,0,0,0)");
+  g.addColorStop(1, `rgba(0,0,0,${forca})`);
+  ctx.save();
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, w, h);
+  ctx.restore();
+}
+
+export const ACABAMENTOS: { id: AcabamentoId; label: string; desc: string }[] = [
+  { id: "nenhum", label: "Limpo", desc: "Cor chapada, sem tratamento. O padrão." },
+  { id: "grao", label: "Grão", desc: "Ruído de filme por cima. Tira o ar de digital chapado." },
+  { id: "glow", label: "Glow", desc: "A tipografia e o accent espalham luz. Bom em fundo escuro." },
+  { id: "cinema", label: "Cinema", desc: "Glow discreto, vinheta e grão juntos. O mais Behance dos três." },
+];
+
+function aplicarAcabamento(canvas: HTMLCanvasElement, ctx: CanvasRenderingContext2D, o: RenderOptions) {
+  const qual = o.acabamento ?? "nenhum";
+  if (qual === "nenhum") return;
+  const w = canvas.width;
+  const h = canvas.height;
+
+  // O pós-processo trabalha em pixels do bitmap, não nas coordenadas de 1080.
+  ctx.save();
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  const escuro = !isLight(o.theme.bg);
+
+  if (qual === "grao") {
+    aplicarGrao(ctx, w, h, 0.5);
+  } else if (qual === "glow") {
+    aplicarGlow(canvas, ctx, w, h, escuro ? 0.5 : 0.28);
+  } else if (qual === "cinema") {
+    aplicarGlow(canvas, ctx, w, h, escuro ? 0.34 : 0.2);
+    aplicarVinheta(ctx, w, h, escuro ? 0.42 : 0.22);
+    aplicarGrao(ctx, w, h, 0.42);
+  }
+  ctx.restore();
+}
+
 export function renderSlide(canvas: HTMLCanvasElement, o: RenderOptions) {
   const [W, H] = FORMAT_SIZE[o.format];
   const scale = o.scale && o.scale > 0 ? o.scale : 1;
@@ -1251,6 +1488,8 @@ export function renderSlide(canvas: HTMLCanvasElement, o: RenderOptions) {
     default:
       layoutEditorial(ctx, o, chrome);
   }
+
+  aplicarAcabamento(canvas, ctx, o);
 }
 
 /** Garante que as fontes do design estejam carregadas antes de desenhar. */
