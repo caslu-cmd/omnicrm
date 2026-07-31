@@ -248,7 +248,19 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   const theme: Theme = useMemo(() => ({ bg, fg, accent, fontPair }), [bg, fg, accent, fontPair]);
   const brand = useMemo(() => ({ nome: marca, handle, logoUrl }), [marca, handle, logoUrl]);
 
-  useEffect(() => { ensureFonts().then(() => setFontesOk(true)); }, []);
+  /**
+   * Sem `catch`, uma falha aqui deixava `fontesOk` em false para sempre e o
+   * estúdio ficava girando sem dizer nada — a fonte vem do Google, então basta
+   * rede ruim, bloqueador ou CSP para travar a tela inteira.
+   * Desenhar com a fonte do sistema é muito melhor do que não desenhar.
+   */
+  useEffect(() => {
+    let vivo = true;
+    ensureFonts()
+      .catch(() => undefined)
+      .finally(() => { if (vivo) setFontesOk(true); });
+    return () => { vivo = false; };
+  }, []);
 
   // Puxa identidade visual do cliente selecionado
   useEffect(() => {
@@ -562,16 +574,35 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
       }
 
       // O layout só existe agora: é ele que decide onde a foto precisa de vazio.
-      const layoutEscolhido = direcoesAuto[0]?.layout ?? layout;
-      const precisaFoto = LAYOUTS.find((l) => l.id === layoutEscolhido)?.precisaImagem;
+      let layoutEscolhido = direcoesAuto[0]?.layout ?? layout;
+      let precisaFoto = LAYOUTS.find((l) => l.id === layoutEscolhido)?.precisaImagem;
+
+      /**
+       * O roteiro sempre planeja uma foto. Se a direção escolhida usa um layout
+       * tipográfico, esse trabalho vira lixo e a peça sai sem imagem — foi o que
+       * aconteceu no primeiro uso real. Quando houver foto planejada, preferimos
+       * uma direção que a aproveite, em vez de descartar em silêncio.
+       */
+      if (!precisaFoto && novos.some((s) => s.prompt_imagem)) {
+        const comFoto = direcoesAuto.find((d) => LAYOUTS.find((l) => l.id === d.layout)?.precisaImagem);
+        if (comFoto) {
+          aplicarDirecao(comFoto);
+          layoutEscolhido = comFoto.layout;
+          precisaFoto = true;
+          toast.info(`Direção "${comFoto.nome}" no lugar da primeira: o roteiro pediu foto e ela aproveita.`);
+        } else {
+          toast.warning("As 3 direções vieram sem foto, então a peça sai só com tipografia. Troque o layout na aba Design se quiser imagem.");
+        }
+      }
+
       if (precisaFoto) {
-        setModoAuto(`Fotografando ${novos.length} slides...`);
+        setModoAuto(`Fotografando ${novos.length} ${novos.length === 1 ? "peça" : "slides"}...`);
         await gerarImagensDeTodos({ slides: novos, layout: layoutEscolhido });
       }
 
       setModoAuto(null);
-      setAba(precisaFoto ? "design" : "roteiro");
-      toast.success(precisaFoto ? "Carrossel pronto: roteiro, arte e fotos." : "Carrossel pronto: roteiro e arte. Este layout não usa foto.");
+      setAba("design");
+      if (precisaFoto) toast.success("Pronto: roteiro, direção de arte e fotos.");
     } catch (e) {
       setModoAuto(null);
       toast.error(e instanceof Error ? e.message : "Erro no modo automático.");
