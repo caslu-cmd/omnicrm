@@ -131,8 +131,10 @@ Responda APENAS com JSON válido, sem cercas de código e sem asteriscos de mark
 }
 
 Regras do relatório:
-- "acoes" é o coração: ordene por prioridade (1 = mais urgente), entre 3 e 10 itens, cada uma acionável de verdade. Nada de "avalie a situação".
-- "achados" separa o que está certo (ok) do que é risco (atencao) e do que precisa parar tudo (critico).
+- "acoes" é o coração: ordene por prioridade (1 = mais urgente), entre 3 e 8 itens, cada uma acionável de verdade. Nada de "avalie a situação".
+- "achados" separa o que está certo (ok) do que é risco (atencao) e do que precisa parar tudo (critico). No máximo 8, com "detalhe" em até 4 frases.
+- No máximo 4 blocos em "calculos". Profundidade é na conta, não no tamanho do texto.
+- O relatório inteiro precisa caber na resposta: prefira cortar item de menor prioridade a entregar JSON incompleto.
 - "calculos" só quando houver número; se os dados não permitirem calcular, deixe a lista vazia e diga o que falta em "faltou_informar".
 - "documentos_analisados" só com os arquivos realmente enviados. Se um documento contradisser o questionário, isso é um achado.
 - Array vazio é resposta válida. Não invente conteúdo para preencher campo.`;
@@ -233,8 +235,10 @@ Deno.serve(async (req) => {
             "content-type": "application/json",
           },
           body: JSON.stringify({
+            // 32k porque o raciocínio conta dentro do teto: com 16k o relatório
+            // de um caso rico chegou a ser cortado no meio do JSON.
             model: "claude-opus-5",
-            max_tokens: 16000,
+            max_tokens: 32000,
             thinking: { type: "adaptive" },
             system,
             messages: [{ role: "user", content: conteudo }],
@@ -274,6 +278,13 @@ Deno.serve(async (req) => {
                   // Só para a barra de progresso — o raciocínio não vai ao cliente.
                   controller.enqueue(sse({ tipo: "pensando" }));
                 }
+              } else if (evt.type === "message_delta" && evt.delta?.stop_reason === "max_tokens") {
+                // JSON cortado no meio vira "relatório ilegível" na tela; melhor
+                // dizer o que houve.
+                controller.enqueue(sse({
+                  tipo: "erro",
+                  mensagem: "O relatório ficou longo demais e foi cortado. Refaça com menos documentos ou com a dúvida mais focada.",
+                }));
               }
             } catch { /* linha não-JSON do stream */ }
           }
@@ -289,6 +300,6 @@ Deno.serve(async (req) => {
   });
 
   return new Response(stream, {
-    headers: { ...cors, "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+    headers: { ...cors, "Content-Type": "text/event-stream; charset=utf-8", "Cache-Control": "no-cache" },
   });
 });
