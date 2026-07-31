@@ -1,3 +1,5 @@
+import { supabase } from "@/integrations/supabase/client";
+
 /**
  * Clientes salvos do Fisco.
  *
@@ -6,8 +8,10 @@
  * pode ser escolhido de novo e serve de contexto tanto no diagnóstico quanto no
  * chat.
  *
- * Fica no NAVEGADOR de propósito: são dados fiscais de terceiros e o link é
- * usado por quem não tem conta na plataforma. Nada disso sobe para o servidor.
+ * **É por usuário.** Com sessão, fica na tabela `fisco_clientes` (RLS por
+ * `user_id`), então a lista acompanha a pessoa em qualquer aparelho e ninguém
+ * vê a lista de ninguém. Sem sessão, cai no navegador — é o caso de quem abre a
+ * tela da agência sem estar logado.
  */
 
 export type PerfilCliente = "pessoa" | "empresa" | "contabilidade";
@@ -22,7 +26,9 @@ export interface ClienteFisco {
 
 const CHAVE = "fisco-clientes";
 
-export function listarClientes(): ClienteFisco[] {
+// ── Navegador (usado sem sessão, e como espelho local) ───────────────────────
+
+function lerLocal(): ClienteFisco[] {
   try {
     const bruto = localStorage.getItem(CHAVE);
     if (!bruto) return [];
@@ -33,20 +39,83 @@ export function listarClientes(): ClienteFisco[] {
   }
 }
 
-function gravar(lista: ClienteFisco[]) {
+function gravarLocal(lista: ClienteFisco[]) {
   localStorage.setItem(CHAVE, JSON.stringify(lista));
 }
 
+/** Leitura síncrona para a primeira pintura da tela. */
+export function listarClientesLocal(): ClienteFisco[] {
+  return lerLocal();
+}
+
+// ── Banco (por usuário) ──────────────────────────────────────────────────────
+
+async function temSessao(): Promise<boolean> {
+  const { data } = await supabase.auth.getSession();
+  return Boolean(data.session);
+}
+
+function daLinha(l: Record<string, unknown>): ClienteFisco {
+  return {
+    id: String(l.id),
+    nome: String(l.nome),
+    perfil: l.perfil as PerfilCliente,
+    respostas: (l.respostas ?? {}) as Record<string, string>,
+    atualizado_em: String(l.atualizado_em),
+  };
+}
+
+export async function listarClientes(): Promise<ClienteFisco[]> {
+  if (!(await temSessao())) return lerLocal();
+
+  const { data, error } = await (supabase as any)
+    .from("fisco_clientes")
+    .select("id, nome, perfil, respostas, atualizado_em")
+    .order("atualizado_em", { ascending: false });
+
+  if (error || !data) return lerLocal();
+
+  const lista = (data as Record<string, unknown>[]).map(daLinha);
+
+  // Primeira vez com conta: o que estava no navegador sobe, para não sumir.
+  const local = lerLocal();
+  if (local.length && !lista.length) {
+    for (const c of local) await salvarCliente(c.nome, c.perfil, c.respostas);
+    localStorage.removeItem(CHAVE);
+    return listarClientes();
+  }
+
+  gravarLocal(lista);
+  return lista;
+}
+
 /** Mesmo nome e mesmo perfil sobrescreve, em vez de duplicar o cliente. */
-export function salvarCliente(
+export async function salvarCliente(
   nome: string,
   perfil: PerfilCliente,
   respostas: Record<string, string>,
-): ClienteFisco[] {
+): Promise<ClienteFisco[]> {
   const limpo = nome.trim();
   if (!limpo) return listarClientes();
 
-  const lista = listarClientes();
+  if (await temSessao()) {
+    const { data: sessao } = await supabase.auth.getSession();
+    await (supabase as any)
+      .from("fisco_clientes")
+      .upsert(
+        {
+          user_id: sessao.session?.user.id,
+          nome: limpo,
+          perfil,
+          respostas,
+          atualizado_em: new Date().toISOString(),
+        },
+        { onConflict: "user_id,nome,perfil" },
+      );
+    return listarClientes();
+  }
+
+  const lista = lerLocal();
   const existente = lista.find(
     (c) => c.nome.toLowerCase() === limpo.toLowerCase() && c.perfil === perfil,
   );
@@ -60,13 +129,17 @@ export function salvarCliente(
   const nova = existente
     ? lista.map((c) => (c.id === existente.id ? registro : c))
     : [registro, ...lista];
-  gravar(nova);
+  gravarLocal(nova);
   return nova;
 }
 
-export function removerCliente(id: string): ClienteFisco[] {
-  const nova = listarClientes().filter((c) => c.id !== id);
-  gravar(nova);
+export async function removerCliente(id: string): Promise<ClienteFisco[]> {
+  if (await temSessao()) {
+    await (supabase as any).from("fisco_clientes").delete().eq("id", id);
+    return listarClientes();
+  }
+  const nova = lerLocal().filter((c) => c.id !== id);
+  gravarLocal(nova);
   return nova;
 }
 

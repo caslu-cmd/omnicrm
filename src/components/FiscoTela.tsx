@@ -2,14 +2,15 @@ import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Send, RefreshCw, Copy, Loader2, AlertCircle, Receipt,
-  ChevronRight, MessageSquare, ClipboardCheck, Share2, Trash2, Paperclip, X, FileText
+  ChevronRight, MessageSquare, ClipboardCheck, Share2, Trash2, Paperclip, X, FileText,
+  LogOut, Users, Ban
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import FiscoDiagnostico, { PERGUNTAS } from "@/components/FiscoDiagnostico";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  listarClientes, salvarCliente, removerCliente, contextoDoCliente,
+  listarClientes, listarClientesLocal, salvarCliente, removerCliente, contextoDoCliente,
   type ClienteFisco,
 } from "@/lib/fiscoClientes";
 
@@ -114,6 +115,97 @@ interface LinkFisco {
   senha_hash: string | null;
 }
 
+/**
+ * Quem tem acesso a este link. Cada pessoa entrou com a conta dela, então dá
+ * para tirar uma sem derrubar as outras — e sem trocar o convite de todo mundo.
+ */
+interface AcessoFisco {
+  id: string;
+  user_email: string | null;
+  user_name: string | null;
+  bloqueado: boolean;
+  started_at: string | null;
+  last_message_at: string | null;
+}
+
+function Acessos({ token }: { token: string }) {
+  const [lista, setLista] = useState<AcessoFisco[]>([]);
+  const [aberto, setAberto] = useState(false);
+  const [ocupado, setOcupado] = useState<string | null>(null);
+
+  const carregar = useCallback(async () => {
+    const { data: link } = await (supabase as any)
+      .from("agent_links").select("id").eq("token", token).maybeSingle();
+    if (!link?.id) return;
+    const { data } = await (supabase as any)
+      .from("agent_link_sessions")
+      .select("id, user_email, user_name, bloqueado, started_at, last_message_at")
+      .eq("link_id", link.id)
+      .order("started_at", { ascending: false });
+    setLista((data ?? []) as AcessoFisco[]);
+  }, [token]);
+
+  useEffect(() => { if (aberto) carregar(); }, [aberto, carregar]);
+
+  const alternar = async (a: AcessoFisco) => {
+    setOcupado(a.id);
+    try {
+      const { error } = await (supabase as any).rpc("bloquear_acesso_fisco", {
+        p_sessao_id: a.id,
+        p_bloquear: !a.bloqueado,
+      });
+      if (error) throw error;
+      toast.success(a.bloqueado ? "Acesso liberado." : "Acesso encerrado.");
+      await carregar();
+    } catch {
+      toast.error("Não consegui mudar o acesso.");
+    } finally {
+      setOcupado(null);
+    }
+  };
+
+  return (
+    <div className="mt-2 pt-2" style={{ borderTop: "1px solid #1A1A28" }}>
+      <button onClick={() => setAberto((a) => !a)}
+        className="w-full flex items-center justify-between text-[10px] font-semibold"
+        style={{ color: "#77778A" }}>
+        <span className="flex items-center gap-1.5"><Users className="w-3 h-3" /> Quem tem acesso</span>
+        <span style={{ color: "#44445A" }}>{aberto ? "−" : "+"}</span>
+      </button>
+
+      {aberto && (
+        <div className="flex flex-col gap-1.5 mt-2">
+          {lista.length === 0 && (
+            <p className="text-[10px]" style={{ color: "#44445A" }}>Ninguém criou acesso ainda.</p>
+          )}
+          {lista.map((a) => (
+            <div key={a.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg"
+              style={{ background: "#141420", border: "1px solid #22222E" }}>
+              <div className="flex-1 min-w-0">
+                <p className="text-[10px] font-semibold truncate"
+                  style={{ color: a.bloqueado ? "#55556A" : "#C0C0D0", textDecoration: a.bloqueado ? "line-through" : "none" }}>
+                  {a.user_name || a.user_email || "sem nome"}
+                </p>
+                <p className="text-[9px] truncate" style={{ color: "#44445A" }}>{a.user_email}</p>
+              </div>
+              <button onClick={() => alternar(a)} disabled={ocupado === a.id}
+                className="px-1.5 py-1 rounded-md text-[9px] font-bold flex-shrink-0 flex items-center gap-1"
+                style={{
+                  background: a.bloqueado ? "rgba(52,211,153,0.1)" : "rgba(248,113,113,0.1)",
+                  color: a.bloqueado ? "#34D399" : "#F87171",
+                }}
+                title={a.bloqueado ? "Liberar de novo" : "Encerrar o acesso desta pessoa"}>
+                <Ban className="w-2.5 h-2.5" />
+                {a.bloqueado ? "Liberar" : "Encerrar"}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PainelLinks() {
   const [links, setLinks] = useState<LinkFisco[]>([]);
   const [aberto, setAberto] = useState(false);
@@ -215,11 +307,13 @@ function PainelLinks() {
                     {salvando === l.token ? "…" : "Salvar"}
                   </button>
                 </div>
-                {l.senha_hash && (
-                  <p className="text-[9px] mt-1.5 leading-relaxed" style={{ color: "#55556A" }}>
-                    A senha atual não pode ser exibida (fica criptografada). Digite outra para substituir, ou salve em branco para abrir o link.
-                  </p>
-                )}
+                <p className="text-[9px] mt-1.5 leading-relaxed" style={{ color: "#55556A" }}>
+                  {l.senha_hash
+                    ? "Esse código é o convite: pedido só quando a pessoa cria o acesso dela. Depois cada uma entra com o próprio e-mail e senha. Não dá para exibir o atual — digite outro para substituir."
+                    : "Sem código de convite, qualquer pessoa com o link cria acesso. Recomendo definir um."}
+                </p>
+
+                <Acessos token={l.token} />
               </div>
             );
           })}
@@ -242,9 +336,11 @@ interface Props {
   perfilInicial?: PerfilId;
   /** Só na agência: painel para gerar link e definir a senha de acesso. */
   gerenciarLinks?: boolean;
+  /** No link compartilhado, cada pessoa entra com a conta dela — e pode sair. */
+  aoSair?: () => void;
 }
 
-export default function FiscoTela({ perfilFixo, perfilInicial, gerenciarLinks = false }: Props) {
+export default function FiscoTela({ perfilFixo, perfilInicial, gerenciarLinks = false, aoSair }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [perfil, setPerfil] = useState<PerfilId>(() => {
     if (perfilFixo) return perfilFixo;
@@ -263,23 +359,26 @@ export default function FiscoTela({ perfilFixo, perfilInicial, gerenciarLinks = 
   const readerRef = useRef<ReadableStreamDefaultReader | null>(null);
 
   // Clientes salvos: quem já respondeu uma vez não redigita a cada conversa.
-  const [clientes, setClientes] = useState<ClienteFisco[]>(() => listarClientes());
+  // Pinta na hora com o que estiver no navegador e troca pela lista da conta.
+  const [clientes, setClientes] = useState<ClienteFisco[]>(() => listarClientesLocal());
   const [clienteAtivo, setClienteAtivo] = useState<ClienteFisco | null>(null);
+
+  useEffect(() => { listarClientes().then(setClientes); }, []);
 
   // Anexo na conversa (o diagnóstico tem o próprio passo de documentos).
   const [anexos, setAnexos] = useState<File[]>([]);
   const anexoRef = useRef<HTMLInputElement>(null);
 
-  const guardarCliente = (nome: string, perfilCliente: PerfilId, respostas: Record<string, string>) => {
-    const lista = salvarCliente(nome, perfilCliente, respostas);
+  const guardarCliente = async (nome: string, perfilCliente: PerfilId, respostas: Record<string, string>) => {
+    const lista = await salvarCliente(nome, perfilCliente, respostas);
     setClientes(lista);
     const salvo = lista.find((c) => c.nome.toLowerCase() === nome.trim().toLowerCase() && c.perfil === perfilCliente);
     if (salvo) setClienteAtivo(salvo);
     toast.success(`${nome.trim()} salvo.`);
   };
 
-  const apagarCliente = (id: string) => {
-    setClientes(removerCliente(id));
+  const apagarCliente = async (id: string) => {
+    setClientes(await removerCliente(id));
     setClienteAtivo((c) => (c?.id === id ? null : c));
   };
 
@@ -451,12 +550,18 @@ export default function FiscoTela({ perfilFixo, perfilInicial, gerenciarLinks = 
           >
             <Receipt className="w-5 h-5" style={{ color: GOLD }} />
           </div>
-          <div>
+          <div className="flex-1">
             <div className="font-bold text-sm" style={{ color: "#F0F0F0" }}>Fisco</div>
             <div className="text-[11px]" style={{ color: GOLD, opacity: 0.8 }}>
               Consultor Contábil IA
             </div>
           </div>
+          {aoSair && (
+            <button onClick={aoSair} title="Sair da minha conta"
+              className="p-1.5 rounded-lg flex-shrink-0" style={{ color: "#55556A" }}>
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Como usar */}
