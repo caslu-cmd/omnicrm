@@ -271,6 +271,29 @@ const AGENT_CONFIG: Record<string, { maxTokens: number; thinking: boolean; think
   ben:         { maxTokens: 0,    thinking: false }, // usa ben-trends edge function, não chat-ai
 };
 
+/**
+ * Rotinas que o time executa sozinho, no horário que a Carol marcar.
+ * O motor é a edge function `rotina-agentes`; cada execução publica uma entrega
+ * visível no portal do cliente — é assim que ele vê o trabalho acontecendo.
+ */
+interface RotinaCliente {
+  rotina: string;
+  dias_semana: number[];
+  hora: string;
+  ativo: boolean;
+  last_run_at?: string | null;
+  last_status?: string | null;
+  last_error?: string | null;
+}
+
+const DIAS_SEMANA = ["D", "S", "T", "Q", "Q", "S", "S"]; // 0 = domingo
+
+const ROTINAS: { id: string; label: string; desc: string }[] = [
+  { id: "pauta", label: "Pautas da semana", desc: "8 ideias novas para o nicho, sem repetir o que já foi publicado" },
+  { id: "carrossel", label: "Carrossel pronto para revisão", desc: "Escolhe o tema, escreve os 7 slides e a legenda, e deixa na biblioteca" },
+  { id: "relatorio", label: "Relatório do período", desc: "Seguidores, o que saiu e o que está na fila — só número real" },
+];
+
 const AGENT_PROMPTS: Record<string, string> = {
   strategist: `Você é QUEILA, Estrategista-Chefe da Calu Agência.
 Frameworks: AIDA, Jobs-to-be-Done, Blue Ocean, Brand Key, SWOT.
@@ -1112,6 +1135,10 @@ export default function ClientWorkspace() {
   const [clientWpCreds, setClientWpCreds] = useState({ wp_url: "", wp_user: "", wp_password: "" });
   const [clientWpCredsSaving, setClientWpCredsSaving] = useState(false);
   const [clientWpCredsLoaded, setClientWpCredsLoaded] = useState(false);
+
+  // Rotinas automáticas (a Carol marca dias + hora; o resto roda sozinho)
+  const [rotinas, setRotinas] = useState<Record<string, RotinaCliente>>({});
+  const [rotinaSalvando, setRotinaSalvando] = useState<string | null>(null);
 
   // Agent channel config per client
   const [agentChannelConfig, setAgentChannelConfig] = useState({
@@ -2980,6 +3007,51 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
       toast.error("Erro ao enviar mensagem");
     } finally {
       setWpContactSending(false);
+    }
+  };
+
+  /**
+   * Rotinas automáticas deste cliente. A Carol define só quando; quem executa é
+   * a edge function `rotina-agentes` (cron a cada 15 min), e o resultado nasce
+   * como entrega visível no portal do cliente.
+   */
+  const carregarRotinas = async () => {
+    if (!id) return;
+    const { data } = await (supabase as any)
+      .from("client_routines")
+      .select("rotina, dias_semana, hora, ativo, last_run_at, last_status, last_error")
+      .eq("client_id", id);
+    const mapa: Record<string, RotinaCliente> = {};
+    for (const r of (data ?? []) as RotinaCliente[]) mapa[r.rotina] = r;
+    setRotinas(mapa);
+  };
+
+  useEffect(() => { carregarRotinas(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [id]);
+
+  const salvarRotina = async (r: RotinaCliente) => {
+    if (!id) return;
+    setRotinaSalvando(r.rotina);
+    // Otimista: o toggle e os dias respondem na hora, sem esperar a ida ao banco.
+    setRotinas((prev) => ({ ...prev, [r.rotina]: r }));
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { toast.error("Sessão expirada."); return; }
+      const { error } = await (supabase as any).from("client_routines").upsert({
+        user_id: user.id,
+        client_id: id,
+        rotina: r.rotina,
+        dias_semana: r.dias_semana,
+        hora: r.hora,
+        ativo: r.ativo,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "user_id,client_id,rotina" });
+      if (error) { toast.error(error.message); await carregarRotinas(); return; }
+      if (r.ativo) {
+        const nomes = r.dias_semana.map((d) => DIAS_SEMANA[d]).join(", ");
+        toast.success(`Rotina ligada: ${nomes} às ${r.hora}`);
+      }
+    } finally {
+      setRotinaSalvando(null);
     }
   };
 
@@ -10118,6 +10190,88 @@ ${clientSection}${originalSection}`;
                                   </div>
                                   <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>Verify token: <span style={{ color: "rgba(185,255,75,0.7)" }}>calu_verify_2025</span></p>
                                 </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* ── Rotinas automáticas: a Carol escolhe QUANDO, o resto acontece ── */}
+                <div className="rounded-2xl p-4 space-y-3" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                  <div>
+                    <p className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.4)" }}>
+                      Rotinas automáticas
+                    </p>
+                    <p className="text-[11px] mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>
+                      Escolha os dias e a hora. O time trabalha sozinho no horário marcado e
+                      <strong style={{ color: "rgba(255,255,255,0.6)" }}> a entrega aparece no portal do cliente</strong> assim que fica pronta.
+                      Horário de Fortaleza; cada rotina roda no máximo uma vez por dia.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    {ROTINAS.map((rot) => {
+                      const r = rotinas[rot.id] ?? { rotina: rot.id, dias_semana: [1, 3, 5], hora: "09:00", ativo: false };
+                      const salvando = rotinaSalvando === rot.id;
+                      return (
+                        <div key={rot.id} className="rounded-xl p-3" style={{ background: "#141420", border: `1px solid ${r.ativo ? "rgba(185,255,75,0.35)" : "rgba(255,255,255,0.07)"}` }}>
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-[12px] font-semibold" style={{ color: r.ativo ? "#B9FF4B" : "rgba(255,255,255,0.75)" }}>{rot.label}</p>
+                              <p className="text-[10px] mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>{rot.desc}</p>
+                            </div>
+                            <button
+                              onClick={() => salvarRotina({ ...r, ativo: !r.ativo })}
+                              disabled={salvando}
+                              className="relative w-9 h-5 rounded-full shrink-0 transition-colors"
+                              style={{ background: r.ativo ? "#B9FF4B" : "rgba(255,255,255,0.1)" }}
+                            >
+                              <span className="absolute top-0.5 w-4 h-4 rounded-full transition-all"
+                                style={{ left: r.ativo ? "1.15rem" : "0.15rem", background: r.ativo ? "#07080A" : "rgba(255,255,255,0.5)" }} />
+                            </button>
+                          </div>
+
+                          {r.ativo && (
+                            <div className="mt-3 space-y-2">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                {DIAS_SEMANA.map((d, i) => {
+                                  const on = r.dias_semana.includes(i);
+                                  return (
+                                    <button
+                                      key={i}
+                                      onClick={() => salvarRotina({
+                                        ...r,
+                                        dias_semana: on ? r.dias_semana.filter((x) => x !== i) : [...r.dias_semana, i].sort(),
+                                      })}
+                                      disabled={salvando}
+                                      className="w-7 h-7 rounded-lg text-[10px] font-semibold transition-all"
+                                      style={{
+                                        background: on ? "rgba(185,255,75,0.15)" : "rgba(255,255,255,0.04)",
+                                        border: `1px solid ${on ? "rgba(185,255,75,0.5)" : "rgba(255,255,255,0.08)"}`,
+                                        color: on ? "#B9FF4B" : "rgba(255,255,255,0.35)",
+                                      }}
+                                    >{d}</button>
+                                  );
+                                })}
+                                <input
+                                  type="time"
+                                  value={r.hora}
+                                  onChange={(e) => salvarRotina({ ...r, hora: e.target.value })}
+                                  disabled={salvando}
+                                  className="ml-1 px-2 py-1 rounded-lg text-[11px]"
+                                  style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#C0C0D0" }}
+                                />
+                              </div>
+
+                              {r.last_run_at && (
+                                <p className="text-[10px]" style={{ color: r.last_status === "erro" ? "#F87171" : "rgba(255,255,255,0.35)" }}>
+                                  {r.last_status === "erro"
+                                    ? `Falhou em ${new Date(r.last_run_at).toLocaleString("pt-BR")}: ${r.last_error ?? ""}`
+                                    : `Rodou em ${new Date(r.last_run_at).toLocaleString("pt-BR")} e publicou no portal`}
+                                </p>
                               )}
                             </div>
                           )}
