@@ -14,8 +14,9 @@ import { useClients } from "@/contexts/ClientsContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
   renderSlide, ensureFonts, loadImage, canvasToBlob,
-  FORMAT_SIZE, FORMAT_LABEL, FONT_PAIRS, LAYOUTS, PALETTES,
+  FORMAT_SIZE, FORMAT_LABEL, FONT_PAIRS, LAYOUTS, PALETTES, ACABAMENTOS,
   type SlideData, type LayoutId, type FormatId, type FontPairId, type Theme,
+  type AcabamentoId, type BrandInfo,
 } from "@/lib/carouselRender";
 
 const LIME = "#B9FF4B";
@@ -29,8 +30,20 @@ interface Skill { id: string; tipo: "copy" | "design"; nome: string; resumo: str
 interface Direcao {
   nome: string; referencia: string; porque: string;
   layout: LayoutId; fonte: FontPairId; bg: string; fg: string; accent: string;
+  acabamento?: AcabamentoId;
 }
-interface MemoriaItem { id: string; tema: string; angulo: string | null; created_at: string }
+/** Referência pode vir como URL (peça publicada num CDN) ou embutida em base64
+ *  (peça que a Carol subiu). O diretor de arte recebe as duas do mesmo jeito. */
+type ImagemRef = string | { data: string; mediaType?: string };
+interface RefVisual { id: string; nome: string; imagens: ImagemRef[] | null; client_id: string | null }
+interface MemoriaItem {
+  id: string; tema: string; angulo: string | null; created_at: string;
+  slides?: SlideData[] | null;
+  design?: {
+    layout?: LayoutId; fontPair?: FontPairId; bg?: string; fg?: string;
+    accent?: string; formatId?: FormatId; acabamento?: AcabamentoId;
+  } | null;
+}
 interface Conexao { platform: string; account_name: string | null; account_username: string | null; connected: boolean }
 
 const OBJETIVOS: { id: Objetivo; label: string }[] = [
@@ -67,6 +80,57 @@ const inputStyle: React.CSSProperties = {
   fontSize: 14,
   width: "100%",
 };
+
+/**
+ * Miniatura de uma peça guardada na biblioteca, desenhada pelo próprio motor.
+ * A biblioteca grava o roteiro ANTES das fotos, então aqui não há imagem —
+ * a miniatura mostra layout, tipografia e cor, que é o que identifica a peça.
+ */
+function MiniPeca({ item, brand, fontesOk }: { item: MemoriaItem; brand: BrandInfo; fontesOk: boolean }) {
+  const ref = useRef<HTMLCanvasElement | null>(null);
+  const slide = item.slides?.[0];
+  const d = item.design ?? {};
+
+  useEffect(() => {
+    if (!fontesOk || !ref.current || !slide) return;
+    try {
+      renderSlide(ref.current, {
+        slide,
+        index: 0,
+        total: item.slides?.length ?? 1,
+        layout: d.layout ?? "editorial",
+        format: d.formatId ?? "4:5",
+        theme: {
+          bg: d.bg ?? PALETTES[0].bg,
+          fg: d.fg ?? PALETTES[0].fg,
+          accent: d.accent ?? PALETTES[0].accent,
+          fontPair: d.fontPair ?? "editorial",
+        },
+        brand,
+        image: null,
+        mostrarNumero: false,
+        mostrarArraste: false,
+        acabamento: d.acabamento ?? "nenhum",
+        scale: 0.14,
+      });
+    } catch {
+      /* peça antiga com formato inesperado: fica o fundo vazio, não derruba a lista */
+    }
+  }, [fontesOk, slide, item.slides?.length, d.layout, d.formatId, d.bg, d.fg, d.accent, d.fontPair, d.acabamento, brand]);
+
+  if (!slide) {
+    return (
+      <div className="rounded-lg flex-shrink-0 flex items-center justify-center"
+        style={{ width: 68, height: 85, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
+        <ImageIcon className="w-4 h-4" style={{ color: "rgba(255,255,255,0.2)" }} />
+      </div>
+    );
+  }
+  return (
+    <canvas ref={ref} className="rounded-lg flex-shrink-0"
+      style={{ width: 68, height: "auto", border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.04)" }} />
+  );
+}
 
 function Chip({ ativo, onClick, children, cor = LIME }: { ativo: boolean; onClick: () => void; children: React.ReactNode; cor?: string }) {
   return (
@@ -121,6 +185,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   const [layout, setLayout] = useState<LayoutId>("vidro");
   const [formatId, setFormatId] = useState<FormatId>("4:5");
   const [fontPair, setFontPair] = useState<FontPairId>("editorial");
+  const [acabamento, setAcabamento] = useState<AcabamentoId>("nenhum");
   const [paleta, setPaleta] = useState(PALETTES[0]);
   const [bg, setBg] = useState(PALETTES[0].bg);
   const [fg, setFg] = useState(PALETTES[0].fg);
@@ -142,6 +207,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
 
   // Memória do cliente + tendências do Ben
   const [memoria, setMemoria] = useState<MemoriaItem[]>([]);
+  const [refsVisuais, setRefsVisuais] = useState<RefVisual[]>([]);
   const [tendencias, setTendencias] = useState<{ conteudo: string; created_at: string } | null>(null);
   const [buscandoBen, setBuscandoBen] = useState(false);
   const [direcoes, setDirecoes] = useState<Direcao[]>([]);
@@ -232,8 +298,9 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
       logo: logoImg,
       mostrarNumero,
       mostrarArraste,
+      acabamento,
     }),
-    [slides, layout, formatId, theme, brand, logoImg, mostrarNumero, mostrarArraste],
+    [slides, layout, formatId, theme, brand, logoImg, mostrarNumero, mostrarArraste, acabamento],
   );
 
   // Render do preview + miniaturas
@@ -252,14 +319,64 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     if (!clienteId) { setMemoria([]); return; }
     const { data } = await (supabase as any)
       .from("carousel_memory")
-      .select("id, tema, angulo, created_at")
+      .select("id, tema, angulo, created_at, slides, design")
       .eq("client_id", clienteId)
       .order("created_at", { ascending: false })
-      .limit(15);
+      .limit(30);
     setMemoria((data ?? []) as MemoriaItem[]);
   }, [clienteId]);
 
   useEffect(() => { carregarMemoria(); }, [carregarMemoria]);
+
+  /**
+   * Referências visuais que o diretor de arte OLHA antes de decidir.
+   * Vêm as da casa (client_id nulo) e as específicas deste cliente. Não são
+   * template: a instrução de "adapte ao nicho" está no prompt da edge function.
+   */
+  const carregarRefs = useCallback(async () => {
+    const { data } = await (supabase as any)
+      .from("visual_refs")
+      .select("id, nome, imagens, client_id")
+      .eq("ativa", true)
+      .or(clienteId ? `client_id.is.null,client_id.eq.${clienteId}` : "client_id.is.null")
+      .order("created_at", { ascending: false })
+      .limit(12);
+    setRefsVisuais((data ?? []) as RefVisual[]);
+  }, [clienteId]);
+
+  useEffect(() => { carregarRefs(); }, [carregarRefs]);
+
+  /** As 3 primeiras imagens, priorizando as referências do próprio cliente. */
+  const refsParaIA = () => {
+    const ordenadas = [...refsVisuais].sort((a, b) => (b.client_id ? 1 : 0) - (a.client_id ? 1 : 0));
+    return ordenadas
+      .flatMap((r) => (Array.isArray(r.imagens) ? r.imagens : []))
+      .filter(Boolean)
+      .slice(0, 3)
+      .map((img) => (typeof img === "string" ? { url: img } : img));
+  };
+
+  /**
+   * Mantém a biblioteca em dia. O registro nasce junto com o roteiro, antes de
+   * existir direção de arte e antes de qualquer edição — sem este sincronismo a
+   * biblioteca guardaria a peça como ela era no primeiro minuto.
+   * As fotos são data URLs de megabytes: ficam de fora da linha de propósito.
+   */
+  useEffect(() => {
+    if (!memoriaId || !slides.length) return;
+    const t = setTimeout(() => {
+      (supabase as any).from("carousel_memory")
+        .update({
+          slides: slides.map((s) => ({ ...s, imagem: null })),
+          legenda,
+          hashtags,
+          design: { layout, fontPair, bg, fg, accent, formatId, acabamento },
+        })
+        .eq("id", memoriaId)
+        .then(() => undefined, () => undefined);
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [memoriaId, slides, legenda, hashtags, layout, fontPair, bg, fg, accent, formatId, acabamento]);
 
   useEffect(() => {
     if (!clienteId) { setTendencias(null); return; }
@@ -332,6 +449,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
       const { data, error } = await supabase.functions.invoke("carousel-studio", {
         body: {
           action: "direcao",
+          refs: refsParaIA(),
           nicho: cliente?.industry || "",
           tema,
           corMarca: accent,
@@ -411,6 +529,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     setBg(d.bg);
     setFg(d.fg);
     setAccent(d.accent);
+    if (d.acabamento) setAcabamento(d.acabamento);
     setDirecaoAtiva(d.nome);
     toast.success(`Direção "${d.nome}" aplicada.`);
   };
@@ -420,12 +539,14 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     if (!tema.trim()) { toast.error("Escreva o tema (ou peça uma pauta) antes."); return; }
     try {
       setModoAuto("Escrevendo o roteiro...");
-      await gerar();
+      const novos = await gerar();
+      if (!novos.length) { setModoAuto(null); return; }
 
       setModoAuto("Definindo a direção de arte...");
       const { data: dir } = await supabase.functions.invoke("carousel-studio", {
         body: {
           action: "direcao",
+          refs: refsParaIA(),
           nicho: cliente?.industry || "",
           tema,
           corMarca: accent,
@@ -439,8 +560,18 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
         setDirecoes(direcoesAuto);
         aplicarDirecao(direcoesAuto[0]);
       }
+
+      // O layout só existe agora: é ele que decide onde a foto precisa de vazio.
+      const layoutEscolhido = direcoesAuto[0]?.layout ?? layout;
+      const precisaFoto = LAYOUTS.find((l) => l.id === layoutEscolhido)?.precisaImagem;
+      if (precisaFoto) {
+        setModoAuto(`Fotografando ${novos.length} slides...`);
+        await gerarImagensDeTodos({ slides: novos, layout: layoutEscolhido });
+      }
+
       setModoAuto(null);
-      toast.success("Pronto. Confira o roteiro e gere as fotos quando quiser.");
+      setAba(precisaFoto ? "design" : "roteiro");
+      toast.success(precisaFoto ? "Carrossel pronto: roteiro, arte e fotos." : "Carrossel pronto: roteiro e arte. Este layout não usa foto.");
     } catch (e) {
       setModoAuto(null);
       toast.error(e instanceof Error ? e.message : "Erro no modo automático.");
@@ -499,6 +630,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     if (d.fg) setFg(d.fg);
     if (d.accent) setAccent(d.accent);
     if (d.formatId) setFormatId(d.formatId);
+    if (d.acabamento) setAcabamento(d.acabamento);
     setAtivo(0);
     setAba("roteiro");
     setMostrarBiblioteca(false);
@@ -527,8 +659,10 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     };
   };
 
-  const gerar = async () => {
-    if (!tema.trim()) { toast.error("Escreva o tema do conteúdo."); return; }
+  /** Devolve os slides que acabou de escrever — o estado ainda não atualizou
+   *  para quem chamou (closure), e o modo automático precisa da lista na mão. */
+  const gerar = async (): Promise<SlideData[]> => {
+    if (!tema.trim()) { toast.error("Escreva o tema do conteúdo."); return []; }
     setGerando(true);
     try {
       const ctx = contextoCliente();
@@ -571,15 +705,17 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
             slides: novos,
             legenda: data.legenda ?? "",
             hashtags: data.hashtags ?? [],
-            design: { layout, fontPair, bg, fg, accent, formatId },
+            design: { layout, fontPair, bg, fg, accent, formatId, acabamento },
           }).select("id").single();
           if (salvo?.id) setMemoriaId(salvo.id as string);
           carregarMemoria();
         }
       }
       toast.success(`${novos.length} ${novos.length === 1 ? "peça pronta" : "slides prontos"}. Agora é só ajustar o design.`);
+      return novos;
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao gerar o conteúdo.");
+      return [];
     } finally {
       setGerando(false);
     }
@@ -634,23 +770,68 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   const base64De = (dataUrl?: string | null) =>
     dataUrl && dataUrl.startsWith("data:") ? dataUrl.split(",")[1] : null;
 
-  const gerarImagem = async (i: number, comReferencia = true) => {
+  /**
+   * Onde cada layout escreve o texto — e, portanto, onde a foto PRECISA ter
+   * espaço livre. O roteiro é escrito antes de existir layout, então o
+   * `prompt_imagem` só sabe pedir "espaço vazio de um lado ou embaixo". Sem
+   * esta cláusula o cartão de vidro cai em cima do rosto da pessoa.
+   */
+  const composicaoDoLayout = (l: LayoutId): string | null => {
+    switch (l) {
+      case "vidro":
+        // Cartão translúcido centralizado no terço de baixo. O "nunca cortar o
+        // topo da cabeça" é necessário: sem isso o gerador empurra a pessoa
+        // para cima até o capacete/cabelo sair do quadro.
+        return "CRITICAL COMPOSITION: vertical portrait. Place the person in the UPPER HALF of the frame, with the face turned toward the camera and clearly lit. Leave breathing room above the head: the top of the head (and any hat or helmet) must be FULLY INSIDE the frame with a visible margin — never touching or crossing the top edge. The BOTTOM THIRD must be calm, uncluttered background (floor, wall, sky, blurred depth) with no face, no hands and no busy detail, because a translucent card is composited there.";
+      case "capa":
+      case "foto":
+        // Título grande alinhado à esquerda, junto da base.
+        return "CRITICAL COMPOSITION: vertical portrait. Place the person on the RIGHT side of the frame. The LOWER LEFT half must be clear, quiet background with no face and no important detail, because large headline text is composited there.";
+      case "revista":
+        // A foto entra como faixa no topo, sem texto por cima.
+        return "CRITICAL COMPOSITION: horizontal banner crop, subject centred and fully visible. No text is composited over this image, so it does not need empty space.";
+      default:
+        return null;
+    }
+  };
+
+  /** Junta o pedido do roteiro com a composição que o layout exige. */
+  const promptDaFoto = (s: SlideData, l: LayoutId) => {
+    const base = s.prompt_imagem || `editorial photo about ${s.titulo}`;
+    const comp = composicaoDoLayout(l);
+    return comp ? `${base}\n\n${comp}` : base;
+  };
+
+  /**
+   * `ctx` existe por causa de closure velha: num laço (ou logo depois do
+   * roteiro) o estado `slides`/`layout` ainda é o antigo, e sem passar a lista
+   * na mão a foto do slide 2 não encontra a do slide 1 para usar como
+   * referência — cada slide saía com uma pessoa diferente.
+   */
+  const gerarImagem = async (
+    i: number,
+    comReferencia = true,
+    ctx?: { slides?: SlideData[]; layout?: LayoutId },
+  ): Promise<string | null> => {
     setGerandoImg(i);
     try {
-      const s = slides[i];
+      const lista = ctx?.slides ?? slides;
+      const layoutAtual = ctx?.layout ?? layout;
+      const s = lista[i];
+      if (!s) return null;
 
       // A primeira foto do carrossel vira referência das outras: mesma pessoa,
       // mesma luz, mesma paleta em todos os slides.
       const referencias: Array<{ data: string; mediaType: string }> = [];
       if (comReferencia && i > 0) {
-        const primeira = slides.find((sl, idx) => idx < i && sl.imagem);
+        const primeira = lista.find((sl, idx) => idx < i && sl.imagem);
         const b64 = base64De(primeira?.imagem);
         if (b64) referencias.push({ data: b64, mediaType: "image/jpeg" });
       }
 
       const { data, error } = await supabase.functions.invoke("generate-image", {
         body: {
-          prompt: s.prompt_imagem || `editorial photo about ${s.titulo}`,
+          prompt: promptDaFoto(s, layoutAtual),
           aspectRatio: formatId === "9:16" ? "9:16" : formatId === "1:1" ? "1:1" : "4:5",
           clientContext: { name: marca, industry: cliente?.industry ?? "", brandColor: accent },
           referencias,
@@ -664,19 +845,25 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
       if (img) imgCache.current.set(url, img);
       setSlides((prev) => prev.map((old, idx) => (idx === i ? { ...old, imagem: url } : old)));
       toast.success(data.modelo ? `Imagem gerada (${data.modelo}).` : "Imagem gerada.");
+      return url;
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao gerar imagem.");
+      return null;
     } finally {
       setGerandoImg(null);
     }
   };
 
-  const gerarImagensDeTodos = async () => {
+  const gerarImagensDeTodos = async (ctx?: { slides?: SlideData[]; layout?: LayoutId }) => {
     setGerandoTodasImgs(true);
     try {
-      for (let i = 0; i < slides.length; i++) {
-        if (slides[i].imagem) continue;
-        await gerarImagem(i);
+      // Lista local que vai sendo preenchida: é ela que carrega a foto do slide
+      // anterior para o seguinte usar como referência.
+      const atuais: SlideData[] = (ctx?.slides ?? slides).map((s) => ({ ...s }));
+      for (let i = 0; i < atuais.length; i++) {
+        if (atuais[i].imagem) continue;
+        const url = await gerarImagem(i, true, { slides: atuais, layout: ctx?.layout });
+        if (url) atuais[i] = { ...atuais[i], imagem: url };
       }
       toast.success("Imagens geradas para o carrossel inteiro.");
     } finally {
@@ -1289,7 +1476,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                 );
               })}
 
-              <button onClick={gerarImagensDeTodos} disabled={gerandoTodasImgs || gerandoImg !== null}
+              <button onClick={() => gerarImagensDeTodos()} disabled={gerandoTodasImgs || gerandoImg !== null}
                 className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-[12px] font-bold"
                 style={{
                   background: gerandoTodasImgs ? "rgba(255,255,255,0.05)" : `${LIME}16`,
@@ -1372,6 +1559,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                       <div className="text-[10px] leading-relaxed" style={{ color: "rgba(255,255,255,0.4)" }}>{d.porque}</div>
                       <div className="text-[9px] mt-1.5 uppercase tracking-wider" style={{ color: "rgba(255,255,255,0.3)" }}>
                         {LAYOUTS.find((l) => l.id === d.layout)?.label} · {FONT_PAIRS[d.fonte]?.label}
+                        {d.acabamento && d.acabamento !== "nenhum" ? ` · ${ACABAMENTOS.find((a) => a.id === d.acabamento)?.label}` : ""}
                       </div>
                     </button>
                   );
@@ -1389,6 +1577,22 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                       }}>
                       <div className="text-[12px] font-bold" style={{ color: layout === l.id ? LIME : "#E8E8E8" }}>{l.label}</div>
                       <div className="text-[10px] leading-tight mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>{l.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </Campo>
+
+              <Campo label="Acabamento">
+                <div className="grid grid-cols-2 gap-1.5">
+                  {ACABAMENTOS.map((a) => (
+                    <button key={a.id} onClick={() => setAcabamento(a.id)}
+                      className="text-left px-3 py-2.5 rounded-xl transition-all"
+                      style={{
+                        background: acabamento === a.id ? `${LIME}18` : "rgba(255,255,255,0.03)",
+                        border: `1px solid ${acabamento === a.id ? `${LIME}55` : "rgba(255,255,255,0.08)"}`,
+                      }}>
+                      <div className="text-[12px] font-bold" style={{ color: acabamento === a.id ? LIME : "#E8E8E8" }}>{a.label}</div>
+                      <div className="text-[10px] leading-tight mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>{a.desc}</div>
                     </button>
                   ))}
                 </div>
@@ -1715,17 +1919,32 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                   style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}
                   onMouseEnter={(e) => (e.currentTarget.style.borderColor = `${LIME}55`)}
                   onMouseLeave={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)")}>
-                  <div className="flex items-start justify-between gap-3">
-                    <span className="text-[13px] font-semibold" style={{ color: "#EDEDED" }}>{m.tema}</span>
-                    <span className="text-[10px] flex-shrink-0 mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>
-                      {new Date(m.created_at).toLocaleDateString("pt-BR")}
-                    </span>
-                  </div>
-                  {m.angulo && (
-                    <div className="text-[11px] mt-1 leading-relaxed" style={{ color: "rgba(255,255,255,0.42)" }}>{m.angulo}</div>
-                  )}
-                  <div className="flex items-center gap-1.5 mt-2 text-[10px] font-semibold" style={{ color: LIME }}>
-                    <FolderOpen className="w-3 h-3" /> abrir e editar
+                  <div className="flex gap-3">
+                    <MiniPeca item={m} brand={brand} fontesOk={fontesOk} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="text-[13px] font-semibold" style={{ color: "#EDEDED" }}>{m.tema}</span>
+                        <span className="text-[10px] flex-shrink-0 mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>
+                          {new Date(m.created_at).toLocaleDateString("pt-BR")}
+                        </span>
+                      </div>
+                      {m.angulo && (
+                        <div className="text-[11px] mt-1 leading-relaxed" style={{ color: "rgba(255,255,255,0.42)" }}>{m.angulo}</div>
+                      )}
+                      <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-2 text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                        {m.slides?.length ? <span>{m.slides.length} slides</span> : null}
+                        {m.design?.layout ? <span>· {LAYOUTS.find((l) => l.id === m.design?.layout)?.label}</span> : null}
+                        {m.design?.fontPair ? <span>· {FONT_PAIRS[m.design.fontPair]?.label}</span> : null}
+                        {m.design?.acabamento && m.design.acabamento !== "nenhum"
+                          ? <span>· {ACABAMENTOS.find((a) => a.id === m.design?.acabamento)?.label}</span> : null}
+                        {m.design?.accent ? (
+                          <span className="inline-block rounded-full" style={{ width: 8, height: 8, background: m.design.accent }} />
+                        ) : null}
+                      </div>
+                      <div className="flex items-center gap-1.5 mt-2 text-[10px] font-semibold" style={{ color: LIME }}>
+                        <FolderOpen className="w-3 h-3" /> abrir e editar
+                      </div>
+                    </div>
                   </div>
                 </button>
               ))}
