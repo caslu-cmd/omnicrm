@@ -1851,6 +1851,53 @@ export default function ClientWorkspace() {
     `${diretrizDeNicho()}${buildBriefingBlock(extra)}`;
 
   /**
+   * Documentos dos projetos deste cliente, carregados uma vez e enviados a
+   * TODO agente automaticamente.
+   *
+   * A Carol não quer reanexar o mesmo briefing a cada conversa: o material mora
+   * no projeto e o agente lê sozinho. Só entra o que foi lido com sucesso — um
+   * anexo ilegível já é sinalizado no painel de Projetos, e mandar vazio faria
+   * o agente inventar.
+   *
+   * Tetos existem porque isto viaja em TODA mensagem: sem eles, um contrato de
+   * 80 páginas encareceria e atrasaria cada resposta do time.
+   */
+  // 5 × 6.000 ≈ 30 mil caracteres (~8 mil tokens) por mensagem. Foi calibrado
+  // para caber sem pesar: isto viaja em TODA conversa com TODO agente.
+  const MAX_DOCS_AGENTE = 5;
+  const MAX_CHARS_POR_DOC = 6000;
+  const [docsDoCliente, setDocsDoCliente] = useState<{ nome: string; conteudo: string }[]>([]);
+
+  useEffect(() => {
+    if (!id) { setDocsDoCliente([]); return; }
+    let vivo = true;
+    (async () => {
+      const { data: projetos } = await (supabase as any)
+        .from("client_projects").select("id").eq("client_id", id);
+      const ids = ((projetos ?? []) as { id: string }[]).map((p) => p.id);
+      if (!ids.length) { if (vivo) setDocsDoCliente([]); return; }
+      const { data } = await (supabase as any)
+        .from("project_files")
+        .select("nome, texto")
+        .in("project_id", ids)
+        .not("texto", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(MAX_DOCS_AGENTE);
+      if (!vivo) return;
+      setDocsDoCliente(((data ?? []) as { nome: string; texto: string }[])
+        .filter((d) => d.texto?.trim())
+        .map((d) => ({ nome: d.nome, conteudo: d.texto.slice(0, MAX_CHARS_POR_DOC) })));
+    })();
+    return () => { vivo = false; };
+  }, [id]);
+
+  /** Junta o material do cliente com o que ela anexou agora nesta conversa. */
+  const documentosParaAgente = (avulsos: { nome: string; conteudo: string }[] = []) => {
+    const todos = [...avulsos, ...docsDoCliente];
+    return todos.length ? todos : undefined;
+  };
+
+  /**
    * Versão para link público de agente (`/conversar/:token`): nicho sim,
    * números não. O briefing tem faturamento, budget e preocupações da conta —
    * isso não pode viajar num link que qualquer pessoa abre.
@@ -1912,6 +1959,8 @@ export default function ClientWorkspace() {
             ? { enableDraftTool: true, client_id: id, user_id: agentUserId }
             : {}),
           urls: linksDoTexto(instruction),
+          // O material dos Projetos vai sozinho: ela nao precisa reanexar.
+          documentos: documentosParaAgente(),
           messages: [{ role: "user", content: instruction }],
         },
       });
@@ -1990,6 +2039,7 @@ export default function ClientWorkspace() {
           // Só os links da mensagem NOVA: reler o site a cada rodada da conversa
           // custaria tempo e traria o mesmo conteúdo.
           urls: linksDoTexto(newHistory[newHistory.length - 1]?.content ?? ""),
+          documentos: documentosParaAgente(),
           messages: newHistory,
         },
       });
@@ -2317,7 +2367,7 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
                   : {}),
                 // O material do projeto vai para CADA agente da onda: é isso que
                 // faltava para quem dependia de ler o briefing.
-                documentos,
+                documentos: documentosParaAgente(documentos ?? []),
                 urls: linksDoTexto(demand),
                 messages: [{
                   role: "user",
@@ -2547,7 +2597,7 @@ ${priorBlock}`;
                   : {}),
                 // A onda 2 também precisa do material: quem entra depois costuma
                 // ser justamente quem detalha em cima do briefing.
-                documentos,
+                documentos: documentosParaAgente(documentos ?? []),
                 messages: [{
                   role: "user",
                   content: `Demanda original: "${demand}"\n\n${ctx2}\n\nEntregue sua parte dando continuidade ao que o time já produziu.`,
@@ -9706,6 +9756,19 @@ ${clientSection}${originalSection}`;
                                       </div>
                                     )}
                                     <div ref={agentChatEndRef} />
+                                  </div>
+                                )}
+
+                                {/* O que vai junto sem ela pedir. Sem esta linha
+                                    a leitura automática é invisível e ela não
+                                    tem como saber se o agente recebeu. */}
+                                {docsDoCliente.length > 0 && (
+                                  <div className="flex items-center gap-1.5 text-[10.5px] mb-1.5" style={{ color: "rgba(255,255,255,0.4)" }}>
+                                    <Paperclip className="w-3 h-3" style={{ color: "#B9FF4B" }} />
+                                    {docsDoCliente.length === 1
+                                      ? `1 documento dos projetos vai junto: ${docsDoCliente[0].nome}`
+                                      : `${docsDoCliente.length} documentos dos projetos vão junto`}
+                                    <span style={{ opacity: .6 }}>· cole um link e ele também é lido</span>
                                   </div>
                                 )}
 
