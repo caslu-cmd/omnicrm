@@ -2497,7 +2497,13 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
             }
           }
         } catch (e) {
-          outputText = `*${agentId} não respondeu a tempo — tente novamente ou reduza a demanda: ${e instanceof Error ? e.message : String(e)}*`;
+          const motivo = e instanceof Error ? e.message : String(e);
+          // Parada pedida por ela sai do laço em silêncio; qualquer outra falha
+          // vira texto visível NA ENTREGA do agente, e o laço segue para o
+          // próximo. O que não pode acontecer é o cartão ficar girando: foi
+          // assim que a orquestração "travou" antes.
+          if (motivo === "__PARADA__") throw e;
+          outputText = `*${AGENT_META[agentId]?.name ?? agentId} não concluiu: ${motivo}. Peça de novo, ou em partes menores se a demanda for grande (ex.: 16 posts em duas levas de 8).*`;
         }
 
         if (_loopTid !== undefined) toast.dismiss(_loopTid);

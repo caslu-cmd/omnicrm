@@ -574,6 +574,41 @@ Deno.serve(async (req) => {
             ?.map((b) => b.text ?? "")
             ?.join("") ?? "";
         finalContent += lastText;
+
+        /**
+         * Resposta cortada no teto de tokens: CONTINUA de onde parou.
+         *
+         * A Carol pediu 16 posts e o agente tem teto de 5 mil tokens — não
+         * cabe. Antes a resposta voltava pela metade EM SILÊNCIO: parecia que o
+         * agente travou. Agora ele retoma até fechar, com limite de rodadas
+         * para nunca virar laço infinito, e o prazo da plataforma continua
+         * mandando.
+         */
+        let continuacoes = 0;
+        const limiteDeTempo = Date.now() + 100_000;
+        while (data.stop_reason === "max_tokens" && continuacoes < 4 && Date.now() < limiteDeTempo) {
+          continuacoes++;
+          currentMessages = [
+            ...currentMessages,
+            { role: "assistant", content: finalContent },
+            {
+              role: "user",
+              content: "Continue EXATAMENTE de onde parou, sem repetir nada do que já escreveu e sem reintroduzir. Se já terminou, responda apenas FIM.",
+            },
+          ];
+          data = await callClaude(currentMessages);
+          const trecho = data.content
+            ?.filter((b) => b.type === "text")
+            .map((b) => b.text ?? "")
+            .join("") ?? "";
+          if (!trecho.trim() || trecho.trim() === "FIM") break;
+          finalContent += "\n" + trecho;
+        }
+        if (data.stop_reason === "max_tokens") {
+          // Ainda cortado depois das continuações: dizer, em vez de entregar
+          // pela metade fingindo que acabou.
+          finalContent += "\n\n_[A resposta ficou grande demais e foi cortada aqui. Peça o restante em partes menores.]_";
+        }
         // Append image markers so they persist in chat history
         if (imagesGenerated.length > 0) {
           finalContent += "\n\n" + imagesGenerated.map((url) => `[IMAGEM_GERADA:${url}]`).join("\n");
