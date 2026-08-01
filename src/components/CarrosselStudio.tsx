@@ -206,6 +206,15 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   const [marcaFonte, setMarcaFonte] = useState<FontPairId | "">("");
   const [marcaTravada, setMarcaTravada] = useState(true);
   const [salvandoMarca, setSalvandoMarca] = useState(false);
+  /**
+   * Espelho da identidade para quem roda FORA do render: o "Fazer tudo sozinha"
+   * leva ~90s e enxergaria a identidade como ela estava no clique. Se a Carol
+   * abrisse e clicasse antes de a identidade chegar do banco, a trava seria
+   * ignorada em silêncio — mesma armadilha de closure velha que já custou a
+   * consistência de personagem nas fotos.
+   */
+  const marcaRef = useRef({ cor: "", fonte: "" as FontPairId | "", travada: true });
+  marcaRef.current = { cor: marcaCor, fonte: marcaFonte, travada: marcaTravada };
 
   // Estúdio
   const [aba, setAba] = useState<Aba>("roteiro");
@@ -275,18 +284,25 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     return () => { vivo = false; };
   }, []);
 
-  // Puxa identidade visual do cliente selecionado
+  // Puxa identidade visual do cliente selecionado (cor antiga do localStorage
+  // e logo). Só serve de PONTO DE PARTIDA: se existe cor travada, ela manda.
+  // Sem essa guarda a trava se desfazia sozinha — o efeito depende do objeto
+  // `cliente`, que ganha referência nova a cada mudança no contexto, e voltava
+  // a escrever a cor velha por cima da travada sem ninguém clicar em nada.
   useEffect(() => {
     if (!cliente) return;
     setMarca(cliente.name);
     setHandle(slugHandle(cliente.name));
+    const podeMexerNaCor = !(marcaRef.current.travada && marcaRef.current.cor);
     try {
       const bi = JSON.parse(localStorage.getItem(`brand-identity-${cliente.id}`) ?? "{}");
-      if (bi.primaryColor) setAccent(bi.primaryColor);
-      else if (cliente.color) setAccent(cliente.color);
+      if (podeMexerNaCor) {
+        if (bi.primaryColor) setAccent(bi.primaryColor);
+        else if (cliente.color) setAccent(cliente.color);
+      }
       if (bi.logoUrl) setLogoUrl(bi.logoUrl);
     } catch {
-      if (cliente.color) setAccent(cliente.color);
+      if (podeMexerNaCor && cliente.color) setAccent(cliente.color);
     }
   }, [cliente]);
 
@@ -531,15 +547,16 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
    * fundo em volta da cor travada — se ele escolhesse fundo livre e a cor fosse
    * trocada só aqui na volta, a peça sairia com contraste quebrado.
    */
-  const identidadeParaIA = () =>
-    marcaTravada && (marcaCor || marcaFonte)
-      ? {
-          travada: true,
-          cor: marcaCor || undefined,
-          fonte: marcaFonte || undefined,
-          fonteLabel: marcaFonte ? FONT_PAIRS[marcaFonte as FontPairId]?.label : undefined,
-        }
-      : undefined;
+  const identidadeParaIA = () => {
+    const { cor, fonte, travada } = marcaRef.current;
+    if (!travada || (!cor && !fonte)) return undefined;
+    return {
+      travada: true,
+      cor: cor || undefined,
+      fonte: fonte || undefined,
+      fonteLabel: fonte ? FONT_PAIRS[fonte as FontPairId]?.label : undefined,
+    };
+  };
 
   const chamarDiretorDeArte = async () => {
     setBuscandoDirecao(true);
@@ -634,10 +651,12 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     // Com a identidade travada, a direção decide COMPOSIÇÃO — layout, fundo,
     // acabamento — e a agência decide IDENTIDADE. Sem isso a cor da marca era
     // sobrescrita a cada direção aplicada e o cliente mudava de cara por semana.
-    const corTravada = marcaTravada && marcaCor;
-    const fonteTravada = marcaTravada && marcaFonte;
-    setAccent(corTravada ? marcaCor : d.accent);
-    setFontPair(fonteTravada ? (marcaFonte as FontPairId) : d.fonte);
+    // Lê do ref: o modo automático chama isto muito depois do clique.
+    const { cor, fonte, travada } = marcaRef.current;
+    const corTravada = travada && cor;
+    const fonteTravada = travada && fonte;
+    setAccent(corTravada ? cor : d.accent);
+    setFontPair(fonteTravada ? (fonte as FontPairId) : d.fonte);
     setDirecaoAtiva(d.nome);
     toast.success(
       corTravada || fonteTravada
