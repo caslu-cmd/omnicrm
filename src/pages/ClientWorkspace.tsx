@@ -11,6 +11,9 @@ import {
   Globe, FileEdit, FileCheck, ChevronDown, AlertTriangle, RefreshCw,
   Pencil, ShieldCheck, GraduationCap, Smartphone, QrCode,
   UserCheck, PhoneCall, MessageSquare as MsgSq, BadgeCheck,
+  Pause,
+  Play,
+  RotateCcw,
   Paperclip, X, Palette, PenLine, BarChart3, Layout, Table2, AtSign,
   Target, ArrowRight, Repeat2, MousePointerClick, Filter, Trash2, Mic, MicOff, StopCircle,
   Save, Settings2, Award, Download, Loader2, Sparkles, ListChecks, Code2, Upload,
@@ -1503,6 +1506,45 @@ export default function ClientWorkspace() {
   const [benTrends, setBenTrends] = useState<string | null>(null);
   const [ariaLoading, setAriaLoading] = useState(false);
   const cancelAriaRef = useRef(false);
+
+  /**
+   * Controle da campanha em andamento: pausar, parar e reiniciar.
+   *
+   * O "Interromper" que existia só olhava a bandeira ENTRE agentes: quem já
+   * estava trabalhando seguia até o fim, e a Carol ficava esperando um pedido
+   * que ela já tinha mandado parar. Agora a chamada em voo corre contra uma
+   * promessa de cancelamento, então a tela responde na hora.
+   */
+  const [ariaPausada, setAriaPausada] = useState(false);
+  const pausaRef = useRef(false);
+  /** Guarda a demanda para o "Reiniciar" repetir exatamente a mesma coisa. */
+  const ultimaDemandaRef = useRef<{ demanda: string; docs?: { nome: string; conteudo: string }[] } | null>(null);
+
+  /**
+   * Segura o laço enquanto estiver pausada. Devolve `false` se foi parada —
+   * quem chama usa isso para sair do laço sem tratar exceção.
+   */
+  const esperarRetomar = async (): Promise<boolean> => {
+    while (pausaRef.current && !cancelAriaRef.current) {
+      await new Promise((r) => setTimeout(r, 300));
+    }
+    return !cancelAriaRef.current;
+  };
+
+  /**
+   * Rejeita assim que a campanha for parada: usar em Promise.race.
+   *
+   * Se desliga sozinha depois do prazo do agente (120s). Sem isso, cada chamada
+   * bem-sucedida deixaria um temporizador vivo para sempre — e ele dispararia
+   * numa parada futura, rejeitando uma promessa que ninguém mais escuta.
+   */
+  const promessaDeParada = () =>
+    new Promise<never>((_, reject) => {
+      const t = setInterval(() => {
+        if (cancelAriaRef.current) { clearInterval(t); reject(new Error("__PARADA__")); }
+      }, 250);
+      setTimeout(() => clearInterval(t), 130_000);
+    });
   const [showManualOutput, setShowManualOutput] = useState(false);
   // Quais agentes atuam NESTE cliente. null = nunca escolhido → time padrão.
   const [enabledAgentIds, setEnabledAgentIds] = useState<string[] | null>(null);
@@ -2058,6 +2100,35 @@ export default function ClientWorkspace() {
 
   const handleCancelAria = () => {
     cancelAriaRef.current = true;
+    // Sair da pausa junto: parada com pausa ligada deixaria o laço preso
+    // esperando um "retomar" que nunca viria.
+    pausaRef.current = false;
+    setAriaPausada(false);
+  };
+
+  const handlePausarAria = () => {
+    const novo = !pausaRef.current;
+    pausaRef.current = novo;
+    setAriaPausada(novo);
+    addConvMsgs([{
+      id: `aria-pausa-${Date.now()}`, from: "aria", to: "user",
+      content: novo
+        ? "⏸️ Pausei. Quem já estava trabalhando termina o que está fazendo; ninguém novo entra até você retomar."
+        : "▶️ Retomando de onde parou.",
+      action: "respond", timestamp: new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }), status: "done",
+    }]);
+  };
+
+  /** Roda de novo a MESMA demanda, do zero. */
+  const handleReiniciarAria = () => {
+    const ultima = ultimaDemandaRef.current;
+    if (!ultima) { toast.error("Não há campanha para reiniciar."); return; }
+    cancelAriaRef.current = true;
+    pausaRef.current = false;
+    setAriaPausada(false);
+    // Espera o laço anterior perceber a parada antes de começar outro, senão
+    // as duas campanhas escreveriam na mesma conversa ao mesmo tempo.
+    setTimeout(() => handleSendToAria(ultima.demanda, ultima.docs), 700);
   };
 
   /**
@@ -2081,6 +2152,9 @@ export default function ClientWorkspace() {
         ? [{ nome: attachedFile.name, conteudo: attachedFileText }]
         : undefined;
     cancelAriaRef.current = false;
+    pausaRef.current = false;
+    setAriaPausada(false);
+    ultimaDemandaRef.current = { demanda: demand, docs: documentos };
     setAgentCommand("");
     clearAriaFile();
     setAriaLoading(true);
@@ -2253,6 +2327,10 @@ Responda APENAS JSON válido, sem markdown, sem texto extra:
       const agentUserId = _agentSession?.user?.id ?? null;
 
       for (const agentId of agents) {
+        // Porta da pausa: ninguém novo entra enquanto estiver pausada, e sai
+        // do laço se a Carol parou. Fica ANTES de marcar o agente como
+        // trabalhando, senão o cartão acenderia para quem nunca começou.
+        if (!(await esperarRetomar())) break;
         // (a) marca como trabalhando
         const _loopAgent = MARKETING_TEAM.find((a) => a.id === agentId);
         const _loopTid = _loopAgent ? toast.loading(`Acionando agente ${_loopAgent.name}…`, { description: _loopAgent.role }) : undefined;
@@ -2375,7 +2453,9 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
                 }],
               },
             });
-            const { data: agData, error: agErr } = await Promise.race([invokePromise, timeoutPromise]);
+            // Corre contra a PARADA tambem: sem isso o "Parar" so valia
+            // depois que o agente terminasse, e a tela ficava presa.
+            const { data: agData, error: agErr } = await Promise.race([invokePromise, timeoutPromise, promessaDeParada()]);
             if (agErr) throw agErr;
             outputText = (agData?.content ?? "").trim();
 
@@ -2548,6 +2628,7 @@ Responda APENAS JSON:
 
         // execução sequencial da nova onda
         for (const agentId of nextAgents) {
+          if (!(await esperarRetomar())) break;
           alreadyRan.add(agentId);
 
           const workTasks = { ...client.agentTasks };
@@ -2604,7 +2685,7 @@ ${priorBlock}`;
                 }],
               },
             });
-            const { data: agData, error: agErr } = await Promise.race([invoke2, timeout2]);
+            const { data: agData, error: agErr } = await Promise.race([invoke2, timeout2, promessaDeParada()]);
             if (agErr) throw agErr;
             outText = (agData?.content ?? "").trim();
 
@@ -2728,10 +2809,18 @@ ${priorBlock}`;
       }]);
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err);
-      addConvMsgs([{ id: `e-${Date.now()}`, from: "aria", to: "user", content: `Erro: ${errMsg}`, timestamp: ts, status: "error" }]);
+      // Parada pedida por ela não é erro: mostrar "Erro: __PARADA__" faria
+      // parecer que a campanha quebrou quando foi ela que mandou parar.
+      addConvMsgs([{
+        id: `e-${Date.now()}`, from: "aria", to: "user",
+        content: errMsg === "__PARADA__" ? "⏹️ Campanha parada. Dá para reiniciar quando quiser." : `Erro: ${errMsg}`,
+        timestamp: ts, status: errMsg === "__PARADA__" ? "done" : "error",
+      }]);
     } finally {
       setAriaLoading(false);
       setCurrentWave(0);
+      pausaRef.current = false;
+      setAriaPausada(false);
     }
   };
 
@@ -8259,11 +8348,33 @@ Regras:
                         </>
                       )}
                       {ariaLoading && (
+                        <>
+                          <button
+                            onClick={handlePausarAria}
+                            className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all w-full sm:w-auto"
+                            style={ariaPausada
+                              ? { background: "rgba(185,255,75,0.14)", border: "1px solid rgba(185,255,75,0.4)", color: "#B9FF4B" }
+                              : { background: "rgba(245,200,66,0.12)", border: "1px solid rgba(245,200,66,0.35)", color: "#F5C842" }}>
+                            {ariaPausada
+                              ? <><Play className="w-3.5 h-3.5" /> Retomar</>
+                              : <><Pause className="w-3.5 h-3.5" /> Pausar</>}
+                          </button>
+                          <button
+                            onClick={handleCancelAria}
+                            className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all w-full sm:w-auto"
+                            style={{ background: "rgba(255,80,80,0.12)", border: "1px solid rgba(255,80,80,0.35)", color: "#FF6060" }}>
+                            <X className="w-3.5 h-3.5" /> Parar
+                          </button>
+                        </>
+                      )}
+                      {/* Reiniciar só aparece com campanha parada ou concluída:
+                          durante o trabalho, "Parar" já é o caminho. */}
+                      {!ariaLoading && ultimaDemandaRef.current && (
                         <button
-                          onClick={handleCancelAria}
+                          onClick={handleReiniciarAria}
                           className="flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all w-full sm:w-auto"
-                          style={{ background: "rgba(255,80,80,0.12)", border: "1px solid rgba(255,80,80,0.35)", color: "#FF6060" }}>
-                          <X className="w-3.5 h-3.5" /> Interromper
+                          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.14)", color: "rgba(255,255,255,0.6)" }}>
+                          <RotateCcw className="w-3.5 h-3.5" /> Reiniciar campanha
                         </button>
                       )}
                       <button
