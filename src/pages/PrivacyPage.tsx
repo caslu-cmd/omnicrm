@@ -163,8 +163,8 @@ export default function PrivacyPage() {
             Calu Agência — Caroline Lucas<br />
             Encarregada (DPO): Caroline Lucas<br />
             E-mail:{" "}
-            <a href="mailto:contato@caluagencia.com.br" className="text-[#B9FF4B] underline">
-              contato@caluagencia.com.br
+            <a href="mailto:calu@caluagencia.com.br" className="text-[#B9FF4B] underline">
+              calu@caluagencia.com.br
             </a>
           </p>
           <p className="mt-3 text-white/60 text-sm">

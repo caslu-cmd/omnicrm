@@ -111,8 +111,8 @@ export default function CookiesPage() {
             A LGPD garante a você confirmação do tratamento, acesso, correção, portabilidade,
             eliminação e revogação do consentimento. Para exercer qualquer um deles, fale com a
             pessoa encarregada pelos dados:{" "}
-            <a href="mailto:contato@caluagencia.com.br" className="text-[#B9FF4B] underline">
-              contato@caluagencia.com.br
+            <a href="mailto:calu@caluagencia.com.br" className="text-[#B9FF4B] underline">
+              calu@caluagencia.com.br
             </a>.
           </p>
           <p className="mt-3">

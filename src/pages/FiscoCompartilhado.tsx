@@ -124,6 +124,7 @@ export default function FiscoCompartilhado() {
   const [ocupado, setOcupado] = useState(false);
   const [erro, setErro] = useState("");
   const [confirmar, setConfirmar] = useState("");
+  const [resetEnviado, setResetEnviado] = useState("");
 
   /** Confere se esta conta tem acesso a este link (e registra, se for a 1ª vez). */
   const validarAcesso = useCallback(async (codigoConvite?: string) => {
@@ -172,6 +173,15 @@ export default function FiscoCompartilhado() {
           email, password: senha, options: { data: { full_name: nome } },
         });
         if (error) throw new Error(error.message);
+        // E-mail que JÁ TEM CONTA: o Supabase não avisa e não manda e-mail
+        // nenhum (senão qualquer um descobriria quem tem cadastro) — devolve um
+        // usuário de mentira com `identities` vazio. Sem tratar isso, a tela
+        // dizia "mandei uma mensagem" para um e-mail que nunca receberia nada.
+        if (data.user && (data.user.identities?.length ?? 0) === 0) {
+          setModo("entrar");
+          setErro("Este e-mail já tem acesso. Entre em \"Já tenho acesso\" — se não lembrar a senha, use \"Esqueci minha senha\".");
+          return;
+        }
         // Com confirmação de e-mail ligada, o cadastro não devolve sessão:
         // sem avisar, a pessoa fica olhando para um erro de login sem entender.
         if (!data.session) {
@@ -183,6 +193,28 @@ export default function FiscoCompartilhado() {
       await validarAcesso(convite.trim() || undefined);
     } catch (err) {
       setErro(err instanceof Error ? err.message : "Erro ao entrar.");
+    } finally {
+      setOcupado(false);
+    }
+  };
+
+  /**
+   * Esqueci minha senha. O link do e-mail leva para `/entrar`, que é a única
+   * tela que sabe receber a sessão de recuperação e trocar a senha; depois a
+   * pessoa volta para o link do Fisco e entra normalmente.
+   */
+  const esqueciSenha = async () => {
+    if (!email.trim()) { setErro("Digite seu e-mail acima para eu mandar o link."); return; }
+    setErro("");
+    setOcupado(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+        redirectTo: `${window.location.origin}/entrar`,
+      });
+      if (error) throw error;
+      setResetEnviado(email.trim());
+    } catch (err) {
+      setErro(err instanceof Error ? err.message : "Não consegui enviar o e-mail.");
     } finally {
       setOcupado(false);
     }
@@ -315,6 +347,21 @@ export default function FiscoCompartilhado() {
               style={{ background: GOLD, color: "#07080A" }}>
               {ocupado ? <Loader2 className="w-4 h-4 animate-spin" /> : (modo === "entrar" ? "Entrar" : "Criar acesso")}
             </button>
+
+            {modo === "entrar" && (
+              resetEnviado ? (
+                <p className="text-[11px] text-center leading-relaxed" style={{ color: "#8888A0" }}>
+                  Link de nova senha enviado para <strong style={{ color: "#C0C0D0" }}>{resetEnviado}</strong>.
+                  Abra o link, defina a senha nova e volte aqui para entrar.
+                </p>
+              ) : (
+                <button type="button" onClick={esqueciSenha} disabled={ocupado}
+                  className="w-full py-1 text-[11px] disabled:opacity-40"
+                  style={{ background: "transparent", color: "#77778A", textDecoration: "underline" }}>
+                  Esqueci minha senha
+                </button>
+              )
+            )}
 
             {temSessao && !liberado && (
               <button type="button" onClick={sair}
