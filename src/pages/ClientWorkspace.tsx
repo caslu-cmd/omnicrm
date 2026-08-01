@@ -2153,6 +2153,8 @@ export default function ClientWorkspace() {
     demandaExterna?: string,
     docsExternos?: { nome: string; conteudo: string }[],
     todoOTime = false,
+    /** Quando vem preenchido, SÓ estes trabalham e a Aira não escolhe. */
+    somenteEstes?: string[],
   ) => {
     const demand = (demandaExterna ?? agentCommand).trim();
     if (!demand && !attachedFile) return;
@@ -2290,9 +2292,14 @@ Responda APENAS JSON válido, sem markdown, sem texto extra:
       // "Todo o time": ela manda entrar todo mundo que está habilitado para
       // este cliente, e o plano da Aira vira só a ORDEM e o recorte de cada um.
       // Sem isso a Aira escolhe um subconjunto, que é o padrão.
-      const agents = todoOTime
-        ? idsDoCliente.filter((a) => validIds.has(a))
-        : (plan.agents ?? []).filter((a) => validIds.has(a) && idsDoCliente.includes(a));
+      // Escolha explícita dela manda mais que tudo: "só a Marcela" é só a
+      // Marcela, sem a Aira acrescentar ninguém.
+      const escolhidos = (somenteEstes ?? []).filter((a) => validIds.has(a) && idsDoCliente.includes(a));
+      const agents = escolhidos.length
+        ? escolhidos
+        : todoOTime
+          ? idsDoCliente.filter((a) => validIds.has(a))
+          : (plan.agents ?? []).filter((a) => validIds.has(a) && idsDoCliente.includes(a));
       if (agents.length === 0) agents.push(...idsDoCliente.slice(0, 2));
 
       // Divisor visual: Onda 1
@@ -14375,13 +14382,14 @@ ${clientSection}${originalSection}`;
                 clientId={id}
                 clientName={client.name}
                 clientIndustry={clientBriefing?.segmento || client.industry}
-                onAcionar={({ projeto, documentos, demanda, todoOTime }) => {
+                agentes={activeTeam.map((a) => ({ id: a.id, name: AGENT_META[a.id]?.name ?? a.id, role: a.role }))}
+                onAcionar={({ projeto, documentos, demanda, todoOTime, somenteEstes }) => {
                   // Manda para a mesma orquestração do painel da Aira, já com o
                   // material lido. Vai para a aba dela para a Carol acompanhar
                   // as ondas em vez de ficar olhando um botão girando aqui.
                   setSearchParams({ tab: "agents" });
                   setTimeout(
-                    () => handleSendToAria(`Projeto "${projeto.nome}". ${demanda}`, documentos, todoOTime),
+                    () => handleSendToAria(`Projeto "${projeto.nome}". ${demanda}`, documentos, todoOTime, somenteEstes),
                     50,
                   );
                 }}

@@ -35,6 +35,8 @@ interface Props {
   clientId: string;
   clientName: string;
   clientIndustry?: string;
+  /** Agentes habilitados para este cliente, para ela poder chamar um só. */
+  agentes?: { id: string; name: string; role?: string }[];
   /** Dispara a orquestração com o material do projeto já lido. */
   onAcionar: (dados: {
     projeto: Projeto;
@@ -42,12 +44,14 @@ interface Props {
     demanda: string;
     /** Entra todo mundo, em vez de a Aira escolher um subconjunto. */
     todoOTime: boolean;
+    /** Quando preenchido, SÓ estes trabalham — a Aira não escolhe. */
+    somenteEstes?: string[];
   }) => void;
 }
 
 const caixa = { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" };
 
-export default function ProjetosPanel({ clientId, clientName, clientIndustry, onAcionar }: Props) {
+export default function ProjetosPanel({ clientId, clientName, clientIndustry, agentes, onAcionar }: Props) {
   const [projetos, setProjetos] = useState<Projeto[]>([]);
   const [aberto, setAberto] = useState<Projeto | null>(null);
   const [arquivos, setArquivos] = useState<Arquivo[]>([]);
@@ -59,9 +63,36 @@ export default function ProjetosPanel({ clientId, clientName, clientIndustry, on
   const [demanda, setDemanda] = useState("");
   const [novoLink, setNovoLink] = useState("");
   const [lendoLink, setLendoLink] = useState(false);
-  // Padrão: todo o time. Ela pediu explicitamente "acionar todo time para
-  // aquele projeto" — quem quiser o recorte da Aira desmarca.
-  const [todoOTime, setTodoOTime] = useState(true);
+  /**
+   * Quem trabalha neste acionamento.
+   * "time" = todo mundo (o que ela pediu como padrão) · "aira" = a Aira escolhe
+   * · "um" = um agente só, para quando ela quer só a Marcela produzindo posts
+   * em cima do material do projeto.
+   */
+  const [quem, setQuem] = useState<"time" | "aira" | "um">("time");
+  const [agenteUnico, setAgenteUnico] = useState("");
+
+  /**
+   * Produção em lote: quantos posts únicos, quantos carrosséis e em que
+   * formatos. Vira uma linha exata no pedido do agente — "faça uns posts"
+   * devolve quantidade aleatória, e ela precisa de número fechado para o mês.
+   */
+  const [qtdPosts, setQtdPosts] = useState(0);
+  const [qtdCarrosseis, setQtdCarrosseis] = useState(0);
+  const [comFeed, setComFeed] = useState(true);
+  const [comStory, setComStory] = useState(true);
+
+  const linhaDeProducao = () => {
+    const partes: string[] = [];
+    if (qtdPosts > 0) partes.push(`${qtdPosts} ${qtdPosts === 1 ? "post único" : "posts únicos"} (uma arte só)`);
+    if (qtdCarrosseis > 0) partes.push(`${qtdCarrosseis} ${qtdCarrosseis === 1 ? "carrossel" : "carrosséis"} (múltiplos slides, indique quantos slides cada um tem)`);
+    if (!partes.length) return "";
+    const formatos = [comFeed && "Feed 4:5 (1080×1350)", comStory && "Story 9:16 (1080×1920)"].filter(Boolean);
+    const linhaFormato = formatos.length
+      ? ` Entregue CADA peça nos formatos: ${formatos.join(" e ")} — a versão de Story é adaptação da mesma peça, não conteúdo novo.`
+      : "";
+    return `\n\nQUANTIDADE EXATA — entregue ${partes.join(" e ")}, numerados.${linhaFormato} Não entregue a mais nem a menos.`;
+  };
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const carregar = useCallback(async () => {
@@ -195,11 +226,13 @@ export default function ProjetosPanel({ clientId, clientName, clientIndustry, on
     const legiveis = arquivos.filter((a) => a.texto?.trim());
     if (!legiveis.length) { toast.error("Nenhum arquivo legível neste projeto."); return; }
     if (!demanda.trim()) { toast.error("Diga o que a Aira deve fazer com esse material."); return; }
+    if (quem === "um" && !agenteUnico) { toast.error("Escolha qual agente vai trabalhar."); return; }
     onAcionar({
       projeto: aberto,
       documentos: legiveis.map((a) => ({ nome: a.nome, conteudo: a.texto as string })),
-      demanda: demanda.trim(),
-      todoOTime,
+      demanda: demanda.trim() + linhaDeProducao(),
+      todoOTime: quem === "time",
+      somenteEstes: quem === "um" ? [agenteUnico] : undefined,
     });
   };
 
@@ -358,20 +391,71 @@ export default function ProjetosPanel({ clientId, clientName, clientIndustry, on
           placeholder={`O que o time deve fazer com esses arquivos? Ex.: "leia o briefing e monte o calendário do mês para ${clientName}${clientIndustry ? ` (${clientIndustry})` : ""}"`}
           className="w-full px-3 py-2.5 rounded-xl text-[13px] outline-none resize-none"
           style={{ ...caixa, color: "#E8E8E8" }} />
-        <label className="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" checked={todoOTime} onChange={(e) => setTodoOTime(e.target.checked)}
-            style={{ accentColor: LIME, width: 15, height: 15 }} />
-          <span className="text-[11.5px]" style={{ color: "rgba(255,255,255,0.7)" }}>
-            Acionar o time inteiro
-            <span style={{ color: "rgba(255,255,255,0.4)" }}>
-              {" "}— desmarcado, a Aira escolhe quem entra
-            </span>
-          </span>
-        </label>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {([
+            ["time", "Time inteiro"],
+            ["aira", "A Aira escolhe"],
+            ["um", "Só um agente"],
+          ] as const).map(([id, rotulo]) => (
+            <button key={id} onClick={() => setQuem(id)}
+              className="px-3 py-1.5 rounded-lg text-[11.5px] font-semibold transition-all"
+              style={quem === id
+                ? { background: `${LIME}18`, border: `1px solid ${LIME}55`, color: LIME }
+                : { ...caixa, color: "rgba(255,255,255,0.5)" }}>
+              {rotulo}
+            </button>
+          ))}
+          {quem === "um" && (
+            <select value={agenteUnico} onChange={(e) => setAgenteUnico(e.target.value)}
+              className="px-2 py-[7px] rounded-lg text-[11.5px]"
+              style={{ ...caixa, color: "#E8E8E8" }}>
+              <option value="">Escolha o agente…</option>
+              {(agentes ?? []).map((a) => (
+                <option key={a.id} value={a.id} style={{ background: "#0F1115" }}>
+                  {a.name}{a.role ? ` — ${a.role}` : ""}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
+
+        {/* Quantidade fechada: "faça uns posts" devolve número aleatório, e ela
+            precisa de quantidade exata para fechar o mês. */}
+        <div className="flex flex-wrap items-center gap-3 pt-1">
+          {([
+            ["Posts únicos", qtdPosts, setQtdPosts] as const,
+            ["Carrosséis", qtdCarrosseis, setQtdCarrosseis] as const,
+          ]).map(([rotulo, valor, set]) => (
+            <label key={rotulo} className="flex items-center gap-2">
+              <input type="number" min={0} max={40} value={valor}
+                onChange={(e) => set(Math.max(0, Math.min(40, Number(e.target.value) || 0)))}
+                className="w-14 px-2 py-1.5 rounded-lg text-[12.5px] text-center outline-none"
+                style={{ ...caixa, color: "#E8E8E8" }} />
+              <span className="text-[11.5px]" style={{ color: "rgba(255,255,255,0.6)" }}>{rotulo}</span>
+            </label>
+          ))}
+          <span className="w-px h-5" style={{ background: "rgba(255,255,255,0.12)" }} />
+          {([["Feed", comFeed, setComFeed] as const, ["Story", comStory, setComStory] as const]).map(([rotulo, valor, set]) => (
+            <label key={rotulo} className="flex items-center gap-1.5 cursor-pointer">
+              <input type="checkbox" checked={valor} onChange={(e) => set(e.target.checked)}
+                style={{ accentColor: LIME, width: 15, height: 15 }} />
+              <span className="text-[11.5px]" style={{ color: "rgba(255,255,255,0.6)" }}>{rotulo}</span>
+            </label>
+          ))}
+        </div>
+        {(qtdPosts > 0 || qtdCarrosseis > 0) && (
+          <div className="text-[10.5px] leading-snug px-1" style={{ color: "rgba(255,255,255,0.4)" }}>
+            Vai pedir {qtdPosts > 0 ? `${qtdPosts} post${qtdPosts > 1 ? "s" : ""} único${qtdPosts > 1 ? "s" : ""}` : ""}
+            {qtdPosts > 0 && qtdCarrosseis > 0 ? " e " : ""}
+            {qtdCarrosseis > 0 ? `${qtdCarrosseis} carrossel${qtdCarrosseis > 1 ? "s" : ""}` : ""}
+            {(comFeed || comStory) ? `, cada peça em ${[comFeed && "Feed", comStory && "Story"].filter(Boolean).join(" e ")}.` : "."}
+            {qtdPosts + qtdCarrosseis > 12 ? " Volume alto — pode vir em partes." : ""}
+          </div>
+        )}
 
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <span className="text-[11.5px]" style={{ color: "rgba(255,255,255,0.45)" }}>
-            {legiveis} {legiveis === 1 ? "item vai" : "itens vão"} junto para cada agente — arquivos e links.
+            {legiveis} {legiveis === 1 ? "item vai" : "itens vão"} junto — arquivos e links do projeto.
           </span>
           <button onClick={acionar} disabled={!legiveis}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-[12px] font-bold"
