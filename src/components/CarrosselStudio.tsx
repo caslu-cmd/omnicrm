@@ -1667,6 +1667,62 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           {/* ── Design ── */}
           {aba === "design" && (
             <div className="px-4 pb-6 space-y-5">
+              {/*
+                Identidade vem ANTES de composição, e por isso abre a aba: é a
+                decisão que governa todas as outras. Na primeira versão ficou
+                abaixo de Layout/Formato/Acabamento, num painel que rola, e a
+                Carol simplesmente não achou.
+              */}
+              <div className="rounded-xl p-3.5 space-y-2.5"
+                style={{ background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.12)" }}>
+                <div className="flex items-center gap-1.5 text-[11px] font-bold" style={{ color: "#E8E8E8" }}>
+                  <Palette className="w-3.5 h-3.5" /> Identidade da marca
+                  {marcaTravada && (marcaCor || marcaFonte)
+                    ? <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded" style={{ background: `${LIME}18`, color: LIME }}>travada</span>
+                    : null}
+                </div>
+                <div className="text-[10px] leading-snug" style={{ color: "rgba(255,255,255,0.42)" }}>
+                  {clienteId
+                    ? "Define uma vez e vale para todo carrossel deste cliente, em qualquer máquina. Travada, o diretor de arte varia layout, fundo e acabamento — mas não a cor nem a fonte."
+                    : "Escolha um cliente no topo para definir a identidade dele."}
+                </div>
+
+                <div className="flex items-center gap-2 flex-wrap">
+                  <label className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg cursor-pointer"
+                    style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", opacity: clienteId ? 1 : 0.4 }}>
+                    <input type="color" value={marcaCor || accent} disabled={!clienteId}
+                      onChange={(e) => salvarMarca({ cor: e.target.value })}
+                      style={{ width: 22, height: 22, border: "none", background: "none", padding: 0, cursor: "pointer" }} />
+                    <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.6)" }}>
+                      {marcaCor ? `Cor da marca ${marcaCor.toUpperCase()}` : "Definir cor da marca"}
+                    </span>
+                  </label>
+
+                  <select value={marcaFonte} disabled={!clienteId}
+                    onChange={(e) => salvarMarca({ fonte: e.target.value as FontPairId | "" })}
+                    className="text-[10px] px-2 py-[7px] rounded-lg"
+                    style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#E8E8E8", opacity: clienteId ? 1 : 0.4 }}>
+                    <option value="">Fonte: a IA escolhe</option>
+                    {(Object.keys(FONT_PAIRS) as FontPairId[]).map((id) => (
+                      <option key={id} value={id}>Fonte: {FONT_PAIRS[id].label}</option>
+                    ))}
+                  </select>
+
+                  <button onClick={() => salvarMarca({ travado: !marcaTravada })} disabled={!clienteId}
+                    className="text-[10px] px-2.5 py-[7px] rounded-lg font-semibold transition-all"
+                    style={{
+                      background: marcaTravada ? `${LIME}18` : "rgba(255,255,255,0.05)",
+                      border: `1px solid ${marcaTravada ? `${LIME}55` : "rgba(255,255,255,0.1)"}`,
+                      color: marcaTravada ? LIME : "rgba(255,255,255,0.55)",
+                      opacity: clienteId ? 1 : 0.4,
+                    }}>
+                    {marcaTravada ? "Travada" : "A IA pode mudar"}
+                  </button>
+
+                  {salvandoMarca ? <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>salvando…</span> : null}
+                </div>
+              </div>
+
               {/* Diretor de arte */}
               <div className="rounded-xl p-3.5 space-y-3"
                 style={{ background: `${LIME}0A`, border: `1px solid ${LIME}2A` }}>
@@ -1757,50 +1813,6 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                       <div className="text-[10px] leading-tight mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>{a.desc}</div>
                     </button>
                   ))}
-                </div>
-              </Campo>
-
-              <Campo label="Identidade da marca">
-                <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                  <div className="text-[10px] leading-snug mb-2.5" style={{ color: "rgba(255,255,255,0.45)" }}>
-                    {clienteId
-                      ? "Vale para todo carrossel deste cliente, em qualquer máquina. Travado, o diretor de arte varia layout, fundo e acabamento — mas não a cor nem a fonte."
-                      : "Escolha um cliente para definir a identidade dele."}
-                  </div>
-
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <label className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg cursor-pointer"
-                      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                      <input type="color" value={marcaCor || accent} disabled={!clienteId}
-                        onChange={(e) => salvarMarca({ cor: e.target.value })}
-                        style={{ width: 20, height: 20, border: "none", background: "none", padding: 0, cursor: "pointer" }} />
-                      <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.55)" }}>
-                        Cor da marca{marcaCor ? "" : " (não definida)"}
-                      </span>
-                    </label>
-
-                    <select value={marcaFonte} disabled={!clienteId}
-                      onChange={(e) => salvarMarca({ fonte: e.target.value as FontPairId | "" })}
-                      className="text-[10px] px-2 py-1.5 rounded-lg"
-                      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#E8E8E8" }}>
-                      <option value="">Fonte: a IA escolhe</option>
-                      {(Object.keys(FONT_PAIRS) as FontPairId[]).map((id) => (
-                        <option key={id} value={id}>{FONT_PAIRS[id].label}</option>
-                      ))}
-                    </select>
-
-                    <button onClick={() => salvarMarca({ travado: !marcaTravada })} disabled={!clienteId}
-                      className="text-[10px] px-2.5 py-1.5 rounded-lg transition-all"
-                      style={{
-                        background: marcaTravada ? `${LIME}18` : "rgba(255,255,255,0.04)",
-                        border: `1px solid ${marcaTravada ? `${LIME}55` : "rgba(255,255,255,0.08)"}`,
-                        color: marcaTravada ? LIME : "rgba(255,255,255,0.55)",
-                      }}>
-                      {marcaTravada ? "Travado" : "A IA pode mudar"}
-                    </button>
-
-                    {salvandoMarca ? <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>salvando…</span> : null}
-                  </div>
                 </div>
               </Campo>
 
