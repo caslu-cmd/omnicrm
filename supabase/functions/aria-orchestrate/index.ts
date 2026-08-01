@@ -50,6 +50,8 @@ async function analyzeDemand(
   demand: string,
   clientContext: Record<string, unknown>,
   anthropicKey: string,
+  /** Só os NOMES do material anexado: o plano muda se há briefing para ler. */
+  material: string[] = [],
 ): Promise<{ agents: string[]; needsImage: boolean; aspectRatio: string; summary: string }> {
   const systemPrompt = `Voce e ARIA, orquestradora da Calu Agencia. Analise a demanda e retorne JSON puro.
 
@@ -82,7 +84,8 @@ Retorne APENAS JSON valido sem markdown:
       system: systemPrompt,
       messages: [{
         role: "user",
-        content: `Demanda: "${demand}"\nCliente: ${String(clientContext.name ?? "nao informado")}, ${String(clientContext.industry ?? "")}`,
+        content: `Demanda: "${demand}"\nCliente: ${String(clientContext.name ?? "nao informado")}, ${String(clientContext.industry ?? "")}`
+          + (material.length ? `\nMaterial anexado que os agentes vao receber: ${material.join(", ")}` : ""),
       }],
     }),
   });
@@ -101,24 +104,63 @@ Retorne APENAS JSON valido sem markdown:
 }
 
 // ─── Call chat-ai for a specific agent ───────────────────────────────────────
+/**
+ * Chama um agente pela `chat-ai`.
+ *
+ * Estava quebrada de duas formas ao mesmo tempo, e por isso a orquestração do
+ * time nunca produziu nada de útil:
+ *  1. mandava `{ message, conversationHistory }`, mas a `chat-ai` exige
+ *     `messages: [...]` e responde **400 "messages array required"**. Ou seja:
+ *     TODO agente devolvia uma string de erro no lugar do trabalho.
+ *  2. lia `data.response`/`data.message`, e a `chat-ai` devolve `data.content` —
+ *     então, mesmo com o corpo certo, viria o JSON cru como se fosse a resposta.
+ *
+ * Agora também repassa documentos e links: era o que faltava para o agente que
+ * depende de um arquivo ou do site do cliente conseguir trabalhar.
+ */
 async function callAgent(
   agentId: string,
   message: string,
   authHeader: string,
+  extras: { clientContext?: Record<string, unknown>; documentos?: unknown; urls?: unknown } = {},
 ): Promise<string> {
-  const res = await fetch(`${BASE_URL}/chat-ai`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "Authorization": authHeader },
-    body: JSON.stringify({ message, agentId, conversationHistory: [] }),
-  });
+  // Um agente lento não pode prender a fila inteira: a função tem teto de
+  // tempo na plataforma e a orquestração morreria esperando.
+  const controle = new AbortController();
+  const t = setTimeout(() => controle.abort(), 110_000);
+  try {
+    const res = await fetch(`${BASE_URL}/chat-ai`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": authHeader },
+      body: JSON.stringify({
+        messages: [{ role: "user", content: message }],
+        agentId,
+        clientContext: extras.clientContext,
+        documentos: extras.documentos,
+        urls: extras.urls,
+        maxTokens: 4000,
+      }),
+      signal: controle.signal,
+    });
 
-  if (!res.ok) {
-    const err = await res.text();
-    return `[${agentId}: erro ${res.status} - ${err.slice(0, 150)}]`;
+    if (!res.ok) {
+      const err = await res.text();
+      return `[${agentId}: erro ${res.status} - ${err.slice(0, 200)}]`;
+    }
+
+    const data = await res.json();
+    const texto = data.content ?? data.response ?? data.message;
+    return typeof texto === "string" && texto.trim()
+      ? texto
+      : `[${agentId}: respondeu vazio]`;
+  } catch (e) {
+    const motivo = e instanceof Error && e.name === "AbortError"
+      ? "demorou demais e foi interrompido"
+      : e instanceof Error ? e.message : "falha desconhecida";
+    return `[${agentId}: ${motivo}]`;
+  } finally {
+    clearTimeout(t);
   }
-
-  const data = await res.json();
-  return data.response ?? data.message ?? JSON.stringify(data);
 }
 
 // ─── Call generate-image (Ideogram via Marcela) ───────────────────────────────
@@ -278,6 +320,9 @@ Deno.serve(async (req) => {
       userId,
       autoSchedule = false,
       platforms,
+      /** Anexos já extraídos pelo app e links a ler; repassados a cada agente. */
+      documentos,
+      urls,
     } = await req.json();
 
     const anthropicKey = Deno.env.get("ANTHROPIC_API_KEY") || Deno.env.get("LOVABLE_API_KEY");
@@ -300,7 +345,13 @@ Deno.serve(async (req) => {
       : ["instagram"];
 
     // Step 1: ARIA analyzes the demand and plans which agents to use
-    const plan = await analyzeDemand(demand, ctx, anthropicKey);
+    const nomesDoMaterial = [
+      ...(Array.isArray(documentos) ? documentos : [])
+        .map((d) => String((d as { nome?: string; name?: string })?.nome ?? (d as { name?: string })?.name ?? ""))
+        .filter(Boolean),
+      ...(Array.isArray(urls) ? urls : []).map(String),
+    ];
+    const plan = await analyzeDemand(demand, ctx, anthropicKey, nomesDoMaterial);
 
     // Step 1.5: Ben researches current trends for this niche
     const nicho = String(ctx.industry ?? ctx.nicho ?? "");
@@ -346,7 +397,11 @@ Deno.serve(async (req) => {
         message = `Crie um plano de trafego pago para: "${demand}"\nCliente: ${clientName}, ${String(ctx.industry ?? "")}${stratCtx}`;
       }
 
-      const content = await callAgent(agentId, message, authHeader);
+      const content = await callAgent(agentId, message, authHeader, {
+        clientContext: ctx,
+        documentos,
+        urls,
+      });
 
       if (agentId === "carolina")                   strategy    = content;
       else if (agentId === "beatriz")               copy        = content;

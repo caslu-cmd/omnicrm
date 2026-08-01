@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
+import { lerDocumentos, EXTENSOES_ACEITAS } from "@/lib/lerDocumento";
 
 const AGENTS = [
   { key: "campanha",             label: "Estratégia de Campanha", emoji: "🚀", desc: "Campanha com canais, copy e KPIs — executada primeiro" },
@@ -70,31 +71,11 @@ interface Props {
   userId?: string;
 }
 
-async function extractFileText(file: File): Promise<string> {
-  if (file.type === "application/pdf" || file.name.endsWith(".pdf")) {
-    const { getDocument, GlobalWorkerOptions } = await import("pdfjs-dist");
-    // Use unpkg CDN worker matching the installed version
-    const mod = await import("pdfjs-dist");
-    const ver = (mod as any).version ?? "5.7.284";
-    GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${ver}/build/pdf.worker.min.mjs`;
-    const arrayBuf = await file.arrayBuffer();
-    const pdf = await getDocument({ data: arrayBuf }).promise;
-    const parts: string[] = [];
-    for (let i = 1; i <= Math.min(pdf.numPages, 30); i++) {
-      const page = await pdf.getPage(i);
-      const tc = await page.getTextContent();
-      parts.push(tc.items.map((item: any) => item.str).join(" "));
-    }
-    return parts.join("\n");
-  }
-  // Text-based files
-  return new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(reader.result as string);
-    reader.onerror = () => reject(new Error("Falha ao ler arquivo"));
-    reader.readAsText(file, "utf-8");
-  });
-}
+// A extração mora em src/lib/lerDocumento.ts, compartilhada por todos os
+// agentes. A versão que existia aqui puxava o worker do pdf.js de um CDN e, se
+// ele não carregasse, a promessa nunca resolvia: a tela ficava parada para
+// sempre antes mesmo de a requisição sair. E aceitava .docx no seletor, mas
+// lia como texto puro — docx é um ZIP, então o agente recebia lixo binário.
 
 export default function OrchestratorPanel({ clientId, clientName, clientIndustry, userId }: Props) {
   const [briefing, setBriefing] = useState("");
@@ -244,16 +225,13 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
     abortRef.current = ab;
 
     try {
-      // Extract text from all attached files
-      const attached_files: { name: string; content: string }[] = [];
-      for (const file of attachedFiles) {
-        try {
-          const content = await extractFileText(file);
-          attached_files.push({ name: file.name, content });
-        } catch {
-          toast.error(`Não foi possível ler: ${file.name}`);
-        }
-      }
+      // Lê os anexos. Nunca lança: o que falhou vem declarado, e o agente é
+      // avisado em vez de receber vazio e inventar o conteúdo.
+      const lidos = await lerDocumentos(attachedFiles);
+      lidos.filter((d) => d.erro).forEach((d) => toast.error(`${d.nome}: ${d.erro}`));
+      const attached_files = lidos
+        .filter((d) => !d.erro)
+        .map((d) => ({ name: d.nome, content: d.conteudo }));
 
       const { data: { session } } = await supabase.auth.getSession();
       const token = session?.access_token;
@@ -364,6 +342,11 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
           userId: resolvedUserId,
           autoSchedule: true,
           platforms: schedulePlatforms,
+          // Os anexos e links seguem para CADA agente que a ARIA acionar. Sem
+          // isto, o agente que dependia do briefing em arquivo ou do site do
+          // cliente não tinha o que ler e a fila parava nele.
+          documentos: await lerDocumentos(attachedFiles),
+          urls: urls.length ? urls : undefined,
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -557,7 +540,7 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
                 ref={fileInputRef}
                 type="file"
                 multiple
-                accept=".pdf,.txt,.md,.csv,.docx"
+                accept={EXTENSOES_ACEITAS}
                 className="hidden"
                 onChange={onFilePick}
               />

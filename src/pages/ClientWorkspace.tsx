@@ -295,6 +295,20 @@ const ROTINAS: { id: string; label: string; desc: string }[] = [
   { id: "relatorio", label: "Relatório do período", desc: "Seguidores, o que saiu e o que está na fila — só número real" },
 ];
 
+/**
+ * Links soltos na mensagem viram material de leitura para o agente.
+ *
+ * Antes, colar o site do cliente no chat não servia de nada: o agente via a URL
+ * como texto e respondia por cima, ou dizia que não conseguia abrir. A leitura
+ * acontece na edge function (ver supabase/functions/_shared/documentos.ts), com
+ * prazo, para um site lento não prender a resposta.
+ */
+function linksDoTexto(texto: string): string[] | undefined {
+  const achados = texto.match(/https?:\/\/[^\s<>()"']+/gi) ?? [];
+  const unicos = [...new Set(achados.map((u) => u.replace(/[.,;:!?]+$/, "")))].slice(0, 3);
+  return unicos.length ? unicos : undefined;
+}
+
 const AGENT_PROMPTS: Record<string, string> = {
   strategist: `Você é QUEILA, Estrategista-Chefe da Calu Agência.
 Frameworks: AIDA, Jobs-to-be-Done, Blue Ocean, Brand Key, SWOT.
@@ -1891,6 +1905,7 @@ export default function ClientWorkspace() {
           ...(isPostAgent && agentUserId && id
             ? { enableDraftTool: true, client_id: id, user_id: agentUserId }
             : {}),
+          urls: linksDoTexto(instruction),
           messages: [{ role: "user", content: instruction }],
         },
       });
@@ -1966,6 +1981,9 @@ export default function ClientWorkspace() {
           maxTokens: agCfg.maxTokens,
           ...(isPostAgent && agentUserId && id ? { enableDraftTool: true, client_id: id, user_id: agentUserId } : {}),
           ...(isDesignerAgent ? { enableImageTool: true, clientContext: clientCtx, beatrizCopy: latestBeatriz.slice(0, 900) } : {}),
+          // Só os links da mensagem NOVA: reler o site a cada rodada da conversa
+          // custaria tempo e traria o mesmo conteúdo.
+          urls: linksDoTexto(newHistory[newHistory.length - 1]?.content ?? ""),
           messages: newHistory,
         },
       });

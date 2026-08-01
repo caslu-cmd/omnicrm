@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { blocoDeContexto, lerUrls } from "../_shared/documentos.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -363,6 +364,9 @@ Deno.serve(async (req) => {
       clientContext,
       beatrizCopy,
       benTrends,
+      /** Anexos já extraídos pelo app (ver src/lib/lerDocumento.ts) e links a ler. */
+      documentos,
+      urls,
     } = body;
 
     if (!messages || !Array.isArray(messages)) {
@@ -383,8 +387,13 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Documentos e links entram no SYSTEM, não numa mensagem do usuário: assim
+    // valem para a conversa inteira e o agente não "esquece" o anexo depois de
+    // duas respostas. Ler a URL aqui é o que faltava — antes só a orquestração
+    // sabia abrir link, e o agente que precisava do site do cliente travava.
+    const contexto = blocoDeContexto(documentos, await lerUrls(urls));
     const resolvedSystemPrompt =
-      systemPrompt ?? (agentId ? AGENT_SKILLS[agentId.toLowerCase()] : null) ?? DEFAULT_SYSTEM_PROMPT;
+      (systemPrompt ?? (agentId ? AGENT_SKILLS[agentId.toLowerCase()] : null) ?? DEFAULT_SYSTEM_PROMPT) + contexto;
 
     const selectedModel = anthropicKey ? (model ?? "claude-sonnet-4-6") : "claude-sonnet-4-6";
     // Cap thinking budget at 3000 — Supabase edge functions have 150s limit; 8000+ tokens cause 546 timeouts
