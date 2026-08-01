@@ -8,7 +8,7 @@ import {
   Palette, Bell, Crown, ArrowLeftRight, Star,
   ArrowLeft, Megaphone, BarChart2, ExternalLink,
   Bot, Activity, Link2, ListTodo, Share2, Clapperboard, Mic, CalendarDays, Webhook, Layout, TrendingUp, FileBarChart, BookOpen,
-  ChevronDown, Code2, Filter, FileText, FormInput, Images
+  ChevronDown, Code2, Filter, FileText, FormInput, Images, FolderKanban
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
@@ -132,6 +132,7 @@ const clientToolGroups: {
   {
     titulo: "Produção",
     itens: [
+      { tab: "projetos",     icon: FolderKanban, label: "Projetos & Arquivos", equipe: true },
       { tab: "teo",          icon: Code2,  label: "Site — Teo" },
       { tab: "agents",       icon: Bot,    label: "Agentes IA" },
       { tab: "sales-agents", icon: Zap,    label: "Agentes Autônomos" },

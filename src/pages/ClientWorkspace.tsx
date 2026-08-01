@@ -1,4 +1,4 @@
-﻿import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { QRCodeSVG, QRCodeCanvas } from "qrcode.react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -25,6 +25,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
 import PostCanvas from "@/components/PostCanvas";
 import CarrosselStudio from "@/components/CarrosselStudio";
+import ProjetosPanel from "@/components/ProjetosPanel";
 import SocialMediaTab from "@/components/SocialMediaTab";
 import WebhooksTab from "@/components/WebhooksTab";
 import TeamMembersPanel from "@/components/TeamMembersPanel";
@@ -941,7 +942,7 @@ const fmtFollowers = (n: number) => {
 export default function ClientWorkspace() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") ?? "";
   const { user } = useAuth();
   const { setPageContext, clearPageContext } = usePageContext();
@@ -2004,9 +2005,26 @@ export default function ClientWorkspace() {
     cancelAriaRef.current = true;
   };
 
-  const handleSendToAria = async () => {
-    const demand = agentCommand.trim();
+  /**
+   * `demandaExterna` e `docsExternos` existem para o painel de Projetos acionar
+   * a Luna já com o material do projeto lido.
+   *
+   * E aqui morava um furo sério: o arquivo anexado no painel da Luna era lido,
+   * aparecia na tela, e NUNCA era enviado aos agentes — a orquestração ignorava
+   * `attachedFileText` por completo. Quem anexava um briefing via os agentes
+   * responderem no vazio.
+   */
+  const handleSendToAria = async (
+    demandaExterna?: string,
+    docsExternos?: { nome: string; conteudo: string }[],
+  ) => {
+    const demand = (demandaExterna ?? agentCommand).trim();
     if (!demand && !attachedFile) return;
+    const documentos = docsExternos?.length
+      ? docsExternos
+      : attachedFileText && attachedFile
+        ? [{ nome: attachedFile.name, conteudo: attachedFileText }]
+        : undefined;
     cancelAriaRef.current = false;
     setAgentCommand("");
     clearAriaFile();
@@ -2292,6 +2310,10 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
                 ...(isPostAgent && agentUserId && id
                   ? { enableDraftTool: true, client_id: id, user_id: agentUserId }
                   : {}),
+                // O material do projeto vai para CADA agente da onda: é isso que
+                // faltava para quem dependia de ler o briefing.
+                documentos,
+                urls: linksDoTexto(demand),
                 messages: [{
                   role: "user",
                   content: `Demanda do cliente: "${demand}"\n\n${ctxBlock}`,
@@ -2518,6 +2540,9 @@ ${priorBlock}`;
                 ...(isPostAgent2 && agentUserId && id
                   ? { enableDraftTool: true, client_id: id, user_id: agentUserId }
                   : {}),
+                // A onda 2 também precisa do material: quem entra depois costuma
+                // ser justamente quem detalha em cima do briefing.
+                documentos,
                 messages: [{
                   role: "user",
                   content: `Demanda original: "${demand}"\n\n${ctx2}\n\nEntregue sua parte dando continuidade ao que o time já produziu.`,
@@ -8143,7 +8168,7 @@ Regras:
                         </button>
                       )}
                       <button
-                        onClick={handleSendToAria}
+                        onClick={() => handleSendToAria()}
                         disabled={(!agentCommand.trim() && !attachedFile) || ariaLoading}
                         className="flex items-center justify-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 w-full sm:w-auto sm:ml-auto"
                         style={{ background: "#B9FF4B", color: "#07080A", boxShadow: (agentCommand || attachedFile) ? "0 0 20px -4px rgba(185,255,75,0.5)" : "none" }}>
@@ -14046,6 +14071,27 @@ ${clientSection}${originalSection}`;
             ══════════════════════════════════════════════════════ */}
             {activeTab === "carrossel" && (
               <CarrosselStudio clientIdInicial={client.id} embutido />
+            )}
+
+            {/* ══════════════════════════════════════════════════════
+                PROJETOS & ARQUIVOS — material que a Luna lê
+            ══════════════════════════════════════════════════════ */}
+            {activeTab === "projetos" && id && (
+              <ProjetosPanel
+                clientId={id}
+                clientName={client.name}
+                clientIndustry={clientBriefing?.segmento || client.industry}
+                onAcionar={({ projeto, documentos, demanda }) => {
+                  // Manda para a mesma orquestração do painel da Luna, já com o
+                  // material lido. Vai para a aba dela para a Carol acompanhar
+                  // as ondas em vez de ficar olhando um botão girando aqui.
+                  setSearchParams({ tab: "agents" });
+                  setTimeout(
+                    () => handleSendToAria(`Projeto "${projeto.nome}". ${demanda}`, documentos),
+                    50,
+                  );
+                }}
+              />
             )}
 
             {/* ══════════════════════════════════════════════════════
