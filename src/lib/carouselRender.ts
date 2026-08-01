@@ -331,6 +331,20 @@ function extrairEnfase(txt: string): { limpo: string; enfase: Array<[number, num
   return { limpo, enfase };
 }
 
+/**
+ * Geometria da pílula de ênfase, em fração do corpo da fonte.
+ *
+ * `FOLGA` é o respiro DENTRO da pílula, dos dois lados da palavra. `EMPURRA` é
+ * o quanto a pílula afasta as palavras vizinhas: o espaço normal de uma fonte
+ * (~0,25 em) não dá conta de hospedar a pílula E ainda separar do vizinho, e a
+ * ponta arredondada avança justo na altura do olho — sem isso sai "mais)e nem
+ * sabe", grudado. Quem mede a linha tem que reservar `RESERVA_ENFASE`, senão o
+ * empurrão estoura a caixa que o fitText calculou.
+ */
+const PILULA_FOLGA = 0.11;
+const PILULA_EMPURRA = 0.1;
+export const RESERVA_ENFASE = PILULA_EMPURRA * 2;
+
 /** Desenha uma linha em pedaços, trocando a cor nos trechos com ênfase. */
 function desenharLinhaComEnfase(
   ctx: CanvasRenderingContext2D,
@@ -355,57 +369,64 @@ function desenharLinhaComEnfase(
 
   const alinhamentoAntigo = ctx.textAlign;
   const corBase = ctx.fillStyle;
-  const total = ctx.measureText(linha).width;
+
+  // Os pedaços são montados ANTES de desenhar porque a pílula alarga a linha:
+  // sem saber o quanto, uma linha centralizada sairia fora do eixo.
+  const pedacos = [];
+  for (let k = 0; k < pontos.length - 1; k++) {
+    const texto = linha.slice(pontos[k], pontos[k + 1]);
+    if (!texto) continue;
+    const absoluto = inicioNaFrase + pontos[k];
+    const marcado = block.enfase.some(([a, b]) => absoluto >= a && absoluto < b);
+    const pilula = marcado && tarja;
+    // A pílula não empurra contra a borda da linha: ali ela pode transbordar,
+    // que é o que as referências fazem. Só empurra contra palavra vizinha.
+    const empurra = pilula ? block.size * PILULA_EMPURRA : 0;
+    pedacos.push({
+      texto,
+      marcado,
+      pilula,
+      larg: ctx.measureText(texto).width,
+      empurraEsq: pontos[k] === 0 ? 0 : empurra,
+      empurraDir: pontos[k + 1] === linha.length ? 0 : empurra,
+    });
+  }
+
+  const total = pedacos.reduce((s, p) => s + p.larg + p.empurraEsq + p.empurraDir, 0);
   let cursorX = align === "center" ? x - total / 2 : align === "right" ? x - total : x;
   ctx.textAlign = "left";
 
-  for (let k = 0; k < pontos.length - 1; k++) {
-    const pedaco = linha.slice(pontos[k], pontos[k + 1]);
-    if (!pedaco) continue;
-    const absoluto = inicioNaFrase + pontos[k];
-    const marcado = block.enfase.some(([a, b]) => absoluto >= a && absoluto < b);
-    const larg = ctx.measureText(pedaco).width;
+  for (const p of pedacos) {
+    cursorX += p.empurraEsq;
 
-    if (marcado && tarja) {
-      // Tarja: a única ênfase que funciona quando o fundo já é colorido —
-      // cor sozinha ali some. Desenha o bloco e inverte o texto sobre ele.
-      // Formato de PÍLULA (raio = metade da altura), como nas referências.
-      const semEspaco = pedaco.replace(/\s+$/, "");
+    if (p.pilula) {
+      // Pílula preenchida: a única ênfase que funciona quando o fundo já é
+      // colorido — cor sozinha ali some. Desenha o bloco e inverte o texto.
+      const semEspaco = p.texto.replace(/\s+$/, "");
       const largSemEspaco = ctx.measureText(semEspaco).width;
-      // No começo da linha a tarja pode avançar para a esquerda (fica alinhada
-      // opticamente com o texto acima). No meio da linha NÃO: ali ela come o
-      // espaço da palavra anterior e as duas se leem grudadas.
-      const folgaEsq = pontos[k] === 0 ? block.size * 0.12 : block.size * 0.02;
-      const folgaDir = block.size * 0.14;
+      const folga = block.size * PILULA_FOLGA;
       const altura = block.size * 1.12;
       const topo = cy - block.size * 0.86;
       ctx.save();
-      roundRectPath(
-        ctx,
-        cursorX - folgaEsq,
-        topo,
-        largSemEspaco + folgaEsq + folgaDir,
-        altura,
-        altura / 2,
-      );
+      roundRectPath(ctx, cursorX - folga, topo, largSemEspaco + folga * 2, altura, altura / 2);
       ctx.fillStyle = accent;
       ctx.fill();
       ctx.restore();
       ctx.fillStyle = contrastOn(accent);
-      ctx.fillText(pedaco, cursorX, cy);
+      ctx.fillText(p.texto, cursorX, cy);
     } else {
-      ctx.fillStyle = marcado ? accent : corBase;
-      ctx.fillText(pedaco, cursorX, cy);
-      if (marcado) {
+      ctx.fillStyle = p.marcado ? accent : corBase;
+      ctx.fillText(p.texto, cursorX, cy);
+      if (p.marcado) {
         ctx.save();
         ctx.strokeStyle = accent;
         ctx.lineWidth = Math.max(1, block.size * 0.022);
         ctx.lineJoin = "round";
-        ctx.strokeText(pedaco, cursorX, cy);
+        ctx.strokeText(p.texto, cursorX, cy);
         ctx.restore();
       }
     }
-    cursorX += larg;
+    cursorX += p.larg + p.empurraDir;
   }
 
   ctx.fillStyle = corBase;
@@ -416,17 +437,24 @@ function desenharLinhaComEnfase(
 function fitText(
   ctx: CanvasRenderingContext2D,
   text: string,
-  o: { font: (size: number) => string; maxWidth: number; maxHeight: number; max: number; min: number; lh: number; tracking?: number },
+  o: {
+    font: (size: number) => string; maxWidth: number; maxHeight: number; max: number; min: number; lh: number;
+    tracking?: number;
+    /** Quem vai desenhar a ênfase em PÍLULA precisa disso: ela alarga a linha. */
+    enfaseEmPilula?: boolean;
+  },
 ): TextBlock {
   // A marcação de ênfase sai antes de medir: tudo abaixo trabalha com o texto limpo.
   const { limpo, enfase } = extrairEnfase(text);
   const step = Math.max(1, Math.round(o.max * 0.02));
   let reserva: TextBlock | null = null; // melhor opção caso nenhuma fonte evite corte de palavra
+  const comPilula = !!o.enfaseEmPilula && enfase.length > 0;
 
   for (let size = o.max; size >= o.min; size -= step) {
     ctx.font = o.font(size);
     setTracking(ctx, (o.tracking ?? 0) * size);
-    const { lines, quebrouPalavra } = wrapLines(ctx, limpo, o.maxWidth);
+    const largura = o.maxWidth - (comPilula ? size * RESERVA_ENFASE : 0);
+    const { lines, quebrouPalavra } = wrapLines(ctx, limpo, largura);
     const lineHeight = size * o.lh;
     const height = lines.length * lineHeight;
     if (height <= o.maxHeight) {
@@ -444,7 +472,7 @@ function fitText(
 
   ctx.font = o.font(o.min);
   setTracking(ctx, (o.tracking ?? 0) * o.min);
-  const { lines } = wrapLines(ctx, limpo, o.maxWidth);
+  const { lines } = wrapLines(ctx, limpo, o.maxWidth - (comPilula ? o.min * RESERVA_ENFASE : 0));
   setTracking(ctx, 0);
   return {
     lines, size: o.min, lineHeight: o.min * o.lh,
@@ -1606,6 +1634,9 @@ function medirCartaoAg(
     min: W * 0.038,
     lh: 1.12,
     tracking: fonts.tracking,
+    // O título do `agencia` é sempre desenhado com a ênfase em pílula, nos dois
+    // lugares que usam este medidor (cartão sólido e peça de cor cheia).
+    enfaseEmPilula: true,
   });
   const b = o.slide.corpo
     ? fitText(ctx, o.slide.corpo, {
@@ -1925,25 +1956,35 @@ function layoutAgencia(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrom
 
   const larg = temFoto ? W * 0.63 : W - pad * 2;
   const bc = medirCartaoAg(ctx, o, fonts, W, H, larg, {
-    maxTitulo: o.slide.tipo === "capa" ? W * 0.088 : W * 0.072,
-    tituloH: 0.34,
-    corpoH: 0.17,
+    // Sem foto o CARTÃO É A PEÇA: o texto tem que crescer para ocupá-la. Com os
+    // limites de quando há foto, o cartão terminava no meio da altura e sobrava
+    // um quarto do slide vazio entre o contato e a palavra da base.
+    maxTitulo: temFoto ? (o.slide.tipo === "capa" ? W * 0.088 : W * 0.072) : W * 0.105,
+    tituloH: temFoto ? 0.34 : 0.42,
+    corpoH: temFoto ? 0.17 : 0.2,
   });
-  // Sem foto, centralizar o conjunto deixava um vão morto entre o contato e a
-  // palavra da base — a peça parecia inacabada. Aqui o cartão sobe para perto do
-  // topo e o contato desce até encostar na palavra, como nas referências.
-  const topo = temFoto
-    ? Math.max(pad * 0.9, (piso - (bc.altura + W * 0.03 + contatoH)) / 2)
-    : pad * 1.1;
+  // Altura da pílula com seta, que só existe na peça sem foto. É determinística
+  // (ver drawPilulaSeta), então dá para reservar ANTES de desenhar.
+  const pilulaH = Math.round(W * 0.028) + W * 0.056;
+  const gapPilula = W * 0.035;
+  const gapContato = W * 0.04;
+  // Empilhamento contínuo — cartão, pílula e contato colados — com o conjunto
+  // centrado entre o topo e a palavra da base. Ancorar o cartão em cima e o
+  // contato lá embaixo (o que havia antes) não fechava o vão: só o mudava de
+  // lugar, e o buraco ficava bem no meio da peça.
+  const alturaPilha = temFoto
+    ? bc.altura + W * 0.03 + contatoH
+    : bc.altura + gapPilula + pilulaH + gapContato + contatoH;
+  const topo = Math.max(pad * 0.9, (piso - alturaPilha) / 2);
   const yContato = temFoto
     ? topo + bc.altura + W * 0.03
-    : Math.max(topo + bc.altura + W * 0.03, piso - contatoH - W * 0.05);
+    : topo + bc.altura + gapPilula + pilulaH + gapContato;
   desenharCartaoAg(ctx, o, bc, cx, topo, larg, p, W, fonts, { camada: true, sombra: temFoto ? 0.22 : 0 });
   if (!temFoto) {
     // A ponte entre o cartão e o rodapé. Diz o que fazer com o slide, que é o
     // papel que essa pílula tem nas referências.
     const chamada = destaque && !jaNoTitulo ? destaque : o.slide.tipo === "cta" ? "Fale com a gente" : "Arrasta pro lado";
-    drawPilulaSeta(ctx, cx, topo + bc.altura + W * 0.035, chamada, {
+    drawPilulaSeta(ctx, cx, topo + bc.altura + gapPilula, chamada, {
       fundo: p.claro,
       fg: p.sobreClaro,
       accent: p.forte,
