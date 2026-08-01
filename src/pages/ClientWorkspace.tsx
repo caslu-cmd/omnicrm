@@ -4904,6 +4904,46 @@ Regras:
     })();
   }, [id]);
 
+  /**
+   * Briefing do BANCO quando não há nada neste navegador.
+   *
+   * O briefing nasce no `localStorage` desta máquina. Coletado no notebook e
+   * aberto no desktop, ele sumia: os agentes perdiam o contexto do cliente e a
+   * tela mandava coletar um briefing que já existia. Como já existe sincronismo
+   * localStorage → `client_briefings`, faltava só o caminho de volta.
+   */
+  useEffect(() => {
+    if (!portalClientUUID || clientBriefing) return;
+    let vivo = true;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("client_briefings")
+        .select("brand_name, segment, target_audience, brand_voice, differentials, goals, active_platforms, post_frequency, website, restrictions, notes")
+        .eq("client_id", portalClientUUID)
+        .maybeSingle();
+      if (!vivo || !data) return;
+      const b = data as Record<string, any>;
+      // Traduz para o formato que o resto da tela e os prompts já esperam.
+      const doBanco = {
+        empresa: b.brand_name ?? client?.name,
+        segmento: b.segment ?? undefined,
+        clienteIdeal: b.target_audience ?? undefined,
+        tomDeVoz: b.brand_voice ?? undefined,
+        diferencial: b.differentials ?? undefined,
+        meta90dias: Array.isArray(b.goals) ? b.goals[0] : b.goals ?? undefined,
+        canaisAtivos: b.active_platforms ?? undefined,
+        frequencia: b.post_frequency ?? undefined,
+        site: b.website ?? undefined,
+        restricoes: b.restrictions ?? undefined,
+        observacoes: b.notes ?? undefined,
+      };
+      if (!Object.values(doBanco).some(Boolean)) return;
+      setClientBriefing(doBanco);
+      try { localStorage.setItem(`client-briefing-${id}`, JSON.stringify(doBanco)); } catch { /* modo privado */ }
+    })();
+    return () => { vivo = false; };
+  }, [portalClientUUID, clientBriefing, id, client?.name]);
+
   // Auto-sync localStorage briefing → Supabase client_briefings
   useEffect(() => {
     if (!portalClientUUID || !user?.id || !clientBriefing) return;
@@ -7962,9 +8002,13 @@ Regras:
                         )}
                       </div>
                       <p className="text-[11px] leading-relaxed mb-3" style={{ color: "rgba(255,255,255,0.45)" }}>
+                        {/* Não dá para AFIRMAR que falta briefing: ele vem do
+                            localStorage deste navegador, então um briefing
+                            coletado em outra máquina aparece como inexistente.
+                            Sem certeza, o texto convida em vez de acusar. */}
                         {clientBriefing
                           ? "Contexto do cliente carregado — todos os agentes respondem com base no briefing."
-                          : "Colete o briefing antes de enviar demandas para Aira. Sem ele, os agentes não têm contexto do cliente."}
+                          : "Não encontrei o briefing neste navegador. Se você já coletou em outra máquina, ele continua valendo; se não, a Lia coleta em poucos minutos."}
                       </p>
                       <button
                         onClick={() => { setSelectedAgentId(selectedAgentId === "briefing" ? null : "briefing"); setViewingAgentId(null); setAgentInstruction(""); clearAgentFile(); }}
@@ -8978,10 +9022,15 @@ Regras:
                       const textoSemeado = /aguardando (briefing|instru)/i.test(task?.current ?? "");
                       const currentText = agent.id === "designer"
                         ? (designerTask?.prompt ?? designerRecentWork[0] ?? "")
+                        // Sem gênero no texto: a grade tem agentes homens e
+                        // mulheres e o rótulo é o mesmo para todos.
+                        //
+                        // E NÃO opina sobre briefing: ele é lido do localStorage
+                        // deste navegador, então briefing coletado em outra
+                        // máquina aparece como inexistente e o cartão passava a
+                        // mandar coletar um briefing que já existe.
                         : textoSemeado && !isWorking && !isDone
-                          // Sem gênero no texto: a grade tem agentes homens e
-                          // mulheres e o rótulo é o mesmo para todos.
-                          ? (clientBriefing ? "Livre — é só instruir" : "Sem briefing ainda — colete com a Lia")
+                          ? "Livre — é só instruir"
                           : task?.current;
                       const progress = agent.id === "designer" ? (designerTask?.progress ?? 0) : (task?.progress ?? 0);
                       const showProgress = (agent.id === "designer" ? (designerTask && designerTask.progress < 100) : isWorking) && progress > 0;
