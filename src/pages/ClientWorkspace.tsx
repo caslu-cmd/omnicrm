@@ -2242,6 +2242,11 @@ REGRAS:
 Contexto: cliente "${clientContext.name}", segmento "${clientContext.industry}".
 ${clientContext.teamInstructions ? `Instruções permanentes: ${clientContext.teamInstructions}` : ""}
 
+VOCÊ NÃO EXECUTA. Não escreva copy, calendário, estratégia nem qualquer entrega
+aqui — quem produz são os agentes que você acionar. Se você entregar o trabalho
+nesta resposta, ele será DESCARTADO e o cliente não recebe nada.
+O campo "plan" tem no MÁXIMO 2 frases dizendo quem entra e por quê.
+
 Responda APENAS JSON válido, sem markdown, sem texto extra:
 {"plan":"2 frases curtas explicando a abordagem","agents":["strategist","copywriter"]}`;
 
@@ -2263,7 +2268,12 @@ Responda APENAS JSON válido, sem markdown, sem texto extra:
         const fromRaw   = planRaw.match(/(\{[\s\S]*\})/)?.[1]?.trim();
         plan = JSON.parse(fromBlock ?? fromRaw ?? planRaw);
       } catch {
-        plan = { plan: planRaw.slice(0, 240), agents: idsDoCliente.slice(0, 2) };
+        // A Aira respondeu em PROSA em vez do JSON do plano — normalmente
+        // porque resolveu já fazer o trabalho. Jogar esse texto na conversa
+        // fazia parecer que ela entregou para a Carol em vez de delegar, que
+        // foi exatamente a queixa. O texto dela é descartado; o plano vira o
+        // recorte automático e quem produz são os agentes.
+        plan = { plan: "", agents: idsDoCliente.slice(0, 3) };
       }
 
       // Vale o id existir E o agente estar habilitado para este cliente.
@@ -2284,11 +2294,20 @@ Responda APENAS JSON válido, sem markdown, sem texto extra:
         action: "wave-divider", timestamp: nowTs(), status: "done",
       }]);
 
-      // Aira mostra o plano na conversa
+      // Aira mostra o PLANO, não o trabalho.
+      //
+      // Ela às vezes devolve a entrega pronta no lugar do plano, e o texto caía
+      // aqui como se fosse ela respondendo à Carol — parecia que a Aira tinha
+      // feito tudo sozinha e os agentes não tinham sido acionados. Se o texto
+      // vier longo demais para ser plano, é entrega: descarta e anuncia quem
+      // entra, que é o papel dela nesta etapa.
+      const nomesDoPlano = agents.map((a) => AGENT_META[a]?.name ?? a).join(", ");
+      const planoCurto = (plan.plan ?? "").trim();
+      const ehPlano = planoCurto.length > 0 && planoCurto.length <= 400;
       addConvMsgs([{
         id: `aria-plan-${Date.now()}`,
         from: "aria", to: "user",
-        content: plan.plan || "Vou acionar o time.",
+        content: ehPlano ? planoCurto : `Vou acionar ${nomesDoPlano || "o time"} agora.`,
         action: "plan", timestamp: nowTs(), status: "done",
       }]);
 

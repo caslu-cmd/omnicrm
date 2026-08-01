@@ -244,17 +244,33 @@ export default function ProjetosPanel({ clientId, clientName, clientIndustry, on
             <Loader2 className="w-4 h-4 animate-spin" /> carregando…
           </div>
         ) : projetos.length === 0 ? (
-          <div className="rounded-2xl p-8 text-center text-[13px]" style={{ ...caixa, color: "rgba(255,255,255,0.45)" }}>
-            Nenhum projeto ainda. Crie um e anexe o briefing, o contrato ou o material da campanha.
-          </div>
+          /* O anexo e o link vivem DENTRO de um projeto. Sem projeto, a tela
+             era um texto e um botão pequeno no canto — e a Carol concluiu, com
+             razão, que não existia opção de anexar. Aqui o caminho é o próprio
+             vazio. */
+          <button onClick={() => setCriando(true)}
+            className="w-full rounded-2xl p-10 flex flex-col items-center gap-3 transition-all"
+            style={{ background: "rgba(255,255,255,0.03)", border: "1px dashed rgba(185,255,75,0.35)" }}>
+            <FolderPlus className="w-8 h-8" style={{ color: LIME }} />
+            <span className="text-[15px] font-bold" style={{ color: "#F0F0F0" }}>Criar o primeiro projeto</span>
+            <span className="text-[12.5px] max-w-md" style={{ color: "rgba(255,255,255,0.45)" }}>
+              É dentro do projeto que você anexa arquivos e links. Depois é só acionar a Aira,
+              e o time inteiro trabalha com esse material.
+            </span>
+          </button>
         ) : (
           <div className="grid gap-2.5" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))" }}>
             {projetos.map((p) => (
               <button key={p.id} onClick={() => abrir(p)} className="text-left rounded-2xl p-4 transition-all hover:brightness-125" style={caixa}>
                 <div className="text-[14px] font-bold mb-1" style={{ color: "#F0F0F0" }}>{p.nome}</div>
                 {p.descricao && <div className="text-[12px] mb-2 line-clamp-2" style={{ color: "rgba(255,255,255,0.45)" }}>{p.descricao}</div>}
-                <div className="text-[11px] flex items-center gap-1.5" style={{ color: LIME }}>
-                  <Paperclip className="w-3 h-3" /> {p.arquivos} {p.arquivos === 1 ? "arquivo" : "arquivos"}
+                <div className="text-[11px] flex items-center justify-between gap-2" style={{ color: LIME }}>
+                  <span className="flex items-center gap-1.5">
+                    <Paperclip className="w-3 h-3" /> {p.arquivos} {p.arquivos === 1 ? "item" : "itens"}
+                  </span>
+                  {/* Diz o que o clique faz: o cartão não parecia clicável, e é
+                      só dentro dele que existe anexar arquivo e link. */}
+                  <span style={{ color: "rgba(255,255,255,0.4)" }}>abrir para anexar →</span>
                 </div>
               </button>
             ))}
