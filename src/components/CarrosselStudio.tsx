@@ -233,6 +233,8 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   const [loteCarrosseis, setLoteCarrosseis] = useState(0);
   const [loteSlides, setLoteSlides] = useState(7);
   const [loteAndamento, setLoteAndamento] = useState<string | null>(null);
+  /** Lote que já sai desenhado: escreve, dirige a arte e fotografa cada peça. */
+  const [loteComArte, setLoteComArte] = useState(false);
   /** As pautas do lote ficam na tela: ela quer LER o que vai ser escrito. */
   const [lotePautas, setLotePautas] = useState<Array<{ tema: string; gancho: string; carrossel: boolean; estado: "espera" | "escrevendo" | "pronta" | "falhou" }>>([]);
   const pararLoteRef = useRef(false);
@@ -791,6 +793,20 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
         ? `Direção "${d.nome}" aplicada, mantendo a identidade da marca.`
         : `Direção "${d.nome}" aplicada.`,
     );
+    /**
+     * Devolve o design JÁ resolvido. Quem produz em lote precisa gravar isto na
+     * mesma volta, e ler `layout`/`accent` do estado logo depois de um `set`
+     * traz o valor ANTIGO — a peça iria para a Biblioteca com o design errado.
+     */
+    return {
+      layout: d.layout,
+      bg: d.bg,
+      fg: d.fg,
+      accent: corTravada ? cor : d.accent,
+      fontPair: (fonteTravada ? fonte : d.fonte) as FontPairId,
+      acabamento: d.acabamento ?? acabamento,
+      formatId,
+    };
   };
 
   /**
@@ -859,18 +875,39 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           continue;
         }
 
-        await (supabase as any).from("carousel_memory").insert({
+        const roteiro = (data.slides as SlideData[]).map((s) => ({ ...s, imagem: null }));
+        const { data: linha } = await (supabase as any).from("carousel_memory").insert({
           user_id: session.user.id,
           client_id: clienteId,
           tema: temas[i],
           angulo: data.angulo ?? null,
           objetivo,
           formato: ehCarrossel ? "carrossel" : "post",
-          slides: (data.slides as SlideData[]).map((s) => ({ ...s, imagem: null })),
+          slides: roteiro,
           legenda: data.legenda ?? "",
           hashtags: data.hashtags ?? [],
           design: { layout, fontPair, bg, fg, accent, formatId, acabamento },
-        });
+        }).select("id").single();
+
+        /**
+         * Marcela sozinha: o texto já está salvo, então a arte é um extra que
+         * pode falhar sem levar a peça junto. Cada peça vira a peça aberta no
+         * estúdio enquanto é desenhada — ela assiste acontecer.
+         */
+        if (loteComArte && linha?.id && !pararLoteRef.current) {
+          setLoteAndamento(`Desenhando ${i + 1} de ${temas.length} — ${temas[i].slice(0, 38)}...`);
+          try {
+            setMemoriaId(linha.id);
+            setSlides(roteiro);
+            setTema(temas[i]);
+            const r = await darArte(roteiro, temas[i]);
+            await gravarArte(linha.id, r.roteiro, r.design);
+          } catch {
+            // A peça fica na Biblioteca com texto; a arte ela refaz num clique.
+          }
+          setModoAuto(null);
+        }
+
         setLotePautas((p) => p.map((x, idx) => (idx === i ? { ...x, estado: "pronta" } : x)));
         feitas++;
       }
@@ -924,9 +961,10 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
       },
     });
     const direcoesAuto: Direcao[] = dir?.direcoes ?? [];
+    let design = { layout, bg, fg, accent, fontPair, acabamento, formatId };
     if (direcoesAuto.length) {
       setDirecoes(direcoesAuto);
-      aplicarDirecao(direcoesAuto[0]);
+      design = aplicarDirecao(direcoesAuto[0]);
     }
 
     // O layout só existe agora: é ele que decide onde a foto precisa de vazio.
@@ -942,7 +980,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     if (!precisaFoto && roteiro.some((s) => s.prompt_imagem)) {
       const comFoto = direcoesAuto.find((d) => LAYOUTS.find((l) => l.id === d.layout)?.precisaImagem);
       if (comFoto) {
-        aplicarDirecao(comFoto);
+        design = aplicarDirecao(comFoto);
         layoutEscolhido = comFoto.layout;
         precisaFoto = true;
         toast.info(`Direção "${comFoto.nome}" no lugar da primeira: o roteiro pediu foto e ela aproveita.`);
@@ -951,25 +989,70 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
       }
     }
 
+    let comFotos = roteiro;
     if (precisaFoto) {
       setModoAuto(`Fotografando ${roteiro.length} ${roteiro.length === 1 ? "peça" : "slides"}...`);
-      await gerarImagensDeTodos({ slides: roteiro, layout: layoutEscolhido });
+      comFotos = await gerarImagensDeTodos({ slides: roteiro, layout: layoutEscolhido });
     }
-    return precisaFoto;
+    return { precisaFoto, roteiro: comFotos, design };
   };
+
+  /** Grava o resultado da arte na linha da Biblioteca. */
+  const gravarArte = async (id: string, roteiro: SlideData[], design: Record<string, unknown>) =>
+    (supabase as any).from("carousel_memory")
+      .update({ slides: roteiro.map((s) => ({ ...s, imagem: s.imagemUrl ?? null })), design })
+      .eq("id", id);
 
   /** Dá arte a uma peça da Biblioteca sem tocar no roteiro dela. */
   const gerarArteDaBiblioteca = async (id: string) => {
     const roteiro = await abrirDaBiblioteca(id);
     if (!roteiro.length) return;
     try {
-      const comFoto = await darArte(roteiro, tema || "");
+      const r = await darArte(roteiro, tema || "");
+      await gravarArte(id, r.roteiro, r.design);
       setModoAuto(null);
       setAba("design");
-      toast.success(comFoto ? "Arte e fotos prontas." : "Direção de arte aplicada.");
+      toast.success(r.precisaFoto ? "Arte e fotos prontas." : "Direção de arte aplicada.");
     } catch (e) {
       setModoAuto(null);
       toast.error(e instanceof Error ? e.message : "Erro ao gerar a arte.");
+    }
+  };
+
+  /**
+   * A Marcela sozinha: dá arte a TODAS as peças que ainda não têm.
+   *
+   * Não faço isso automaticamente depois do lote por escolha — são um diretor de
+   * arte e várias fotos por peça, e custa dinheiro. Aqui ela pediu, então é um
+   * clique só, com andamento e com o mesmo botão de parar.
+   */
+  const darArteEmTodas = async () => {
+    const pendentes = memoria.filter((m) => !m.slides?.some((s) => s.imagem));
+    if (!pendentes.length) { toast.info("Todas as peças já têm arte."); return; }
+    pararLoteRef.current = false;
+    setMostrarBiblioteca(false);
+    try {
+      let feitas = 0;
+      for (let i = 0; i < pendentes.length; i++) {
+        if (pararLoteRef.current) break;
+        const m = pendentes[i];
+        setLoteAndamento(`Arte ${i + 1} de ${pendentes.length} — ${m.tema.slice(0, 40)}...`);
+        const roteiro = await abrirDaBiblioteca(m.id, true);
+        if (!roteiro.length) continue;
+        try {
+          const r = await darArte(roteiro, m.tema);
+          await gravarArte(m.id, r.roteiro, r.design);
+          feitas++;
+        } catch {
+          // Uma peça que falha não pode derrubar as outras quinze.
+        }
+      }
+      setModoAuto(null);
+      await carregarMemoria();
+      toast.success(`${feitas} ${feitas === 1 ? "peça pronta" : "peças prontas"} com arte e foto.`);
+      setMostrarBiblioteca(true);
+    } finally {
+      setLoteAndamento(null);
     }
   };
 
@@ -982,7 +1065,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
 
       // Referência que a Carol subiu para este post manda mais que as da casa:
       // ali ela quer FIDELIDADE, não inspiração.
-      const precisaFoto = await darArte(novos, tema);
+      const { precisaFoto } = await darArte(novos, tema);
 
       setModoAuto(null);
       setAba("design");
@@ -1023,7 +1106,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   };
 
   /** Reabre um conteúdo da biblioteca do cliente e devolve o roteiro dele. */
-  const abrirDaBiblioteca = async (id: string): Promise<SlideData[]> => {
+  const abrirDaBiblioteca = async (id: string, calado = false): Promise<SlideData[]> => {
     const { data, error } = await (supabase as any)
       .from("carousel_memory")
       .select("*")
@@ -1054,7 +1137,9 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     setAtivo(0);
     setAba("roteiro");
     setMostrarBiblioteca(false);
-    toast.success("Conteúdo reaberto.");
+    // Calado quando é a Marcela varrendo a Biblioteca sozinha: dezesseis avisos
+    // de "conteúdo reaberto" só enterrariam o andamento que importa.
+    if (!calado) toast.success("Conteúdo reaberto.");
     return roteiro;
   };
 
@@ -1287,7 +1372,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     i: number,
     comReferencia = true,
     ctx?: { slides?: SlideData[]; layout?: LayoutId },
-  ): Promise<string | null> => {
+  ): Promise<{ url: string; hospedada: string | null } | null> => {
     setGerandoImg(i);
     try {
       const lista = ctx?.slides ?? slides;
@@ -1323,7 +1408,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
       const hospedada = await hospedarFoto(url, i);
       setSlides((prev) => prev.map((old, idx) => (idx === i ? { ...old, imagem: url, imagemUrl: hospedada } : old)));
       toast.success(data.modelo ? `Imagem gerada (${data.modelo}).` : "Imagem gerada.");
-      return url;
+      return { url, hospedada };
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro ao gerar imagem.");
       return null;
@@ -1332,7 +1417,8 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     }
   };
 
-  const gerarImagensDeTodos = async (ctx?: { slides?: SlideData[]; layout?: LayoutId }) => {
+  /** Devolve o roteiro com as fotos: quem produz em lote grava a partir daqui. */
+  const gerarImagensDeTodos = async (ctx?: { slides?: SlideData[]; layout?: LayoutId }): Promise<SlideData[]> => {
     setGerandoTodasImgs(true);
     try {
       // Lista local que vai sendo preenchida: é ela que carrega a foto do slide
@@ -1340,10 +1426,12 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
       const atuais: SlideData[] = (ctx?.slides ?? slides).map((s) => ({ ...s }));
       for (let i = 0; i < atuais.length; i++) {
         if (atuais[i].imagem) continue;
-        const url = await gerarImagem(i, true, { slides: atuais, layout: ctx?.layout });
-        if (url) atuais[i] = { ...atuais[i], imagem: url };
+        if (pararLoteRef.current) break;
+        const foto = await gerarImagem(i, true, { slides: atuais, layout: ctx?.layout });
+        if (foto) atuais[i] = { ...atuais[i], imagem: foto.url, imagemUrl: foto.hospedada };
       }
       toast.success("Imagens geradas para o carrossel inteiro.");
+      return atuais;
     } finally {
       setGerandoTodasImgs(false);
     }
@@ -1749,6 +1837,30 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                     </label>
                   )}
                 </div>
+                {/* A Marcela sozinha. Fica separado do resto porque é a decisão
+                    cara do card: um diretor de arte e uma foto por slide. */}
+                <label className="flex items-start gap-2.5 rounded-lg px-2.5 py-2 cursor-pointer"
+                  style={{
+                    background: loteComArte ? `${LIME}12` : "rgba(255,255,255,0.03)",
+                    border: `1px solid ${loteComArte ? `${LIME}44` : "rgba(255,255,255,0.07)"}`,
+                  }}>
+                  <input type="checkbox" checked={loteComArte} disabled={!!loteAndamento}
+                    onChange={(e) => setLoteComArte(e.target.checked)} className="mt-0.5" />
+                  <span className="min-w-0">
+                    <span className="block text-[11.5px] font-semibold" style={{ color: "#EDEDED" }}>
+                      Fazer a arte também — a Marcela sozinha
+                    </span>
+                    <span className="block text-[10px] leading-snug mt-0.5" style={{ color: "rgba(255,255,255,0.42)" }}>
+                      Escreve, escolhe a direção de arte e fotografa cada peça: sai pronta para publicar.
+                      {loteUnicos + loteCarrosseis > 0 && (
+                        <> Nesta configuração são <b style={{ color: "rgba(255,255,255,0.62)" }}>
+                          {loteUnicos + loteCarrosseis} direções e ~{loteUnicos + loteCarrosseis * loteSlides} fotos
+                        </b> — leva alguns minutos e você pode parar no meio.</>
+                      )}
+                    </span>
+                  </span>
+                </label>
+
                 {loteAndamento ? (
                   <div className="flex items-center justify-between gap-3">
                     <span className="flex items-center gap-2 text-[11.5px]" style={{ color: LIME }}>
@@ -1764,7 +1876,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                   <button onClick={produzirLote} disabled={!loteUnicos && !loteCarrosseis}
                     className="w-full py-2 rounded-xl text-[12px] font-bold disabled:opacity-40"
                     style={{ background: LIME, color: "#07080A" }}>
-                    Produzir {loteUnicos + loteCarrosseis || ""} {loteUnicos + loteCarrosseis === 1 ? "peça" : "peças"}
+                    {loteComArte ? "Produzir e desenhar" : "Produzir"} {loteUnicos + loteCarrosseis || ""} {loteUnicos + loteCarrosseis === 1 ? "peça" : "peças"}
                   </button>
                 )}
 
@@ -2598,6 +2710,21 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
         onChange={(e) => { const f = e.target.files?.[0]; if (f) lerReferencia(f); e.target.value = ""; }} />
 
       {/* ── Biblioteca do cliente ── */}
+      {/* Andamento e parada FLUTUANTES: quando a Marcela varre a Biblioteca
+          sozinha, a tela sai do briefing e o botão de parar de lá some junto. */}
+      {loteAndamento && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-3 rounded-2xl shadow-2xl"
+          style={{ background: "#0D0F12", border: `1px solid ${LIME}44` }}>
+          <Loader2 className="w-4 h-4 animate-spin flex-shrink-0" style={{ color: LIME }} />
+          <span className="text-[12px]" style={{ color: "#EDEDED" }}>{loteAndamento}</span>
+          <button onClick={() => { pararLoteRef.current = true; toast.info("Vou parar depois desta peça."); }}
+            className="px-3 py-1.5 rounded-lg text-[11px] font-bold flex-shrink-0"
+            style={{ background: "rgba(255,80,80,0.14)", border: "1px solid rgba(255,80,80,0.4)", color: "#FF6060" }}>
+            Parar
+          </button>
+        </div>
+      )}
+
       {mostrarBiblioteca && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-5"
           style={{ background: "rgba(0,0,0,0.86)", backdropFilter: "blur(10px)" }}
@@ -2617,6 +2744,16 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                 <X className="w-3.5 h-3.5" />
               </button>
             </div>
+            {/* Depois de um lote, quase tudo aqui está sem arte. Fazer uma a uma
+                é o trabalho braçal que ela justamente não quer. */}
+            {memoria.some((m) => !m.slides?.some((s) => s.imagem)) && (
+              <button onClick={darArteEmTodas} disabled={!!loteAndamento || !!modoAuto}
+                className="mx-4 mt-3 py-2.5 rounded-xl text-[11.5px] font-bold flex items-center justify-center gap-2 disabled:opacity-40"
+                style={{ background: LIME, color: "#07080A" }}>
+                <Sparkles className="w-3.5 h-3.5" />
+                Gerar a arte das {memoria.filter((m) => !m.slides?.some((s) => s.imagem)).length} peças que faltam
+              </button>
+            )}
             <div className="overflow-y-auto p-4 space-y-2">
               {memoria.length === 0 && (
                 <div className="text-[12px] text-center py-8" style={{ color: "rgba(255,255,255,0.35)" }}>
