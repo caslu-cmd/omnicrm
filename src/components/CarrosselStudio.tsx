@@ -833,6 +833,14 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
       case "foto":
         // Título grande alinhado à esquerda, junto da base.
         return "CRITICAL COMPOSITION: vertical portrait. Place the person on the RIGHT side of the frame. The LOWER LEFT half must be clear, quiet background with no face and no important detail, because large headline text is composited there.";
+      case "agencia":
+        // A foto sangra numa FAIXA VERTICAL estreita (pouco mais da metade da
+        // largura, altura inteira). O drawCover corta as laterais, então o que
+        // sobrevive é a faixa central da imagem: quem ficar na borda some.
+        return "CRITICAL COMPOSITION: vertical portrait. The image will be cropped to a NARROW VERTICAL STRIP, so the person must be CENTRED horizontally, framed from the waist up and fully inside the central band — nothing important near the left or right edge, it will be cut off. No text is composited over the photo, so it does not need empty space, but keep the background calm and uncluttered.";
+      case "organico":
+        // A foto vive recortada DENTRO de uma forma orgânica na metade de baixo.
+        return "CRITICAL COMPOSITION: vertical portrait. The photo will be masked inside a large organic shape, so keep the person CENTRED and fully within the middle of the frame, with generous margin on all four sides — anything near an edge is cut away by the mask.";
       case "revista":
         // A foto entra como faixa no topo, sem texto por cima.
         return "CRITICAL COMPOSITION: horizontal banner crop, subject centred and fully visible. No text is composited over this image, so it does not need empty space.";

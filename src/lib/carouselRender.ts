@@ -3,7 +3,7 @@
  * Desenha slides prontos para publicar (1080px) em canvas, sem depender de Canva/Figma.
  */
 
-export type LayoutId = "vidro" | "capa" | "organico" | "editorial" | "impacto" | "revista" | "gradiente" | "minimal" | "foto";
+export type LayoutId = "vidro" | "capa" | "organico" | "agencia" | "editorial" | "impacto" | "revista" | "gradiente" | "minimal" | "foto";
 export type FormatId = "4:5" | "1:1" | "9:16";
 export type FontPairId =
   | "editorial" | "impacto" | "moderno" | "tecnico" | "manchete" | "esportivo"
@@ -90,6 +90,7 @@ export const LAYOUTS: { id: LayoutId; label: string; desc: string; precisaImagem
   { id: "vidro", label: "Vidro", desc: "Foto + cartão de vidro com o título. O padrão que mais roda no feed.", precisaImagem: true },
   { id: "capa", label: "Capa", desc: "Foto + título gigante direto na imagem, com seta e pílulas.", precisaImagem: true },
   { id: "organico", label: "Orgânico", desc: "Forma de marca gigante em cor cheia, foto recortada dentro dela e selo circular. O padrão de agência.", precisaImagem: true },
+  { id: "agencia", label: "Agência", desc: "Foto sangrando de um lado, cartões sólidos empilhados do outro, papel quadriculado e bloco de contato. A estrutura das referências.", precisaImagem: true },
   { id: "editorial", label: "Editorial", desc: "Fundo escuro, número gigante, tipografia grande. O mais versátil." },
   { id: "impacto", label: "Impacto", desc: "Cor cheia e tipografia pesada. Para frase de efeito e dado forte." },
   { id: "revista", label: "Revista", desc: "Papel claro, serifada, filetes finos. Ar de publicação premium." },
@@ -97,6 +98,85 @@ export const LAYOUTS: { id: LayoutId; label: string; desc: string; precisaImagem
   { id: "minimal", label: "Minimal", desc: "Branco, respiro, um traço de cor. Elegante e limpo." },
   { id: "foto", label: "Foto", desc: "Sua imagem em tela cheia com máscara e texto por cima.", precisaImagem: true },
 ];
+
+/**
+ * KITS — artes fechadas, aprovadas olhando na tela.
+ *
+ * Por que existem: deixar a IA remontar um design do zero a cada peça significa
+ * dezenas de decisões por post, e basta uma ser mediana para a arte inteira
+ * ficar mediana. Um kit trava layout, tipografia, acabamento e o PAPEL de cada
+ * cor; o que varia é o conteúdo e a cor da marca do cliente.
+ *
+ * Kit é UMA das opções, não obrigação: a direção autoral (a IA compondo) e a
+ * cópia de referência continuam existindo.
+ *
+ * `corDaMarca` diz onde a cor do cliente entra — é o que faz o mesmo kit servir
+ * marcas diferentes sem virar template repetido.
+ */
+export interface Kit {
+  id: string;
+  label: string;
+  desc: string;
+  layout: LayoutId;
+  fontPair: FontPairId;
+  acabamento: AcabamentoId;
+  /** Onde a cor da marca entra: fundo, destaque, ou a forma do layout. */
+  corDaMarca: "accent" | "bg";
+  /** Base neutra do kit; a cor da marca é aplicada por cima conforme acima. */
+  base: { bg: string; fg: string; accent: string };
+  precisaImagem?: boolean;
+}
+
+export const KITS: Kit[] = [
+  {
+    id: "agencia-forma",
+    label: "Forma de marca",
+    desc: "Fundo claro, forma da marca ocupando a base com a foto dentro dela e selo circular. O padrão de agência.",
+    layout: "organico",
+    fontPair: "startup",
+    acabamento: "nenhum",
+    corDaMarca: "accent",
+    base: { bg: "#F7F9F3", fg: "#15211A", accent: "#8DC63F" },
+    precisaImagem: true,
+  },
+  {
+    id: "vitrine-noturna",
+    label: "Vitrine noturna",
+    desc: "Foto em tela cheia, cartão de vidro com o título e tratamento cinematográfico. Para marca escura.",
+    layout: "vidro",
+    fontPair: "corporativo",
+    acabamento: "cinema",
+    corDaMarca: "accent",
+    base: { bg: "#101418", fg: "#F5F7FA", accent: "#FF7A45" },
+    precisaImagem: true,
+  },
+  {
+    id: "dossie-claro",
+    label: "Dossiê claro",
+    desc: "Papel claro, serifada e muito respiro. Para autoridade técnica: contabilidade, jurídico, consultoria.",
+    layout: "revista",
+    fontPair: "fino",
+    acabamento: "grao",
+    corDaMarca: "accent",
+    base: { bg: "#F4F1EA", fg: "#1B1815", accent: "#B23C0C" },
+  },
+];
+
+/** Aplica a cor da marca no papel que o kit reservou para ela. */
+export function temaDoKit(kit: Kit, corMarca?: string | null): Theme {
+  const base = { ...kit.base };
+  if (corMarca && /^#?[0-9a-f]{6}$/i.test(corMarca.replace("#", ""))) {
+    const cor = corMarca.startsWith("#") ? corMarca : `#${corMarca}`;
+    if (kit.corDaMarca === "accent") {
+      // O accent precisa se separar do fundo do kit, senão a peça some.
+      base.accent = isLight(base.bg) === isLight(cor) ? shade(cor, isLight(base.bg) ? -0.35 : 0.35) : cor;
+    } else {
+      base.bg = cor;
+      base.fg = contrastOn(cor);
+    }
+  }
+  return { ...base, fontPair: kit.fontPair };
+}
 
 export const PALETTES: { id: string; label: string; bg: string; fg: string; accent: string }[] = [
   { id: "noite", label: "Noite", bg: "#0A0C0F", fg: "#F4F5F2", accent: "#B9FF4B" },
@@ -261,6 +341,7 @@ function desenharLinhaComEnfase(
   cy: number,
   align: CanvasTextAlign,
   accent: string,
+  tarja = false,
 ) {
   const fim = inicioNaFrase + linha.length;
   // Fronteiras dos pedaços, em índices locais da linha.
@@ -283,17 +364,48 @@ function desenharLinhaComEnfase(
     if (!pedaco) continue;
     const absoluto = inicioNaFrase + pontos[k];
     const marcado = block.enfase.some(([a, b]) => absoluto >= a && absoluto < b);
-    ctx.fillStyle = marcado ? accent : corBase;
-    ctx.fillText(pedaco, cursorX, cy);
-    if (marcado) {
+    const larg = ctx.measureText(pedaco).width;
+
+    if (marcado && tarja) {
+      // Tarja: a única ênfase que funciona quando o fundo já é colorido —
+      // cor sozinha ali some. Desenha o bloco e inverte o texto sobre ele.
+      // Formato de PÍLULA (raio = metade da altura), como nas referências.
+      const semEspaco = pedaco.replace(/\s+$/, "");
+      const largSemEspaco = ctx.measureText(semEspaco).width;
+      // No começo da linha a tarja pode avançar para a esquerda (fica alinhada
+      // opticamente com o texto acima). No meio da linha NÃO: ali ela come o
+      // espaço da palavra anterior e as duas se leem grudadas.
+      const folgaEsq = pontos[k] === 0 ? block.size * 0.12 : block.size * 0.02;
+      const folgaDir = block.size * 0.14;
+      const altura = block.size * 1.12;
+      const topo = cy - block.size * 0.86;
       ctx.save();
-      ctx.strokeStyle = accent;
-      ctx.lineWidth = Math.max(1, block.size * 0.022);
-      ctx.lineJoin = "round";
-      ctx.strokeText(pedaco, cursorX, cy);
+      roundRectPath(
+        ctx,
+        cursorX - folgaEsq,
+        topo,
+        largSemEspaco + folgaEsq + folgaDir,
+        altura,
+        altura / 2,
+      );
+      ctx.fillStyle = accent;
+      ctx.fill();
       ctx.restore();
+      ctx.fillStyle = contrastOn(accent);
+      ctx.fillText(pedaco, cursorX, cy);
+    } else {
+      ctx.fillStyle = marcado ? accent : corBase;
+      ctx.fillText(pedaco, cursorX, cy);
+      if (marcado) {
+        ctx.save();
+        ctx.strokeStyle = accent;
+        ctx.lineWidth = Math.max(1, block.size * 0.022);
+        ctx.lineJoin = "round";
+        ctx.strokeText(pedaco, cursorX, cy);
+        ctx.restore();
+      }
     }
-    cursorX += ctx.measureText(pedaco).width;
+    cursorX += larg;
   }
 
   ctx.fillStyle = corBase;
@@ -345,7 +457,12 @@ function drawBlock(
   block: TextBlock,
   x: number,
   y: number,
-  o: { font: (size: number) => string; align?: CanvasTextAlign; tracking?: number; accent?: string },
+  o: {
+    font: (size: number) => string; align?: CanvasTextAlign; tracking?: number;
+    accent?: string;
+    /** Ênfase em tarja em vez de cor. Obrigatório quando o fundo já é colorido. */
+    tarja?: boolean;
+  },
 ) {
   ctx.font = o.font(block.size);
   ctx.textAlign = o.align ?? "left";
@@ -363,7 +480,7 @@ function drawBlock(
       if (ini < 0) {
         ctx.fillText(line, x, cy); // não localizou: desenha normal, nunca deixa de desenhar
       } else {
-        desenharLinhaComEnfase(ctx, line, ini, block, x, cy, o.align ?? "left", o.accent as string);
+        desenharLinhaComEnfase(ctx, line, ini, block, x, cy, o.align ?? "left", o.accent as string, o.tarja);
         cursor = ini + line.length;
       }
     }
@@ -740,33 +857,51 @@ function layoutRevista(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrom
     cursor += imgH + W * 0.06;
   }
 
+  // Página de revista com texto curto não deixa a metade de baixo vazia: o
+  // título cresce até ocupar o espaço e o bloco inteiro é redistribuído.
+  const disponivel = bottomLimit - cursor;
+  const fonteTitulo = (s: number) => `${fonts.displayWeight} ${s}px ${fonts.display}`;
+  const fonteCorpo = (s: number) => `400 ${s}px ${fonts.body}`;
+  const tetoTitulo = o.image?.width ? W * 0.1 : o.slide.tipo === "capa" ? W * 0.17 : W * 0.145;
+
   const t = fitText(ctx, o.slide.titulo, {
-    font: (s) => `${fonts.displayWeight} ${s}px ${fonts.display}`,
+    font: fonteTitulo,
     maxWidth: W - pad * 2,
-    maxHeight: (bottomLimit - cursor) * (o.slide.corpo ? 0.58 : 0.9),
-    max: o.slide.tipo === "capa" ? W * 0.125 : W * 0.092,
+    maxHeight: disponivel * (o.slide.corpo ? 0.6 : 0.9),
+    max: tetoTitulo,
     min: W * 0.044,
     lh: 1.14,
     tracking: -0.005,
   });
-  ctx.fillStyle = fg;
-  drawBlock(ctx, t, pad, cursor, { font: (s) => `${fonts.displayWeight} ${s}px ${fonts.display}`, tracking: -0.005, accent });
-  cursor += t.height + W * 0.045;
 
+  const filete = W * 0.045 + W * 0.04;
+  let b: TextBlock | null = null;
   if (o.slide.corpo) {
-    ctx.fillStyle = accent;
-    ctx.fillRect(pad, cursor, W * 0.09, Math.max(2, W * 0.004));
-    cursor += W * 0.04;
-    const b = fitText(ctx, o.slide.corpo, {
-      font: (s) => `400 ${s}px ${fonts.body}`,
+    b = fitText(ctx, o.slide.corpo, {
+      font: fonteCorpo,
       maxWidth: W * 0.82,
-      maxHeight: bottomLimit - cursor,
-      max: W * 0.04,
+      maxHeight: Math.max(W * 0.1, disponivel - t.height - filete),
+      max: o.image?.width ? W * 0.04 : W * 0.05,
       min: W * 0.026,
       lh: 1.55,
     });
+  }
+
+  // Sobra distribuída: um pouco de ar em cima, o resto embaixo — bloco no
+  // terço óptico, nunca colado no kicker com um buraco embaixo.
+  const alturaBloco = t.height + (b ? filete + b.height : 0);
+  cursor += Math.max(0, disponivel - alturaBloco) * 0.34;
+
+  ctx.fillStyle = fg;
+  drawBlock(ctx, t, pad, cursor, { font: fonteTitulo, tracking: -0.005, accent });
+  cursor += t.height + W * 0.045;
+
+  if (b) {
+    ctx.fillStyle = accent;
+    ctx.fillRect(pad, cursor, W * 0.09, Math.max(2, W * 0.004));
+    cursor += W * 0.04;
     ctx.fillStyle = rgba(fg, 0.75);
-    drawBlock(ctx, b, pad, cursor, { font: (s) => `400 ${s}px ${fonts.body}` });
+    drawBlock(ctx, b, pad, cursor, { font: fonteCorpo });
   }
 
   if (o.slide.destaque && o.slide.tipo !== "capa") {
@@ -1214,6 +1349,628 @@ function layoutOrganico(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chro
       fontSize: Math.round(W * 0.018), font: fonts.body, fg: contrastOn(accent), img: o.image, W, H, escuro: !isLight(accent),
     });
   }
+}
+
+// ── Movimentos de agência ─────────────────────────────────────────────────
+// O que separa uma peça de agência de um template: fundo com malha, tipografia
+// gigante sangrando pela borda, cartões sólidos empilhados em camadas e um
+// bloco de contato fixo. Cada um desenhado abaixo como peça independente.
+
+/** Papel quadriculado, quase imperceptível. Dá textura sem virar assunto. */
+function drawMalha(ctx: CanvasRenderingContext2D, W: number, H: number, cor: string) {
+  const passo = W / 18;
+  ctx.save();
+  ctx.strokeStyle = rgba(cor, 0.07);
+  ctx.lineWidth = Math.max(1, W * 0.0012);
+  ctx.beginPath();
+  for (let x = passo; x < W; x += passo) {
+    ctx.moveTo(Math.round(x) + 0.5, 0);
+    ctx.lineTo(Math.round(x) + 0.5, H);
+  }
+  for (let y = passo; y < H; y += passo) {
+    ctx.moveTo(0, Math.round(y) + 0.5);
+    ctx.lineTo(W, Math.round(y) + 0.5);
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+/**
+ * Palavra gigante cortada pela borda, usada como textura de fundo.
+ * O corte é o ponto: tipografia inteira e centrada vira título, tipografia
+ * sangrando vira grafismo. Por isso a posição é deliberadamente fora da tela.
+ */
+function drawTipoSangrando(
+  ctx: CanvasRenderingContext2D,
+  palavra: string,
+  W: number,
+  H: number,
+  o: {
+    font: string; peso: number; cor: string;
+    borda: "baixo" | "direita" | "esquerda"; tamanho: number; corte?: number;
+  },
+) {
+  const txt = palavra.trim().toUpperCase();
+  if (!txt) return;
+  ctx.save();
+  ctx.font = `${o.peso} ${o.tamanho}px ${o.font}`;
+  ctx.fillStyle = o.cor;
+  ctx.textBaseline = "alphabetic";
+  ctx.textAlign = "left";
+  setTracking(ctx, -o.tamanho * 0.03);
+  const larg = ctx.measureText(txt).width;
+  if (o.borda === "baixo") {
+    // `corte` = quanto da caixa fica fora da tela. Quanto menor, mais a palavra
+    // sobe e mais base ela ocupa.
+    ctx.fillText(txt, -W * 0.04, H + o.tamanho * (o.corte ?? 0.28));
+  } else if (o.borda === "direita") {
+    ctx.fillText(txt, W - larg * 0.72, H * 0.55);
+  } else {
+    ctx.fillText(txt, -larg * 0.28, H * 0.55);
+  }
+  setTracking(ctx, 0);
+  ctx.restore();
+}
+
+/** Cartão sólido. É o tijolo das camadas — sem vidro, sem borrão. */
+function drawCartao(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  cor: string,
+  raio: number,
+  sombra = 0,
+) {
+  ctx.save();
+  if (sombra > 0) {
+    ctx.shadowColor = `rgba(0,0,0,${sombra})`;
+    ctx.shadowBlur = w * 0.06;
+    ctx.shadowOffsetY = w * 0.018;
+  }
+  roundRectPath(ctx, x, y, w, h, raio);
+  ctx.fillStyle = cor;
+  ctx.fill();
+  ctx.restore();
+}
+
+/**
+ * Bloco de contato — presente em toda peça das referências da Carol.
+ * É o que faz a peça parecer entregue por uma agência e não gerada: o leitor
+ * sempre sabe para onde ligar. Devolve a altura ocupada.
+ */
+function drawBlocoContato(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  o: { brand: BrandInfo; fundo: string; fg: string; font: string; W: number },
+): number {
+  const { W } = o;
+  const rotulo = Math.round(W * 0.019);
+  const valor = Math.round(W * 0.031);
+  const padI = W * 0.035;
+  const h = padI * 2 + rotulo + valor * 1.5;
+  drawCartao(ctx, x, y, w, h, o.fundo, W * 0.03);
+
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = rgba(o.fg, 0.6);
+  ctx.font = `700 ${rotulo}px ${o.font}`;
+  setTracking(ctx, rotulo * 0.14);
+  ctx.fillText("FALE COM A GENTE", x + padI, y + padI + rotulo);
+  setTracking(ctx, 0);
+
+  ctx.fillStyle = o.fg;
+  ctx.font = `700 ${valor}px ${o.font}`;
+  ctx.fillText((o.brand.handle || o.brand.nome || "").trim(), x + padI, y + padI + rotulo + valor * 1.25);
+  return h;
+}
+
+/**
+ * Pílula com seta em círculo — o elemento de apoio das referências ("Leia a
+ * legenda ↓", os bullets com check). Serve de ponte quando a peça sem foto fica
+ * com um vão morto entre o cartão e o rodapé: dá densidade sem inventar assunto.
+ * Devolve a altura ocupada.
+ */
+function drawPilulaSeta(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  texto: string,
+  o: { fundo: string; fg: string; accent: string; sobreAccent: string; font: string; W: number },
+): number {
+  const { W } = o;
+  const corpo = Math.round(W * 0.028);
+  const padI = W * 0.028;
+  const h = corpo + padI * 2;
+  const raioSeta = h * 0.34;
+  ctx.font = `700 ${corpo}px ${o.font}`;
+  const larg = padI * 2 + ctx.measureText(texto).width + raioSeta * 2 + padI;
+
+  drawCartao(ctx, x, y, larg, h, o.fundo, h / 2);
+  ctx.fillStyle = o.fg;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText(texto, x + padI, y + padI + corpo * 0.82);
+
+  // Seta dentro do círculo, apontando para a direita (avança o carrossel).
+  const ccx = x + larg - padI * 0.6 - raioSeta;
+  const ccy = y + h / 2;
+  ctx.beginPath();
+  ctx.arc(ccx, ccy, raioSeta, 0, Math.PI * 2);
+  ctx.fillStyle = o.accent;
+  ctx.fill();
+  ctx.strokeStyle = o.sobreAccent;
+  ctx.lineWidth = Math.max(2, W * 0.004);
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  const braco = raioSeta * 0.42;
+  ctx.beginPath();
+  ctx.moveTo(ccx - braco, ccy);
+  ctx.lineTo(ccx + braco, ccy);
+  ctx.moveTo(ccx + braco * 0.25, ccy - braco * 0.75);
+  ctx.lineTo(ccx + braco, ccy);
+  ctx.lineTo(ccx + braco * 0.25, ccy + braco * 0.75);
+  ctx.stroke();
+  return h;
+}
+
+/**
+ * Layout "agência" — a estrutura que se repete nas referências: foto sangrando
+ * de um lado, cartões sólidos empilhados do outro, malha no papel e contato
+ * fixo. Sem foto, a peça vira cor cheia com a palavra-chave sangrando embaixo.
+ */
+/**
+ * Layout "agência" — não é UMA composição, são cinco.
+ *
+ * Um carrossel com o mesmo arranjo em todo slide é template, não carrossel. As
+ * referências da Carol têm seis peças com seis composições e o MESMO DNA: dois
+ * tons da marca + papel, cartão sólido, bloco de contato, tipografia sangrando.
+ * Aqui o DNA é fixo e o ARRANJO gira por slide.
+ */
+type ArranjoAg = "foto-cheia" | "cartao-foto" | "duas-colunas" | "cor-cheia" | "cartao-papel";
+
+function arranjoDoSlide(o: RenderOptions, temFoto: boolean): ArranjoAg {
+  if (temFoto) {
+    // A capa fica sempre com a foto inteira. O ciclo dos demais começa DEPOIS
+    // dela: com `index % 3` o slide 3 caía de novo em "foto-cheia" e o carrossel
+    // repetia o arranjo — que é exatamente o defeito que isso veio corrigir.
+    if (o.slide.tipo === "capa") return "foto-cheia";
+    const ciclo: ArranjoAg[] = ["cartao-foto", "duas-colunas", "foto-cheia"];
+    return ciclo[(o.index + ciclo.length - 1) % ciclo.length];
+  }
+  if (o.slide.tipo === "capa" || o.slide.tipo === "cta") return "cor-cheia";
+  // Alternar por `index % 2` não serve: os slides sem foto costumam cair em
+  // índices de mesma paridade (1 e 3) e voltavam ao mesmo arranjo.
+  return Math.floor(o.index / 2) % 2 === 0 ? "cartao-papel" : "cor-cheia";
+}
+
+interface PaletaAg {
+  forte: string;
+  papel: string;
+  claro: string;
+  sobreForte: string;
+  sobreClaro: string;
+  tinta: string;
+}
+
+function paletaAgencia(theme: Theme): PaletaAg {
+  const forte = theme.accent;
+  const papel = isLight(theme.bg) ? theme.bg : "#F2F4F7";
+  // O cartão de trás é SEMPRE mais claro que o da frente — é assim que a camada
+  // se lê. Mas se ele encostar no papel some a camada, então recua um pouco.
+  const lum = (h: string) => {
+    const [r, g, b] = hexToRgb(h);
+    return (r * 299 + g * 587 + b * 114) / 1000;
+  };
+  let claro = shade(forte, 0.78);
+  if (Math.abs(lum(claro) - lum(papel)) < 14) claro = shade(forte, 0.5);
+  return {
+    forte,
+    papel,
+    claro,
+    sobreForte: contrastOn(forte),
+    sobreClaro: contrastOn(claro),
+    tinta: isLight(papel) ? "#12161C" : "#FFFFFF",
+  };
+}
+
+interface BlocoCartaoAg {
+  t: TextBlock;
+  b: TextBlock | null;
+  rotulo: number;
+  padI: number;
+  altura: number;
+}
+
+/** Mede o conteúdo do cartão. Separado do desenho porque a altura decide a
+ *  posição — e a posição só existe depois de saber a altura. */
+function medirCartaoAg(
+  ctx: CanvasRenderingContext2D,
+  o: RenderOptions,
+  fonts: (typeof FONT_PAIRS)[FontPairId],
+  W: number,
+  H: number,
+  larg: number,
+  lim: { maxTitulo: number; tituloH: number; corpoH: number },
+): BlocoCartaoAg {
+  const padI = W * 0.055;
+  const rotulo = Math.round(W * 0.02);
+  const t = fitText(ctx, fonts.upper ? o.slide.titulo.toUpperCase() : o.slide.titulo, {
+    font: (s) => `${fonts.displayWeight} ${s}px ${fonts.display}`,
+    maxWidth: larg - padI * 2,
+    maxHeight: H * lim.tituloH,
+    max: lim.maxTitulo,
+    min: W * 0.038,
+    lh: 1.12,
+    tracking: fonts.tracking,
+  });
+  const b = o.slide.corpo
+    ? fitText(ctx, o.slide.corpo, {
+        font: (s) => `400 ${s}px ${fonts.body}`,
+        maxWidth: larg - padI * 2,
+        maxHeight: H * lim.corpoH,
+        max: W * 0.033,
+        min: W * 0.022,
+        lh: 1.5,
+      })
+    : null;
+  return {
+    t,
+    b,
+    rotulo,
+    padI,
+    altura: padI * 2 + rotulo * 2.2 + t.height + (b ? W * 0.03 + b.height : 0),
+  };
+}
+
+/** Desenha o cartão sólido com a camada de trás e o texto dentro. */
+function desenharCartaoAg(
+  ctx: CanvasRenderingContext2D,
+  o: RenderOptions,
+  bc: BlocoCartaoAg,
+  x: number,
+  y: number,
+  larg: number,
+  p: PaletaAg,
+  W: number,
+  fonts: (typeof FONT_PAIRS)[FontPairId],
+  opts: { camada?: boolean; sombra?: number; align?: CanvasTextAlign } = {},
+) {
+  const raio = W * 0.05;
+  const align = opts.align ?? "left";
+  if (opts.camada !== false) {
+    drawCartao(ctx, x + W * 0.045, y - W * 0.028, larg - W * 0.03, bc.altura, p.claro, raio);
+  }
+  drawCartao(ctx, x, y, larg, bc.altura, p.forte, raio, opts.sombra ?? 0);
+
+  const tx = align === "center" ? x + larg / 2 : x + bc.padI;
+  let cy = y + bc.padI;
+
+  ctx.textAlign = align;
+  ctx.textBaseline = "alphabetic";
+  ctx.fillStyle = rgba(p.sobreForte, 0.62);
+  ctx.font = `700 ${bc.rotulo}px ${fonts.body}`;
+  setTracking(ctx, bc.rotulo * 0.16);
+  ctx.fillText((o.brand.nome || "").toUpperCase(), tx, cy + bc.rotulo);
+  setTracking(ctx, 0);
+  ctx.textAlign = "left";
+  cy += bc.rotulo * 2.2;
+
+  // O cartão já é cor cheia: ênfase por cor sumiria. Vai de tarja no tom claro.
+  ctx.fillStyle = p.sobreForte;
+  drawBlock(ctx, bc.t, tx, cy, {
+    font: (s) => `${fonts.displayWeight} ${s}px ${fonts.display}`,
+    tracking: fonts.tracking,
+    accent: p.claro,
+    tarja: true,
+    align,
+  });
+  cy += bc.t.height;
+
+  if (bc.b) {
+    cy += W * 0.03;
+    ctx.fillStyle = rgba(p.sobreForte, 0.82);
+    drawBlock(ctx, bc.b, tx, cy, { font: (s) => `400 ${s}px ${fonts.body}`, align });
+  }
+}
+
+/**
+ * Palavra-chave gigante do fundo. Nunca repete o que já está em tarja no
+ * título — três aparições do mesmo número na mesma peça é ruído, não repetição
+ * proposital. O corpo sai da LARGURA da palavra: com tamanho fixo, "COLHEITA"
+ * mostra só "CO" e "SÓ" ocupa meia peça.
+ */
+function chaveGrafica(o: RenderOptions): { palavra: string; jaNoTitulo: boolean } {
+  const tituloLimpo = o.slide.titulo.replace(/[*]/g, "");
+  const destaque = (o.slide.destaque || "").replace(/[*]/g, "").trim();
+  const jaNoTitulo = !!destaque && tituloLimpo.toLowerCase().includes(destaque.toLowerCase());
+  const maior = tituloLimpo
+    .split(/\s+/)
+    .filter((w) => w.replace(/[^\p{L}\p{N}]/gu, "").length > 3)
+    .sort((a, b) => b.length - a.length)[0];
+  return {
+    palavra: (jaNoTitulo || !destaque ? maior : destaque) || tituloLimpo.split(/\s+/)[0] || "",
+    jaNoTitulo,
+  };
+}
+
+function corpoDaChave(
+  ctx: CanvasRenderingContext2D,
+  palavra: string,
+  fonts: (typeof FONT_PAIRS)[FontPairId],
+  W: number,
+  alvo: number,
+): number {
+  ctx.font = `${fonts.displayWeight} 100px ${fonts.display}`;
+  const ref = Math.max(1, ctx.measureText(palavra.toUpperCase()).width);
+  return Math.min(W * 0.46, Math.max(W * 0.15, (100 * alvo) / ref));
+}
+
+/** Barra de progresso do layout, presa a uma coluna — nunca cruzando a foto. */
+function rodapeAgencia(
+  ctx: CanvasRenderingContext2D,
+  o: RenderOptions,
+  W: number,
+  H: number,
+  pad: number,
+  x: number,
+  larg: number,
+  cor: string,
+  tinta: string,
+  fonts: (typeof FONT_PAIRS)[FontPairId],
+) {
+  if (o.total <= 1) return;
+  const segW = larg / o.total;
+  const barH = Math.max(3, W * 0.005);
+  const by = H - pad * 0.5;
+  for (let i = 0; i < o.total; i++) {
+    ctx.fillStyle = i <= o.index ? cor : rgba(tinta, 0.18);
+    roundRectPath(ctx, x + segW * i + (i ? W * 0.004 : 0), by, segW - W * 0.004, barH, barH / 2);
+    ctx.fill();
+  }
+  if (o.mostrarNumero !== false) {
+    ctx.fillStyle = rgba(tinta, 0.5);
+    ctx.font = `700 ${Math.round(W * 0.022)}px ${fonts.body}`;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillText(
+      `${String(o.index + 1).padStart(2, "0")}/${String(o.total).padStart(2, "0")}`,
+      x,
+      by - W * 0.022,
+    );
+  }
+}
+
+function layoutAgencia(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrome) {
+  const { W, H, pad } = c;
+  const fonts = FONT_PAIRS[o.theme.fontPair];
+  const temFoto = !!o.image?.width;
+  const p = paletaAgencia(o.theme);
+  const arranjo = arranjoDoSlide(o, temFoto);
+  const cx = pad * 0.75;
+  const contatoH = W * 0.035 * 2 + Math.round(W * 0.019) + Math.round(W * 0.031) * 1.5;
+  const { palavra, jaNoTitulo } = chaveGrafica(o);
+  const destaque = (o.slide.destaque || "").replace(/[*]/g, "").trim();
+  const local: Chrome = { ...c, fg: p.tinta, accent: p.forte };
+
+  if (arranjo === "foto-cheia") {
+    // Foto ocupa a peça inteira; o cartão flutua sobre ela e foge do rosto.
+    drawCover(ctx, o.image as HTMLImageElement, 0, 0, W, H);
+    // Cartão deliberadamente compacto: num fundo de foto inteira, um cartão
+    // grande não deixa NENHUMA faixa livre e acaba em cima do rosto. Aqui o
+    // contato vira uma linha no rodapé em vez de um segundo cartão.
+    const larg = W * 0.62;
+    const bc = medirCartaoAg(ctx, o, fonts, W, H, larg, {
+      maxTitulo: W * 0.072,
+      tituloH: 0.22,
+      corpoH: 0.11,
+    });
+    // Ancorado embaixo, sem depender de detecção de rosto: a heurística de pele
+    // erra feio em foto de fim de tarde (a imagem inteira fica cor de pele) e
+    // rosto quase sempre está na metade DE CIMA. Base é o lugar seguro.
+    const topo = H - pad * 1.55 - bc.altura;
+    desenharCartaoAg(ctx, o, bc, cx, topo, larg, p, W, fonts, { camada: false, sombra: 0.28 });
+
+    drawPill(ctx, (o.brand.handle || o.brand.nome || "").trim(), cx, pad * 0.7, {
+      fontSize: Math.round(W * 0.026),
+      bg: p.forte,
+      fg: p.sobreForte,
+      font: fonts.body,
+    });
+    drawLogo(ctx, o, local);
+    rodapeAgencia(ctx, o, W, H, pad, cx, W - cx * 2, p.forte, "#FFFFFF", fonts);
+    return;
+  }
+
+  if (arranjo === "cor-cheia") {
+    // Peça de cor cheia, texto centrado e a palavra-chave rasgando a base.
+    ctx.fillStyle = p.forte;
+    ctx.fillRect(0, 0, W, H);
+    const tam = corpoDaChave(ctx, palavra, fonts, W, W * 1.2);
+    drawTipoSangrando(ctx, palavra, W, H, {
+      font: fonts.display,
+      peso: fonts.displayWeight,
+      cor: rgba(p.sobreForte, 0.12),
+      borda: "baixo",
+      tamanho: tam,
+      corte: 0.12,
+    });
+    const larg = W - cx * 2;
+    const bc = medirCartaoAg(ctx, o, fonts, W, H, larg, {
+      maxTitulo: W * 0.1,
+      tituloH: 0.32,
+      corpoH: 0.16,
+    });
+    // Sem cartão: o texto vive direto sobre a cor. O "cartão" aqui é a peça.
+    const piso = H - tam * (0.72 - 0.12);
+    let cy = Math.max(pad * 1.4, (piso - (bc.altura - bc.padI * 2)) / 2);
+    ctx.textAlign = "center";
+    ctx.fillStyle = rgba(p.sobreForte, 0.62);
+    ctx.font = `700 ${bc.rotulo}px ${fonts.body}`;
+    setTracking(ctx, bc.rotulo * 0.16);
+    ctx.fillText((o.brand.nome || "").toUpperCase(), W / 2, cy + bc.rotulo);
+    setTracking(ctx, 0);
+    ctx.textAlign = "left";
+    cy += bc.rotulo * 2.4;
+
+    ctx.fillStyle = p.sobreForte;
+    drawBlock(ctx, bc.t, W / 2, cy, {
+      font: (s) => `${fonts.displayWeight} ${s}px ${fonts.display}`,
+      tracking: fonts.tracking,
+      accent: p.claro,
+      tarja: true,
+      align: "center",
+    });
+    cy += bc.t.height;
+    if (bc.b) {
+      cy += W * 0.03;
+      ctx.fillStyle = rgba(p.sobreForte, 0.82);
+      drawBlock(ctx, bc.b, W / 2, cy, { font: (s) => `400 ${s}px ${fonts.body}`, align: "center" });
+      cy += bc.b.height;
+    }
+    drawBlocoContato(ctx, (W - W * 0.5) / 2, cy + W * 0.07, W * 0.5, {
+      brand: o.brand,
+      fundo: p.claro,
+      fg: p.sobreClaro,
+      font: fonts.body,
+      W,
+    });
+    drawLogo(ctx, o, local);
+    rodapeAgencia(ctx, o, W, H, pad, cx, W - cx * 2, p.claro, p.sobreForte, fonts);
+    return;
+  }
+
+  if (arranjo === "duas-colunas") {
+    // Papel: cartão de texto à esquerda, foto em cartão arredondado sangrando
+    // pela direita, e a palavra gigante correndo atrás pela borda.
+    ctx.fillStyle = p.papel;
+    ctx.fillRect(0, 0, W, H);
+    drawMalha(ctx, W, H, p.forte);
+    // A foto sangra pela direita E por baixo: cartão parado no meio da peça
+    // deixa a base morta.
+    const fx = W * 0.58;
+    ctx.save();
+    roundRectPath(ctx, fx, H * 0.22, W * 0.48, H * 0.9, W * 0.05);
+    ctx.clip();
+    drawCover(ctx, o.image as HTMLImageElement, fx, H * 0.22, W * 0.48, H * 0.9);
+    ctx.restore();
+
+    const larg = W * 0.52;
+    // A palavra gigante ocupa a base da coluna de texto, presa a ela.
+    const tam = corpoDaChave(ctx, palavra, fonts, W, fx * 1.15);
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(0, 0, fx, H);
+    ctx.clip();
+    drawTipoSangrando(ctx, palavra, W, H, {
+      font: fonts.display,
+      peso: fonts.displayWeight,
+      cor: rgba(p.forte, 0.15),
+      borda: "baixo",
+      tamanho: tam,
+      corte: 0.24,
+    });
+    ctx.restore();
+    const bc = medirCartaoAg(ctx, o, fonts, W, H, larg, {
+      maxTitulo: W * 0.068,
+      tituloH: 0.3,
+      corpoH: 0.16,
+    });
+    const piso = H - tam * (0.72 - 0.24);
+    const topo = Math.max(pad, (piso - bc.altura - W * 0.03 - contatoH) / 2);
+    desenharCartaoAg(ctx, o, bc, cx, topo, larg, p, W, fonts, { camada: true, sombra: 0.14 });
+    drawBlocoContato(ctx, cx, topo + bc.altura + W * 0.03, larg * 0.92, {
+      brand: o.brand,
+      fundo: p.claro,
+      fg: p.sobreClaro,
+      font: fonts.body,
+      W,
+    });
+    drawLogo(ctx, o, local);
+    rodapeAgencia(ctx, o, W, H, pad, cx, larg, p.forte, p.tinta, fonts);
+    return;
+  }
+
+  // "cartao-foto" e "cartao-papel": papel + cartões empilhados. Com foto ela
+  // sangra pela direita; sem foto, a palavra-chave ocupa a base.
+  ctx.fillStyle = p.papel;
+  ctx.fillRect(0, 0, W, H);
+  drawMalha(ctx, W, H, p.forte);
+
+  const fx = W * 0.44;
+  if (temFoto) drawCover(ctx, o.image as HTMLImageElement, fx, 0, W - fx, H);
+
+  const alvo = (temFoto ? fx : W) * 1.22;
+  const tam = corpoDaChave(ctx, palavra, fonts, W, alvo);
+  const corte = temFoto ? 0.26 : 0.12;
+  ctx.save();
+  if (temFoto) {
+    ctx.beginPath();
+    ctx.rect(0, 0, fx, H);
+    ctx.clip();
+  }
+  drawTipoSangrando(ctx, palavra, W, H, {
+    font: fonts.display,
+    peso: fonts.displayWeight,
+    cor: rgba(p.forte, temFoto ? 0.16 : 0.17),
+    borda: "baixo",
+    tamanho: tam,
+    corte,
+  });
+  ctx.restore();
+  const piso = H - tam * (0.72 - corte);
+
+  const larg = temFoto ? W * 0.63 : W - pad * 2;
+  const bc = medirCartaoAg(ctx, o, fonts, W, H, larg, {
+    maxTitulo: o.slide.tipo === "capa" ? W * 0.088 : W * 0.072,
+    tituloH: 0.34,
+    corpoH: 0.17,
+  });
+  // Sem foto, centralizar o conjunto deixava um vão morto entre o contato e a
+  // palavra da base — a peça parecia inacabada. Aqui o cartão sobe para perto do
+  // topo e o contato desce até encostar na palavra, como nas referências.
+  const topo = temFoto
+    ? Math.max(pad * 0.9, (piso - (bc.altura + W * 0.03 + contatoH)) / 2)
+    : pad * 1.1;
+  const yContato = temFoto
+    ? topo + bc.altura + W * 0.03
+    : Math.max(topo + bc.altura + W * 0.03, piso - contatoH - W * 0.05);
+  desenharCartaoAg(ctx, o, bc, cx, topo, larg, p, W, fonts, { camada: true, sombra: temFoto ? 0.22 : 0 });
+  if (!temFoto) {
+    // A ponte entre o cartão e o rodapé. Diz o que fazer com o slide, que é o
+    // papel que essa pílula tem nas referências.
+    const chamada = destaque && !jaNoTitulo ? destaque : o.slide.tipo === "cta" ? "Fale com a gente" : "Arrasta pro lado";
+    drawPilulaSeta(ctx, cx, topo + bc.altura + W * 0.035, chamada, {
+      fundo: p.claro,
+      fg: p.sobreClaro,
+      accent: p.forte,
+      sobreAccent: p.sobreForte,
+      font: fonts.body,
+      W,
+    });
+  }
+  drawBlocoContato(ctx, cx, yContato, larg * 0.72, {
+    brand: o.brand,
+    fundo: p.claro,
+    fg: p.sobreClaro,
+    font: fonts.body,
+    W,
+  });
+
+  if (destaque && !jaNoTitulo && temFoto && o.slide.tipo !== "cta") {
+    drawPill(ctx, destaque.toUpperCase(), W * 0.5, H - pad * 1.9, {
+      fontSize: Math.round(W * 0.03),
+      bg: p.papel,
+      fg: p.tinta,
+      font: fonts.body,
+    });
+  }
+
+  drawLogo(ctx, o, local);
+  rodapeAgencia(ctx, o, W, H, pad, cx, temFoto ? fx - cx - W * 0.03 : larg, p.forte, p.tinta, fonts);
 }
 
 function layoutFoto(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrome) {
@@ -1772,6 +2529,9 @@ export function renderSlide(canvas: HTMLCanvasElement, o: RenderOptions) {
       break;
     case "organico":
       layoutOrganico(ctx, o, chrome);
+      break;
+    case "agencia":
+      layoutAgencia(ctx, o, chrome);
       break;
     case "impacto":
       layoutImpacto(ctx, o, chrome);
