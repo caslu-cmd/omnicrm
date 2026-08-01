@@ -196,6 +196,17 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   const [mostrarNumero, setMostrarNumero] = useState(true);
   const [mostrarArraste, setMostrarArraste] = useState(true);
 
+  /**
+   * Identidade travada do cliente. Sem isso o diretor de arte escolhia cor e
+   * fonte do zero a cada direção, então o mesmo cliente saía diferente toda
+   * semana e a cor da marca era sobrescrita. Travado = ele varia layout, fundo
+   * e acabamento; cor e fonte são decisão da agência.
+   */
+  const [marcaCor, setMarcaCor] = useState("");
+  const [marcaFonte, setMarcaFonte] = useState<FontPairId | "">("");
+  const [marcaTravada, setMarcaTravada] = useState(true);
+  const [salvandoMarca, setSalvandoMarca] = useState(false);
+
   // Estúdio
   const [aba, setAba] = useState<Aba>("roteiro");
   const [ativo, setAtivo] = useState(0);
@@ -278,6 +289,64 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
       if (cliente.color) setAccent(cliente.color);
     }
   }, [cliente]);
+
+  /**
+   * Identidade travada, do banco. Fica em `client_marca` e não no localStorage
+   * porque identidade de cliente não pode depender do navegador em que a Carol
+   * está — a cor da marca some ao trocar de máquina.
+   */
+  useEffect(() => {
+    if (!clienteId) { setMarcaCor(""); setMarcaFonte(""); setMarcaTravada(true); return; }
+    let vivo = true;
+    // `as any` porque a tabela é nova e o types.ts gerado ainda não a conhece —
+    // mesmo padrão de carousel_memory e visual_refs neste arquivo.
+    (supabase as any)
+      .from("client_marca")
+      .select("cor, fonte, travado")
+      .eq("client_id", clienteId)
+      .maybeSingle()
+      .then(({ data }: { data: { cor?: string; fonte?: string; travado?: boolean } | null }) => {
+        if (!vivo) return;
+        setMarcaCor(data?.cor ?? "");
+        setMarcaFonte((data?.fonte as FontPairId) ?? "");
+        setMarcaTravada(data?.travado ?? true);
+        // Aplica já no preview: é assim que a peça do cliente tem que nascer.
+        if (data?.cor) setAccent(data.cor);
+        if (data?.fonte) setFontPair(data.fonte as FontPairId);
+      });
+    return () => { vivo = false; };
+  }, [clienteId]);
+
+  const salvarMarca = async (patch: { cor?: string; fonte?: FontPairId | ""; travado?: boolean }) => {
+    if (!clienteId) { toast.error("Escolha um cliente antes."); return; }
+    const novo = {
+      cor: patch.cor ?? marcaCor,
+      fonte: patch.fonte ?? marcaFonte,
+      travado: patch.travado ?? marcaTravada,
+    };
+    setMarcaCor(novo.cor);
+    setMarcaFonte(novo.fonte);
+    setMarcaTravada(novo.travado);
+    if (novo.cor) setAccent(novo.cor);
+    if (novo.fonte) setFontPair(novo.fonte);
+
+    setSalvandoMarca(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { setSalvandoMarca(false); toast.error("Sua sessão expirou."); return; }
+    const { error } = await (supabase as any).from("client_marca").upsert(
+      {
+        user_id: session.user.id,
+        client_id: clienteId,
+        cor: novo.cor || null,
+        fonte: novo.fonte || null,
+        travado: novo.travado,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "user_id,client_id" },
+    );
+    setSalvandoMarca(false);
+    if (error) toast.error("Não consegui salvar a identidade.");
+  };
 
   // Carrega logo
   useEffect(() => {
@@ -457,6 +526,21 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
       .filter((k) => skillsAtivas.includes(k.id) && (!tipo || k.tipo === tipo))
       .map((k) => `${k.nome}: ${k.instrucoes}`);
 
+  /**
+   * O que o diretor de arte NÃO pode mexer. Vai no prompt para ele construir o
+   * fundo em volta da cor travada — se ele escolhesse fundo livre e a cor fosse
+   * trocada só aqui na volta, a peça sairia com contraste quebrado.
+   */
+  const identidadeParaIA = () =>
+    marcaTravada && (marcaCor || marcaFonte)
+      ? {
+          travada: true,
+          cor: marcaCor || undefined,
+          fonte: marcaFonte || undefined,
+          fonteLabel: marcaFonte ? FONT_PAIRS[marcaFonte as FontPairId]?.label : undefined,
+        }
+      : undefined;
+
   const chamarDiretorDeArte = async () => {
     setBuscandoDirecao(true);
     try {
@@ -467,6 +551,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           nicho: cliente?.industry || "",
           tema,
           corMarca: accent,
+          identidade: identidadeParaIA(),
           benTrends: benParaIA(),
           skills: skillsParaIA("design"),
           ...contextoCliente(),
@@ -522,6 +607,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           mediaType,
           nicho: cliente?.industry || "",
           corMarca: accent,
+          identidade: identidadeParaIA(),
           skills: skillsParaIA("design"),
           ...contextoCliente(),
         },
@@ -542,13 +628,22 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
 
   const aplicarDirecao = (d: Direcao) => {
     setLayout(d.layout);
-    setFontPair(d.fonte);
     setBg(d.bg);
     setFg(d.fg);
-    setAccent(d.accent);
     if (d.acabamento) setAcabamento(d.acabamento);
+    // Com a identidade travada, a direção decide COMPOSIÇÃO — layout, fundo,
+    // acabamento — e a agência decide IDENTIDADE. Sem isso a cor da marca era
+    // sobrescrita a cada direção aplicada e o cliente mudava de cara por semana.
+    const corTravada = marcaTravada && marcaCor;
+    const fonteTravada = marcaTravada && marcaFonte;
+    setAccent(corTravada ? marcaCor : d.accent);
+    setFontPair(fonteTravada ? (marcaFonte as FontPairId) : d.fonte);
     setDirecaoAtiva(d.nome);
-    toast.success(`Direção "${d.nome}" aplicada.`);
+    toast.success(
+      corTravada || fonteTravada
+        ? `Direção "${d.nome}" aplicada, mantendo a identidade da marca.`
+        : `Direção "${d.nome}" aplicada.`,
+    );
   };
 
   /** Faz o carrossel inteiro sozinha: roteiro, direção de arte e fotos. */
@@ -569,6 +664,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           mediaType: refDoPost.mediaType,
           nicho: cliente?.industry || "",
           corMarca: accent,
+          identidade: identidadeParaIA(),
           skills: skillsParaIA("design"),
           ...contextoCliente(),
         } : {
@@ -577,6 +673,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           nicho: cliente?.industry || "",
           tema,
           corMarca: accent,
+          identidade: identidadeParaIA(),
           benTrends: benParaIA(),
           skills: skillsParaIA("design"),
           ...contextoCliente(),
@@ -849,11 +946,22 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     }
   };
 
+  /**
+   * A CAPA é a peça que decide se alguém para o dedo, e rosto humano é o que
+   * segura o olho. Vale para qualquer layout: mesmo quando o roteiro pediu
+   * "mãos no teclado" ou "detalhe da obra", na capa o rosto tem que aparecer.
+   */
+  const ROSTO_NA_CAPA =
+    "MANDATORY FOR THIS COVER IMAGE: a real person's FACE must be clearly visible, " +
+    "unobstructed and in focus, looking toward the camera. Never a back view, never " +
+    "cropped above the chin, never hidden by a hand, a phone, a helmet brim or hair, " +
+    "and never only hands, objects or scenery. The face is the subject.";
+
   /** Junta o pedido do roteiro com a composição que o layout exige. */
   const promptDaFoto = (s: SlideData, l: LayoutId) => {
     const base = s.prompt_imagem || `editorial photo about ${s.titulo}`;
-    const comp = composicaoDoLayout(l);
-    return comp ? `${base}\n\n${comp}` : base;
+    const partes = [base, composicaoDoLayout(l), s.tipo === "capa" ? ROSTO_NA_CAPA : null];
+    return partes.filter(Boolean).join("\n\n");
   };
 
   /**
@@ -1649,6 +1757,50 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                       <div className="text-[10px] leading-tight mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>{a.desc}</div>
                     </button>
                   ))}
+                </div>
+              </Campo>
+
+              <Campo label="Identidade da marca">
+                <div className="rounded-xl p-3" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <div className="text-[10px] leading-snug mb-2.5" style={{ color: "rgba(255,255,255,0.45)" }}>
+                    {clienteId
+                      ? "Vale para todo carrossel deste cliente, em qualquer máquina. Travado, o diretor de arte varia layout, fundo e acabamento — mas não a cor nem a fonte."
+                      : "Escolha um cliente para definir a identidade dele."}
+                  </div>
+
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <label className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg cursor-pointer"
+                      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                      <input type="color" value={marcaCor || accent} disabled={!clienteId}
+                        onChange={(e) => salvarMarca({ cor: e.target.value })}
+                        style={{ width: 20, height: 20, border: "none", background: "none", padding: 0, cursor: "pointer" }} />
+                      <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.55)" }}>
+                        Cor da marca{marcaCor ? "" : " (não definida)"}
+                      </span>
+                    </label>
+
+                    <select value={marcaFonte} disabled={!clienteId}
+                      onChange={(e) => salvarMarca({ fonte: e.target.value as FontPairId | "" })}
+                      className="text-[10px] px-2 py-1.5 rounded-lg"
+                      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "#E8E8E8" }}>
+                      <option value="">Fonte: a IA escolhe</option>
+                      {(Object.keys(FONT_PAIRS) as FontPairId[]).map((id) => (
+                        <option key={id} value={id}>{FONT_PAIRS[id].label}</option>
+                      ))}
+                    </select>
+
+                    <button onClick={() => salvarMarca({ travado: !marcaTravada })} disabled={!clienteId}
+                      className="text-[10px] px-2.5 py-1.5 rounded-lg transition-all"
+                      style={{
+                        background: marcaTravada ? `${LIME}18` : "rgba(255,255,255,0.04)",
+                        border: `1px solid ${marcaTravada ? `${LIME}55` : "rgba(255,255,255,0.08)"}`,
+                        color: marcaTravada ? LIME : "rgba(255,255,255,0.55)",
+                      }}>
+                      {marcaTravada ? "Travado" : "A IA pode mudar"}
+                    </button>
+
+                    {salvandoMarca ? <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.35)" }}>salvando…</span> : null}
+                  </div>
                 </div>
               </Campo>
 

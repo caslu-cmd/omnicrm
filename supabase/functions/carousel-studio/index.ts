@@ -330,6 +330,13 @@ const MIN_ACCENT = 3;
 
 function garantirContraste<T extends { bg: string; fg: string; accent: string }>(
   direcoes: T[],
+  /**
+   * Cor travada pela agência. Quando existe, ela é INTOCÁVEL: quem cede para
+   * alcançar o contraste é o fundo. Sem isso a função "consertava" o accent e
+   * devolvia uma cor que não é a da marca — e o app, que reimpõe a cor travada
+   * na volta, acabaria com a peça ilegível.
+   */
+  corTravada?: string,
 ): Array<T & { ajuste_contraste?: string }> {
   return (direcoes ?? []).map((dir) => {
     const bgOriginal = lerHex(dir.bg), fg = lerHex(dir.fg), accent = lerHex(dir.accent);
@@ -373,28 +380,65 @@ function garantirContraste<T extends { bg: string; fg: string; accent: string }>
 
     // O accent é medido contra o fundo FINAL, senão a correção do texto
     // invalidaria a conta. Aqui a matiz é a identidade; a luz pode ir aos dois lados.
-    let accentFinal = accent;
-    if (contraste(accent, bgFinal) < MIN_ACCENT) {
-      const antes = contraste(accent, bgFinal).toFixed(1);
-      accentFinal = moverLuz(accent, bgFinal, MIN_ACCENT, 0)
-        ?? (contraste([255, 255, 255], bgFinal) >= contraste([11, 11, 11], bgFinal)
-          ? [255, 255, 255] as Rgb
-          : [11, 11, 11] as Rgb);
-      notas.push(`destaque ${dir.accent}→${paraHex(accentFinal)} (era ${antes}:1)`);
+    const travada = lerHex(corTravada ?? "");
+    let accentFinal = travada ?? accent;
+    if (contraste(accentFinal, bgFinal) < MIN_ACCENT) {
+      const antes = contraste(accentFinal, bgFinal).toFixed(1);
+      if (travada) {
+        // Cor da marca não se ajusta. Move o FUNDO para longe dela, mantendo a
+        // matiz do fundo — a direção continua de pé, a marca sai intacta.
+        const fundoAjustado = moverLuz(bgFinal, travada, MIN_ACCENT, luminancia(travada) > luminancia(bgFinal) ? -1 : 1)
+          ?? moverLuz(bgFinal, travada, MIN_ACCENT, 0);
+        if (fundoAjustado) {
+          bgFinal = fundoAjustado;
+          notas.push(`fundo ${paraHex(bgOriginal)}→${paraHex(bgFinal)} para a cor da marca ${paraHex(travada)} se destacar (era ${antes}:1)`);
+          // O texto foi medido contra o fundo antigo: refaz a conta.
+          if (contraste(fgFinal, bgFinal) < MIN_FG) {
+            fgFinal = contraste([255, 255, 255], bgFinal) >= contraste([11, 11, 11], bgFinal)
+              ? [255, 255, 255] as Rgb
+              : [11, 11, 11] as Rgb;
+            notas.push(`texto para ${paraHex(fgFinal)} por causa do fundo novo`);
+          }
+        }
+      } else {
+        accentFinal = moverLuz(accent, bgFinal, MIN_ACCENT, 0)
+          ?? (contraste([255, 255, 255], bgFinal) >= contraste([11, 11, 11], bgFinal)
+            ? [255, 255, 255] as Rgb
+            : [11, 11, 11] as Rgb);
+        notas.push(`destaque ${dir.accent}→${paraHex(accentFinal)} (era ${antes}:1)`);
+      }
     }
 
-    if (!notas.length) return dir;
+    // Com cor travada sempre reescreve o accent, mesmo sem nota: o modelo pode
+    // ter devolvido outra cor mesmo com a instrução, e aqui é a última porteira.
+    if (!notas.length && !travada) return dir;
 
     return {
       ...dir,
       bg: paraHex(bgFinal),
       fg: paraHex(fgFinal),
       accent: paraHex(accentFinal),
-      ajuste_contraste: `Ajustei para o texto ficar legível: ${notas.join("; ")}.`,
+      ...(notas.length ? { ajuste_contraste: `Ajustei para o texto ficar legível: ${notas.join("; ")}.` } : {}),
     };
   });
 }
 // <</contraste>>
+
+/**
+ * Porteira final da identidade travada. O prompt PEDE que o modelo mantenha cor
+ * e fonte, mas pedir não é garantir — igual ao contraste, isso fica no código.
+ * Com a identidade solta, comporta-se exatamente como antes.
+ */
+function travarIdentidade<T extends { bg: string; fg: string; accent: string; fonte?: string }>(
+  direcoes: T[],
+  identidade: unknown,
+): Array<T & { ajuste_contraste?: string }> {
+  const id = identidade as { travada?: boolean; cor?: string; fonte?: string } | undefined;
+  const travada = id?.travada ? id : undefined;
+  const ajustadas = garantirContraste(direcoes, travada?.cor);
+  if (!travada?.fonte) return ajustadas;
+  return ajustadas.map((d) => ({ ...d, fonte: travada.fonte as string }));
+}
 
 // ── Prompt base ──────────────────────────────────────────────────────────
 const BASE_SYSTEM = `Você é MARCELA, diretora de conteúdo sênior de uma agência brasileira premiada.
@@ -449,6 +493,33 @@ REGRAS:
    - "cinema": glow discreto + vinheta + grão. O mais dramático. Use em fundo escuro quando a direção pede peso cinematográfico.
    Não use "glow" nem "cinema" com bg claro — o efeito lava a peça. Nesses casos use "grao" ou "nenhum".
 9. FOTO NÃO É OPCIONAL POR PADRÃO. O sistema gera a foto de cada slide automaticamente, e peça com foto de pessoa real é o que sustenta alcance no feed — as referências de qualidade desta casa são quase todas fotográficas. Cinco layouts usam foto: "vidro", "capa", "organico", "agencia" e "foto". Portanto: **pelo menos DUAS das suas três direções precisam usar um desses cinco layouts.** Direção sem foto (editorial, impacto, revista, gradiente, minimal) só como a terceira opção, e só quando houver um motivo real — dado numérico que pede tipografia gigante, marca que não pode mostrar pessoas, ou assunto sensível em que foto de gente empobrece. Se você entregar as três sem foto, errou a tarefa.`;
+
+/**
+ * Identidade travada do cliente. Quando a agência fixa cor e fonte, elas param
+ * de ser escolha do diretor de arte — e ele precisa saber disso ANTES, para
+ * construir o fundo em volta da cor. Se ele escolhesse fundo livre e a cor
+ * fosse trocada só na volta, a peça sairia com o contraste quebrado.
+ */
+function blocoIdentidade(identidade: unknown): string {
+  const id = identidade as { travada?: boolean; cor?: string; fonte?: string; fonteLabel?: string } | undefined;
+  if (!id?.travada || (!id.cor && !id.fonte)) return "";
+  const linhas = ["IDENTIDADE TRAVADA PELA AGÊNCIA — isto NÃO é escolha sua:"];
+  if (id.cor) {
+    linhas.push(
+      `• accent = ${id.cor} nas TRÊS direções, exatamente esse hex. É a cor da marca e ela não muda de post para post. ` +
+      `Sua liberdade está no FUNDO e no TEXTO: escolha bg e fg que façam ESSA cor funcionar — claro sobre escuro, escuro sobre claro, ` +
+      `sempre com o accent legível contra o bg. Se a direção que você imaginou só fecha com outra cor de destaque, mude a direção, não a cor.`,
+    );
+  }
+  if (id.fonte) {
+    linhas.push(
+      `• fonte = "${id.fonte}"${id.fonteLabel ? ` (${id.fonteLabel})` : ""} nas TRÊS direções. É a tipografia da marca. ` +
+      `Escolha layouts que fiquem bons com ela, em vez de trocá-la.`,
+    );
+  }
+  linhas.push("As três direções ainda precisam ser DIFERENTES entre si — a diferença agora vem de layout, fundo, acabamento e composição.");
+  return linhas.join("\n");
+}
 
 // ── Handler ──────────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
@@ -533,6 +604,7 @@ As cores devem ser AMOSTRADAS da imagem sempre que fizerem sentido para a marca.
             text: [
               `${cabecalhoMarca}SEGMENTO: ${cliente.segmento || body.nicho || "negócios"}`,
               body.corMarca ? `COR ATUAL DA MARCA: ${body.corMarca}` : "",
+              blocoIdentidade(body.identidade),
               blocoSkills,
               "Leia a referência acima e devolva as 2 direções.",
             ].filter(Boolean).join("\n\n"),
@@ -540,7 +612,7 @@ As cores devem ser AMOSTRADAS da imagem sempre que fizerem sentido para a marca.
         ],
       });
       const lida = parseJson<{ direcoes?: Array<{ bg: string; fg: string; accent: string }> }>(raw);
-      return respond({ ...lida, success: true, direcoes: garantirContraste(lida.direcoes ?? []) });
+      return respond({ ...lida, success: true, direcoes: travarIdentidade(lida.direcoes ?? [], body.identidade) });
     }
 
     // ── Diretor de arte ────────────────────────────────────────────────
@@ -567,6 +639,7 @@ O que NÃO se copia: paleta, assunto, marca, tipo de negócio, nicho, ou o desen
 
 Se a referência é uma agência verde e o cliente é uma clínica, a resposta não é uma clínica verde — é uma clínica com o MESMO capricho, no vocabulário visual e nas cores da clínica.`
           : "",
+        blocoIdentidade(body.identidade),
         blocoSkills,
         "Entregue 3 direções de arte para os carrosséis desta marca.",
       ].filter(Boolean);
@@ -591,7 +664,7 @@ Se a referência é uma agência verde e o cliente é uma clínica, a resposta n
         userContent,
       });
       const lida = parseJson<{ direcoes?: Array<{ bg: string; fg: string; accent: string }> }>(raw);
-      return respond({ ...lida, success: true, direcoes: garantirContraste(lida.direcoes ?? []) });
+      return respond({ ...lida, success: true, direcoes: travarIdentidade(lida.direcoes ?? [], body.identidade) });
     }
 
     // ── Pautas ─────────────────────────────────────────────────────────
