@@ -503,9 +503,18 @@ REGRAS:
  * fosse trocada só na volta, a peça sairia com o contraste quebrado.
  */
 function blocoIdentidade(identidade: unknown): string {
-  const id = identidade as { travada?: boolean; cor?: string; fonte?: string; fonteLabel?: string } | undefined;
+  const id = identidade as {
+    travada?: boolean; cor?: string; cor2?: string; fonte?: string; fonteLabel?: string;
+  } | undefined;
   if (!id?.travada || (!id.cor && !id.fonte)) return "";
   const linhas = ["IDENTIDADE TRAVADA PELA AGÊNCIA — isto NÃO é escolha sua:"];
+  if (id.cor2) {
+    linhas.push(
+      `• A marca tem DUAS cores: ${id.cor} (principal) e ${id.cor2} (apoio). Trabalhe com o PAR — é assim que a marca é. ` +
+      `O apoio serve de fundo, de cartão de trás e de segundo plano; a principal fica no destaque. ` +
+      `Não invente um terceiro tom para o papel dessas duas.`,
+    );
+  }
   if (id.cor) {
     linhas.push(
       `• accent = ${id.cor} nas TRÊS direções, exatamente esse hex. É a cor da marca e ela não muda de post para post. ` +

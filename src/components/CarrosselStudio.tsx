@@ -203,6 +203,14 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
    * e acabamento; cor e fonte são decisão da agência.
    */
   const [marcaCor, setMarcaCor] = useState("");
+  /**
+   * Segunda cor da marca. É o "dois tons da mesma cor" das referências dela.
+   * Vazia = o motor deriva um tom a partir da principal, que só acerta quando a
+   * marca tem um par harmônico por acaso.
+   */
+  const [marcaCor2, setMarcaCor2] = useState("");
+  const [marcaLogo, setMarcaLogo] = useState("");
+  const [subindoLogo, setSubindoLogo] = useState(false);
   const [marcaFonte, setMarcaFonte] = useState<FontPairId | "">("");
   const [marcaTravada, setMarcaTravada] = useState(true);
   const [salvandoMarca, setSalvandoMarca] = useState(false);
@@ -213,8 +221,9 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
    * ignorada em silêncio — mesma armadilha de closure velha que já custou a
    * consistência de personagem nas fotos.
    */
-  const marcaRef = useRef({ cor: "", fonte: "" as FontPairId | "", travada: true });
-  marcaRef.current = { cor: marcaCor, fonte: marcaFonte, travada: marcaTravada };
+  const marcaRef = useRef({ cor: "", cor2: "", fonte: "" as FontPairId | "", travada: true });
+  marcaRef.current = { cor: marcaCor, cor2: marcaCor2, fonte: marcaFonte, travada: marcaTravada };
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
 
   // Estúdio
   const [aba, setAba] = useState<Aba>("roteiro");
@@ -267,7 +276,12 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   const cliente = clients.find((c) => c.id === clienteId);
   const noEstudio = slides.length > 0;
 
-  const theme: Theme = useMemo(() => ({ bg, fg, accent, fontPair }), [bg, fg, accent, fontPair]);
+  // `accent2` só entra quando a identidade está travada: solta, quem manda na
+  // paleta é a direção de arte, e fixar um tom por trás dela seria sabotagem.
+  const theme: Theme = useMemo(
+    () => ({ bg, fg, accent, accent2: marcaTravada && marcaCor2 ? marcaCor2 : undefined, fontPair }),
+    [bg, fg, accent, marcaTravada, marcaCor2, fontPair],
+  );
   const brand = useMemo(() => ({ nome: marca, handle, logoUrl }), [marca, handle, logoUrl]);
 
   /**
@@ -312,39 +326,53 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
    * está — a cor da marca some ao trocar de máquina.
    */
   useEffect(() => {
-    if (!clienteId) { setMarcaCor(""); setMarcaFonte(""); setMarcaTravada(true); return; }
+    if (!clienteId) {
+      setMarcaCor(""); setMarcaCor2(""); setMarcaLogo(""); setMarcaFonte(""); setMarcaTravada(true);
+      return;
+    }
     let vivo = true;
     // `as any` porque a tabela é nova e o types.ts gerado ainda não a conhece —
     // mesmo padrão de carousel_memory e visual_refs neste arquivo.
     (supabase as any)
       .from("client_marca")
-      .select("cor, fonte, travado")
+      .select("cor, cor_2, logo_url, fonte, travado")
       .eq("client_id", clienteId)
       .maybeSingle()
-      .then(({ data }: { data: { cor?: string; fonte?: string; travado?: boolean } | null }) => {
+      .then(({ data }: { data: { cor?: string; cor_2?: string; logo_url?: string; fonte?: string; travado?: boolean } | null }) => {
         if (!vivo) return;
         setMarcaCor(data?.cor ?? "");
+        setMarcaCor2(data?.cor_2 ?? "");
+        setMarcaLogo(data?.logo_url ?? "");
         setMarcaFonte((data?.fonte as FontPairId) ?? "");
         setMarcaTravada(data?.travado ?? true);
         // Aplica já no preview: é assim que a peça do cliente tem que nascer.
         if (data?.cor) setAccent(data.cor);
         if (data?.fonte) setFontPair(data.fonte as FontPairId);
+        // O logo da identidade manda mais que o do localStorage do navegador.
+        if (data?.logo_url) setLogoUrl(data.logo_url);
       });
     return () => { vivo = false; };
   }, [clienteId]);
 
-  const salvarMarca = async (patch: { cor?: string; fonte?: FontPairId | ""; travado?: boolean }) => {
+  const salvarMarca = async (patch: {
+    cor?: string; cor2?: string; logo?: string; fonte?: FontPairId | ""; travado?: boolean;
+  }) => {
     if (!clienteId) { toast.error("Escolha um cliente antes."); return; }
     const novo = {
       cor: patch.cor ?? marcaCor,
+      cor2: patch.cor2 ?? marcaCor2,
+      logo: patch.logo ?? marcaLogo,
       fonte: patch.fonte ?? marcaFonte,
       travado: patch.travado ?? marcaTravada,
     };
     setMarcaCor(novo.cor);
+    setMarcaCor2(novo.cor2);
+    setMarcaLogo(novo.logo);
     setMarcaFonte(novo.fonte);
     setMarcaTravada(novo.travado);
     if (novo.cor) setAccent(novo.cor);
     if (novo.fonte) setFontPair(novo.fonte);
+    setLogoUrl(novo.logo);
 
     setSalvandoMarca(true);
     const { data: { session } } = await supabase.auth.getSession();
@@ -354,6 +382,8 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
         user_id: session.user.id,
         client_id: clienteId,
         cor: novo.cor || null,
+        cor_2: novo.cor2 || null,
+        logo_url: novo.logo || null,
         fonte: novo.fonte || null,
         travado: novo.travado,
         updated_at: new Date().toISOString(),
@@ -562,14 +592,40 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
       .map((d) => ({ layout: d.layout, acabamento: d.acabamento, fonte: d.fontPair }));
 
   const identidadeParaIA = () => {
-    const { cor, fonte, travada } = marcaRef.current;
+    const { cor, cor2, fonte, travada } = marcaRef.current;
     if (!travada || (!cor && !fonte)) return undefined;
     return {
       travada: true,
       cor: cor || undefined,
+      // O segundo tom entra como PAR da cor principal: é o que faz o diretor
+      // montar fundo e apoio dentro da paleta real, em vez de inventar um tom.
+      cor2: cor2 || undefined,
       fonte: fonte || undefined,
       fonteLabel: fonte ? FONT_PAIRS[fonte as FontPairId]?.label : undefined,
     };
+  };
+
+  /** Envia o logo para o bucket público e grava a URL na identidade. */
+  const subirLogo = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !clienteId) return;
+    if (!file.type.startsWith("image/")) { toast.error("O logo precisa ser uma imagem."); return; }
+    setSubindoLogo(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { toast.error("Sua sessão expirou."); return; }
+      const caminho = `marcas/${session.user.id}/${clienteId}-${Date.now()}-${file.name.replace(/[^\w.\-]/g, "_")}`;
+      // Bucket público: o canvas precisa conseguir carregar a imagem para
+      // desenhar o logo na peça; URL assinada expira e quebra a peça depois.
+      const { error } = await supabase.storage.from("post-media").upload(caminho, file, { upsert: true });
+      if (error) { toast.error(`Não consegui subir o logo: ${error.message}`); return; }
+      const { data } = supabase.storage.from("post-media").getPublicUrl(caminho);
+      await salvarMarca({ logo: data.publicUrl });
+      toast.success("Logo atualizado.");
+    } finally {
+      setSubindoLogo(false);
+      if (logoInputRef.current) logoInputRef.current.value = "";
+    }
   };
 
   const chamarDiretorDeArte = async () => {
@@ -1314,9 +1370,40 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
             onChange={(e) => salvarMarca({ cor: e.target.value })}
             style={{ width: 22, height: 22, border: "none", background: "none", padding: 0, cursor: "pointer" }} />
           <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.6)" }}>
-            {marcaCor ? `Cor da marca ${marcaCor.toUpperCase()}` : "Definir cor da marca"}
+            {marcaCor ? `Cor 1 ${marcaCor.toUpperCase()}` : "Definir cor da marca"}
           </span>
         </label>
+
+        {/* Segunda cor: é o par fixo das referências dela. Enquanto não existe,
+            o motor deriva um tom da principal — e diz isso no rótulo. */}
+        <label className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg cursor-pointer"
+          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", opacity: clienteId ? 1 : 0.4 }}>
+          <input type="color" value={marcaCor2 || "#111318"} disabled={!clienteId}
+            onChange={(e) => salvarMarca({ cor2: e.target.value })}
+            style={{ width: 22, height: 22, border: "none", background: "none", padding: 0, cursor: "pointer" }} />
+          <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.6)" }}>
+            {marcaCor2 ? `Cor 2 ${marcaCor2.toUpperCase()}` : "Cor 2: o motor deriva"}
+          </span>
+        </label>
+        {marcaCor2 && (
+          <button onClick={() => salvarMarca({ cor2: "" })}
+            className="text-[10px] px-2 py-[7px] rounded-lg"
+            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.45)" }}>
+            tirar cor 2
+          </button>
+        )}
+
+        <button onClick={() => logoInputRef.current?.click()} disabled={!clienteId || subindoLogo}
+          className="flex items-center gap-1.5 px-2 py-[7px] rounded-lg text-[10px]"
+          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)", opacity: clienteId ? 1 : 0.4 }}>
+          {subindoLogo
+            ? <Loader2 className="w-3 h-3 animate-spin" />
+            : marcaLogo
+              ? <img src={marcaLogo} alt="" style={{ width: 18, height: 18, objectFit: "contain", borderRadius: 3 }} />
+              : <ImageIcon className="w-3 h-3" />}
+          {subindoLogo ? "subindo…" : marcaLogo ? "Trocar logo" : "Subir logo"}
+        </button>
+        <input ref={logoInputRef} type="file" accept="image/*" onChange={subirLogo} className="hidden" />
 
         <select value={marcaFonte} disabled={!clienteId}
           onChange={(e) => salvarMarca({ fonte: e.target.value as FontPairId | "" })}

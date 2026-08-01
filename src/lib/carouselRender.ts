@@ -25,6 +25,11 @@ export interface Theme {
   bg: string;
   fg: string;
   accent: string;
+  /**
+   * Segunda cor da marca, quando a agência define o par fixo. Vazia = o motor
+   * deriva um tom a partir do accent, o que só acerta em marca de uma cor só.
+   */
+  accent2?: string;
   fontPair: FontPairId;
 }
 
@@ -1678,8 +1683,15 @@ function paletaAgencia(theme: Theme): PaletaAg {
     const [r, g, b] = hexToRgb(h);
     return (r * 299 + g * 587 + b * 114) / 1000;
   };
-  let claro = shade(forte, 0.78);
-  if (Math.abs(lum(claro) - lum(papel)) < 14) claro = shade(forte, 0.5);
+  // Com a SEGUNDA COR da marca definida, ela é o tom de apoio — é o "dois tons
+  // da mesma cor" das referências. Derivar só serve enquanto a marca não tem
+  // par próprio: acerta por acaso, e em marca de duas cores erra sempre.
+  let claro = theme.accent2 || shade(forte, 0.78);
+  // A camada de trás precisa se separar do papel; se a cor escolhida encostar
+  // nele, escurece o necessário sem trocar a matiz que a Carol definiu.
+  if (Math.abs(lum(claro) - lum(papel)) < 14) {
+    claro = theme.accent2 ? shade(theme.accent2, -0.25) : shade(forte, 0.5);
+  }
   return {
     forte,
     papel,
