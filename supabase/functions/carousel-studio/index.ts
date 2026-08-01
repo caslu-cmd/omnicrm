@@ -559,6 +559,24 @@ function blocoHistoricoDesign(designs: unknown): string {
   ].join("\n");
 }
 
+/**
+ * Arquivos e links dos Projetos do cliente, já extraídos pelo app.
+ *
+ * É a fonte mais confiável que chega aqui: veio da Carol, não de suposição
+ * sobre o nicho. Por isso a instrução manda usar dado DAQUI antes de inventar
+ * exemplo — foi a queixa de "posts genéricos".
+ */
+function blocoDeMaterial(documentos: unknown): string {
+  const docs = (Array.isArray(documentos) ? documentos : []) as Array<{ nome?: string; conteudo?: string }>;
+  const uteis = docs.filter((d) => (d.conteudo ?? "").trim());
+  if (!uteis.length) return "";
+  return [
+    "MATERIAL DO CLIENTE (arquivos e links que a agência anexou ao projeto):",
+    ...uteis.map((d) => `### ${d.nome ?? "documento"}\n${(d.conteudo ?? "").slice(0, 6000)}`),
+    "Use número, nome e fato DESTE material antes de recorrer a exemplo genérico do nicho. Se ele contradisser o que você ia dizer, ele manda.",
+  ].join("\n\n");
+}
+
 // ── Handler ──────────────────────────────────────────────────────────────
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -786,6 +804,9 @@ Se a referência é uma agência verde e o cliente é uma clínica, a resposta n
       body.estrategia ? `ESTRATÉGIA DO CLIENTE:\n${String(body.estrategia).slice(0, 2500)}` : "",
       body.briefing ? `BRIEFING:\n${String(body.briefing).slice(0, 2500)}` : "",
       body.referencia ? `REFERÊNCIA/MATERIAL DE APOIO:\n${String(body.referencia).slice(0, 4000)}` : "",
+      // Arquivos e links que a Carol pôs nos Projetos do cliente. É a fonte mais
+      // confiável que existe aqui: veio dela, não de suposição sobre o nicho.
+      blocoDeMaterial(body.documentos),
       `Também entregue:
 - "angulo": em uma frase, qual é o ângulo estratégico escolhido e por que ele funciona para esse público.
 - "legenda": legenda pronta para publicar.

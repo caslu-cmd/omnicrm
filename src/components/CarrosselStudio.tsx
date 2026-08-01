@@ -204,6 +204,14 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
    * semana e a cor da marca era sobrescrita. Travado = ele varia layout, fundo
    * e acabamento; cor e fonte são decisão da agência.
    */
+  /**
+   * Material dos Projetos do cliente. A Marcela era a única do time que escrevia
+   * sem ter lido o briefing que a Carol anexou — todos os outros agentes já
+   * recebiam isso automaticamente.
+   * Tetos iguais aos do chat: isto viaja em toda geração de roteiro.
+   */
+  const [docsDoProjeto, setDocsDoProjeto] = useState<{ nome: string; conteudo: string }[]>([]);
+
   const [marcaCor, setMarcaCor] = useState("");
   /**
    * Segunda cor da marca. É o "dois tons da mesma cor" das referências dela.
@@ -353,6 +361,26 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
         // O logo da identidade manda mais que o do localStorage do navegador.
         if (data?.logo_url) setLogoUrl(data.logo_url);
       });
+    return () => { vivo = false; };
+  }, [clienteId]);
+
+  useEffect(() => {
+    if (!clienteId) { setDocsDoProjeto([]); return; }
+    let vivo = true;
+    (async () => {
+      const { data: projetos } = await (supabase as any)
+        .from("client_projects").select("id").eq("client_id", clienteId);
+      const ids = ((projetos ?? []) as { id: string }[]).map((p) => p.id);
+      if (!ids.length) { if (vivo) setDocsDoProjeto([]); return; }
+      const { data } = await (supabase as any)
+        .from("project_files").select("nome, texto")
+        .in("project_id", ids).not("texto", "is", null)
+        .order("created_at", { ascending: false }).limit(5);
+      if (!vivo) return;
+      setDocsDoProjeto(((data ?? []) as { nome: string; texto: string }[])
+        .filter((d) => d.texto?.trim())
+        .map((d) => ({ nome: d.nome, conteudo: d.texto.slice(0, 6000) })));
+    })();
     return () => { vivo = false; };
   }, [clienteId]);
 
@@ -912,6 +940,10 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           benTrends: benParaIA(),
           historico: historicoParaIA(),
           skills: skillsParaIA("copy"),
+          // O material dos Projetos do cliente, igual aos outros agentes. Sem
+          // isto a Marcela era a única do time que escrevia sem ter lido o
+          // briefing que a Carol anexou.
+          documentos: docsDoProjeto,
           ...ctx,
         },
       });
