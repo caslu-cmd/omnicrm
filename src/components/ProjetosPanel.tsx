@@ -7,7 +7,7 @@
  * banco — a extração acontece uma vez e vale em qualquer máquina.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { FolderPlus, Paperclip, Loader2, Trash2, Play, FileText, ChevronLeft, AlertTriangle } from "lucide-react";
+import { FolderPlus, Paperclip, Loader2, Trash2, Play, FileText, ChevronLeft, AlertTriangle, Link as LinkIcon } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lerDocumentos, EXTENSOES_ACEITAS } from "@/lib/lerDocumento";
@@ -36,7 +36,13 @@ interface Props {
   clientName: string;
   clientIndustry?: string;
   /** Dispara a orquestração com o material do projeto já lido. */
-  onAcionar: (dados: { projeto: Projeto; documentos: { nome: string; conteudo: string }[]; demanda: string }) => void;
+  onAcionar: (dados: {
+    projeto: Projeto;
+    documentos: { nome: string; conteudo: string }[];
+    demanda: string;
+    /** Entra todo mundo, em vez de a Aira escolher um subconjunto. */
+    todoOTime: boolean;
+  }) => void;
 }
 
 const caixa = { background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" };
@@ -51,6 +57,11 @@ export default function ProjetosPanel({ clientId, clientName, clientIndustry, on
   const [descricao, setDescricao] = useState("");
   const [subindo, setSubindo] = useState(false);
   const [demanda, setDemanda] = useState("");
+  const [novoLink, setNovoLink] = useState("");
+  const [lendoLink, setLendoLink] = useState(false);
+  // Padrão: todo o time. Ela pediu explicitamente "acionar todo time para
+  // aquele projeto" — quem quiser o recorte da Aira desmarca.
+  const [todoOTime, setTodoOTime] = useState(true);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const carregar = useCallback(async () => {
@@ -137,6 +148,42 @@ export default function ProjetosPanel({ clientId, clientName, clientIndustry, on
     }
   };
 
+  /**
+   * Link vira material do projeto igual a um arquivo: guardamos o TEXTO da
+   * página no momento em que ela é adicionada. Assim o agente lê o que a Carol
+   * viu, o site pode sair do ar depois, e nenhuma conversa paga o custo de
+   * rebuscar a página toda vez.
+   */
+  const adicionarLink = async () => {
+    const url = novoLink.trim();
+    if (!url || !aberto) return;
+    setLendoLink(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) { toast.error("Sua sessão expirou."); return; }
+      const { data, error } = await supabase.functions.invoke("ler-link", { body: { url } });
+      if (error) { toast.error("Não consegui ler o link."); return; }
+      const lida = data as { url: string; conteudo: string; erro?: string; titulo?: string };
+      await (supabase as any).from("project_files").insert({
+        project_id: aberto.id,
+        user_id: session.user.id,
+        nome: lida.titulo ? `${lida.titulo} — ${lida.url}` : lida.url,
+        tipo: "link",
+        tamanho: lida.conteudo?.length ?? 0,
+        storage_path: null,
+        texto: lida.erro ? null : lida.conteudo,
+        erro: lida.erro ?? null,
+      });
+      if (lida.erro) toast.error(`${url}: ${lida.erro}`);
+      else toast.success("Link lido e guardado no projeto.");
+      setNovoLink("");
+      await abrir(aberto);
+      await carregar();
+    } finally {
+      setLendoLink(false);
+    }
+  };
+
   const remover = async (a: Arquivo) => {
     await (supabase as any).from("project_files").delete().eq("id", a.id);
     if (aberto) await abrir(aberto);
@@ -152,6 +199,7 @@ export default function ProjetosPanel({ clientId, clientName, clientIndustry, on
       projeto: aberto,
       documentos: legiveis.map((a) => ({ nome: a.nome, conteudo: a.texto as string })),
       demanda: demanda.trim(),
+      todoOTime,
     });
   };
 
@@ -242,6 +290,24 @@ export default function ProjetosPanel({ clientId, clientName, clientIndustry, on
           <input ref={inputRef} type="file" multiple accept={EXTENSOES_ACEITAS} onChange={anexar} className="hidden" />
         </div>
 
+        {/* Link entra como material, igual a um arquivo */}
+        <div className="flex gap-2">
+          <input
+            value={novoLink}
+            onChange={(e) => setNovoLink(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); adicionarLink(); } }}
+            placeholder="Cole um link — site do cliente, notícia, referência"
+            className="flex-1 px-3 py-2 rounded-xl text-[12.5px] outline-none"
+            style={{ ...caixa, color: "#E8E8E8" }}
+          />
+          <button onClick={adicionarLink} disabled={!novoLink.trim() || lendoLink}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11.5px] font-bold flex-shrink-0"
+            style={{ background: novoLink.trim() ? LIME : "rgba(255,255,255,0.06)", color: novoLink.trim() ? "#07080A" : "rgba(255,255,255,0.35)" }}>
+            {lendoLink ? <Loader2 className="w-3 h-3 animate-spin" /> : <LinkIcon className="w-3 h-3" />}
+            {lendoLink ? "Lendo…" : "Ler link"}
+          </button>
+        </div>
+
         {arquivos.length === 0 ? (
           <div className="text-[12.5px] py-3" style={{ color: "rgba(255,255,255,0.4)" }}>
             Nenhum arquivo. Aceita PDF, DOCX, TXT, MD, CSV, JSON e HTML.
@@ -252,7 +318,9 @@ export default function ProjetosPanel({ clientId, clientName, clientIndustry, on
               <div key={a.id} className="flex items-center gap-2.5 px-3 py-2 rounded-xl" style={caixa}>
                 {a.erro
                   ? <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" style={{ color: "#F0A87C" }} />
-                  : <FileText className="w-3.5 h-3.5 flex-shrink-0" style={{ color: LIME }} />}
+                  : a.tipo === "link"
+                    ? <LinkIcon className="w-3.5 h-3.5 flex-shrink-0" style={{ color: LIME }} />
+                    : <FileText className="w-3.5 h-3.5 flex-shrink-0" style={{ color: LIME }} />}
                 <div className="min-w-0 flex-1">
                   <div className="text-[12.5px] truncate" style={{ color: "#E8E8E8" }}>{a.nome}</div>
                   <div className="text-[10.5px]" style={{ color: a.erro ? "#F0A87C" : "rgba(255,255,255,0.35)" }}>
@@ -274,9 +342,20 @@ export default function ProjetosPanel({ clientId, clientName, clientIndustry, on
           placeholder={`O que o time deve fazer com esses arquivos? Ex.: "leia o briefing e monte o calendário do mês para ${clientName}${clientIndustry ? ` (${clientIndustry})` : ""}"`}
           className="w-full px-3 py-2.5 rounded-xl text-[13px] outline-none resize-none"
           style={{ ...caixa, color: "#E8E8E8" }} />
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" checked={todoOTime} onChange={(e) => setTodoOTime(e.target.checked)}
+            style={{ accentColor: LIME, width: 15, height: 15 }} />
+          <span className="text-[11.5px]" style={{ color: "rgba(255,255,255,0.7)" }}>
+            Acionar o time inteiro
+            <span style={{ color: "rgba(255,255,255,0.4)" }}>
+              {" "}— desmarcado, a Aira escolhe quem entra
+            </span>
+          </span>
+        </label>
+
         <div className="flex items-center justify-between gap-3 flex-wrap">
           <span className="text-[11.5px]" style={{ color: "rgba(255,255,255,0.45)" }}>
-            {legiveis} {legiveis === 1 ? "arquivo vai" : "arquivos vão"} junto para cada agente que ela acionar.
+            {legiveis} {legiveis === 1 ? "item vai" : "itens vão"} junto para cada agente — arquivos e links.
           </span>
           <button onClick={acionar} disabled={!legiveis}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-[12px] font-bold"
