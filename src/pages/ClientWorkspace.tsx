@@ -1516,9 +1516,18 @@ export default function ClientWorkspace() {
    * promessa de cancelamento, então a tela responde na hora.
    */
   const [ariaPausada, setAriaPausada] = useState(false);
+  /**
+   * Time inteiro também na caixa da Aira, não só no painel de Projetos.
+   *
+   * Sem isto a mesma pergunta tinha resposta diferente conforme por onde ela
+   * entrava: pelo projeto entrava todo mundo, pela caixa a Aira escolhia até 3.
+   * Ligado por padrão porque foi o que ela pediu; desligado, volta a ser ela
+   * quem decide quem entra — que é mais rápido e mais barato.
+   */
+  const [ariaTimeInteiro, setAriaTimeInteiro] = useState(true);
   const pausaRef = useRef(false);
   /** Guarda a demanda para o "Reiniciar" repetir exatamente a mesma coisa. */
-  const ultimaDemandaRef = useRef<{ demanda: string; docs?: { nome: string; conteudo: string }[] } | null>(null);
+  const ultimaDemandaRef = useRef<{ demanda: string; docs?: { nome: string; conteudo: string }[]; todoOTime?: boolean } | null>(null);
 
   /**
    * Segura o laço enquanto estiver pausada. Devolve `false` se foi parada —
@@ -2128,7 +2137,7 @@ export default function ClientWorkspace() {
     setAriaPausada(false);
     // Espera o laço anterior perceber a parada antes de começar outro, senão
     // as duas campanhas escreveriam na mesma conversa ao mesmo tempo.
-    setTimeout(() => handleSendToAria(ultima.demanda, ultima.docs), 700);
+    setTimeout(() => handleSendToAria(ultima.demanda, ultima.docs, ultima.todoOTime), 700);
   };
 
   /**
@@ -2155,7 +2164,7 @@ export default function ClientWorkspace() {
     cancelAriaRef.current = false;
     pausaRef.current = false;
     setAriaPausada(false);
-    ultimaDemandaRef.current = { demanda: demand, docs: documentos };
+    ultimaDemandaRef.current = { demanda: demand, docs: documentos, todoOTime };
     setAgentCommand("");
     clearAriaFile();
     setAriaLoading(true);
@@ -8398,6 +8407,19 @@ Regras:
                           </button>
                         </>
                       )}
+                      {!ariaLoading && (
+                        <label className="flex items-center gap-2 cursor-pointer mr-auto">
+                          <input type="checkbox" checked={ariaTimeInteiro}
+                            onChange={(e) => setAriaTimeInteiro(e.target.checked)}
+                            style={{ accentColor: "#B9FF4B", width: 15, height: 15 }} />
+                          <span className="text-[11.5px]" style={{ color: "rgba(255,255,255,0.6)" }}>
+                            Time inteiro
+                            <span style={{ color: "rgba(255,255,255,0.35)" }}>
+                              {" "}— desmarcado, a Aira escolhe até 3 (mais rápido)
+                            </span>
+                          </span>
+                        </label>
+                      )}
                       {/* Reiniciar só aparece com campanha parada ou concluída:
                           durante o trabalho, "Parar" já é o caminho. */}
                       {!ariaLoading && ultimaDemandaRef.current && (
@@ -8409,7 +8431,7 @@ Regras:
                         </button>
                       )}
                       <button
-                        onClick={() => handleSendToAria()}
+                        onClick={() => handleSendToAria(undefined, undefined, ariaTimeInteiro)}
                         disabled={(!agentCommand.trim() && !attachedFile) || ariaLoading}
                         className="flex items-center justify-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 w-full sm:w-auto sm:ml-auto"
                         style={{ background: "#B9FF4B", color: "#07080A", boxShadow: (agentCommand || attachedFile) ? "0 0 20px -4px rgba(185,255,75,0.5)" : "none" }}>
