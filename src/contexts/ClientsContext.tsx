@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { CLIENTS, Client, AgentTask } from "@/data/agencyData";
 
 type ClientEdit = {
@@ -80,6 +81,62 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
     } catch { return {}; }
   });
 
+  /**
+   * O mesmo estado, agora também no banco.
+   *
+   * Isto vivia SÓ no localStorage: site do cliente, repositório, instruções
+   * para o time, contatos, métricas, clientes criados por ela. Abrindo de outra
+   * máquina, sumia — o mesmo problema que já mordeu no briefing e na cor da
+   * marca. O localStorage continua sendo escrito porque é instantâneo e
+   * funciona sem rede; o banco é a fonte durável.
+   */
+  const gravarNoBanco = (chave: string, valor: unknown) => {
+    void (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return; // deslogada: o localStorage sozinho já segura
+      await (supabase as any).from("agencia_estado").upsert(
+        { user_id: session.user.id, chave, valor, updated_at: new Date().toISOString() },
+        { onConflict: "user_id,chave" },
+      );
+    })();
+  };
+
+  /**
+   * Puxa o estado do banco uma vez por sessão. Se o banco estiver vazio e esta
+   * máquina tiver dados, SOBE o que existe aqui — é a migração de quem já usava
+   * antes, sem ela precisar refazer nada.
+   */
+  // Guarda em ref, não em estado: como o efeito ALTERA os estados que leria como
+  // dependência, listá-los criaria um laço. Roda uma vez, e os valores iniciais
+  // já são os do localStorage — que é exatamente o que queremos subir.
+  const estadoCarregado = useRef(false);
+  useEffect(() => {
+    if (estadoCarregado.current) return;
+    estadoCarregado.current = true;
+    let vivo = true;
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+      const { data } = await (supabase as any)
+        .from("agencia_estado").select("chave, valor").eq("user_id", session.user.id);
+      if (!vivo) return;
+      const doBanco = new Map(((data ?? []) as { chave: string; valor: unknown }[]).map((r) => [r.chave, r.valor]));
+
+      const aplica = <T,>(chave: string, atual: T, set: (v: T) => void) => {
+        const v = doBanco.get(chave) as T | undefined;
+        const temAlgo = (x: unknown) => Array.isArray(x) ? x.length > 0 : !!x && Object.keys(x as object).length > 0;
+        if (temAlgo(v)) set(v as T);
+        else if (temAlgo(atual)) gravarNoBanco(chave, atual); // primeira subida
+      };
+
+      aplica("client-edits", allEdits, setAllEdits);
+      aplica("extra-clients", extraClients, setExtraClients);
+      aplica("deleted-clients", deletedIds, setDeletedIds);
+    })();
+    return () => { vivo = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const addClient = (data: { name: string; industry: string; status: "Ativo" | "Onboarding" | "Em pausa"; revenue: string; color: string }): string => {
     const id = slugify(data.name) || `cliente-${Date.now()}`;
 
@@ -155,23 +212,23 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
     };
     const updated = [...extraClients, newClient];
     setExtraClients(updated);
-    localStorage.setItem("extra-clients", JSON.stringify(updated));
+    localStorage.setItem("extra-clients", JSON.stringify(updated)); gravarNoBanco("extra-clients", updated);
     return id;
   };
 
   const deleteClient = (id: string) => {
     const updatedExtra = extraClients.filter((c) => c.id !== id);
     setExtraClients(updatedExtra);
-    localStorage.setItem("extra-clients", JSON.stringify(updatedExtra));
+    localStorage.setItem("extra-clients", JSON.stringify(updatedExtra)); gravarNoBanco("extra-clients", updatedExtra);
 
     const newDeleted = [...deletedIds.filter((d) => d !== id), id];
     setDeletedIds(newDeleted);
-    localStorage.setItem("deleted-clients", JSON.stringify(newDeleted));
+    localStorage.setItem("deleted-clients", JSON.stringify(newDeleted)); gravarNoBanco("deleted-clients", newDeleted);
 
     const newEdits = { ...allEdits };
     delete newEdits[id];
     setAllEdits(newEdits);
-    localStorage.setItem("client-edits", JSON.stringify(newEdits));
+    localStorage.setItem("client-edits", JSON.stringify(newEdits)); gravarNoBanco("client-edits", newEdits);
   };
 
   const clearClientData = (id: string) => {
@@ -207,7 +264,7 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
     };
     const newEdits = { ...allEdits, [id]: cleared };
     setAllEdits(newEdits);
-    localStorage.setItem("client-edits", JSON.stringify(newEdits));
+    localStorage.setItem("client-edits", JSON.stringify(newEdits)); gravarNoBanco("client-edits", newEdits);
   };
 
   const staticIdSet = new Set(CLIENTS.map((c) => c.id));
@@ -252,7 +309,7 @@ export function ClientsProvider({ children }: { children: ReactNode }) {
       [id]: { ...(allEdits[id] ?? {}), ...edits },
     };
     setAllEdits(newAllEdits);
-    localStorage.setItem("client-edits", JSON.stringify(newAllEdits));
+    localStorage.setItem("client-edits", JSON.stringify(newAllEdits)); gravarNoBanco("client-edits", newAllEdits);
   };
 
   return (
