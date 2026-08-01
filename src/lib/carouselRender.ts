@@ -3,7 +3,15 @@
  * Desenha slides prontos para publicar (1080px) em canvas, sem depender de Canva/Figma.
  */
 
-export type LayoutId = "vidro" | "capa" | "organico" | "agencia" | "editorial" | "impacto" | "revista" | "gradiente" | "minimal" | "foto";
+export type LayoutId = "estudio" | "vidro" | "capa" | "organico" | "agencia" | "editorial" | "impacto" | "revista" | "gradiente" | "minimal" | "foto";
+
+/**
+ * Layouts desenhados pelo motor HTML e não pelo canvas. O app troca o caminho
+ * de render por esta lista — é o que permite migrar um modelo por vez sem
+ * derrubar os outros nove.
+ */
+export const LAYOUTS_HTML: LayoutId[] = ["estudio"];
+export const ehLayoutHtml = (l: LayoutId) => LAYOUTS_HTML.includes(l);
 export type FormatId = "4:5" | "1:1" | "9:16";
 export type FontPairId =
   | "editorial" | "impacto" | "moderno" | "tecnico" | "manchete" | "esportivo"
@@ -99,6 +107,7 @@ export const FONT_PAIRS: Record<
 };
 
 export const LAYOUTS: { id: LayoutId; label: string; desc: string; precisaImagem?: boolean }[] = [
+  { id: "estudio", label: "Estúdio ✦", desc: "Papel quadriculado, cartão sólido de apoio, faixa de foto na base e a inicial da marca em marca d'água. Desenhado em HTML — tipografia e acabamento de peça de estúdio.", precisaImagem: true },
   { id: "vidro", label: "Vidro", desc: "Foto + cartão de vidro com o título. O padrão que mais roda no feed.", precisaImagem: true },
   { id: "capa", label: "Capa", desc: "Foto + título gigante direto na imagem, com seta e pílulas.", precisaImagem: true },
   { id: "organico", label: "Orgânico", desc: "Forma de marca gigante em cor cheia, foto recortada dentro dela e selo circular. O padrão de agência.", precisaImagem: true },
@@ -324,7 +333,9 @@ interface TextBlock {
  * trocar a família/peso de verdade mudaria a métrica e estouraria a caixa que
  * já foi calculada.
  */
-function extrairEnfase(txt: string): { limpo: string; enfase: Array<[number, number]> } {
+// Exportada porque o modelo HTML precisa da MESMA leitura de `*palavra*` que o
+// canvas: duas implementações divergiriam e a ênfase sairia diferente por motor.
+export function extrairEnfase(txt: string): { limpo: string; enfase: Array<[number, number]> } {
   const s = String(txt ?? "");
   if (!s.includes("*")) return { limpo: s, enfase: [] };
   const re = /\*([^*\n]+)\*/g;

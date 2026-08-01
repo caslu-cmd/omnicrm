@@ -13,11 +13,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useClients } from "@/contexts/ClientsContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
-  renderSlide, ensureFonts, loadImage, canvasToBlob,
+  renderSlide, ensureFonts, loadImage, canvasToBlob, ehLayoutHtml,
   FORMAT_SIZE, FORMAT_LABEL, FONT_PAIRS, LAYOUTS, PALETTES, ACABAMENTOS,
   type SlideData, type LayoutId, type FormatId, type FontPairId, type Theme,
   type AcabamentoId, type BrandInfo,
 } from "@/lib/carouselRender";
+import SlideHtml from "@/components/SlideHtml";
+import { rasterizarSlide } from "@/lib/rasterizarSlide";
 
 const LIME = "#B9FF4B";
 const BG = "#07080A";
@@ -1184,11 +1186,29 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     return `${String(i + 1).padStart(2, "0")}-${base || "slide"}.png`;
   };
 
+  /**
+   * O PNG de um slide, venha do motor que vier. Ponto ÚNICO: baixar, ZIP e
+   * agendamento passam por aqui, então ligar um motor novo é mexer num lugar
+   * só — e nenhum dos três pode ficar para trás.
+   */
+  const blobDoSlide = async (i: number): Promise<Blob | null> => {
+    const o = opcoesBase(i);
+    if (ehLayoutHtml(layout)) {
+      return await rasterizarSlide({
+        slide: slides[i], index: i, total: slides.length,
+        theme, brand, format: formatId,
+        imagem: slides[i]?.imagem ?? null,
+        acabamento, mostrarNumero, mostrarArraste,
+      });
+    }
+    const canvas = document.createElement("canvas");
+    renderSlide(canvas, o);
+    return await canvasToBlob(canvas);
+  };
+
   const baixarSlide = async (i: number) => {
     await ensureFonts();
-    const canvas = document.createElement("canvas");
-    renderSlide(canvas, opcoesBase(i));
-    const blob = await canvasToBlob(canvas);
+    const blob = await blobDoSlide(i);
     if (!blob) return;
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -1203,9 +1223,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
       await ensureFonts();
       const zip = new JSZip();
       for (let i = 0; i < slides.length; i++) {
-        const canvas = document.createElement("canvas");
-        renderSlide(canvas, opcoesBase(i));
-        const blob = await canvasToBlob(canvas);
+        const blob = await blobDoSlide(i);
         if (blob) zip.file(nomeArquivo(i), blob);
       }
       if (legendaCompleta.trim()) zip.file("legenda.txt", legendaCompleta);
@@ -1263,9 +1281,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   }, [dataHora]);
 
   const subirPng = async (i: number, userId: string, lote: number): Promise<string | null> => {
-    const canvas = document.createElement("canvas");
-    renderSlide(canvas, opcoesBase(i));
-    const blob = await canvasToBlob(canvas);
+    const blob = await blobDoSlide(i);
     if (!blob) return null;
     const path = `${userId}/carrossel-${lote}-${String(i + 1).padStart(2, "0")}.png`;
     const { error } = await supabase.storage.from("post-media").upload(path, blob, { upsert: true, contentType: "image/png" });
@@ -1342,6 +1358,12 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   const fundo = embutido ? "transparent" : BG;
 
   const [prevW, prevH] = FORMAT_SIZE[formatId];
+  // Quanto a peça encolhe para caber na tela. Vem da ALTURA disponível, que é o
+  // que limita: encaixar pela largura deixaria a peça saindo por baixo.
+  const escalaPrevia = useMemo(() => {
+    const alturaMax = isMobile ? window.innerHeight * 0.62 : window.innerHeight - (embutido ? 430 : 300);
+    return Math.min(0.62, Math.max(0.18, alturaMax / prevH));
+  }, [prevH, isMobile, embutido]);
 
   /**
    * Identidade da marca. Aparece nas DUAS telas de propósito: é ajuste de
@@ -2184,17 +2206,42 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
         <div className="flex-1 flex flex-col items-center p-6 gap-5 overflow-y-auto" style={{ maxHeight: alturaPainel }}>
           <div className="relative rounded-2xl overflow-hidden flex-shrink-0"
             style={{ boxShadow: "0 24px 70px rgba(0,0,0,0.65)", maxWidth: "100%", maxHeight: alturaSlide }}>
-            <canvas
-              ref={mainRef}
-              style={{
-                display: "block",
-                width: "auto",
-                height: "auto",
-                maxWidth: "100%",
-                maxHeight: alturaSlide,
-                aspectRatio: `${prevW} / ${prevH}`,
-              }}
-            />
+            {ehLayoutHtml(layout) && slides[ativo] ? (
+              // No motor HTML a prévia É a peça: renderiza em tamanho real e
+              // encolhe por transform. Nada de conversão — o que você vê na
+              // tela é literalmente o que vai virar PNG.
+              <div style={{
+                width: prevW * escalaPrevia, height: prevH * escalaPrevia,
+                overflow: "hidden", flexShrink: 0,
+              }}>
+                <div style={{ transform: `scale(${escalaPrevia})`, transformOrigin: "top left" }}>
+                  <SlideHtml
+                    slide={slides[ativo]}
+                    index={ativo}
+                    total={slides.length}
+                    theme={theme}
+                    brand={brand}
+                    format={formatId}
+                    imagem={slides[ativo]?.imagem ?? null}
+                    acabamento={acabamento}
+                    mostrarNumero={mostrarNumero}
+                    mostrarArraste={mostrarArraste}
+                  />
+                </div>
+              </div>
+            ) : (
+              <canvas
+                ref={mainRef}
+                style={{
+                  display: "block",
+                  width: "auto",
+                  height: "auto",
+                  maxWidth: "100%",
+                  maxHeight: alturaSlide,
+                  aspectRatio: `${prevW} / ${prevH}`,
+                }}
+              />
+            )}
           </div>
 
           <div className="flex items-center gap-2">
