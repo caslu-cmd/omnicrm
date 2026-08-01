@@ -95,29 +95,37 @@ function MiniPeca({ item, brand, fontesOk }: { item: MemoriaItem; brand: BrandIn
 
   useEffect(() => {
     if (!fontesOk || !ref.current || !slide) return;
-    try {
-      renderSlide(ref.current, {
-        slide,
-        index: 0,
-        total: item.slides?.length ?? 1,
-        layout: d.layout ?? "editorial",
-        format: d.formatId ?? "4:5",
-        theme: {
-          bg: d.bg ?? PALETTES[0].bg,
-          fg: d.fg ?? PALETTES[0].fg,
-          accent: d.accent ?? PALETTES[0].accent,
-          fontPair: d.fontPair ?? "editorial",
-        },
-        brand,
-        image: null,
-        mostrarNumero: false,
-        mostrarArraste: false,
-        acabamento: d.acabamento ?? "nenhum",
-        scale: 0.14,
-      });
-    } catch {
-      /* peça antiga com formato inesperado: fica o fundo vazio, não derruba a lista */
-    }
+    let vivo = true;
+    // A foto agora fica hospedada no bucket, então a miniatura mostra a PEÇA e
+    // não só a tipografia — é o que transforma a lista em contato-prova.
+    (async () => {
+      const foto = slide.imagem?.startsWith("http") ? await loadImage(slide.imagem) : null;
+      if (!vivo || !ref.current) return;
+      try {
+        renderSlide(ref.current, {
+          slide,
+          index: 0,
+          total: item.slides?.length ?? 1,
+          layout: d.layout ?? "editorial",
+          format: d.formatId ?? "4:5",
+          theme: {
+            bg: d.bg ?? PALETTES[0].bg,
+            fg: d.fg ?? PALETTES[0].fg,
+            accent: d.accent ?? PALETTES[0].accent,
+            fontPair: d.fontPair ?? "editorial",
+          },
+          brand,
+          image: foto,
+          mostrarNumero: false,
+          mostrarArraste: false,
+          acabamento: d.acabamento ?? "nenhum",
+          scale: 0.14,
+        });
+      } catch {
+        /* peça antiga com formato inesperado: fica o fundo vazio, não derruba a lista */
+      }
+    })();
+    return () => { vivo = false; };
   }, [fontesOk, slide, item.slides?.length, d.layout, d.formatId, d.bg, d.fg, d.accent, d.fontPair, d.acabamento, brand]);
 
   if (!slide) {
@@ -225,6 +233,8 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   const [loteCarrosseis, setLoteCarrosseis] = useState(0);
   const [loteSlides, setLoteSlides] = useState(7);
   const [loteAndamento, setLoteAndamento] = useState<string | null>(null);
+  /** As pautas do lote ficam na tela: ela quer LER o que vai ser escrito. */
+  const [lotePautas, setLotePautas] = useState<Array<{ tema: string; gancho: string; carrossel: boolean; estado: "espera" | "escrevendo" | "pronta" | "falhou" }>>([]);
   const pararLoteRef = useRef(false);
 
   const [marcaCor, setMarcaCor] = useState("");
@@ -534,14 +544,15 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
    * Mantém a biblioteca em dia. O registro nasce junto com o roteiro, antes de
    * existir direção de arte e antes de qualquer edição — sem este sincronismo a
    * biblioteca guardaria a peça como ela era no primeiro minuto.
-   * As fotos são data URLs de megabytes: ficam de fora da linha de propósito.
+   * A data URL da foto (megabytes) fica de fora; o que vai é a `imagemUrl` do
+   * bucket, que é o que faz a arte reaparecer quando ela abre a peça de novo.
    */
   useEffect(() => {
     if (!memoriaId || !slides.length) return;
     const t = setTimeout(() => {
       (supabase as any).from("carousel_memory")
         .update({
-          slides: slides.map((s) => ({ ...s, imagem: null })),
+          slides: slides.map((s) => ({ ...s, imagem: s.imagemUrl ?? null })),
           legenda,
           hashtags,
           design: { layout, fontPair, bg, fg, accent, formatId, acabamento },
@@ -796,6 +807,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     if (!session) { toast.error("Sua sessão expirou."); return; }
 
     pararLoteRef.current = false;
+    setLotePautas([]);
     setLoteAndamento(`Pensando em ${total} pautas...`);
     try {
       // Uma pauta por peça, todas de uma vez: pedir tema a tema faria a Marcela
@@ -810,11 +822,15 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           ...contextoCliente(),
         },
       });
-      const temas: string[] = (pautas?.ideias ?? [])
-        .map((i: unknown) => (typeof i === "string" ? i : (i as { tema?: string })?.tema ?? ""))
-        .filter(Boolean)
+      const brutas = (pautas?.ideias ?? []) as Array<string | { tema?: string; gancho?: string }>;
+      const lista = brutas
+        .map((i) => (typeof i === "string" ? { tema: i, gancho: "" } : { tema: i?.tema ?? "", gancho: i?.gancho ?? "" }))
+        .filter((i) => i.tema)
         .slice(0, total);
+      const temas = lista.map((i) => i.tema);
       if (!temas.length) throw new Error("Não consegui gerar as pautas.");
+      // Na tela ANTES de escrever: ela vê as 16 pautas e já sabe se vale seguir.
+      setLotePautas(lista.map((p, i) => ({ ...p, carrossel: i < loteCarrosseis, estado: "espera" as const })));
 
       let feitas = 0;
       for (let i = 0; i < temas.length; i++) {
@@ -822,6 +838,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
         // Os carrosséis primeiro; o resto vira post único.
         const ehCarrossel = i < loteCarrosseis;
         setLoteAndamento(`Escrevendo ${i + 1} de ${temas.length} — ${ehCarrossel ? "carrossel" : "post único"}...`);
+        setLotePautas((p) => p.map((x, idx) => (idx === i ? { ...x, estado: "escrevendo" } : x)));
         const { data, error } = await supabase.functions.invoke("carousel-studio", {
           body: {
             action: "strategy",
@@ -837,7 +854,10 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
             ...contextoCliente(),
           },
         });
-        if (error || data?.error || !data?.slides?.length) continue;
+        if (error || data?.error || !data?.slides?.length) {
+          setLotePautas((p) => p.map((x, idx) => (idx === i ? { ...x, estado: "falhou" } : x)));
+          continue;
+        }
 
         await (supabase as any).from("carousel_memory").insert({
           user_id: session.user.id,
@@ -851,6 +871,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           hashtags: data.hashtags ?? [],
           design: { layout, fontPair, bg, fg, accent, formatId, acabamento },
         });
+        setLotePautas((p) => p.map((x, idx) => (idx === i ? { ...x, estado: "pronta" } : x)));
         feitas++;
       }
 
@@ -869,6 +890,89 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   };
 
   /** Faz o carrossel inteiro sozinha: roteiro, direção de arte e fotos. */
+  /**
+   * Direção de arte + fotos para um roteiro que JÁ existe.
+   *
+   * Saiu de dentro do "fazer tudo sozinha" porque as peças do lote nascem só com
+   * texto: sem isto, dar arte a uma peça da Biblioteca significaria reescrever
+   * o roteiro que ela já aprovou.
+   */
+  const darArte = async (roteiro: SlideData[], temaDaPeca: string) => {
+    setModoAuto(refDoPost ? "Copiando a referência que você subiu..." : "Definindo a direção de arte...");
+    const { data: dir } = await supabase.functions.invoke("carousel-studio", {
+      body: refDoPost ? {
+        action: "referencia",
+        imagem: refDoPost.base64,
+        mediaType: refDoPost.mediaType,
+        nicho: cliente?.industry || "",
+        corMarca: accent,
+        identidade: identidadeParaIA(),
+        designsRecentes: designsRecentes(),
+        skills: skillsParaIA("design"),
+        ...contextoCliente(),
+      } : {
+        action: "direcao",
+        refs: refsParaIA(),
+        nicho: cliente?.industry || "",
+        tema: temaDaPeca,
+        corMarca: accent,
+        identidade: identidadeParaIA(),
+        designsRecentes: designsRecentes(),
+        benTrends: benParaIA(),
+        skills: skillsParaIA("design"),
+        ...contextoCliente(),
+      },
+    });
+    const direcoesAuto: Direcao[] = dir?.direcoes ?? [];
+    if (direcoesAuto.length) {
+      setDirecoes(direcoesAuto);
+      aplicarDirecao(direcoesAuto[0]);
+    }
+
+    // O layout só existe agora: é ele que decide onde a foto precisa de vazio.
+    let layoutEscolhido = direcoesAuto[0]?.layout ?? layout;
+    let precisaFoto = LAYOUTS.find((l) => l.id === layoutEscolhido)?.precisaImagem;
+
+    /**
+     * O roteiro sempre planeja uma foto. Se a direção escolhida usa um layout
+     * tipográfico, esse trabalho vira lixo e a peça sai sem imagem — foi o que
+     * aconteceu no primeiro uso real. Quando houver foto planejada, preferimos
+     * uma direção que a aproveite, em vez de descartar em silêncio.
+     */
+    if (!precisaFoto && roteiro.some((s) => s.prompt_imagem)) {
+      const comFoto = direcoesAuto.find((d) => LAYOUTS.find((l) => l.id === d.layout)?.precisaImagem);
+      if (comFoto) {
+        aplicarDirecao(comFoto);
+        layoutEscolhido = comFoto.layout;
+        precisaFoto = true;
+        toast.info(`Direção "${comFoto.nome}" no lugar da primeira: o roteiro pediu foto e ela aproveita.`);
+      } else {
+        toast.warning("As 3 direções vieram sem foto, então a peça sai só com tipografia. Troque o layout na aba Design se quiser imagem.");
+      }
+    }
+
+    if (precisaFoto) {
+      setModoAuto(`Fotografando ${roteiro.length} ${roteiro.length === 1 ? "peça" : "slides"}...`);
+      await gerarImagensDeTodos({ slides: roteiro, layout: layoutEscolhido });
+    }
+    return precisaFoto;
+  };
+
+  /** Dá arte a uma peça da Biblioteca sem tocar no roteiro dela. */
+  const gerarArteDaBiblioteca = async (id: string) => {
+    const roteiro = await abrirDaBiblioteca(id);
+    if (!roteiro.length) return;
+    try {
+      const comFoto = await darArte(roteiro, tema || "");
+      setModoAuto(null);
+      setAba("design");
+      toast.success(comFoto ? "Arte e fotos prontas." : "Direção de arte aplicada.");
+    } catch (e) {
+      setModoAuto(null);
+      toast.error(e instanceof Error ? e.message : "Erro ao gerar a arte.");
+    }
+  };
+
   const fazerTudoSozinha = async () => {
     if (!tema.trim()) { toast.error("Escreva o tema (ou peça uma pauta) antes."); return; }
     try {
@@ -878,63 +982,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
 
       // Referência que a Carol subiu para este post manda mais que as da casa:
       // ali ela quer FIDELIDADE, não inspiração.
-      setModoAuto(refDoPost ? "Copiando a referência que você subiu..." : "Definindo a direção de arte...");
-      const { data: dir } = await supabase.functions.invoke("carousel-studio", {
-        body: refDoPost ? {
-          action: "referencia",
-          imagem: refDoPost.base64,
-          mediaType: refDoPost.mediaType,
-          nicho: cliente?.industry || "",
-          corMarca: accent,
-          identidade: identidadeParaIA(),
-          designsRecentes: designsRecentes(),
-          skills: skillsParaIA("design"),
-          ...contextoCliente(),
-        } : {
-          action: "direcao",
-          refs: refsParaIA(),
-          nicho: cliente?.industry || "",
-          tema,
-          corMarca: accent,
-          identidade: identidadeParaIA(),
-          designsRecentes: designsRecentes(),
-          benTrends: benParaIA(),
-          skills: skillsParaIA("design"),
-          ...contextoCliente(),
-        },
-      });
-      const direcoesAuto: Direcao[] = dir?.direcoes ?? [];
-      if (direcoesAuto.length) {
-        setDirecoes(direcoesAuto);
-        aplicarDirecao(direcoesAuto[0]);
-      }
-
-      // O layout só existe agora: é ele que decide onde a foto precisa de vazio.
-      let layoutEscolhido = direcoesAuto[0]?.layout ?? layout;
-      let precisaFoto = LAYOUTS.find((l) => l.id === layoutEscolhido)?.precisaImagem;
-
-      /**
-       * O roteiro sempre planeja uma foto. Se a direção escolhida usa um layout
-       * tipográfico, esse trabalho vira lixo e a peça sai sem imagem — foi o que
-       * aconteceu no primeiro uso real. Quando houver foto planejada, preferimos
-       * uma direção que a aproveite, em vez de descartar em silêncio.
-       */
-      if (!precisaFoto && novos.some((s) => s.prompt_imagem)) {
-        const comFoto = direcoesAuto.find((d) => LAYOUTS.find((l) => l.id === d.layout)?.precisaImagem);
-        if (comFoto) {
-          aplicarDirecao(comFoto);
-          layoutEscolhido = comFoto.layout;
-          precisaFoto = true;
-          toast.info(`Direção "${comFoto.nome}" no lugar da primeira: o roteiro pediu foto e ela aproveita.`);
-        } else {
-          toast.warning("As 3 direções vieram sem foto, então a peça sai só com tipografia. Troque o layout na aba Design se quiser imagem.");
-        }
-      }
-
-      if (precisaFoto) {
-        setModoAuto(`Fotografando ${novos.length} ${novos.length === 1 ? "peça" : "slides"}...`);
-        await gerarImagensDeTodos({ slides: novos, layout: layoutEscolhido });
-      }
+      const precisaFoto = await darArte(novos, tema);
 
       setModoAuto(null);
       setAba("design");
@@ -974,16 +1022,21 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     }
   };
 
-  /** Reabre um conteúdo da biblioteca do cliente. */
-  const abrirDaBiblioteca = async (id: string) => {
+  /** Reabre um conteúdo da biblioteca do cliente e devolve o roteiro dele. */
+  const abrirDaBiblioteca = async (id: string): Promise<SlideData[]> => {
     const { data, error } = await (supabase as any)
       .from("carousel_memory")
       .select("*")
       .eq("id", id)
       .maybeSingle();
-    if (error || !data) { toast.error("Não consegui abrir esse conteúdo."); return; }
+    if (error || !data) { toast.error("Não consegui abrir esse conteúdo."); return []; }
 
-    setSlides((data.slides ?? []) as SlideData[]);
+    // A foto voltou como URL do bucket: repõe também em `imagemUrl`, senão a
+    // primeira gravação depois de reabrir apagaria a arte.
+    const roteiro = ((data.slides ?? []) as SlideData[]).map((s) =>
+      s.imagem?.startsWith("http") ? { ...s, imagemUrl: s.imagem } : s,
+    );
+    setSlides(roteiro);
     setLegenda(data.legenda ?? "");
     setHashtags((data.hashtags ?? []) as string[]);
     setAngulo(data.angulo ?? "");
@@ -1002,6 +1055,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     setAba("roteiro");
     setMostrarBiblioteca(false);
     toast.success("Conteúdo reaberto.");
+    return roteiro;
   };
 
   const historicoParaIA = () =>
@@ -1142,6 +1196,31 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     dataUrl && dataUrl.startsWith("data:") ? dataUrl.split(",")[1] : null;
 
   /**
+   * Guarda a foto no bucket e devolve a URL pública.
+   *
+   * A foto nasce como data URL de megabytes — dá para desenhar na hora, mas não
+   * dá para gravar na linha da Biblioteca. Sem isto, gerar a arte de uma peça e
+   * abrir a seguinte apagava o trabalho da primeira.
+   */
+  const hospedarFoto = async (dataUrl: string, i: number): Promise<string | null> => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return null;
+      const blob = await (await fetch(dataUrl)).blob();
+      const caminho = `${session.user.id}/fotos/${memoriaId ?? "rascunho"}-${String(i + 1).padStart(2, "0")}.jpg`;
+      const { error } = await supabase.storage
+        .from("post-media")
+        .upload(caminho, blob, { upsert: true, contentType: blob.type || "image/jpeg" });
+      if (error) throw error;
+      return supabase.storage.from("post-media").getPublicUrl(caminho).data.publicUrl;
+    } catch {
+      // Falhar aqui não pode derrubar a geração: a peça continua na tela, só
+      // não sobrevive ao fechar — e isso a Carol vê pela foto sumir.
+      return null;
+    }
+  };
+
+  /**
    * Onde cada layout escreve o texto — e, portanto, onde a foto PRECISA ter
    * espaço livre. O roteiro é escrito antes de existir layout, então o
    * `prompt_imagem` só sabe pedir "espaço vazio de um lado ou embaixo". Sem
@@ -1239,7 +1318,10 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
       const url = `data:${data.mimeType ?? "image/jpeg"};base64,${data.imageData}`;
       const img = await loadImage(url);
       if (img) imgCache.current.set(url, img);
-      setSlides((prev) => prev.map((old, idx) => (idx === i ? { ...old, imagem: url } : old)));
+      // Hospeda em paralelo: a data URL desenha agora, a URL do bucket é a que
+      // sobrevive ao fechar a peça.
+      const hospedada = await hospedarFoto(url, i);
+      setSlides((prev) => prev.map((old, idx) => (idx === i ? { ...old, imagem: url, imagemUrl: hospedada } : old)));
       toast.success(data.modelo ? `Imagem gerada (${data.modelo}).` : "Imagem gerada.");
       return url;
     } catch (e) {
@@ -1616,6 +1698,22 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
 
               {cardIdentidade}
 
+              {/* A Biblioteca fica NO TOPO: depois de um lote é a primeira coisa
+                  que ela procura, e no fim do formulário nascia invisível. */}
+              {clienteId && memoria.length > 0 && (
+                <button onClick={() => setMostrarBiblioteca(true)}
+                  className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all"
+                  style={{ background: `${LIME}12`, border: `1px solid ${LIME}40` }}>
+                  <span className="flex items-center gap-2 text-[12px] font-semibold" style={{ color: "#E6E6E6" }}>
+                    <Library className="w-3.5 h-3.5" style={{ color: LIME }} />
+                    Biblioteca de {cliente?.name ?? "cliente"}
+                  </span>
+                  <span className="text-[11px]" style={{ color: LIME }}>
+                    ver {memoria.length} {memoria.length === 1 ? "peça" : "peças"} →
+                  </span>
+                </button>
+              )}
+
               {/* Produção em lote: fechar um mês sem repetir o ritual peça a
                   peça. Fica ANTES do tema porque, no lote, quem escolhe os
                   temas é ela — a Carol só diz quantas e de que tipo. */}
@@ -1668,6 +1766,44 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                     style={{ background: LIME, color: "#07080A" }}>
                     Produzir {loteUnicos + loteCarrosseis || ""} {loteUnicos + loteCarrosseis === 1 ? "peça" : "peças"}
                   </button>
+                )}
+
+                {/* As pautas ficam à vista: durante o lote é o único jeito de
+                    saber o que ela escolheu, e depois é o índice do que foi
+                    parar na Biblioteca. */}
+                {lotePautas.length > 0 && (
+                  <div className="space-y-1 pt-1 max-h-72 overflow-y-auto pr-1">
+                    {lotePautas.map((p, i) => (
+                      <div key={i} className="flex items-start gap-2 rounded-lg px-2.5 py-2"
+                        style={{
+                          background: p.estado === "escrevendo" ? `${LIME}12` : "rgba(255,255,255,0.03)",
+                          border: `1px solid ${p.estado === "escrevendo" ? `${LIME}44` : "rgba(255,255,255,0.06)"}`,
+                        }}>
+                        <span className="text-[10px] mt-0.5 flex-shrink-0 w-4 text-center"
+                          style={{ color: p.estado === "pronta" ? LIME : p.estado === "falhou" ? "#FF6060" : "rgba(255,255,255,0.3)" }}>
+                          {p.estado === "pronta" ? "✓" : p.estado === "falhou" ? "×" : i + 1}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[11.5px] leading-snug" style={{ color: p.estado === "espera" ? "rgba(255,255,255,0.5)" : "#EDEDED" }}>
+                            {p.gancho || p.tema}
+                          </div>
+                          {p.gancho && (
+                            <div className="text-[10px] mt-0.5 leading-snug" style={{ color: "rgba(255,255,255,0.32)" }}>{p.tema}</div>
+                          )}
+                        </div>
+                        <span className="text-[9.5px] flex-shrink-0 mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>
+                          {p.carrossel ? `carrossel · ${loteSlides}` : "post"}
+                        </span>
+                      </div>
+                    ))}
+                    {!loteAndamento && lotePautas.some((p) => p.estado === "pronta") && (
+                      <button onClick={() => setMostrarBiblioteca(true)}
+                        className="w-full mt-1.5 py-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5"
+                        style={{ background: "rgba(255,255,255,0.07)", color: "#EDEDED" }}>
+                        <Library className="w-3.5 h-3.5" /> Ver as peças na Biblioteca
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
 
@@ -1737,19 +1873,6 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                 </Campo>
               </div>
 
-              {clienteId && memoria.length > 0 && (
-                <button onClick={() => setMostrarBiblioteca(true)}
-                  className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all"
-                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                  <span className="flex items-center gap-2 text-[12px] font-semibold" style={{ color: "#E6E6E6" }}>
-                    <Library className="w-3.5 h-3.5" style={{ color: LIME }} />
-                    Biblioteca de {cliente?.name ?? "cliente"}
-                  </span>
-                  <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
-                    {memoria.length} {memoria.length === 1 ? "conteúdo" : "conteúdos"} →
-                  </span>
-                </button>
-              )}
 
               <Campo label="Skills de copy e design">
                 <div className="space-y-2">
@@ -2481,7 +2604,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           onClick={() => setMostrarBiblioteca(false)}>
           <div onClick={(e) => e.stopPropagation()}
             className="w-full rounded-2xl overflow-hidden flex flex-col"
-            style={{ maxWidth: 620, maxHeight: "82vh", background: "#0D0F12", border: "1px solid rgba(255,255,255,0.1)" }}>
+            style={{ maxWidth: 760, maxHeight: "86vh", background: "#0D0F12", border: "1px solid rgba(255,255,255,0.1)" }}>
             <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
               <div className="flex items-center gap-2">
                 <Library className="w-4 h-4" style={{ color: LIME }} />
@@ -2501,7 +2624,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                 </div>
               )}
               {memoria.map((m) => (
-                <button key={m.id} onClick={() => abrirDaBiblioteca(m.id)}
+                <div key={m.id}
                   className="w-full text-left rounded-xl p-3.5 transition-all"
                   style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}
                   onMouseEnter={(e) => (e.currentTarget.style.borderColor = `${LIME}55`)}
@@ -2528,12 +2651,28 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                           <span className="inline-block rounded-full" style={{ width: 8, height: 8, background: m.design.accent }} />
                         ) : null}
                       </div>
-                      <div className="flex items-center gap-1.5 mt-2 text-[10px] font-semibold" style={{ color: LIME }}>
-                        <FolderOpen className="w-3 h-3" /> abrir e editar
+                      {/* Duas saídas por peça: abrir para mexer no texto, ou
+                          mandar a Marcela dar arte. Depois de um lote, a
+                          segunda é a que ela vai usar dezesseis vezes. */}
+                      <div className="flex items-center gap-2 mt-2.5">
+                        <button onClick={() => abrirDaBiblioteca(m.id)}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10.5px] font-semibold"
+                          style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.72)" }}>
+                          <FolderOpen className="w-3 h-3" /> Abrir
+                        </button>
+                        <button onClick={() => gerarArteDaBiblioteca(m.id)} disabled={!!modoAuto}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10.5px] font-bold disabled:opacity-40"
+                          style={{ background: LIME, color: "#07080A" }}>
+                          <Sparkles className="w-3 h-3" />
+                          {m.slides?.some((s) => s.imagem) ? "Refazer a arte" : "Gerar a arte"}
+                        </button>
+                        {m.slides?.some((s) => s.imagem) && (
+                          <span className="text-[10px]" style={{ color: LIME }}>✓ com arte</span>
+                        )}
                       </div>
                     </div>
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           </div>

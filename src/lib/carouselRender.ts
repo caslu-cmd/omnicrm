@@ -27,6 +27,12 @@ export interface SlideData {
   destaque?: string;
   prompt_imagem?: string;
   imagem?: string | null;
+  /**
+   * A mesma foto hospedada no bucket. A `imagem` é uma data URL de megabytes,
+   * boa para desenhar na hora e péssima para gravar na Biblioteca — sem esta
+   * cópia a arte sumia ao trocar de peça.
+   */
+  imagemUrl?: string | null;
 }
 
 export interface Theme {
