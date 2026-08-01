@@ -6,7 +6,7 @@ import {
   Sparkles, Wand2, Download, Copy, Image as ImageIcon, Trash2, Plus,
   ChevronLeft, ChevronRight, Loader2, RefreshCw, Palette, Type, LayoutGrid,
   FileText, Lightbulb, Upload, X, CalendarClock, Send, CheckCircle2, Link2, Brain, TrendingUp,
-  Zap, Library, FolderOpen, Plus as PlusIcon, Package,
+  Zap, Library, FolderOpen, Plus as PlusIcon, Package, Layers,
 } from "lucide-react";
 import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
@@ -211,6 +211,21 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
    * Tetos iguais aos do chat: isto viaja em toda geração de roteiro.
    */
   const [docsDoProjeto, setDocsDoProjeto] = useState<{ nome: string; conteudo: string }[]>([]);
+
+  /**
+   * Produção em lote: N posts únicos + M carrosséis de uma vez.
+   *
+   * O estúdio fazia uma peça por vez, e fechar um mês significava repetir o
+   * mesmo ritual dez vezes. Cada peça vai para a Biblioteca do cliente, para
+   * ela abrir, revisar e ajustar a arte quando quiser — a FOTO não é gerada
+   * aqui de propósito: multiplicaria o custo por peça sem ela ter olhado o
+   * roteiro ainda.
+   */
+  const [loteUnicos, setLoteUnicos] = useState(0);
+  const [loteCarrosseis, setLoteCarrosseis] = useState(0);
+  const [loteSlides, setLoteSlides] = useState(7);
+  const [loteAndamento, setLoteAndamento] = useState<string | null>(null);
+  const pararLoteRef = useRef(false);
 
   const [marcaCor, setMarcaCor] = useState("");
   /**
@@ -765,6 +780,92 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
         ? `Direção "${d.nome}" aplicada, mantendo a identidade da marca.`
         : `Direção "${d.nome}" aplicada.`,
     );
+  };
+
+  /**
+   * Produz o lote inteiro: pede as pautas, escreve cada peça e guarda na
+   * Biblioteca. Cada peça é uma chamada — por isso o andamento na tela e o
+   * botão de parar: doze peças levam minutos, e ficar sem sinal de vida é o
+   * que faz parecer travado.
+   */
+  const produzirLote = async () => {
+    const total = loteUnicos + loteCarrosseis;
+    if (!total) { toast.error("Diga quantas peças você quer."); return; }
+    if (!clienteId) { toast.error("Escolha um cliente antes."); return; }
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { toast.error("Sua sessão expirou."); return; }
+
+    pararLoteRef.current = false;
+    setLoteAndamento(`Pensando em ${total} pautas...`);
+    try {
+      // Uma pauta por peça, todas de uma vez: pedir tema a tema faria a Marcela
+      // repetir assunto, que é o defeito clássico de conteúdo em série.
+      const { data: pautas } = await supabase.functions.invoke("carousel-studio", {
+        body: {
+          action: "ideias",
+          nicho: cliente?.industry || "",
+          quantidade: total,
+          historico: historicoParaIA(),
+          documentos: docsDoProjeto,
+          ...contextoCliente(),
+        },
+      });
+      const temas: string[] = (pautas?.ideias ?? [])
+        .map((i: unknown) => (typeof i === "string" ? i : (i as { tema?: string })?.tema ?? ""))
+        .filter(Boolean)
+        .slice(0, total);
+      if (!temas.length) throw new Error("Não consegui gerar as pautas.");
+
+      let feitas = 0;
+      for (let i = 0; i < temas.length; i++) {
+        if (pararLoteRef.current) break;
+        // Os carrosséis primeiro; o resto vira post único.
+        const ehCarrossel = i < loteCarrosseis;
+        setLoteAndamento(`Escrevendo ${i + 1} de ${temas.length} — ${ehCarrossel ? "carrossel" : "post único"}...`);
+        const { data, error } = await supabase.functions.invoke("carousel-studio", {
+          body: {
+            action: "strategy",
+            tema: temas[i],
+            formato: ehCarrossel ? "carrossel" : "post",
+            nSlides: ehCarrossel ? loteSlides : 1,
+            objetivo, publico, tom,
+            plataforma: "Instagram",
+            benTrends: benParaIA(),
+            historico: historicoParaIA(),
+            skills: skillsParaIA("copy"),
+            documentos: docsDoProjeto,
+            ...contextoCliente(),
+          },
+        });
+        if (error || data?.error || !data?.slides?.length) continue;
+
+        await (supabase as any).from("carousel_memory").insert({
+          user_id: session.user.id,
+          client_id: clienteId,
+          tema: temas[i],
+          angulo: data.angulo ?? null,
+          objetivo,
+          formato: ehCarrossel ? "carrossel" : "post",
+          slides: (data.slides as SlideData[]).map((s) => ({ ...s, imagem: null })),
+          legenda: data.legenda ?? "",
+          hashtags: data.hashtags ?? [],
+          design: { layout, fontPair, bg, fg, accent, formatId, acabamento },
+        });
+        feitas++;
+      }
+
+      await carregarMemoria();
+      toast.success(
+        pararLoteRef.current
+          ? `Parei com ${feitas} de ${temas.length} prontas. Estão na Biblioteca.`
+          : `${feitas} peças na Biblioteca, prontas para revisar.`,
+      );
+      if (feitas) setMostrarBiblioteca(true);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Não consegui produzir o lote.");
+    } finally {
+      setLoteAndamento(null);
+    }
   };
 
   /** Faz o carrossel inteiro sozinha: roteiro, direção de arte e fotos. */
@@ -1514,6 +1615,61 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
               )}
 
               {cardIdentidade}
+
+              {/* Produção em lote: fechar um mês sem repetir o ritual peça a
+                  peça. Fica ANTES do tema porque, no lote, quem escolhe os
+                  temas é ela — a Carol só diz quantas e de que tipo. */}
+              <div className="rounded-xl p-3.5 space-y-3"
+                style={{ background: "rgba(255,255,255,0.045)", border: "1px solid rgba(255,255,255,0.12)" }}>
+                <div className="flex items-center gap-1.5 text-[11px] font-bold" style={{ color: "#E8E8E8" }}>
+                  <Layers className="w-3.5 h-3.5" /> Produzir várias de uma vez
+                </div>
+                <div className="text-[10px] leading-snug" style={{ color: "rgba(255,255,255,0.42)" }}>
+                  A Marcela escolhe as pautas sem repetir o que já foi publicado, escreve cada peça
+                  e guarda na Biblioteca do cliente. As fotos você gera ao abrir cada uma.
+                </div>
+                <div className="flex flex-wrap items-center gap-3">
+                  {([
+                    ["Posts únicos", loteUnicos, setLoteUnicos] as const,
+                    ["Carrosséis", loteCarrosseis, setLoteCarrosseis] as const,
+                  ]).map(([rotulo, valor, set]) => (
+                    <label key={rotulo} className="flex items-center gap-2">
+                      <input type="number" min={0} max={20} value={valor} disabled={!!loteAndamento}
+                        onChange={(e) => set(Math.max(0, Math.min(20, Number(e.target.value) || 0)))}
+                        className="w-14 px-2 py-1.5 rounded-lg text-[12.5px] text-center outline-none"
+                        style={{ ...inputStyle, padding: "6px 8px" }} />
+                      <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.6)" }}>{rotulo}</span>
+                    </label>
+                  ))}
+                  {loteCarrosseis > 0 && (
+                    <label className="flex items-center gap-2">
+                      <input type="number" min={3} max={10} value={loteSlides} disabled={!!loteAndamento}
+                        onChange={(e) => setLoteSlides(Math.max(3, Math.min(10, Number(e.target.value) || 7)))}
+                        className="w-14 px-2 py-1.5 rounded-lg text-[12.5px] text-center outline-none"
+                        style={{ ...inputStyle, padding: "6px 8px" }} />
+                      <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.6)" }}>slides por carrossel</span>
+                    </label>
+                  )}
+                </div>
+                {loteAndamento ? (
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="flex items-center gap-2 text-[11.5px]" style={{ color: LIME }}>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> {loteAndamento}
+                    </span>
+                    <button onClick={() => { pararLoteRef.current = true; }}
+                      className="px-3 py-1.5 rounded-lg text-[11px] font-bold"
+                      style={{ background: "rgba(255,80,80,0.12)", border: "1px solid rgba(255,80,80,0.35)", color: "#FF6060" }}>
+                      Parar
+                    </button>
+                  </div>
+                ) : (
+                  <button onClick={produzirLote} disabled={!loteUnicos && !loteCarrosseis}
+                    className="w-full py-2 rounded-xl text-[12px] font-bold disabled:opacity-40"
+                    style={{ background: LIME, color: "#07080A" }}>
+                    Produzir {loteUnicos + loteCarrosseis || ""} {loteUnicos + loteCarrosseis === 1 ? "peça" : "peças"}
+                  </button>
+                )}
+              </div>
 
               <Campo label="Sobre o que é o conteúdo">
                 <textarea

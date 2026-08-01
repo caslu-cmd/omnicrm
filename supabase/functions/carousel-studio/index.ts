@@ -728,13 +728,19 @@ Se a referência é uma agência verde e o cliente é uma clínica, a resposta n
     // ── Pautas ─────────────────────────────────────────────────────────
     if (action === "ideias") {
       const nicho = body.nicho ?? cliente.segmento ?? "marketing digital";
+      // A produção em lote pede exatamente quantas peças vai escrever; sem isso
+      // ela devolvia sempre 8 e o lote de 12 repetia pauta.
+      const quantas = Math.max(1, Math.min(20, Number(body.quantidade) || 8));
       const partes = [
-        `${cabecalhoMarca}Gere 8 pautas de carrossel para o nicho: ${nicho}.`,
+        `${cabecalhoMarca}Gere ${quantas} pautas de conteúdo para o nicho: ${nicho}.`,
+        quantas > 1 ? `As ${quantas} precisam ser assuntos DIFERENTES entre si — nada de variação da mesma ideia com outro título.` : "",
+        blocoDeMaterial(body.documentos),
         body.benTrends ? `TENDÊNCIAS DO BEN (o que está em alta agora nesse segmento, priorize o aproveitável):\n${String(body.benTrends).slice(0, 3000)}` : "",
         historico.length ? `JÁ PUBLICADO por esta marca (NÃO repita nenhum desses):\n${historico.slice(0, 15).map((h, i) => `${i + 1}. ${h}`).join("\n")}` : "",
         blocoSkills,
         body.contexto ? `Contexto extra:\n${String(body.contexto).slice(0, 3000)}` : "",
         'Cada pauta precisa ser específica o suficiente para virar um carrossel inteiro (nada de "dicas de marketing"). O campo "gancho" é o título da capa, máximo 8 palavras.',
+        `Devolva exatamente ${quantas} pautas.`,
       ].filter(Boolean);
 
       const raw = await callClaude({
