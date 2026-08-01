@@ -50,6 +50,13 @@ export interface RenderOptions {
   acabamento?: AcabamentoId;
   /** Fator de escala do bitmap (1 = 1080px). Use 0.3 para miniaturas. */
   scale?: number;
+  /**
+   * Foto ATRAVESSANDO vários slides: a mesma imagem é fatiada e cada slide
+   * recebe o seu pedaço, então ao arrastar a cena continua. É o gesto que mais
+   * faz um carrossel parecer uma peça só, e não posts soltos.
+   * `parte` é a posição deste slide na sequência (0-based) e `de` é o total.
+   */
+  fatia?: { parte: number; de: number };
 }
 
 export const FORMAT_SIZE: Record<FormatId, [number, number]> = {
@@ -554,6 +561,77 @@ function drawCover(
   ctx.restore();
 }
 
+/**
+ * Como o drawCover, mas escolhendo QUE ALTURA da foto aparece na janela.
+ * `foco` é a fração da imagem que fica acima do recorte: 0 mostra o topo, 0.5
+ * o meio. Existe por causa da barra baixa do arranjo `rodape` — ali o corte
+ * centrado pegava a barriga e decapitava a pessoa, e o corte no topo pegava só
+ * parede. O brief garante gente na metade de cima, então ~0,2 cai no rosto.
+ */
+function drawCoverFoco(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  foco: number,
+) {
+  if (!img.width || !img.height) return;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+  const escala = Math.max(w / img.width, h / img.height);
+  const dw = img.width * escala;
+  const dh = img.height * escala;
+  // Nunca deixar borda: o deslocamento é preso ao que a imagem tem de sobra.
+  const desloca = Math.min(Math.max(foco * dh, 0), Math.max(0, dh - h));
+  ctx.drawImage(img, x + (w - dw) / 2, y - desloca, dw, dh);
+  ctx.restore();
+}
+
+/**
+ * Desenha a FATIA desta peça de uma foto que atravessa vários slides.
+ * A imagem é tratada como um painel de largura `w * de`: a peça `parte` mostra
+ * a janela correspondente. Ao arrastar no feed, a cena continua de um slide
+ * para o outro.
+ *
+ * A foto é escalada pela ALTURA, não pela largura: escalar pela largura
+ * encolheria a imagem inteira até caber no painel e sobrariam tarjas em cima e
+ * embaixo. Se ela for estreita demais para o painel, o que falta vira
+ * espelhamento nas bordas em vez de faixa vazia.
+ */
+function drawFatia(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  parte: number,
+  de: number,
+) {
+  if (!img.width || !img.height || de < 1) return;
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(x, y, w, h);
+  ctx.clip();
+
+  const painel = w * de;
+  const escala = h / img.height;
+  const larguraFoto = img.width * escala;
+  // Foto mais estreita que o painel: espalha o que tem e aceita o corte menor,
+  // em vez de deixar buraco. Foto mais larga: centra o painel nela.
+  const usada = Math.max(larguraFoto, painel);
+  const escalaFinal = usada / img.width;
+  const dw = img.width * escalaFinal;
+  const dh = img.height * escalaFinal;
+  const esquerdaPainel = (dw - painel) / 2;
+  ctx.drawImage(img, x - esquerdaPainel - parte * w, y + (h - dh) / 2, dw, dh);
+  ctx.restore();
+}
+
 function drawPill(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -773,10 +851,16 @@ function layoutEditorial(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chr
 function layoutImpacto(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrome) {
   const { W, H, pad } = c;
   const fonts = FONT_PAIRS[o.theme.fontPair];
-  const isDark = o.slide.tipo === "cta";
-  const bg = isDark ? o.theme.bg : o.theme.accent;
-  const fg = isDark ? o.theme.fg : contrastOn(o.theme.accent);
-  const accent = isDark ? o.theme.accent : contrastOn(o.theme.accent);
+  // O fundo é o BG que a direção escolheu, e o accent segue sendo destaque.
+  // Antes a peça era pintada com o ACCENT e o destaque virava a própria cor do
+  // texto: o diretor prometia "azul chapado com destaque quente" e saía uma
+  // peça amarela sem ênfase nenhuma. Também furava o garantirContraste, que
+  // mede fg contra bg — e bg não era o que ia para a tela.
+  // O CTA inverte de propósito: fecha o carrossel virando a cor de destaque.
+  const inverte = o.slide.tipo === "cta";
+  const bg = inverte ? o.theme.accent : o.theme.bg;
+  const fg = inverte ? contrastOn(o.theme.accent) : o.theme.fg;
+  const accent = inverte ? contrastOn(o.theme.accent) : corEnfase(bg, o.theme.fg, o.theme.accent);
   const local: Chrome = { ...c, fg, accent };
 
   ctx.fillStyle = bg;
@@ -837,7 +921,8 @@ function layoutImpacto(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrom
     drawBlock(ctx, b, pad, startY + t.height + W * 0.05, { font: (s) => `500 ${s}px ${fonts.body}` });
   }
 
-  drawArraste(ctx, o, { ...local, accent: isDark ? o.theme.accent : bg === o.theme.accent ? fg : accent });
+  // No CTA a peça já É a cor de destaque, então a seta usa o contraste dela.
+  drawArraste(ctx, o, { ...local, accent: inverte ? fg : o.theme.accent });
   drawFooter(ctx, o, local);
 }
 
@@ -2241,10 +2326,138 @@ function drawFundoFoto(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrom
 }
 
 // ── Layout VIDRO ─────────────────────────────────────────────────────────
+/**
+ * Arranjo de cada slide no `vidro`. Antes o layout desenhava TODO slide igual —
+ * foto inteira + cartão no mesmo lugar — e um carrossel de 7 slides virava a
+ * mesma peça sete vezes ("fica parecendo que é o mesmo post"). O `agencia` já
+ * resolvia isso alternando arranjos; aqui é o mesmo princípio, dentro do mesmo
+ * sistema visual (vidro sobre foto), para o carrossel ter ritmo sem virar
+ * colcha de retalhos.
+ */
+type ArranjoVidro = "heroi" | "estreito" | "meia-meia" | "faixa" | "rodape";
+
+function arranjoDoVidro(o: RenderOptions, temFoto: boolean): ArranjoVidro {
+  if (!temFoto) return "meia-meia"; // sem foto o vidro não existe: vira bloco de cor
+  // Slide que é fatia de uma foto contínua não pode ter cartão nem tarja por
+  // cima: o que vende o efeito é a cena atravessando limpa de um slide ao outro.
+  if (o.fatia) return "faixa";
+  if (o.slide.tipo === "capa") return "heroi";
+  if (o.slide.tipo === "cta") return "heroi";
+  // O ciclo começa DEPOIS da capa, senão o slide 2 repete o arranjo dela.
+  // TODOS mantêm a leitura na metade de BAIXO: o brief manda a pessoa para a
+  // metade de cima, então subir o texto taparia o rosto. A variação é na
+  // largura, no alinhamento e na natureza do bloco — não na altura.
+  const ciclo: ArranjoVidro[] = ["estreito", "rodape", "meia-meia", "faixa"];
+  return ciclo[(o.index + ciclo.length - 1) % ciclo.length];
+}
+
+/**
+ * Peça partida em foto + cor chapada, sem nenhum vidro por cima do texto.
+ * `meia-meia` põe a foto na metade de CIMA; `rodape` reduz a foto a uma barra
+ * na BASE e o texto ocupa a peça. São os dois arranjos que tiram o carrossel do
+ * "tudo é foto com cartão por cima" sem sair do sistema visual, porque a cor é
+ * a do tema e a pessoa é a mesma.
+ */
+function layoutVidroPartido(
+  ctx: CanvasRenderingContext2D,
+  o: RenderOptions,
+  c: Chrome,
+  arranjo: "meia-meia" | "rodape",
+) {
+  const { W, H, pad } = c;
+  const fonts = FONT_PAIRS[o.theme.fontPair];
+  const escuro = !isLight(o.theme.bg);
+  const tinta = escuro ? "#FFFFFF" : "#111318";
+  const noRodape = arranjo === "rodape";
+
+  ctx.fillStyle = o.theme.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  const alturaFoto = noRodape ? H * 0.3 : H * 0.52;
+  const yFoto = noRodape ? H - alturaFoto : 0;
+  if (o.image?.width) {
+    if (o.fatia) drawFatia(ctx, o.image, 0, yFoto, W, alturaFoto, o.fatia.parte, o.fatia.de);
+    // Numa barra baixa e larga, o corte centrado do drawCover pega a barriga da
+    // foto e decapita a pessoa — o brief põe gente na metade de CIMA. Aqui a
+    // faixa é ancorada no topo da imagem.
+    else if (noRodape) drawCoverFoco(ctx, o.image, 0, yFoto, W, alturaFoto, 0.2);
+    else drawCover(ctx, o.image, 0, yFoto, W, alturaFoto);
+  } else if (!noRodape) {
+    // Sem foto a metade de cima vira bloco do accent, senão fica buraco.
+    ctx.fillStyle = o.theme.accent;
+    ctx.fillRect(0, 0, W, alturaFoto);
+  }
+
+  drawGlassHeader(ctx, o, c, true);
+
+  const larg = W - pad * 1.6;
+  const t = fitText(ctx, fonts.upper ? o.slide.titulo.toUpperCase() : o.slide.titulo, {
+    font: (sz) => `${fonts.displayWeight} ${sz}px ${fonts.display}`,
+    maxWidth: larg,
+    maxHeight: H * 0.22,
+    max: W * 0.082,
+    min: W * 0.04,
+    lh: 1.12,
+    tracking: fonts.tracking,
+  });
+  const corpo = o.slide.corpo
+    ? fitText(ctx, o.slide.corpo, {
+        font: (sz) => `400 ${sz}px ${fonts.body}`,
+        maxWidth: larg,
+        maxHeight: H * 0.14,
+        max: W * 0.032,
+        min: W * 0.022,
+        lh: 1.5,
+      })
+    : null;
+
+  // O texto ocupa a faixa que sobra da foto: embaixo dela no `meia-meia`,
+  // em cima dela no `rodape`. Nos dois casos centrado nessa faixa.
+  const altura = t.height + (corpo ? corpo.height + W * 0.03 : 0);
+  const inicio = noRodape ? pad * 2.3 : alturaFoto + pad * 0.9;
+  const fim = noRodape ? yFoto - pad * 1.2 : H - pad * 2.5;
+  let y = inicio + Math.max(0, (fim - inicio - altura) / 2);
+
+  ctx.fillStyle = tinta;
+  drawBlock(ctx, t, pad * 0.8, y, {
+    font: (sz) => `${fonts.displayWeight} ${sz}px ${fonts.display}`,
+    align: "left",
+    tracking: fonts.tracking,
+    accent: corEnfase(o.theme.bg, tinta, o.theme.accent),
+  });
+  y += t.height;
+  if (corpo) {
+    y += W * 0.03;
+    ctx.fillStyle = rgba(tinta, 0.75);
+    drawBlock(ctx, corpo, pad * 0.8, y, { font: (sz) => `400 ${sz}px ${fonts.body}`, align: "left" });
+  }
+
+  // No `rodape` a base é a FOTO: botão e rodapé desenhados lá caem em cima dela
+  // e o @ some. Fingir que a peça termina onde a foto começa resolve os dois
+  // sem duplicar código — eles se posicionam por essa altura.
+  const baseUtil = noRodape ? yFoto : H;
+  if (o.slide.tipo === "cta" || (o.mostrarArraste !== false && o.total > 1)) {
+    drawSwipeButton(ctx, o.slide.tipo === "cta" ? (o.slide.destaque || "SAIBA MAIS") : "ARRASTA PRO LADO!", {
+      W, H: baseUtil, pad, accent: o.theme.accent, font: fonts.body, escuro,
+    });
+  }
+  drawLogo(ctx, o, c);
+  drawFooter(ctx, o, { ...c, fg: tinta, H: baseUtil });
+}
+
 function layoutVidro(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrome) {
   const { W, H, pad } = c;
   const fonts = FONT_PAIRS[o.theme.fontPair];
-  const temFoto = drawFundoFoto(ctx, o, c);
+  const arranjo = arranjoDoVidro(o, !!o.image?.width);
+
+  if (arranjo === "meia-meia" || arranjo === "rodape") {
+    layoutVidroPartido(ctx, o, c, arranjo);
+    return;
+  }
+
+  const temFoto = o.fatia && o.image?.width
+    ? (drawFatia(ctx, o.image, 0, 0, W, H, o.fatia.parte, o.fatia.de), true)
+    : drawFundoFoto(ctx, o, c);
 
   // Véu leve: escurece o suficiente para o texto ler, sem lavar a foto.
   const veu = ctx.createLinearGradient(0, 0, 0, H);
@@ -2256,8 +2469,13 @@ function layoutVidro(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrome)
 
   drawGlassHeader(ctx, o, c, true);
 
-  const cardW = W - pad * 1.4;
-  const cardX = (W - cardW) / 2;
+  // A variação por slide mora aqui: largura, ancoragem e alinhamento do bloco.
+  // "faixa" atravessa a peça de ponta a ponta e não é cartão — é outro gesto.
+  const estreito = arranjo === "estreito";
+  const faixa = arranjo === "faixa";
+  const cardW = faixa ? W : estreito ? W * 0.68 : W - pad * 1.4;
+  const cardX = faixa ? 0 : estreito ? pad * 0.7 : (W - cardW) / 2;
+  const alinha: CanvasTextAlign = arranjo === "heroi" ? "center" : "left";
   const inner = pad * 0.8;
 
   const t = fitText(ctx, fonts.upper ? o.slide.titulo.toUpperCase() : o.slide.titulo, {
@@ -2281,42 +2499,55 @@ function layoutVidro(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chrome)
       })
     : null;
 
-  const cardH = inner * 2 + t.height + (corpoBlock ? corpoBlock.height + W * 0.028 : 0);
+  // A faixa encosta na base, e ali embaixo já moram o rodapé, a barra de
+  // progresso e o contador. Sem essa folga extra o corpo do texto sai por cima
+  // deles — foi o que aconteceu no primeiro teste visual.
+  const folgaRodape = faixa ? pad * 1.35 : 0;
+  const cardH = inner * 2 + folgaRodape + t.height + (corpoBlock ? corpoBlock.height + W * 0.028 : 0);
   // Onde o cartão cabe sem tapar rosto. A preferência continua sendo embaixo;
-  // ele só sobe (ou desce) quando a foto tem gente justamente ali.
+  // ele só sobe (ou desce) quando a foto tem gente justamente ali. A faixa é
+  // sempre colada na base: é ela que dá o gesto de "tarja de capa de revista".
   const preferido = (H - pad * 3.5 - cardH) / H;
   const limiteBaixo = (H - pad * 2.6 - cardH) / H;
   const topoLivre = faixaLivre(o.image, cardH / H, preferido);
-  const cardY = Math.max(pad * 2.2, Math.min(topoLivre * H, limiteBaixo * H));
+  const cardY = faixa
+    ? H - cardH
+    : Math.max(pad * 2.2, Math.min(topoLivre * H, limiteBaixo * H));
+  const raio = faixa ? 0 : W * 0.055;
+  const textoX = alinha === "center" ? W / 2 : cardX + inner;
 
   ctx.save();
-  roundRectPath(ctx, cardX, cardY, cardW, cardH, W * 0.055);
+  roundRectPath(ctx, cardX, cardY, cardW, cardH, raio);
   ctx.clip();
   if (temFoto && o.image) {
     ctx.filter = "blur(26px)";
     drawCover(ctx, o.image, 0, 0, W, H);
     ctx.filter = "none";
   }
-  ctx.fillStyle = "rgba(8,12,20,0.42)";
+  // A faixa é mais opaca: encostada na base ela recebe a parte mais movimentada
+  // da foto, e no vidro leve o texto sumia.
+  ctx.fillStyle = faixa ? "rgba(8,12,20,0.62)" : "rgba(8,12,20,0.42)";
   ctx.fillRect(cardX, cardY, cardW, cardH);
   ctx.restore();
-  ctx.strokeStyle = "rgba(255,255,255,0.22)";
-  ctx.lineWidth = Math.max(1, W * 0.0014);
-  roundRectPath(ctx, cardX, cardY, cardW, cardH, W * 0.055);
-  ctx.stroke();
+  if (!faixa) {
+    ctx.strokeStyle = "rgba(255,255,255,0.22)";
+    ctx.lineWidth = Math.max(1, W * 0.0014);
+    roundRectPath(ctx, cardX, cardY, cardW, cardH, raio);
+    ctx.stroke();
+  }
 
   ctx.fillStyle = "#FFFFFF";
-  drawBlock(ctx, t, W / 2, cardY + inner, {
+  drawBlock(ctx, t, textoX, cardY + inner, {
     font: (sz) => `${fonts.displayWeight} ${sz}px ${fonts.display}`,
-    align: "center",
+    align: alinha,
     tracking: fonts.tracking,
     accent: o.theme.accent,
   });
   if (corpoBlock) {
     ctx.fillStyle = "rgba(255,255,255,0.8)";
-    drawBlock(ctx, corpoBlock, W / 2, cardY + inner + t.height + W * 0.028, {
+    drawBlock(ctx, corpoBlock, textoX, cardY + inner + t.height + W * 0.028, {
       font: (sz) => `400 ${sz}px ${fonts.body}`,
-      align: "center",
+      align: alinha,
     });
   }
 

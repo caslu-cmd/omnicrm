@@ -464,9 +464,10 @@ LIMITES TÉCNICOS DE DESIGN (o texto é renderizado em canvas, respeite ou quebr
   2. UM assunto só, grande no quadro, com contraste forte de claro e escuro. O feed é pequeno: se não lê em miniatura, não existe.
   3. Momento pego, não posado. Pessoa no meio da ação, olhando para o trabalho e não para a lente (exceto na capa, onde olhar na câmera funciona).
   4. Cenário concreto e específico do nicho, com objeto de trabalho de verdade na mão.
-  Descreva quem é a pessoa (idade aproximada, aparência brasileira, roupa coerente com o nicho), a emoção exata, a ação, o cenário e a luz. MANTENHA A MESMA PESSOA, a mesma roupa e a mesma luz em todos os slides do carrossel — muda a cena e a ação, nunca o personagem.
+  Quando houver pessoa, descreva quem ela é (idade aproximada, aparência brasileira, roupa coerente com o nicho), a emoção exata, a ação, o cenário e a luz. MANTENHA A MESMA PESSOA, a mesma roupa e a mesma luz em todos os slides que tiverem gente — muda a cena e a ação, nunca o personagem. Slides de objeto no meio do carrossel não quebram isso: a luz e a paleta é que costuram a série.
   PROIBIDO: texto na imagem, logotipo, pessoa famosa, colagem, ilustração, aperto de mão em escritório, polegar para cima, gente de terno em fundo branco, "equipe diversa reunida em volta do notebook" — é banco de imagem e o público reconhece na hora.
-  Quando o slide for abstrato demais para uma pessoa, use um objeto ou cena real do dia a dia do nicho, fotografado de perto.
+  PESSOA NÃO É OBRIGATÓRIA, NEM MESMO NA CAPA. Você escolhe o que dá mais impacto naquele slide: gente, ou um OBJETO tratado como herói — o interruptor, a lâmpada, a conta de luz, a chave, o documento, a peça de roupa —, fotografado de perto, com luz dramática e espaço vazio em volta. Peça de objeto costuma ganhar quando o assunto é um número, um custo, um prazo ou uma coisa física; peça de gente ganha quando o assunto é uma emoção, um erro humano ou uma decisão. Alternar entre os dois ao longo do carrossel é o que dá ritmo.
+  Se você escolher pessoa, o rosto tem que aparecer inteiro e em foco — nunca de costas, cortado no queixo ou tapado pela mão. Se escolher objeto, ele ocupa o quadro; nada de pessoa entrando pela metade.
   Sempre termine com: "shot on 85mm, editorial photography, natural skin texture, cinematic lighting, shallow depth of field, negative space for text".
   Não descreva onde fica o espaço vazio: o app acrescenta essa exigência conforme o layout que o diretor de arte escolher.
 
@@ -484,7 +485,7 @@ REGRAS:
    Legibilidade é requisito, não gosto: fg tem que ser claramente claro sobre bg escuro, ou claramente escuro sobre bg claro — nunca dois tons de intensidade parecida. O accent precisa se destacar do bg pela LUMINOSIDADE, não só pela matiz: laranja sobre vermelho, verde sobre vermelho ou azul sobre roxo têm matiz diferente e continuam ilegíveis. Se a direção pede uma cor de marca que briga com o fundo, mude a intensidade dela (mais clara ou mais escura) em vez de entregar algo que não se lê.
 4. Nada de roxo-degradê-em-fundo-branco, nada de "corporativo azul genérico" a não ser que o segmento realmente peça e você justifique.
 5. "porque" tem no máximo 2 linhas e fala de negócio, não de estética: o que essa direção comunica para ESSE público.
-6. Layouts disponíveis: "vidro" (foto + cartão translúcido com o título, o padrão campeão de Instagram), "capa" (foto + título gigante direto na imagem), "organico" (título em cima no fundo limpo e uma FORMA DE MARCA gigante em cor cheia ocupando a parte de baixo, com a foto recortada dentro dela e selo circular com a marca correndo na curva — escolha quando a marca tem uma cor forte e quer identidade própria), "agencia" (papel quadriculado, foto sangrando por um lado e do outro cartões sólidos EMPILHADOS com o título, bloco de contato fixo com o @ e uma palavra gigante sangrando pela base — é o padrão de peça de agência que a Carol usa como referência; escolha quando a marca quiser parecer feita por estúdio, com sistema visual próprio em vez de post avulso), "editorial" (fundo escuro tipográfico), "impacto" (cor cheia), "revista" (papel claro serifado), "gradiente", "minimal" (branco), "foto". Prefira "vidro" ou "capa" quando a marca puder usar fotos de pessoas.
+6. Layouts disponíveis: "vidro" (foto + cartão translúcido com o título, o padrão campeão de Instagram), "capa" (foto + título gigante direto na imagem), "organico" (título em cima no fundo limpo e uma FORMA DE MARCA gigante em cor cheia ocupando a parte de baixo, com a foto recortada dentro dela e selo circular com a marca correndo na curva — escolha quando a marca tem uma cor forte e quer identidade própria), "agencia" (papel quadriculado, foto sangrando por um lado e do outro cartões sólidos EMPILHADOS com o título, bloco de contato fixo com o @ e uma palavra gigante sangrando pela base — é o padrão de peça de agência que a Carol usa como referência; escolha quando a marca quiser parecer feita por estúdio, com sistema visual próprio em vez de post avulso), "editorial" (fundo escuro tipográfico), "impacto" (cor cheia), "revista" (papel claro serifado), "gradiente", "minimal" (branco), "foto". **Não existe layout padrão: "vidro" e "capa" são seguros, e por isso mesmo viram monotonia se você os escolher sempre. Rode entre eles.**
 7. Escolha fonte coerente com o layout: serifada + revista/minimal para autoridade; condensada + impacto para urgência; grotesk + vidro/capa/editorial para moderno.
 8. "acabamento" é o tratamento aplicado por cima da peça pronta. Escolha:
    - "nenhum": cor chapada. Use quando a direção é limpa, suíça, institucional, ou o fundo é claro.
@@ -519,6 +520,33 @@ function blocoIdentidade(identidade: unknown): string {
   }
   linhas.push("As três direções ainda precisam ser DIFERENTES entre si — a diferença agora vem de layout, fundo, acabamento e composição.");
   return linhas.join("\n");
+}
+
+/**
+ * Designs que este cliente já usou, do mais recente para o mais antigo.
+ * Sem isto o diretor decide do zero toda vez e devolve sempre a mesma coisa —
+ * a Carol pediu conteúdo novo e recebeu os mesmos layouts.
+ */
+function blocoHistoricoDesign(designs: unknown): string {
+  if (!Array.isArray(designs) || !designs.length) return "";
+  const linhas = designs
+    .slice(0, 6)
+    .map((d, i) => {
+      const x = d as { layout?: string; acabamento?: string; fonte?: string };
+      if (!x?.layout) return "";
+      const partes = [x.layout, x.acabamento && x.acabamento !== "nenhum" ? `acabamento ${x.acabamento}` : ""].filter(Boolean);
+      return `${i === 0 ? "• MAIS RECENTE" : `• ${i + 1}ª atrás`}: ${partes.join(", ")}`;
+    })
+    .filter(Boolean);
+  if (!linhas.length) return "";
+  return [
+    "O QUE ESTE CLIENTE JÁ PUBLICOU (design das últimas peças):",
+    ...linhas,
+    "",
+    "REGRA DE VARIAÇÃO, obrigatória: NENHUMA das suas 3 direções pode usar o layout da peça MAIS RECENTE.",
+    "Evite também os layouts das 3 últimas, a não ser que sobrem menos de 3 opções que sirvam ao conteúdo — e nesse caso mude o acabamento e a composição para a peça não sair igual.",
+    "Um feed é uma sequência: duas peças seguidas com o mesmo layout parecem a mesma peça repostada. Variar é parte da tarefa, não enfeite.",
+  ].join("\n");
 }
 
 // ── Handler ──────────────────────────────────────────────────────────────
@@ -605,6 +633,7 @@ As cores devem ser AMOSTRADAS da imagem sempre que fizerem sentido para a marca.
               `${cabecalhoMarca}SEGMENTO: ${cliente.segmento || body.nicho || "negócios"}`,
               body.corMarca ? `COR ATUAL DA MARCA: ${body.corMarca}` : "",
               blocoIdentidade(body.identidade),
+              blocoHistoricoDesign(body.designsRecentes),
               blocoSkills,
               "Leia a referência acima e devolva as 2 direções.",
             ].filter(Boolean).join("\n\n"),
@@ -640,6 +669,7 @@ O que NÃO se copia: paleta, assunto, marca, tipo de negócio, nicho, ou o desen
 Se a referência é uma agência verde e o cliente é uma clínica, a resposta não é uma clínica verde — é uma clínica com o MESMO capricho, no vocabulário visual e nas cores da clínica.`
           : "",
         blocoIdentidade(body.identidade),
+        blocoHistoricoDesign(body.designsRecentes),
         blocoSkills,
         "Entregue 3 direções de arte para os carrosséis desta marca.",
       ].filter(Boolean);

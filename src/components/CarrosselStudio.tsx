@@ -547,6 +547,20 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
    * fundo em volta da cor travada — se ele escolhesse fundo livre e a cor fosse
    * trocada só aqui na volta, a peça sairia com contraste quebrado.
    */
+  /**
+   * Os designs das últimas peças DESTE cliente. Sem isso o diretor de arte
+   * decide do zero toda vez, com o mesmo prompt, e cai na mesma resposta — foi
+   * o que aconteceu: conteúdo novo, layout repetido. O histórico já estava
+   * gravado em `carousel_memory.design`; só não estava sendo lido.
+   * Mais recente primeiro.
+   */
+  const designsRecentes = () =>
+    memoria
+      .map((m) => m.design)
+      .filter((d): d is NonNullable<MemoriaItem["design"]> => !!d?.layout)
+      .slice(0, 6)
+      .map((d) => ({ layout: d.layout, acabamento: d.acabamento, fonte: d.fontPair }));
+
   const identidadeParaIA = () => {
     const { cor, fonte, travada } = marcaRef.current;
     if (!travada || (!cor && !fonte)) return undefined;
@@ -569,6 +583,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           tema,
           corMarca: accent,
           identidade: identidadeParaIA(),
+          designsRecentes: designsRecentes(),
           benTrends: benParaIA(),
           skills: skillsParaIA("design"),
           ...contextoCliente(),
@@ -625,6 +640,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           nicho: cliente?.industry || "",
           corMarca: accent,
           identidade: identidadeParaIA(),
+          designsRecentes: designsRecentes(),
           skills: skillsParaIA("design"),
           ...contextoCliente(),
         },
@@ -684,6 +700,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           nicho: cliente?.industry || "",
           corMarca: accent,
           identidade: identidadeParaIA(),
+          designsRecentes: designsRecentes(),
           skills: skillsParaIA("design"),
           ...contextoCliente(),
         } : {
@@ -693,6 +710,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           tema,
           corMarca: accent,
           identidade: identidadeParaIA(),
+          designsRecentes: designsRecentes(),
           benTrends: benParaIA(),
           skills: skillsParaIA("design"),
           ...contextoCliente(),
@@ -966,20 +984,26 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   };
 
   /**
-   * A CAPA é a peça que decide se alguém para o dedo, e rosto humano é o que
-   * segura o olho. Vale para qualquer layout: mesmo quando o roteiro pediu
-   * "mãos no teclado" ou "detalhe da obra", na capa o rosto tem que aparecer.
+   * A capa não exige mais rosto — quem decide se a peça pede pessoa ou objeto é
+   * o diretor de arte, conforme o que dá mais impacto (as referências da Emana
+   * quase não usam gente). O que continua obrigatório é o ACABAMENTO: se houver
+   * pessoa, o rosto aparece inteiro e em foco; se o assunto for objeto, ele é o
+   * herói e não um detalhe perdido. Foi daí que veio o "cortada".
    */
-  const ROSTO_NA_CAPA =
-    "MANDATORY FOR THIS COVER IMAGE: a real person's FACE must be clearly visible, " +
-    "unobstructed and in focus, looking toward the camera. Never a back view, never " +
-    "cropped above the chin, never hidden by a hand, a phone, a helmet brim or hair, " +
-    "and never only hands, objects or scenery. The face is the subject.";
+  const CAPA_COM_IMPACTO =
+    "THIS IS THE COVER IMAGE — it decides whether anyone stops scrolling, so the " +
+    "subject must be unmistakable and fill the frame with intent. " +
+    "IF the image includes a person: the face must be clearly visible, unobstructed " +
+    "and in focus — never a back view, never cropped above the chin, never hidden by " +
+    "a hand, a phone, a helmet brim or hair. " +
+    "IF the subject is an object, a document or a scene: make it the hero — close, " +
+    "dramatic and lit with intent, with generous empty space around it, and no people " +
+    "half-entering the frame.";
 
   /** Junta o pedido do roteiro com a composição que o layout exige. */
   const promptDaFoto = (s: SlideData, l: LayoutId) => {
     const base = s.prompt_imagem || `editorial photo about ${s.titulo}`;
-    const partes = [base, composicaoDoLayout(l), s.tipo === "capa" ? ROSTO_NA_CAPA : null];
+    const partes = [base, composicaoDoLayout(l), s.tipo === "capa" ? CAPA_COM_IMPACTO : null];
     return partes.filter(Boolean).join("\n\n");
   };
 
