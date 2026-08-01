@@ -59,7 +59,9 @@ const TEAM = [
   { i: "E", name: "Eduardo",  role: "Agente de Vendas & CRM",   color: "#F59E0B", desc: "Qualifica leads via WhatsApp, alimenta o CRM e garante que nenhum contato seja perdido. Do primeiro 'oi' até o fechamento do contrato.", tasks: ["Qualificação de leads", "Follow-up automatizado", "Gestão do CRM", "Relatório de pipeline"] },
   { i: "T", name: "Teo",      role: "Web Designer & SEO",       color: "#06B6D4", desc: "Mantém seu site atualizado, publica no blog e otimiza cada página para os buscadores. Mais visibilidade orgânica, mais clientes chegando até você.", tasks: ["Atualização de site", "SEO on-page", "Blog e artigos", "Landing pages"] },
   { i: "V", name: "Vitória",  role: "Revisora de Conteúdo",     color: "#EC4899", desc: "Revisa e corrige 100% do conteúdo antes de publicar. Gramática, tom de voz, consistência de marca — zero erros, zero vergonha.", tasks: ["Revisão gramatical", "Tom de voz", "Checagem de fatos", "Aprovação final"] },
-  { i: "A", name: "Aira",     role: "Secretária IA",             color: "#FB7185", desc: "Gerencia a agenda, organiza reuniões, responde comunicações administrativas e cuida do dia a dia do time. Nada passa despercebido, tudo é acompanhado com precisão.", tasks: ["Gestão de agenda", "Comunicação administrativa", "Coordenação de reuniões", "Suporte ao time"] },
+  // Sem nome próprio até a Carol batizar: chamar de "Aira" aqui punha DUAS
+  // Airas na mesma página, e é justamente a confusão que acabamos de desfazer.
+  { i: "S", name: "Secretária", role: "Agenda e comunicação",     color: "#FB7185", desc: "Gerencia a agenda, organiza reuniões, responde comunicações administrativas e cuida do dia a dia do time. Nada passa despercebido, tudo é acompanhado com precisão.", tasks: ["Gestão de agenda", "Comunicação administrativa", "Coordenação de reuniões", "Suporte ao time"] },
   { i: "🔍", name: "Ben",   role: "Especialista em Tendências", color: "#B9FF4B", desc: "Pesquisa o Google Trends Brasil em tempo real e entrega tendências do momento, queries em crescimento e ideias de conteúdo baseadas em dados reais — antes de qualquer produção.", tasks: ["Google Trends em tempo real", "Queries em crescimento", "Ideias de conteúdo viral", "Hashtags estratégicas"] },
 ];
 
@@ -200,7 +202,7 @@ const PROCESS = [
   },
   {
     n: "05", title: "Aprovação",
-    agents: [{ i: "Lu", color: LIME, name: "Aira" }],
+    agents: [{ i: "Ai", color: LIME, name: "Aira" }],
     duration: "24h",
     output: "Feedback do cliente",
     desc: "O cliente aprova tudo via portal exclusivo — vê os posts, sugere ajustes e aprova com um clique. Aira gerencia o fluxo de aprovação e sincroniza o time.",
@@ -227,7 +229,7 @@ const PROCESS = [
   },
   {
     n: "08", title: "Relatório",
-    agents: [{ i: "L", color: "#34D399", name: "Lucas" }, { i: "Lu", color: LIME, name: "Aira" }],
+    agents: [{ i: "L", color: "#34D399", name: "Lucas" }, { i: "Ai", color: LIME, name: "Aira" }],
     duration: "semanal",
     output: "Insights + próximos passos",
     desc: "Lucas entrega relatório semanal com métricas reais. Aira consolida os dados e gera recomendações estratégicas para o próximo ciclo.",

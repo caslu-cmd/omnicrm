@@ -8917,9 +8917,22 @@ Regras:
                       const isViewing = viewingAgentId === agent.id;
                       const isActive = isSelected || isViewing;
 
+                      /**
+                       * "Aguardando briefing de X" era um texto SEMEADO no dia
+                       * em que o cliente foi criado e nunca mais atualizado.
+                       * Com o briefing preenchido e outros agentes já
+                       * entregando, ele continuava ali dizendo que o agente
+                       * estava bloqueado — parecia agente travado, e não era.
+                       * Com briefing, o agente está pronto: só não foi chamado.
+                       */
+                      const textoSemeado = /aguardando (briefing|instru)/i.test(task?.current ?? "");
                       const currentText = agent.id === "designer"
                         ? (designerTask?.prompt ?? designerRecentWork[0] ?? "")
-                        : task?.current;
+                        : textoSemeado && !isWorking && !isDone
+                          // Sem gênero no texto: a grade tem agentes homens e
+                          // mulheres e o rótulo é o mesmo para todos.
+                          ? (clientBriefing ? "Livre — é só instruir" : "Sem briefing ainda — colete com a Lia")
+                          : task?.current;
                       const progress = agent.id === "designer" ? (designerTask?.progress ?? 0) : (task?.progress ?? 0);
                       const showProgress = (agent.id === "designer" ? (designerTask && designerTask.progress < 100) : isWorking) && progress > 0;
 
