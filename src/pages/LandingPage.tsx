@@ -48,7 +48,7 @@ const PRODUCTS = [
 ];
 
 const TEAM = [
-  { i: "L1", name: "Luna",    role: "Orquestradora Geral",      color: LIME,      desc: "Coordena todo o time em tempo real, define prioridades e garante que cada entrega saia no prazo e com qualidade. É o cérebro que conecta todos os agentes.", tasks: ["Orquestração do time", "Controle de prazos", "Briefing automatizado", "Relatório executivo"] },
+  { i: "L1", name: "Aira",    role: "Orquestradora Geral",      color: LIME,      desc: "Coordena todo o time em tempo real, define prioridades e garante que cada entrega saia no prazo e com qualidade. É o cérebro que conecta todos os agentes.", tasks: ["Orquestração do time", "Controle de prazos", "Briefing automatizado", "Relatório executivo"] },
   { i: "Q", name: "Queila",  role: "Estrategista de Marca",    color: "#FBBF24", desc: "Define o posicionamento, a pauta editorial e a direção criativa da marca. Cria o mapa de conteúdo mensal e garante consistência de mensagem em todos os canais.", tasks: ["Pauta editorial mensal", "Posicionamento de marca", "Análise de concorrência", "Direção criativa"] },
   { i: "B", name: "Beatriz",  role: "Copywriter & Redatora",    color: "#A78BFA", desc: "Escreve cada legenda, artigo, e-mail e anúncio com foco em conversão. Seu copy tem personalidade, clareza e intenção — porque cada palavra tem um objetivo.", tasks: ["Legendas e posts", "Artigos e blog", "Roteiros de vídeo", "Copy de anúncios"] },
   { i: "M1", name: "Marcela",  role: "Designer Visual",          color: "#D946EF", desc: "Cria todos os visuais da marca — posts, stories, banners, apresentações e peças de campanha. Cada pixel alinhado ao manual de identidade da empresa.", tasks: ["Posts e stories", "Banners e anúncios", "Apresentações", "Identidade visual"] },
@@ -200,10 +200,10 @@ const PROCESS = [
   },
   {
     n: "05", title: "Aprovação",
-    agents: [{ i: "Lu", color: LIME, name: "Luna" }],
+    agents: [{ i: "Lu", color: LIME, name: "Aira" }],
     duration: "24h",
     output: "Feedback do cliente",
-    desc: "O cliente aprova tudo via portal exclusivo — vê os posts, sugere ajustes e aprova com um clique. Luna gerencia o fluxo de aprovação e sincroniza o time.",
+    desc: "O cliente aprova tudo via portal exclusivo — vê os posts, sugere ajustes e aprova com um clique. Aira gerencia o fluxo de aprovação e sincroniza o time.",
     details: ["Portal de aprovação do cliente", "Comentários inline em cada peça", "Histórico de revisões", "Aprovação com um clique"],
     color: "#B9FF4B",
   },
@@ -227,10 +227,10 @@ const PROCESS = [
   },
   {
     n: "08", title: "Relatório",
-    agents: [{ i: "L", color: "#34D399", name: "Lucas" }, { i: "Lu", color: LIME, name: "Luna" }],
+    agents: [{ i: "L", color: "#34D399", name: "Lucas" }, { i: "Lu", color: LIME, name: "Aira" }],
     duration: "semanal",
     output: "Insights + próximos passos",
-    desc: "Lucas entrega relatório semanal com métricas reais. Luna consolida os dados e gera recomendações estratégicas para o próximo ciclo.",
+    desc: "Lucas entrega relatório semanal com métricas reais. Aira consolida os dados e gera recomendações estratégicas para o próximo ciclo.",
     details: ["Dashboard de performance em tempo real", "Relatório PDF semanal", "Análise de ROI por canal", "Recomendações para o próximo mês"],
     color: "#34D399",
   },

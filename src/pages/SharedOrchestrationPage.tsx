@@ -104,7 +104,7 @@ export default function SharedOrchestrationPage() {
           border: "1px solid rgba(185,255,75,0.25)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18,
         }}>🤖</div>
         <div>
-          <p style={{ fontWeight: 700, fontSize: 14, color: "#B9FF4B" }}>ARIA — Relatório Compartilhado</p>
+          <p style={{ fontWeight: 700, fontSize: 14, color: "#B9FF4B" }}>Aira — Relatório Compartilhado</p>
           <p style={{ fontSize: 11, color: "rgba(255,255,255,0.35)" }}>
             Calu Agência • {run.completed_at ? new Date(run.completed_at).toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" }) : ""}
           </p>
@@ -182,7 +182,7 @@ export default function SharedOrchestrationPage() {
 
         {/* Footer */}
         <p style={{ textAlign: "center", fontSize: 11, color: "rgba(255,255,255,0.2)", paddingTop: 8 }}>
-          Gerado por ARIA · Calu Agência
+          Gerado por Aira · Calu Agência
         </p>
       </div>
     </div>

@@ -342,7 +342,7 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
           userId: resolvedUserId,
           autoSchedule: true,
           platforms: schedulePlatforms,
-          // Os anexos e links seguem para CADA agente que a ARIA acionar. Sem
+          // Os anexos e links seguem para CADA agente que a Aira acionar. Sem
           // isto, o agente que dependia do briefing em arquivo ou do site do
           // cliente não tinha o que ler e a fila parava nele.
           documentos: await lerDocumentos(attachedFiles),
@@ -385,9 +385,9 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
             🤖
           </div>
           <div>
-            <p className="text-sm font-bold" style={{ color: "#B9FF4B" }}>ARIA — Orquestração Multi-Agente</p>
+            <p className="text-sm font-bold" style={{ color: "#B9FF4B" }}>Aira — Orquestração Multi-Agente</p>
             <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
-              Descreva o que você precisa e ARIA aciona todos os especialistas.
+              Descreva o que você precisa e Aira aciona todos os especialistas.
               A estratégia de campanha é gerada primeiro e compartilhada com os demais agentes.
             </p>
           </div>
@@ -436,7 +436,7 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
               value={urlInput}
               onChange={e => setUrlInput(e.target.value)}
               onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addUrl(); } }}
-              placeholder="Cole uma URL para a ARIA ler (ex: site do cliente)"
+              placeholder="Cole uma URL para a Aira ler (ex: site do cliente)"
               disabled={running}
               className="flex-1 bg-transparent outline-none text-sm"
               style={{ color: "rgba(255,255,255,0.8)", minWidth: 0 }}
@@ -708,7 +708,7 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
                   <FileText className="w-5 h-5 flex-shrink-0" style={{ color: "#B9FF4B" }} />
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-widest mb-0.5"
-                      style={{ color: "rgba(185,255,75,0.6)" }}>ARIA · Calu Agência</p>
+                      style={{ color: "rgba(185,255,75,0.6)" }}>Aira · Calu Agência</p>
                     <h2 className="text-base font-bold" style={{ color: "#fff" }}>
                       Relatório de Estratégia de Marketing
                     </h2>
@@ -835,7 +835,7 @@ export default function OrchestratorPanel({ clientId, clientName, clientIndustry
               <div className="px-5 py-8 text-center">
                 <Loader2 className="w-5 h-5 animate-spin mx-auto mb-3" style={{ color: "#B9FF4B" }} />
                 <p className="text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
-                  ARIA está compilando o relatório executivo...
+                  Aira está compilando o relatório executivo...
                 </p>
               </div>
             )}

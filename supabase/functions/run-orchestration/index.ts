@@ -96,7 +96,7 @@ async function fetchUrl(url: string): Promise<string> {
   const timer = setTimeout(() => controller.abort(), 12_000);
   try {
     const resp = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; ARIA-bot/1.0)" },
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; Aira-bot/1.0)" },
       signal: controller.signal,
     });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -288,7 +288,7 @@ Gere o conteúdo solicitado com base nessas informações. Seja específico, cri
       let report = "";
       try {
         report = await callClaude(
-          `Você é ARIA, Diretora Estratégica da Calu Agência. Você acabou de coordenar seu time de especialistas.`,
+          `Você é Aira, Diretora Estratégica da Calu Agência. Você acabou de coordenar seu time de especialistas.`,
           `Com base nos entregáveis abaixo, gere um RELATÓRIO EXECUTIVO em Markdown para o cliente.
 
 O relatório deve ter:

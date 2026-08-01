@@ -1,6 +1,6 @@
 /**
  * Projetos do cliente: cada projeto guarda seus arquivos, e a orquestradora
- * (Luna) é acionada JÁ COM esse material.
+ * (Aira) é acionada JÁ COM esse material.
  *
  * Existe porque anexar arquivo solto não se sustentava: o material se perdia a
  * cada demanda e precisava ser reanexado. Aqui o texto extraído fica gravado no
@@ -147,7 +147,7 @@ export default function ProjetosPanel({ clientId, clientName, clientIndustry, on
     if (!aberto) return;
     const legiveis = arquivos.filter((a) => a.texto?.trim());
     if (!legiveis.length) { toast.error("Nenhum arquivo legível neste projeto."); return; }
-    if (!demanda.trim()) { toast.error("Diga o que a Luna deve fazer com esse material."); return; }
+    if (!demanda.trim()) { toast.error("Diga o que a Aira deve fazer com esse material."); return; }
     onAcionar({
       projeto: aberto,
       documentos: legiveis.map((a) => ({ nome: a.nome, conteudo: a.texto as string })),
@@ -165,7 +165,7 @@ export default function ProjetosPanel({ clientId, clientName, clientIndustry, on
           <div>
             <div className="text-[15px] font-bold" style={{ color: "#F0F0F0" }}>Projetos de {clientName}</div>
             <div className="text-[12px]" style={{ color: "rgba(255,255,255,0.42)" }}>
-              Cada projeto guarda seus arquivos. A Luna é acionada já com esse material lido.
+              Cada projeto guarda seus arquivos. A Aira é acionada já com esse material lido.
             </div>
           </div>
           <button onClick={() => setCriando((v) => !v)}
@@ -269,7 +269,7 @@ export default function ProjetosPanel({ clientId, clientName, clientIndustry, on
       </div>
 
       <div className="rounded-2xl p-4 space-y-3" style={{ background: `${LIME}0A`, border: `1px solid ${LIME}2A` }}>
-        <div className="text-[12px] font-bold" style={{ color: LIME }}>Acionar a Luna com este material</div>
+        <div className="text-[12px] font-bold" style={{ color: LIME }}>Acionar a Aira com este material</div>
         <textarea value={demanda} onChange={(e) => setDemanda(e.target.value)} rows={3}
           placeholder={`O que o time deve fazer com esses arquivos? Ex.: "leia o briefing e monte o calendário do mês para ${clientName}${clientIndustry ? ` (${clientIndustry})` : ""}"`}
           className="w-full px-3 py-2.5 rounded-xl text-[13px] outline-none resize-none"
@@ -281,7 +281,7 @@ export default function ProjetosPanel({ clientId, clientName, clientIndustry, on
           <button onClick={acionar} disabled={!legiveis}
             className="flex items-center gap-2 px-4 py-2 rounded-xl text-[12px] font-bold"
             style={{ background: legiveis ? LIME : "rgba(255,255,255,0.08)", color: legiveis ? "#07080A" : "rgba(255,255,255,0.35)" }}>
-            <Play className="w-3.5 h-3.5" /> Acionar Luna
+            <Play className="w-3.5 h-3.5" /> Acionar Aira
           </button>
         </div>
       </div>

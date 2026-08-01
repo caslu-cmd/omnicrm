@@ -84,7 +84,7 @@ type PortalData = {
 
 // ── Static team ─────────────────────────────────────────────
 const PORTAL_TEAM = [
-  { id: "aria",       name: "Luna",    role: "Orquestradora Geral",    initial: "Lu", color: "#B9FF4B", desc: "Coordena todo o time e garante que a estratégia seja executada no prazo certo." },
+  { id: "aria",       name: "Aira",    role: "Orquestradora Geral",    initial: "Ai", color: "#B9FF4B", desc: "Coordena todo o time e garante que a estratégia seja executada no prazo certo." },
   { id: "strategist", name: "Queila",  role: "Estrategista-Chefe",     initial: "Q",  color: "#FBBF24", desc: "Define seu posicionamento, pauta editorial e direção criativa de marca." },
   { id: "copywriter", name: "Beatriz", role: "Copywriter",             initial: "B",  color: "#A78BFA", desc: "Escreve cada texto, legenda, artigo e anúncio com foco em conversão." },
   { id: "designer",   name: "Marcela", role: "Designer",               initial: "M",  color: "#D946EF", desc: "Cria todos os visuais alinhados ao manual de marca da sua empresa." },
@@ -1331,7 +1331,7 @@ export default function ClientPortal() {
               </p>
             </div>
 
-            {/* Luna destaque */}
+            {/* Aira destaque */}
             <div className="px-6 py-5" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)", background: "rgba(185,255,75,0.03)" }}>
               <div className="flex items-start gap-4">
                 <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0"
@@ -1340,7 +1340,7 @@ export default function ClientPortal() {
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <span className="text-sm font-bold" style={{ color: "#111" }}>Luna</span>
+                    <span className="text-sm font-bold" style={{ color: "#111" }}>Aira</span>
                     <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold"
                       style={{ background: "rgba(185,255,75,0.2)", color: "#3a6e00" }}>
                       Orquestradora Geral

@@ -53,7 +53,7 @@ async function analyzeDemand(
   /** Só os NOMES do material anexado: o plano muda se há briefing para ler. */
   material: string[] = [],
 ): Promise<{ agents: string[]; needsImage: boolean; aspectRatio: string; summary: string }> {
-  const systemPrompt = `Voce e ARIA, orquestradora da Calu Agencia. Analise a demanda e retorne JSON puro.
+  const systemPrompt = `Voce e Aira, orquestradora da Calu Agencia. Analise a demanda e retorne JSON puro.
 
 Agentes disponiveis: beatriz (copy/legenda), carolina (estrategia/posicionamento), marina (calendario editorial), rafaela (trafego pago), pedro (calendario), marcela (design/imagem).
 
@@ -344,7 +344,7 @@ Deno.serve(async (req) => {
       ? platforms
       : ["instagram"];
 
-    // Step 1: ARIA analyzes the demand and plans which agents to use
+    // Step 1: Aira analyzes the demand and plans which agents to use
     const nomesDoMaterial = [
       ...(Array.isArray(documentos) ? documentos : [])
         .map((d) => String((d as { nome?: string; name?: string })?.nome ?? (d as { name?: string })?.name ?? ""))

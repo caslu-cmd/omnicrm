@@ -832,8 +832,11 @@ type BrandAsset = {
 };
 
 const AGENT_META: Record<string, { initial: string; color: string; name: string }> = {
-  aria:      { initial: "Lu", color: "#B9FF4B", name: "Luna" },
-  luana:     { initial: "Lu", color: "#B9FF4B", name: "Luna" },
+  // Aira tem TRÊS ids por herança (aria, luana/luna, aira) e um avatar só: se
+  // cada id tiver cor própria, a mesma pessoa aparece de duas cores na conversa.
+  aria:      { initial: "Ai", color: "#B9FF4B", name: "Aira" },
+  luana:     { initial: "Ai", color: "#B9FF4B", name: "Aira" },
+  luna:      { initial: "Ai", color: "#B9FF4B", name: "Aira" },
   beatriz:   { initial: "B", color: "#A78BFA", name: "Beatriz" },
   marcela:   { initial: "M", color: "#D946EF", name: "Marcela" },
   rafaela:   { initial: "R", color: "#F97316", name: "Rafaela" },
@@ -841,7 +844,7 @@ const AGENT_META: Record<string, { initial: string; color: string; name: string 
   marina:    { initial: "M", color: "#60A5FA", name: "Marina" },
   carolina:  { initial: "Q", color: "#FBBF24", name: "Queila" },
   queila:    { initial: "Q", color: "#FBBF24", name: "Queila" },
-  aira:      { initial: "A", color: "#FB7185", name: "Aira" },
+  aira:      { initial: "Ai", color: "#B9FF4B", name: "Aira" },
   valentina: { initial: "V", color: "#E879F9", name: "Valentina" },
   lia:       { initial: "L", color: "#38BDF8", name: "Lia" },
   user:      { initial: "U", color: "#94A3B8", name: "Você" },
@@ -853,7 +856,9 @@ const AGENT_META: Record<string, { initial: string; color: string; name: string 
   social:     { initial: "M", color: "#60A5FA", name: "Marina" },
   site:       { initial: "V", color: "#E879F9", name: "Valentina" },
   designer:   { initial: "M", color: "#D946EF", name: "Marcela" },
-  secretary:  { initial: "A", color: "#FB7185", name: "Aira" },
+  // Sem nome próprio de propósito: a secretária vira agente com nome quando a
+  // Carol criar. Chamar de "Aira" devolveria a confusão que acabamos de tirar.
+  secretary:  { initial: "S", color: "#FB7185", name: "Secretária" },
   sales:      { initial: "E", color: "#F59E0B", name: "Eduardo" },
   briefing:   { initial: "L", color: "#38BDF8", name: "Lia" },
   revisor:    { initial: "V", color: "#EC4899", name: "Vitória" },
@@ -1021,7 +1026,7 @@ export default function ClientWorkspace() {
   const [editUpdateForm, setEditUpdateForm] = useState({ type: "informativo", title: "", content: "", author: "", status: "draft" as "draft" | "published" });
   const [portalSection, setPortalSection] = useState<"onboarding" | "entregas" | "demandas">("onboarding");
   const [showAgentForm, setShowAgentForm] = useState(false);
-  const [agentForm, setAgentForm] = useState({ agent_id: "luna", agent_name: "Luna", agent_color: "#B9FF4B", titulo: "", descricao: "" });
+  const [agentForm, setAgentForm] = useState({ agent_id: "luna", agent_name: "Aira", agent_color: "#B9FF4B", titulo: "", descricao: "" });
   const [savingAgent, setSavingAgent] = useState(false);
   const [showDelivForm, setShowDelivForm] = useState(false);
   const [showOnboardForm, setShowOnboardForm] = useState(false);
@@ -1518,7 +1523,7 @@ export default function ClientWorkspace() {
    */
   const defaultAgentIds = useMemo(() => MARKETING_TEAM.map(a => a.id), []);
 
-  // O time que realmente atua neste cliente — usado na grade, na ARIA e nas demandas.
+  // O time que realmente atua neste cliente — usado na grade, na Aira e nas demandas.
   const activeTeam = useMemo(() => {
     const permitidos = enabledAgentIds ?? defaultAgentIds;
     return MARKETING_TEAM.filter(a => permitidos.includes(a.id));
@@ -1573,7 +1578,7 @@ export default function ClientWorkspace() {
   const agentChatEndRef = useRef<HTMLDivElement>(null);
   const [agentOutputs, setAgentOutputs] = useState<Record<string, string>>({});
   const [agentDeadlines, setAgentDeadlines] = useState<Record<string, string>>({});
-  // Onda de orquestração ARIA: 0 = ocioso; 1+ = onda ativa
+  // Onda de orquestração Aira: 0 = ocioso; 1+ = onda ativa
   const [currentWave, setCurrentWave] = useState<number>(0);
   const [totalWaves, setTotalWaves] = useState<number>(0);
   const [agentWaves, setAgentWaves] = useState<Record<string, number>>({});
@@ -1820,7 +1825,7 @@ export default function ClientWorkspace() {
    *
    * Todos os 17 trabalham para a agência; marcar ativo não muda a competência
    * dele, muda o mercado em que ele fala. Este bloco é a única fonte disso —
-   * antes cada caminho (chat lateral, envio direto, ARIA, demandas) montava um
+   * antes cada caminho (chat lateral, envio direto, Aira, demandas) montava um
    * contexto diferente, então o mesmo agente respondia mais genérico ou mais
    * afiado dependendo de onde a Carol clicava.
    *
@@ -1864,7 +1869,7 @@ export default function ClientWorkspace() {
     return linhas.join("\n");
   };
 
-  // Send a message directly to one specific agent (without ARIA orchestration)
+  // Send a message directly to one specific agent (without Aira orchestration)
   const handleSendToSingleAgent = async (agentId: string, instruction: string) => {
     if (!instruction.trim()) return;
     const agent = MARKETING_TEAM.find((a) => a.id === agentId);
@@ -2007,9 +2012,9 @@ export default function ClientWorkspace() {
 
   /**
    * `demandaExterna` e `docsExternos` existem para o painel de Projetos acionar
-   * a Luna já com o material do projeto lido.
+   * a Aira já com o material do projeto lido.
    *
-   * E aqui morava um furo sério: o arquivo anexado no painel da Luna era lido,
+   * E aqui morava um furo sério: o arquivo anexado no painel da Aira era lido,
    * aparecia na tela, e NUNCA era enviado aos agentes — a orquestração ignorava
    * `attachedFileText` por completo. Quem anexava um briefing via os agentes
    * responderem no vazio.
@@ -2054,7 +2059,7 @@ export default function ClientWorkspace() {
 
     const nowTs = () => new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
 
-    // Mensagens curtas que ARIA envia para cada agente
+    // Mensagens curtas que Aira envia para cada agente
     const ARIA_DELEGATIONS: Record<string, string> = {
       strategist: "Queila, defina o terreno estratégico: posicionamento, personas, pilares e KPIs.",
       copywriter: "Beatriz, escreva o copy completo aplicando psicologia do consumidor — gancho, body e CTA.",
@@ -2070,7 +2075,7 @@ export default function ClientWorkspace() {
       ben:        "Ben, pesquise agora as tendências mais quentes do nicho no Google Trends Brasil, Instagram e TikTok.",
     };
 
-    // Só os agentes escolhidos para ESTE cliente entram no planejamento da ARIA.
+    // Só os agentes escolhidos para ESTE cliente entram no planejamento da Aira.
     const ARIA_ESPECIALIDADES: Record<string, string> = {
       strategist: "Queila — Estrategista, posicionamento, personas, pilares",
       copywriter: "Beatriz — Copy, legendas, roteiros, anúncios",
@@ -2096,8 +2101,8 @@ export default function ClientWorkspace() {
     }
 
     try {
-      // ━━━━━━━━━━ PASSO 1 — ARIA planeja (chamada curta) ━━━━━━━━━━
-      const planSystem = `Você é ARIA, Diretora Sênior de Marketing da Calu Agência.
+      // ━━━━━━━━━━ PASSO 1 — Aira planeja (chamada curta) ━━━━━━━━━━
+      const planSystem = `Você é Aira, Diretora Sênior de Marketing da Calu Agência.
 Decida QUAIS AGENTES acionar para a demanda. NÃO gere conteúdo agora.
 Agentes disponíveis (use exatamente esses IDs):
 ${listaAgentesTxt}
@@ -2149,7 +2154,7 @@ Responda APENAS JSON válido, sem markdown, sem texto extra:
         action: "wave-divider", timestamp: nowTs(), status: "done",
       }]);
 
-      // ARIA mostra o plano na conversa
+      // Aira mostra o plano na conversa
       addConvMsgs([{
         id: `aria-plan-${Date.now()}`,
         from: "aria", to: "user",
@@ -2301,7 +2306,7 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
             );
             const invokePromise = supabase.functions.invoke("chat-ai", {
               body: {
-                // Só a diretriz: nas ondas da ARIA o briefing já vai no ctxBlock
+                // Só a diretriz: nas ondas da Aira o briefing já vai no ctxBlock
                 // da mensagem, e mandar duas vezes só gasta contexto.
                 systemPrompt: `${AGENT_PROMPTS[agentId] ?? ""}${diretrizDeNicho()}`,
                 maxTokens: agCfg.maxTokens,
@@ -2405,7 +2410,7 @@ ${accumulated.copywriter ? `\nCOPY DA BEATRIZ (referencie):\n${accumulated.copyw
           .filter((a) => !alreadyRan.has(a) && idsDoCliente.includes(a));
         if (remaining.length === 0) break;
 
-        const handoffSystem = `Você é ARIA, Diretora Sênior. Avalie se a demanda do cliente exige continuidade por OUTROS agentes que ainda não atuaram.
+        const handoffSystem = `Você é Aira, Diretora Sênior. Avalie se a demanda do cliente exige continuidade por OUTROS agentes que ainda não atuaram.
 
 Demanda original: "${demand}"
 Agentes que JÁ entregaram: ${[...alreadyRan].join(", ")}
@@ -2474,7 +2479,7 @@ Responda APENAS JSON:
           action: "wave-divider", timestamp: nowTs(), status: "done",
         }]);
 
-        // ARIA anuncia a continuidade
+        // Aira anuncia a continuidade
         addConvMsgs([{
           id: `aria-handoff-${Date.now()}`,
           from: "aria", to: "user",
@@ -2531,7 +2536,7 @@ ${priorBlock}`;
             );
             const invoke2 = supabase.functions.invoke("chat-ai", {
               body: {
-                // Só a diretriz: nas ondas da ARIA o briefing já vai no ctxBlock
+                // Só a diretriz: nas ondas da Aira o briefing já vai no ctxBlock
                 // da mensagem, e mandar duas vezes só gasta contexto.
                 systemPrompt: `${AGENT_PROMPTS[agentId] ?? ""}${diretrizDeNicho()}`,
                 maxTokens: agCfg2.maxTokens,
@@ -2594,7 +2599,7 @@ ${priorBlock}`;
         waveIndex++;
       }
 
-      // ━━━━━━━━━━ PASSO 5 — ARIA encerra + registra entregas no portal ━━━━━━━━━━
+      // ━━━━━━━━━━ PASSO 5 — Aira encerra + registra entregas no portal ━━━━━━━━━━
       if (id && Object.keys(accumulated).length > 0) {
         const today = new Date();
         const dateStr = `${String(today.getDate()).padStart(2, "0")}/${String(today.getMonth() + 1).padStart(2, "0")}`;
@@ -3802,7 +3807,7 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
     marcela: `Você é Marcela, designer visual sênior da Calu Agência — especialista em criação de posts para redes sociais.\n\nSuas competências:\n- Design editorial para Instagram, Facebook, LinkedIn e TikTok\n- Teoria das cores, tipografia e hierarquia visual\n- Composição para feed, stories, reels, carrossel\n\nResponda em português brasileiro descrevendo conceitos visuais com detalhes de cor, composição e tipografia.`,
     marina: `Você é Marina, especialista em social media da Calu Agência.\n\nSuas competências:\n- Estratégia de conteúdo para Instagram, Facebook, TikTok, LinkedIn\n- Algoritmos e melhores práticas de cada plataforma\n- Análise de métricas: alcance, engajamento, conversão\n- Calendário editorial e campanhas sazonais\n\nResponda em português brasileiro com estratégias específicas por plataforma.`,
     lucas: `Você é Lucas, analista de dados e performance da Calu Agência.\n\nSuas competências:\n- Análise de métricas de marketing digital\n- Relatórios de performance de campanhas\n- Google Analytics, Meta Insights, dashboards\n- Interpretação de dados e recomendações estratégicas\n\nResponda em português brasileiro com dados, insights e recomendações claras.`,
-    luna: `Você é Luna, gestora de projetos da Calu Agência.\n\nSuas competências:\n- Gestão de projetos com metodologias ágeis\n- Cronogramas, sprints e marcos de entrega\n- Coordenação entre equipes e clientes\n- Follow-up de tarefas e aprovações\n\nResponda em português brasileiro com planos organizados, datas e próximos passos.`,
+    luna: `Você é Aira, gestora de projetos da Calu Agência.\n\nSuas competências:\n- Gestão de projetos com metodologias ágeis\n- Cronogramas, sprints e marcos de entrega\n- Coordenação entre equipes e clientes\n- Follow-up de tarefas e aprovações\n\nResponda em português brasileiro com planos organizados, datas e próximos passos.`,
     teo: `Você é Teo, especialista em web e SEO da Calu Agência.\n\nSuas competências:\n- Otimização de sites para SEO\n- WordPress, landing pages e performance web\n- UX e arquitetura de informação\n- Análise de Core Web Vitals\n\nResponda em português brasileiro com orientações técnicas e práticas.`,
     pedro: `Você é Pedro, especialista em calendário editorial da Calu Agência.\n\nSuas competências:\n- Planejamento de calendário de conteúdo\n- Temas, datas comemorativas e sazonalidade\n- Frequência e consistência de publicações\n- Integração entre canais\n\nResponda em português brasileiro com calendários estruturados e justificativas.`,
     bobby: `Você é Bobby, editor de vídeo da Calu Agência.\n\nSuas competências:\n- Roteiros e estrutura narrativa para vídeos\n- Reels, TikToks, YouTube Shorts\n- Edição, cortes, trilha e legendas\n- Storytelling audiovisual\n\nResponda em português brasileiro com orientações práticas de produção e edição.`,
@@ -4585,7 +4590,7 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
   };
 
   const ONBOARD_AGENT: Record<string, { name: string; role: string; color: string }> = {
-    geral:         { name: "Luna",    role: "Orquestradora Geral da Calu Agência",          color: "#B9FF4B" },
+    geral:         { name: "Aira",    role: "Orquestradora Geral da Calu Agência",          color: "#B9FF4B" },
     redes_sociais: { name: "Marina",  role: "Social Media Specialist da Calu Agência",      color: "#60A5FA" },
     acessos:       { name: "Lia",     role: "Agente de Diagnóstico e Onboarding",           color: "#38BDF8" },
     configuracao:  { name: "Lia",     role: "Agente de Diagnóstico e Onboarding",           color: "#38BDF8" },
@@ -4704,14 +4709,14 @@ Português brasileiro. Máximo 200 palavras.`,
     const demandaAtivos = activeTeam
       .map(a => DEMANDA_POR_AGENTE[a.id])
       .filter(Boolean) as { id: string; desc: string }[];
-    // Luna é a orquestradora — sempre disponível para o que não tem especialista.
+    // Aira é a orquestradora — sempre disponível para o que não tem especialista.
     const demandaIds = [...demandaAtivos.map(a => a.id), "luna"];
     const demandaAgentesTxt = [
       ...demandaAtivos.map(a => `- ${a.id}: ${a.desc}`),
       "- luna: orquestração geral, onboarding, tarefas transversais sem especialista definido",
     ].join("\n");
 
-    const systemPrompt = `Você é a ARIA, orquestradora estratégica da Calu Agência de Marketing Digital.
+    const systemPrompt = `Você é a Aira, orquestradora estratégica da Calu Agência de Marketing Digital.
 Analise o briefing do cliente e distribua as demandas do próximo ciclo (30 dias) entre os agentes especialistas do time.
 
 Agentes disponíveis e suas especialidades:
@@ -4775,7 +4780,7 @@ Regras:
   };
 
   const WS_AGENTS = [
-    { id: "luna",    name: "Luna",    color: "#B9FF4B" },
+    { id: "luna",    name: "Aira",    color: "#B9FF4B" },
     { id: "queila",  name: "Queila",  color: "#FBBF24" },
     { id: "beatriz", name: "Beatriz", color: "#A78BFA" },
     { id: "marcela", name: "Marcela", color: "#D946EF" },
@@ -5003,7 +5008,7 @@ Regras:
         status: "pending",
       }).select().single();
       if (row) setAgentProposals(prev => [row, ...prev]);
-      setAgentForm({ agent_id: "luna", agent_name: "Luna", agent_color: "#B9FF4B", titulo: "", descricao: "" });
+      setAgentForm({ agent_id: "luna", agent_name: "Aira", agent_color: "#B9FF4B", titulo: "", descricao: "" });
       setShowAgentForm(false);
       toast.success("Proposta criada!");
     } catch { toast.error("Erro ao criar proposta."); }
@@ -5035,7 +5040,7 @@ Sugira conteúdo novo e relevante para o portal deste cliente. Responda APENAS c
     { "description": "...", "category": "social" }
   ],
   "propostas": [
-    { "titulo": "...", "agent_id": "luna", "agent_name": "Luna", "agent_color": "#B9FF4B", "descricao": "..." }
+    { "titulo": "...", "agent_id": "luna", "agent_name": "Aira", "agent_color": "#B9FF4B", "descricao": "..." }
   ],
   "demandas": [
     { "title": "...", "responsible": "agency", "priority": "medium" }
@@ -5464,7 +5469,7 @@ Regras:
                       {clientBriefing?.segmento || client.industry
                         ? ` de ${clientBriefing?.segmento || client.industry}`
                         : " do cliente"}, com o briefing dela na mão. Desmarcado não aparece no time,
-                      não entra no plano da ARIA e não recebe demanda.
+                      não entra no plano da Aira e não recebe demanda.
                     </p>
                   </div>
                   <button onClick={() => setShowAgentPicker(false)} style={{ color: "rgba(255,255,255,0.3)" }}>
@@ -7702,7 +7707,7 @@ Regras:
                       Demanda Rápida
                     </p>
                     <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.35)" }}>
-                      ARIA vai gerar o conteúdo, criar o design e agendar automaticamente no Instagram/Facebook
+                      Aira vai gerar o conteúdo, criar o design e agendar automaticamente no Instagram/Facebook
                     </p>
                   </div>
 
@@ -7909,7 +7914,7 @@ Regras:
                       <p className="text-[11px] leading-relaxed mb-3" style={{ color: "rgba(255,255,255,0.45)" }}>
                         {clientBriefing
                           ? "Contexto do cliente carregado — todos os agentes respondem com base no briefing."
-                          : "Colete o briefing antes de enviar demandas para Luna. Sem ele, os agentes não têm contexto do cliente."}
+                          : "Colete o briefing antes de enviar demandas para Aira. Sem ele, os agentes não têm contexto do cliente."}
                       </p>
                       <button
                         onClick={() => { setSelectedAgentId(selectedAgentId === "briefing" ? null : "briefing"); setViewingAgentId(null); setAgentInstruction(""); clearAgentFile(); }}
@@ -8004,7 +8009,7 @@ Regras:
                   </AnimatePresence>
                 </motion.div>
 
-                {/* ── Passo 2 — Luna (Orquestradora) ── */}
+                {/* ── Passo 2 — Aira (Orquestradora) ── */}
                 <motion.div
                   initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
                   className="rounded-2xl overflow-hidden"
@@ -8028,7 +8033,7 @@ Regras:
                         style={{ background: "rgba(185,255,75,0.1)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.2)" }}>
                         Passo 2
                       </span>
-                      <h3 className="text-base font-bold" style={{ color: "#F0F0F0" }}>Luna</h3>
+                      <h3 className="text-base font-bold" style={{ color: "#F0F0F0" }}>Aira</h3>
                       <span className="text-[10px] px-2.5 py-0.5 rounded-full font-semibold whitespace-nowrap"
                         style={{ background: "rgba(185,255,75,0.12)", color: "#B9FF4B", border: "1px solid rgba(185,255,75,0.25)" }}>
                         Orquestradora
@@ -8103,7 +8108,7 @@ Regras:
                       </div>
                     )}
 
-                    {/* hidden file input for ARIA */}
+                    {/* hidden file input for Aira */}
                     <input ref={fileInputRef} type="file"
                       accept=".pdf,.doc,.docx,.txt,.md,.png,.jpg,.jpeg,.csv,.xlsx"
                       className="hidden"
@@ -8172,7 +8177,7 @@ Regras:
                         disabled={(!agentCommand.trim() && !attachedFile) || ariaLoading}
                         className="flex items-center justify-center gap-2 px-5 py-2 rounded-xl text-sm font-semibold transition-all disabled:opacity-40 w-full sm:w-auto sm:ml-auto"
                         style={{ background: "#B9FF4B", color: "#07080A", boxShadow: (agentCommand || attachedFile) ? "0 0 20px -4px rgba(185,255,75,0.5)" : "none" }}>
-                        {ariaLoading ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Orquestrando...</> : <><Send className="w-3.5 h-3.5" /> Enviar para Luna</>}
+                        {ariaLoading ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Orquestrando...</> : <><Send className="w-3.5 h-3.5" /> Enviar para Aira</>}
                       </button>
                     </div>
                   </div>
@@ -8225,7 +8230,7 @@ Regras:
                           {airaStatus === "loading" && "Processando..."}
                           {airaStatus === "recording" && "Ao vivo — ouvindo a reunião"}
                           {airaStatus === "paused" && "Pausado — retome quando quiser"}
-                          {airaStatus === "done" && (airaOnlyLuana ? "Resumo salvo para Luna ✓" : "Resumo enviado ✓")}
+                          {airaStatus === "done" && (airaOnlyLuana ? "Resumo salvo para Aira ✓" : "Resumo enviado ✓")}
                         </p>
                       </div>
                     </div>
@@ -8423,10 +8428,10 @@ Regras:
                         <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>A AIRA capta e transcreve a reunião, gerando um resumo executivo automático.</p>
                       </div>
                       <div className="px-6 py-4 space-y-4 max-h-[60vh] overflow-y-auto">
-                        {/* Toggle: Somente para Luna */}
+                        {/* Toggle: Somente para Aira */}
                         <label className="flex items-center justify-between flex-wrap gap-4 p-3 rounded-xl cursor-pointer" style={{ background: airaOnlyLuana ? "rgba(185,255,75,0.08)" : "rgba(255,255,255,0.03)", border: `1px solid ${airaOnlyLuana ? "rgba(185,255,75,0.3)" : "rgba(255,255,255,0.08)"}` }}>
                           <div>
-                            <p className="text-sm font-semibold" style={{ color: airaOnlyLuana ? "#B9FF4B" : "#F0F0F0" }}>Somente para Luna</p>
+                            <p className="text-sm font-semibold" style={{ color: airaOnlyLuana ? "#B9FF4B" : "#F0F0F0" }}>Somente para Aira</p>
                             <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>O resumo fica só na plataforma, sem envio por WhatsApp</p>
                           </div>
                           <input type="checkbox" checked={airaOnlyLuana} onChange={(e) => setAiraOnlyLuana(e.target.checked)} className="w-4 h-4 accent-lime-400" />
@@ -8742,7 +8747,7 @@ Regras:
                             {/* Conteúdo da mensagem */}
                             <div className="px-4 py-3">
                               {isAriaMsg ? (
-                                /* Mensagens da ARIA para agentes: briefing curto */
+                                /* Mensagens da Aira para agentes: briefing curto */
                                 <p className="text-[11px] leading-relaxed italic" style={{ color: "rgba(255,255,255,0.4)" }}>
                                   {msg.content}
                                 </p>
@@ -8803,7 +8808,7 @@ Regras:
                   </div>
                 )}
 
-                {/* ── Barra global de Ondas (visível enquanto ARIA orquestra) ── */}
+                {/* ── Barra global de Ondas (visível enquanto Aira orquestra) ── */}
                 {currentWave > 0 && (
                   <motion.div
                     initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}
@@ -13030,7 +13035,7 @@ ${clientSection}${originalSection}`;
                 { category: "outro",      label: "➕ Outro" },
               ];
               const AGENTS = [
-                { id: "luna",      name: "Luna",    color: "#B9FF4B", role: "Orquestradora" },
+                { id: "luna",      name: "Aira",    color: "#B9FF4B", role: "Orquestradora" },
                 { id: "queila",    name: "Queila",  color: "#FBBF24", role: "Estrategista" },
                 { id: "beatriz",   name: "Beatriz", color: "#A78BFA", role: "Copywriter" },
                 { id: "marcela",   name: "Marcela", color: "#D946EF", role: "Designer" },
@@ -14074,7 +14079,7 @@ ${clientSection}${originalSection}`;
             )}
 
             {/* ══════════════════════════════════════════════════════
-                PROJETOS & ARQUIVOS — material que a Luna lê
+                PROJETOS & ARQUIVOS — material que a Aira lê
             ══════════════════════════════════════════════════════ */}
             {activeTab === "projetos" && id && (
               <ProjetosPanel
@@ -14082,7 +14087,7 @@ ${clientSection}${originalSection}`;
                 clientName={client.name}
                 clientIndustry={clientBriefing?.segmento || client.industry}
                 onAcionar={({ projeto, documentos, demanda }) => {
-                  // Manda para a mesma orquestração do painel da Luna, já com o
+                  // Manda para a mesma orquestração do painel da Aira, já com o
                   // material lido. Vai para a aba dela para a Carol acompanhar
                   // as ondas em vez de ficar olhando um botão girando aqui.
                   setSearchParams({ tab: "agents" });
@@ -15489,7 +15494,7 @@ ${clientSection}${originalSection}`;
                   placeholder="https://site-do-cliente.com.br"
                   type="url"
                   className="w-full rounded-xl px-3 py-2 text-sm" style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#F0F0F0", outline: "none" }} />
-                <p className="text-[10px] mt-1" style={{ color: "rgba(255,255,255,0.2)" }}>A Aria faz scraping automático do site para calibrar o time</p>
+                <p className="text-[10px] mt-1" style={{ color: "rgba(255,255,255,0.2)" }}>A Aira faz scraping automático do site para calibrar o time</p>
               </div>
 
               <div>
