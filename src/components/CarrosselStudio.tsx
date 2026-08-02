@@ -56,6 +56,58 @@ const OBJETIVOS: { id: Objetivo; label: string }[] = [
   { id: "lancamento", label: "Lançamento" },
 ];
 
+/**
+ * Calendário de um lote: que papel cada peça cumpre.
+ *
+ * Não é divisão em partes iguais de propósito. Um feed em que uma peça em cada
+ * cinco vende já é um feed vendedor; mais que isso o público some. A ordem
+ * também é decidida aqui — as de venda ficam espalhadas e nunca abrem o lote,
+ * porque quem chega no perfil precisa de motivo para ficar antes de motivo
+ * para comprar.
+ */
+const MIX_PADRAO: { id: Objetivo; peso: number }[] = [
+  { id: "autoridade", peso: 3 },
+  { id: "educar", peso: 3 },
+  { id: "engajar", peso: 2 },
+  { id: "vender", peso: 2 },
+];
+
+function distribuirObjetivos(total: number): Objetivo[] {
+  const somaPesos = MIX_PADRAO.reduce((s, m) => s + m.peso, 0);
+  const cotas = MIX_PADRAO.map((m) => {
+    const exata = (total * m.peso) / somaPesos;
+    return { id: m.id, n: Math.floor(exata), resto: exata - Math.floor(exata) };
+  });
+  /**
+   * As sobras vão para quem ficou mais perto de ganhar mais uma (maior resto),
+   * não para os de maior peso. Distribuir por peso faria um lote de 4 sair só
+   * com autoridade e educar — sem nenhuma peça de venda ou engajamento.
+   */
+  const porResto = [...cotas].sort((a, b) => b.resto - a.resto);
+  let faltam = total - cotas.reduce((s, c) => s + c.n, 0);
+  for (let i = 0; faltam > 0; i = (i + 1) % porResto.length, faltam--) porResto[i].n++;
+
+  // Intercala pegando sempre de quem tem mais a cumprir: espalha em vez de
+  // agrupar, sem precisar de sorteio (que daria lote diferente a cada clique).
+  const fila: Objetivo[] = [];
+  const restante = cotas.map((c) => ({ ...c }));
+  while (fila.length < total) {
+    const candidatos = restante.filter((c) => c.n > 0);
+    if (!candidatos.length) break;
+    const escolhido = candidatos
+      .filter((c) => c.id !== fila[fila.length - 1] || candidatos.length === 1)
+      .sort((a, b) => b.n - a.n)[0] ?? candidatos[0];
+    fila.push(escolhido.id);
+    escolhido.n--;
+  }
+  // A primeira nunca é de venda: troca com a primeira que não for.
+  if (fila[0] === "vender") {
+    const troca = fila.findIndex((o) => o !== "vender");
+    if (troca > 0) { fila[0] = fila[troca]; fila[troca] = "vender"; }
+  }
+  return fila;
+}
+
 function slugHandle(nome: string) {
   return "@" + nome.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^a-z0-9]/g, "");
 }
@@ -235,8 +287,10 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   const [loteAndamento, setLoteAndamento] = useState<string | null>(null);
   /** Lote que já sai desenhado: escreve, dirige a arte e fotografa cada peça. */
   const [loteComArte, setLoteComArte] = useState(false);
+  /** Lote com calendário misto em vez de dez peças com o mesmo objetivo. */
+  const [loteMix, setLoteMix] = useState(true);
   /** As pautas do lote ficam na tela: ela quer LER o que vai ser escrito. */
-  const [lotePautas, setLotePautas] = useState<Array<{ tema: string; gancho: string; carrossel: boolean; estado: "espera" | "escrevendo" | "pronta" | "falhou" }>>([]);
+  const [lotePautas, setLotePautas] = useState<Array<{ tema: string; gancho: string; objetivo: Objetivo; carrossel: boolean; estado: "espera" | "escrevendo" | "pronta" | "falhou" }>>([]);
   const pararLoteRef = useRef(false);
 
   const [marcaCor, setMarcaCor] = useState("");
@@ -828,19 +882,30 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     try {
       // Uma pauta por peça, todas de uma vez: pedir tema a tema faria a Marcela
       // repetir assunto, que é o defeito clássico de conteúdo em série.
+      // O calendário vai junto do pedido de pautas: assunto e objetivo têm que
+      // nascer casados, senão sobra um tema de venda num post feito para engajar.
+      const calendario = loteMix ? distribuirObjetivos(total) : Array(total).fill(objetivo);
       const { data: pautas } = await supabase.functions.invoke("carousel-studio", {
         body: {
           action: "ideias",
           nicho: cliente?.industry || "",
           quantidade: total,
+          objetivos: calendario,
           historico: historicoParaIA(),
           documentos: docsDoProjeto,
           ...contextoCliente(),
         },
       });
-      const brutas = (pautas?.ideias ?? []) as Array<string | { tema?: string; gancho?: string }>;
+      const brutas = (pautas?.ideias ?? []) as Array<string | { tema?: string; gancho?: string; objetivo?: string }>;
       const lista = brutas
-        .map((i) => (typeof i === "string" ? { tema: i, gancho: "" } : { tema: i?.tema ?? "", gancho: i?.gancho ?? "" }))
+        .map((i, idx) => typeof i === "string"
+          ? { tema: i, gancho: "", objetivo: calendario[idx] }
+          : {
+            tema: i?.tema ?? "",
+            gancho: i?.gancho ?? "",
+            // O que a Marcela marcou manda; o calendário é a rede de segurança.
+            objetivo: (OBJETIVOS.some((o) => o.id === i?.objetivo) ? i?.objetivo : calendario[idx]) as Objetivo,
+          })
         .filter((i) => i.tema)
         .slice(0, total);
       const temas = lista.map((i) => i.tema);
@@ -853,7 +918,9 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
         if (pararLoteRef.current) break;
         // Os carrosséis primeiro; o resto vira post único.
         const ehCarrossel = i < loteCarrosseis;
-        setLoteAndamento(`Escrevendo ${i + 1} de ${temas.length} — ${ehCarrossel ? "carrossel" : "post único"}...`);
+        const objetivoDaPeca = lista[i].objetivo;
+        const rotulo = OBJETIVOS.find((o) => o.id === objetivoDaPeca)?.label ?? objetivoDaPeca;
+        setLoteAndamento(`Escrevendo ${i + 1} de ${temas.length} — ${ehCarrossel ? "carrossel" : "post"} para ${rotulo.toLowerCase()}...`);
         setLotePautas((p) => p.map((x, idx) => (idx === i ? { ...x, estado: "escrevendo" } : x)));
         const { data, error } = await supabase.functions.invoke("carousel-studio", {
           body: {
@@ -861,7 +928,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
             tema: temas[i],
             formato: ehCarrossel ? "carrossel" : "post",
             nSlides: ehCarrossel ? loteSlides : 1,
-            objetivo, publico, tom,
+            objetivo: objetivoDaPeca, publico, tom,
             plataforma: "Instagram",
             benTrends: benParaIA(),
             historico: historicoParaIA(),
@@ -881,7 +948,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           client_id: clienteId,
           tema: temas[i],
           angulo: data.angulo ?? null,
-          objetivo,
+          objetivo: objetivoDaPeca,
           formato: ehCarrossel ? "carrossel" : "post",
           slides: roteiro,
           legenda: data.legenda ?? "",
@@ -1837,6 +1904,32 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                     </label>
                   )}
                 </div>
+                {/* Calendário misto. Ligado por padrão: um lote inteiro com o
+                    mesmo objetivo é o que faz o feed parecer disco arranhado. */}
+                <label className="flex items-start gap-2.5 rounded-lg px-2.5 py-2 cursor-pointer"
+                  style={{
+                    background: loteMix ? `${LIME}12` : "rgba(255,255,255,0.03)",
+                    border: `1px solid ${loteMix ? `${LIME}44` : "rgba(255,255,255,0.07)"}`,
+                  }}>
+                  <input type="checkbox" checked={loteMix} disabled={!!loteAndamento}
+                    onChange={(e) => setLoteMix(e.target.checked)} className="mt-0.5" />
+                  <span className="min-w-0">
+                    <span className="block text-[11.5px] font-semibold" style={{ color: "#EDEDED" }}>
+                      Alternar o objetivo entre as peças
+                    </span>
+                    <span className="block text-[10px] leading-snug mt-0.5" style={{ color: "rgba(255,255,255,0.42)" }}>
+                      {loteMix
+                        ? (() => {
+                          const c = distribuirObjetivos(loteUnicos + loteCarrosseis || 10);
+                          return [...new Set(c)]
+                            .map((o) => `${c.filter((x) => x === o).length} ${OBJETIVOS.find((x) => x.id === o)?.label.toLowerCase()}`)
+                            .join(" · ") + ". Nenhuma de venda abre o lote, e nunca duas seguidas.";
+                        })()
+                        : `Todas com o objetivo escolhido abaixo (${OBJETIVOS.find((o) => o.id === objetivo)?.label}).`}
+                    </span>
+                  </span>
+                </label>
+
                 {/* A Marcela sozinha. Fica separado do resto porque é a decisão
                     cara do card: um diretor de arte e uma foto por slide. */}
                 <label className="flex items-start gap-2.5 rounded-lg px-2.5 py-2 cursor-pointer"
@@ -1903,9 +1996,15 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                             <div className="text-[10px] mt-0.5 leading-snug" style={{ color: "rgba(255,255,255,0.32)" }}>{p.tema}</div>
                           )}
                         </div>
-                        <span className="text-[9.5px] flex-shrink-0 mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>
-                          {p.carrossel ? `carrossel · ${loteSlides}` : "post"}
-                        </span>
+                        <div className="flex flex-col items-end gap-0.5 flex-shrink-0 mt-0.5">
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full font-semibold"
+                            style={{ background: `${LIME}1A`, color: LIME }}>
+                            {OBJETIVOS.find((o) => o.id === p.objetivo)?.label ?? p.objetivo}
+                          </span>
+                          <span className="text-[9.5px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                            {p.carrossel ? `carrossel · ${loteSlides}` : "post"}
+                          </span>
+                        </div>
                       </div>
                     ))}
                     {!loteAndamento && lotePautas.some((p) => p.estado === "pronta") && (

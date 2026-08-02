@@ -230,8 +230,11 @@ const IDEAS_SCHEMA = {
           gancho: { type: "string" },
           formato: { type: "string" },
           porque: { type: "string" },
+          // Em lote, a pauta já nasce com o papel dela no calendário: sem isso
+          // um tema de venda cairia num post escrito para engajar.
+          objetivo: { type: "string", enum: ["autoridade", "educar", "vender", "engajar", "lancamento"] },
         },
-        required: ["tema", "gancho", "formato", "porque"],
+        required: ["tema", "gancho", "formato", "porque", "objetivo"],
         additionalProperties: false,
       },
     },
@@ -566,6 +569,18 @@ function blocoHistoricoDesign(designs: unknown): string {
  * sobre o nicho. Por isso a instrução manda usar dado DAQUI antes de inventar
  * exemplo — foi a queixa de "posts genéricos".
  */
+/**
+ * O que cada objetivo pede da peça. Fora do `strategy` porque as PAUTAS também
+ * precisam disso: em lote, a pauta já nasce com o papel dela no calendário.
+ */
+const objetivoGuia: Record<string, string> = {
+  autoridade: "Provar domínio do assunto. Entregue um insight que só quem vive o dia a dia do nicho teria. CTA: salvar/compartilhar.",
+  educar: "Ensinar um processo passo a passo aplicável hoje. Cada slide é um passo com o 'como', não só o 'o quê'. CTA: aplicar e comentar o resultado.",
+  vender: "Levar à conversão sem parecer anúncio. Comece pelo problema caro, mostre o custo de não resolver, e só no fim conecte com a oferta. CTA: ação comercial clara.",
+  engajar: "Provocar resposta. Use contradição, opinião forte ou erro comum que o público comete. CTA: pergunta que dá vontade de responder.",
+  lancamento: "Criar antecipação. Amarre problema, nova solução, prova e próximo passo. CTA: garantir vaga/avisar.",
+};
+
 function blocoDeMaterial(documentos: unknown): string {
   const docs = (Array.isArray(documentos) ? documentos : []) as Array<{ nome?: string; conteudo?: string }>;
   const uteis = docs.filter((d) => (d.conteudo ?? "").trim());
@@ -731,9 +746,26 @@ Se a referência é uma agência verde e o cliente é uma clínica, a resposta n
       // A produção em lote pede exatamente quantas peças vai escrever; sem isso
       // ela devolvia sempre 8 e o lote de 12 repetia pauta.
       const quantas = Math.max(1, Math.min(20, Number(body.quantidade) || 8));
+
+      /**
+       * Calendário misto. Quem manda é a lista que o app enviou (é ele que sabe
+       * quantas peças de cada tipo a Carol quer); sem ela, um objetivo só.
+       */
+      const mix = (Array.isArray(body.objetivos) ? body.objetivos : [])
+        .map((o: unknown) => String(o))
+        .filter((o: string) => objetivoGuia[o]);
+      const blocoMix = mix.length
+        ? [
+          `CALENDÁRIO: estas ${quantas} pautas NÃO são todas do mesmo tipo. Distribua exatamente nesta proporção:`,
+          ...[...new Set(mix)].map((o) => `- ${mix.filter((x: string) => x === o).length}× ${o}: ${objetivoGuia[o]}`),
+          "Marque cada pauta com o objetivo dela no campo `objetivo`. **ALTERNE**: nunca duas de venda seguidas, e a primeira do lote nunca é de venda — quem chega no perfil precisa de motivo para ficar antes de motivo para comprar.",
+        ].join("\n")
+        : `Marque cada pauta com o objetivo dela no campo \`objetivo\` (${Object.keys(objetivoGuia).join(", ")}).`;
+
       const partes = [
         `${cabecalhoMarca}Gere ${quantas} pautas de conteúdo para o nicho: ${nicho}.`,
         quantas > 1 ? `As ${quantas} precisam ser assuntos DIFERENTES entre si — nada de variação da mesma ideia com outro título.` : "",
+        blocoMix,
         blocoDeMaterial(body.documentos),
         body.benTrends ? `TENDÊNCIAS DO BEN (o que está em alta agora nesse segmento, priorize o aproveitável):\n${String(body.benTrends).slice(0, 3000)}` : "",
         historico.length ? `JÁ PUBLICADO por esta marca (NÃO repita nenhum desses):\n${historico.slice(0, 15).map((h, i) => `${i + 1}. ${h}`).join("\n")}` : "",
@@ -783,14 +815,6 @@ Se a referência é uma agência verde e o cliente é uma clínica, a resposta n
     const objetivo: string = body.objetivo ?? "autoridade";
     const tema: string = String(body.tema ?? "").trim();
     if (!tema) return respond({ error: "Informe o tema do conteúdo." }, 400);
-
-    const objetivoGuia: Record<string, string> = {
-      autoridade: "Provar domínio do assunto. Entregue um insight que só quem vive o dia a dia do nicho teria. CTA: salvar/compartilhar.",
-      educar: "Ensinar um processo passo a passo aplicável hoje. Cada slide é um passo com o 'como', não só o 'o quê'. CTA: aplicar e comentar o resultado.",
-      vender: "Levar à conversão sem parecer anúncio. Comece pelo problema caro, mostre o custo de não resolver, e só no fim conecte com a oferta. CTA: ação comercial clara.",
-      engajar: "Provocar resposta. Use contradição, opinião forte ou erro comum que o público comete. CTA: pergunta que dá vontade de responder.",
-      lancamento: "Criar antecipação. Amarre problema, nova solução, prova e próximo passo. CTA: garantir vaga/avisar.",
-    };
 
     const estrutura = formato === "post"
       ? 'Gere EXATAMENTE 1 slide, tipo "capa". Ele precisa funcionar sozinho: gancho no título, a ideia inteira no corpo e a promessa no destaque.'
