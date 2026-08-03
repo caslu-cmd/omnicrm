@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Zap, CheckCircle, TrendingUp, Crown } from "lucide-react";
+import RodapeIdentidade from "@/components/RodapeIdentidade";
 
 const EDGE_URL = "https://proldgiyterqhthludlp.supabase.co/functions/v1/accept-invite";
 
@@ -221,6 +222,7 @@ export default function InvitePage() {
             }}>
             {saving ? "Aguarde..." : mode === "register" ? "Criar conta e entrar" : "Entrar"}
           </button>
+          <RodapeIdentidade contexto="Você foi convidado por quem cuida da conta da sua empresa. A conta dá acesso apenas ao painel dela." />
         </div>
       </div>
     </div>

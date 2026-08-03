@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useParams } from "react-router-dom";
 import { CheckCircle2, Zap } from "lucide-react";
+import RodapeIdentidade from "@/components/RodapeIdentidade";
 
 const SUPABASE_URL = "https://proldgiyterqhthludlp.supabase.co";
 const accent = "#B9FF4B";
@@ -86,9 +87,7 @@ export default function PublicFormPage() {
             </form>
           )}
         </div>
-        <p style={{ textAlign: "center", fontSize: 11, color: "rgba(255,255,255,0.3)", marginTop: 16 }}>
-          powered by Calu Agência
-        </p>
+        <RodapeIdentidade contexto="Formulário de contato hospedado pela agência para o cliente que divulgou este link. Seus dados vão para essa empresa e para a agência." />
       </div>
     </div>
   );

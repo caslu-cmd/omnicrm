@@ -1,4 +1,5 @@
 import caluLogo from "@/assets/calu-logo.png";
+import RodapeIdentidade from "@/components/RodapeIdentidade";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -204,6 +205,8 @@ const AuthPage = () => {
             </>
           )}
         </div>
+
+        <RodapeIdentidade contexto="Entrada da plataforma que a agência usa para atender os próprios clientes." />
       </div>
     </div>
   );

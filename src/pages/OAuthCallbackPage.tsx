@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import RodapeIdentidade from "@/components/RodapeIdentidade";
 
 const META_REDIRECT_URI = "https://caluagencia.com.br/oauth/meta";
 
@@ -101,7 +102,15 @@ export default function OAuthCallbackPage() {
   }, []);
 
   return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: "#080810", fontFamily: "system-ui, sans-serif" }}>
+    <div className="min-h-screen flex flex-col items-center justify-center" style={{ background: "#080810", fontFamily: "system-ui, sans-serif" }}>
+      {/* Quem é esta página. Ela abre logo depois do Facebook, num domínio que
+          o visitante pode não reconhecer, e não se identificava — só dizia
+          "Conectando conta Meta…". Página anônima nesse ponto do fluxo é o que
+          o classificador de engenharia social do Chrome procura. */}
+      <div className="mb-5 text-center">
+        <div className="text-xl font-black tracking-tight text-white">Calu<span style={{ color: "#B9FF4B" }}>.</span></div>
+        <div className="text-[10px] mt-1 uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>Calu Agência</div>
+      </div>
       <div className="rounded-2xl p-8 text-center max-w-sm w-full mx-4" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>
         {status === "loading" && (
           <>
@@ -130,6 +139,9 @@ export default function OAuthCallbackPage() {
             </button>
           </>
         )}
+      </div>
+      <div className="max-w-sm w-full mx-4">
+        <RodapeIdentidade contexto="Esta janela só recebe a autorização que você deu à Meta e fecha sozinha. Nenhum dado é pedido aqui." />
       </div>
     </div>
   );
