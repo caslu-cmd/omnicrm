@@ -1062,6 +1062,20 @@ function layoutGradiente(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chr
   const escuro = !isLight(base);
   const fg = escuro ? "#FFFFFF" : "#0A0C0F";
   const local: Chrome = { ...c, fg, accent };
+  /**
+   * Marca cujo accent É o fundo (ABCER: verde #005C0B nos dois) fazia a palavra
+   * marcada sumir dentro do cartão. Os outros layouts já passavam por aqui; este
+   * mandava a cor crua. Os blobs continuam com o accent original, porque ali a
+   * cor é o próprio fundo e deve ser a da marca.
+   *
+   * Quando há SEGUNDA cor da marca, ela vem antes de clarear a primeira: é
+   * exatamente para isso que ela existe. Clarear o accent inventa um tom que não
+   * é da identidade; o accent2 já foi escolhido pela agência para contrastar com
+   * o principal.
+   */
+  const accentEnfase = o.theme.accent2
+    ? corEnfase(base, fg, o.theme.accent2)
+    : corEnfase(base, fg, accent);
 
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, W, H);
@@ -1119,7 +1133,7 @@ function layoutGradiente(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chr
     tracking: fonts.tracking,
   });
   ctx.fillStyle = fg;
-  drawBlock(ctx, t, cardX + inner, cursor, { font: (s) => `${fonts.displayWeight} ${s}px ${fonts.display}`, tracking: fonts.tracking, accent });
+  drawBlock(ctx, t, cardX + inner, cursor, { font: (s) => `${fonts.displayWeight} ${s}px ${fonts.display}`, tracking: fonts.tracking, accent: accentEnfase });
   cursor += t.height + W * 0.04;
 
   if (o.slide.corpo) {

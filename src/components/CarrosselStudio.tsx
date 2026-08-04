@@ -1169,7 +1169,10 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   };
 
   const fazerTudoSozinha = async () => {
-    if (!tema.trim()) { toast.error("Escreva o tema (ou peça uma pauta) antes."); return; }
+    // Mesma regra do `gerar`: com o conteúdo do cliente anexado o tema é
+    // opcional. Esta trava era a que ainda exigia pauta depois de subir o
+    // arquivo — mudar só uma das duas portas não muda nada para quem usa.
+    if (!tema.trim() && !fonteDoc) { toast.error("Escreva o tema, peça uma pauta ou anexe o material do cliente."); return; }
     try {
       setModoAuto("Escrevendo o roteiro...");
       const novos = await gerar();
