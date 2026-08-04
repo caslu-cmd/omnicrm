@@ -21,6 +21,7 @@ import {
 import SlideHtml from "@/components/SlideHtml";
 import { rasterizarSlide } from "@/lib/rasterizarSlide";
 import { lerDocumento, EXTENSOES_ACEITAS, type DocumentoLido } from "@/lib/lerDocumento";
+import { erroDaFuncao } from "@/lib/erroDaFuncao";
 
 const LIME = "#B9FF4B";
 const BG = "#07080A";
@@ -689,7 +690,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
       const { data, error } = await supabase.functions.invoke("ben-trends", {
         body: { nicho, plataforma: "todas", tipo_conteudo: "carrossel", client_name: cliente?.name },
       });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(await erroDaFuncao(error));
       const conteudo: string = data?.content ?? "";
       if (!conteudo) throw new Error(data?.error ?? "O Ben não retornou nada.");
 
@@ -802,7 +803,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           ...contextoCliente(),
         },
       });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(await erroDaFuncao(error));
       if (data?.error) throw new Error(data.error);
       const lista: Direcao[] = data.direcoes ?? [];
       if (!lista.length) throw new Error("O diretor de arte não devolveu direções.");
@@ -858,7 +859,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           ...contextoCliente(),
         },
       });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(await erroDaFuncao(error));
       if (data?.error) throw new Error(data.error);
       const lista: Direcao[] = data.direcoes ?? [];
       if (!lista.length) throw new Error("Não consegui extrair uma direção dessa imagem.");
@@ -1315,7 +1316,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           ...ctx,
         },
       });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(await erroDaFuncao(error));
       if (data?.error) throw new Error(data.error);
 
       const novos: SlideData[] = (data.slides ?? []).map((s: SlideData) => ({ ...s, imagem: null }));
@@ -1371,7 +1372,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           ...contextoCliente(),
         },
       });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(await erroDaFuncao(error));
       if (data?.error) throw new Error(data.error);
       setIdeias(data.ideias ?? []);
     } catch (e) {
@@ -1393,7 +1394,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           ...contextoCliente(),
         },
       });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(await erroDaFuncao(error));
       if (data?.error) throw new Error(data.error);
       setSlides((prev) => prev.map((old, idx) => (idx === i ? { ...old, ...data.slide } : old)));
       toast.success("Slide reescrito.");
@@ -1525,7 +1526,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           referencias,
         },
       });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(await erroDaFuncao(error));
       if (data?.error) throw new Error(data.error);
       if (!data?.imageData) throw new Error(data?.message ?? "A IA não retornou imagem.");
       const url = `data:${data.mimeType ?? "image/jpeg"};base64,${data.imageData}`;
