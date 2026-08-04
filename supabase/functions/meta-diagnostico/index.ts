@@ -56,11 +56,21 @@ Deno.serve(async (req) => {
   const admin = createClient(supabaseUrl, serviceKey);
   const { data: conns } = await admin
     .from("social_connections")
-    .select("client_id, platform, account_id, account_name, access_token")
+    .select("client_id, platform, account_id, account_name, access_token, user_access_token")
     .eq("connected", true)
     .in("platform", ["instagram", "facebook"]);
 
   const saida: unknown[] = [];
+  /**
+   * Quais Páginas o LOGIN autorizou.
+   *
+   * No diálogo do Facebook a pessoa escolhe página por página. Página não
+   * marcada ali devolve um page token que falha com 190 ("...before
+   * impersonating a user's page") — o mesmo erro de token sem escopo, e é aí
+   * que se perde tempo consertando o lado errado. Listar `/me/accounts` com o
+   * token de USUÁRIO mostra exatamente o que foi concedido.
+   */
+  const paginasAutorizadas: Record<string, unknown> = {};
 
   for (const c of conns ?? []) {
     if (soCliente && c.client_id !== soCliente) continue;
@@ -74,6 +84,40 @@ Deno.serve(async (req) => {
       // Prova que o token foi decifrado sem mostrá-lo: token do Meta começa com EAA.
       token_parece_valido: token.startsWith("EAA"),
     };
+
+    /**
+     * O QUE o token é, sem mostrá-lo.
+     *
+     * O erro 190 "must be granted before impersonating a user's page" aparece
+     * igual em dois casos muito diferentes: token de PÁGINA sem escopo, e token
+     * de USUÁRIO gravado no lugar do token de página. `/me` separa os dois: com
+     * token de página volta o nome da PÁGINA e uma `category`; com token de
+     * usuário volta o nome da PESSOA. Sem isso a gente fica adivinhando qual
+     * dos dois consertar.
+     */
+    try {
+      const rMe = await fetch(`${GRAPH}/me?fields=id,name,category&access_token=${token}`);
+      const me = await rMe.json();
+      if (me.error) {
+        linha.token_de = `erro ${me.error.code}: ${String(me.error.message).slice(0, 120)}`;
+      } else {
+        const ehPagina = me.id === c.account_id || !!me.category;
+        linha.token_de = ehPagina ? `PÁGINA (${me.name})` : `USUÁRIO (${me.name})`;
+        linha.id_do_token = me.id;
+        // Token de usuário: dá para ver o que foi concedido no diálogo do OAuth.
+        if (!ehPagina) {
+          const rP = await fetch(`${GRAPH}/me/permissions?access_token=${token}`);
+          const perms = await rP.json();
+          if (!perms.error) {
+            linha.concedidas = (perms.data ?? [])
+              .filter((p: { status?: string }) => p.status === "granted")
+              .map((p: { permission?: string }) => p.permission);
+          }
+        }
+      }
+    } catch (e) {
+      linha.token_de = String(e).slice(0, 120);
+    }
 
     try {
       const r = await fetch(`${GRAPH}/${c.account_id}/subscribed_apps?access_token=${token}`);
@@ -104,8 +148,21 @@ Deno.serve(async (req) => {
       }
     }
 
+    if (c.user_access_token && !(c.client_id in paginasAutorizadas)) {
+      const userToken = deobfuscate(String(c.user_access_token), encKey);
+      try {
+        const r = await fetch(`${GRAPH}/me/accounts?fields=id,name&limit=50&access_token=${userToken}`);
+        const d = await r.json();
+        paginasAutorizadas[String(c.client_id)] = d.error
+          ? `erro ${d.error.code}: ${String(d.error.message).slice(0, 140)}`
+          : (d.data ?? []).map((p: { id: string; name: string }) => `${p.name} (${p.id})`);
+      } catch (e) {
+        paginasAutorizadas[String(c.client_id)] = String(e).slice(0, 140);
+      }
+    }
+
     saida.push(linha);
   }
 
-  return json({ contas: saida });
+  return json({ contas: saida, paginas_autorizadas_no_login: paginasAutorizadas });
 });
