@@ -9385,6 +9385,19 @@ Regras:
                                   🌐 Editar Site
                                 </button>
                               )}
+                              {/* A Marcela tem duas caras: aqui ela entrega TEXTO, como
+                                  qualquer agente, e no estúdio ela desenha a peça. Sem este
+                                  botão só existia o chat, e quem clicava nela achava que o
+                                  estúdio tinha sumido — a ferramenta vivia numa aba que não
+                                  tem nada a ver com a grade de agentes. */}
+                              {agent.id === "designer" && (
+                                <button
+                                  onClick={() => navigate(`/agency/clients/${id}?tab=carrossel`)}
+                                  className="px-2.5 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1 whitespace-nowrap"
+                                  style={{ background: `${agent.color}18`, color: agent.color, border: `1px solid ${agent.color}40` }}>
+                                  🎨 Abrir o estúdio
+                                </button>
+                              )}
                             </div>
                           </div>
                         </motion.div>
