@@ -285,6 +285,15 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
    * DOCX, texto) e viaja junto na geração — o arquivo em si não sobe.
    */
   const [fonteDoc, setFonteDoc] = useState<DocumentoLido | null>(null);
+  /**
+   * Texto do cliente ao pé da letra × reescrito por ela.
+   *
+   * Nasce LIGADO: quem anexa um arquivo do cliente quase sempre quer aquele
+   * texto — foi a primeira coisa que a Carol reclamou ao testar ("a Marcela
+   * está mudando o texto que está no anexo"). Desligar faz sentido quando o
+   * material é bruto (ata, laudo, anotação) e precisa virar copy.
+   */
+  const [fonteLiteral, setFonteLiteral] = useState(true);
   const [lendoFonte, setLendoFonte] = useState(false);
   const fonteInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -1302,6 +1311,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           documentos: docsDoProjeto,
           // O conteúdo que o cliente mandou: aqui ela TRADUZ em vez de criar.
           documentoFonte: fonteDoc ? { nome: fonteDoc.nome, conteudo: fonteDoc.conteudo } : undefined,
+          fonteLiteral: fonteDoc ? fonteLiteral : undefined,
           ...ctx,
         },
       });
@@ -2082,20 +2092,36 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                     dá forma. Antes o único caminho era Projetos & Arquivos, que
                     é outro lugar e serve para outra coisa (material de apoio). */}
                 {fonteDoc ? (
-                  <div className="mt-2 rounded-xl p-3 flex items-start gap-2"
+                  <div className="mt-2 rounded-xl p-3"
                     style={{ background: `${LIME}0F`, border: `1px solid ${LIME}33` }}>
-                    <FileText className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: LIME }} />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-[12px] font-semibold truncate" style={{ color: "#F0F0F0" }}>{fonteDoc.nome}</div>
-                      <div className="text-[11px]" style={{ color: "rgba(255,255,255,0.45)" }}>
-                        {fonteDoc.conteudo.length.toLocaleString("pt-BR")} caracteres lidos · a peça vai seguir este conteúdo
+                    <div className="flex items-start gap-2">
+                      <FileText className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: LIME }} />
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[12px] font-semibold truncate" style={{ color: "#F0F0F0" }}>{fonteDoc.nome}</div>
+                        <div className="text-[11px]" style={{ color: "rgba(255,255,255,0.45)" }}>
+                          {fonteDoc.conteudo.length.toLocaleString("pt-BR")} caracteres lidos
+                        </div>
                       </div>
+                      <button onClick={() => setFonteDoc(null)} title="Remover"
+                        className="p-1 rounded-lg flex-shrink-0"
+                        style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}>
+                        <X className="w-3.5 h-3.5" />
+                      </button>
                     </div>
-                    <button onClick={() => setFonteDoc(null)} title="Remover"
-                      className="p-1 rounded-lg flex-shrink-0"
-                      style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}>
-                      <X className="w-3.5 h-3.5" />
-                    </button>
+
+                    {/* Texto do cliente ao pé da letra × reescrito. Fica junto do
+                        arquivo, e não numa aba de opções, porque é decisão do
+                        material — não de configuração da ferramenta. */}
+                    <label className="mt-2.5 pt-2.5 flex items-start gap-2 cursor-pointer"
+                      style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                      <input type="checkbox" checked={fonteLiteral} onChange={(e) => setFonteLiteral(e.target.checked)}
+                        className="mt-0.5" style={{ accentColor: LIME }} />
+                      <span className="text-[11px] leading-snug" style={{ color: "rgba(255,255,255,0.6)" }}>
+                        <span style={{ color: "#F0F0F0", fontWeight: 600 }}>Manter o texto exatamente como está</span> — ela só
+                        escolhe o que entra em cada slide e onde quebra. Desmarque se o arquivo for material bruto (ata,
+                        laudo, anotação) e você quiser que ela escreva a partir dele.
+                      </span>
+                    </label>
                   </div>
                 ) : null}
 

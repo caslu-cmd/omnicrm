@@ -589,16 +589,36 @@ const objetivoGuia: Record<string, string> = {
  * onde ela lê o briefing e escreve o que quiser: aqui inventar assunto novo é
  * defeito, porque o cliente vai comparar a peça com o que mandou.
  */
-function blocoDeFonte(doc: unknown): string {
+function blocoDeFonte(doc: unknown, literal = false): string {
   const d = (doc ?? {}) as { nome?: string; conteudo?: string };
   const texto = (d.conteudo ?? "").trim();
   if (!texto) return "";
-  return [
-    `CONTEÚDO ENVIADO PELO CLIENTE — é ESTE material que vira o carrossel (arquivo: ${d.nome ?? "documento"}):`,
-    "```",
-    texto.slice(0, 24000),
-    "```",
-    [
+
+  /**
+   * Dois níveis de fidelidade, porque "usar o conteúdo do cliente" quer dizer
+   * coisas diferentes conforme o material.
+   *
+   * ADAPTAR: o assunto e os dados são do documento, mas a escrita é dela. Serve
+   * para material bruto — ata de reunião, laudo, anotação solta.
+   *
+   * LITERAL: as frases do cliente entram como estão. Serve para texto que já foi
+   * escrito para publicar (e revisado, e às vezes aprovado por jurídico) — nesse
+   * caso reescrever é ESTRAGAR, mesmo que fique mais bonito. Foi a queixa da
+   * Carol: "a Marcela está mudando o texto que está no anexo".
+   */
+  const regras = literal
+    ? [
+      "REGRAS DESTE MODO — TEXTO LITERAL. Elas mandam mais que qualquer outra instrução, inclusive as de estilo, gancho e persona:",
+      "1. As frases do documento entram COMO ESTÃO. Copie, não reescreva.",
+      "2. Você PODE: escolher quais trechos entram, em que ordem e em qual slide; cortar uma frase longa pelas bordas; separar uma frase em duas linhas.",
+      "3. Você NÃO PODE: trocar palavra por sinônimo, mudar a ordem das palavras dentro da frase, ajustar o tom, 'melhorar' a redação, criar frase que não existe no documento.",
+      "4. O TÍTULO de cada slide é um trecho do próprio documento — a frase (ou o pedaço de frase) que carrega aquela ideia. Se nenhum trecho couber no limite de caracteres, use o mais curto que preserve o sentido, cortando pelas bordas, nunca reescrevendo.",
+      "5. Só é permitido acrescentar palavra fora do documento em UM lugar: o texto do botão do slide final. Todo o resto é do cliente.",
+      "6. Marque a ênfase com *asteriscos* em palavras que JÁ ESTÃO na frase — a marcação é formatação, não texto novo.",
+      "7. A legenda também é montada com trechos do documento, na ordem dele.",
+      "8. Se o material não der para encher os slides pedidos, faça MENOS slides. Enchimento aqui é inventar texto, que é o que este modo proíbe.",
+    ]
+    : [
       "REGRAS PARA ESTE MODO, e elas mandam mais que qualquer outra instrução:",
       "1. O carrossel é a TRADUÇÃO deste conteúdo para o formato. Não troque o assunto, não escolha outro ângulo, não acrescente tema que não está aqui.",
       "2. Todo número, nome, prazo, valor e termo técnico sai DAQUI, com a mesma grafia. Nunca arredonde nem invente dado para completar slide.",
@@ -606,7 +626,14 @@ function blocoDeFonte(doc: unknown): string {
       "4. O que você acrescenta é FORMA, não conteúdo: quebra em slides, hierarquia, título que segura a atenção, ordem que faz sentido na leitura arrastando.",
       "5. Se houver ordem, passos ou lista no documento, respeite a sequência — ela costuma ser a espinha do carrossel.",
       "6. Se algo estiver ambíguo no material, escolha a leitura mais literal. Não preencha lacuna com suposição sobre o nicho.",
-    ].join("\n"),
+    ];
+
+  return [
+    `CONTEÚDO ENVIADO PELO CLIENTE — é ESTE material que vira o carrossel (arquivo: ${d.nome ?? "documento"}):`,
+    "```",
+    texto.slice(0, 24000),
+    "```",
+    regras.join("\n"),
   ].join("\n");
 }
 
@@ -846,7 +873,7 @@ Se a referência é uma agência verde e o cliente é uma clínica, a resposta n
     // Com o conteúdo do cliente anexado, o tema deixa de ser obrigatório: ele
     // sai do próprio documento. Exigir tema aqui obrigaria a resumir na mão
     // aquilo que a Marcela vai ler inteiro logo em seguida.
-    const fonte = blocoDeFonte(body.documentoFonte);
+    const fonte = blocoDeFonte(body.documentoFonte, body.fonteLiteral === true);
     if (!tema && !fonte) return respond({ error: "Informe o tema do conteúdo." }, 400);
 
     // Com conteúdo do cliente, o número de slides é TETO e não meta: esticar
