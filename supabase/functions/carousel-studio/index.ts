@@ -581,6 +581,35 @@ const objetivoGuia: Record<string, string> = {
   lancamento: "Criar antecipação. Amarre problema, nova solução, prova e próximo passo. CTA: garantir vaga/avisar.",
 };
 
+/**
+ * O documento É o conteúdo — não é material de apoio.
+ *
+ * Caso real: o cliente manda o texto pronto em PDF ou Word e o trabalho da
+ * Marcela é transformar AQUILO em carrossel. É diferente de `blocoDeMaterial`,
+ * onde ela lê o briefing e escreve o que quiser: aqui inventar assunto novo é
+ * defeito, porque o cliente vai comparar a peça com o que mandou.
+ */
+function blocoDeFonte(doc: unknown): string {
+  const d = (doc ?? {}) as { nome?: string; conteudo?: string };
+  const texto = (d.conteudo ?? "").trim();
+  if (!texto) return "";
+  return [
+    `CONTEÚDO ENVIADO PELO CLIENTE — é ESTE material que vira o carrossel (arquivo: ${d.nome ?? "documento"}):`,
+    "```",
+    texto.slice(0, 24000),
+    "```",
+    [
+      "REGRAS PARA ESTE MODO, e elas mandam mais que qualquer outra instrução:",
+      "1. O carrossel é a TRADUÇÃO deste conteúdo para o formato. Não troque o assunto, não escolha outro ângulo, não acrescente tema que não está aqui.",
+      "2. Todo número, nome, prazo, valor e termo técnico sai DAQUI, com a mesma grafia. Nunca arredonde nem invente dado para completar slide.",
+      "3. Se o material não der para encher os slides pedidos, faça MENOS slides em vez de esticar com enchimento.",
+      "4. O que você acrescenta é FORMA, não conteúdo: quebra em slides, hierarquia, título que segura a atenção, ordem que faz sentido na leitura arrastando.",
+      "5. Se houver ordem, passos ou lista no documento, respeite a sequência — ela costuma ser a espinha do carrossel.",
+      "6. Se algo estiver ambíguo no material, escolha a leitura mais literal. Não preencha lacuna com suposição sobre o nicho.",
+    ].join("\n"),
+  ].join("\n");
+}
+
 function blocoDeMaterial(documentos: unknown): string {
   const docs = (Array.isArray(documentos) ? documentos : []) as Array<{ nome?: string; conteudo?: string }>;
   const uteis = docs.filter((d) => (d.conteudo ?? "").trim());
@@ -814,14 +843,27 @@ Se a referência é uma agência verde e o cliente é uma clínica, a resposta n
       : Math.min(10, Math.max(4, Number(body.nSlides) || 7));
     const objetivo: string = body.objetivo ?? "autoridade";
     const tema: string = String(body.tema ?? "").trim();
-    if (!tema) return respond({ error: "Informe o tema do conteúdo." }, 400);
+    // Com o conteúdo do cliente anexado, o tema deixa de ser obrigatório: ele
+    // sai do próprio documento. Exigir tema aqui obrigaria a resumir na mão
+    // aquilo que a Marcela vai ler inteiro logo em seguida.
+    const fonte = blocoDeFonte(body.documentoFonte);
+    if (!tema && !fonte) return respond({ error: "Informe o tema do conteúdo." }, 400);
 
+    // Com conteúdo do cliente, o número de slides é TETO e não meta: esticar
+    // material curto para bater a contagem é justamente o enchimento que a
+    // regra 3 do bloco de fonte proíbe. As duas instruções brigariam.
+    const quantos = fonte && formato !== "post" ? `no MÁXIMO ${nSlides}` : `EXATAMENTE ${nSlides}`;
     const estrutura = formato === "post"
       ? 'Gere EXATAMENTE 1 slide, tipo "capa". Ele precisa funcionar sozinho: gancho no título, a ideia inteira no corpo e a promessa no destaque.'
-      : `Gere EXATAMENTE ${nSlides} slides nesta ordem:\n- slide 1: tipo "capa" (só o gancho + uma linha de contexto no corpo)\n- slides 2 a ${nSlides - 1}: tipo "conteudo" (progressão lógica, sem repetir ideia, cada um entrega algo aplicável)\n- slide ${nSlides}: tipo "cta"\nA sequência precisa ter arco: dor/tensão, virada, método, prova, próximo passo. O slide 2 nunca começa com "primeiro" ou "vamos falar sobre".`;
+      : `Gere ${quantos} slides nesta ordem:\n- slide 1: tipo "capa" (só o gancho + uma linha de contexto no corpo)\n- slides 2 a ${nSlides - 1}: tipo "conteudo" (progressão lógica, sem repetir ideia, cada um entrega algo aplicável)\n- slide ${nSlides}: tipo "cta"\nA sequência precisa ter arco: dor/tensão, virada, método, prova, próximo passo. O slide 2 nunca começa com "primeiro" ou "vamos falar sobre".`;
 
     const partes = [
-      `${cabecalhoMarca}TEMA: ${tema}`,
+      fonte
+        ? `${cabecalhoMarca}${tema ? `RECORTE PEDIDO PELA AGÊNCIA (use como foco DENTRO do conteúdo enviado, sem sair dele): ${tema}` : "O tema sai do próprio conteúdo enviado abaixo."}`
+        : `${cabecalhoMarca}TEMA: ${tema}`,
+      // A fonte vem cedo no prompt, antes das instruções de forma: o que ela
+      // deve dizer é decidido pelo documento, não pelo nicho.
+      fonte,
       `FORMATO: ${formato === "post" ? "post único (imagem única de feed)" : `carrossel de ${nSlides} slides`}`,
       `OBJETIVO: ${objetivo} — ${objetivoGuia[objetivo] ?? objetivoGuia.autoridade}`,
       `PLATAFORMA: ${body.plataforma ?? "Instagram"}`,

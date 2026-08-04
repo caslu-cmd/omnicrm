@@ -20,6 +20,7 @@ import {
 } from "@/lib/carouselRender";
 import SlideHtml from "@/components/SlideHtml";
 import { rasterizarSlide } from "@/lib/rasterizarSlide";
+import { lerDocumento, EXTENSOES_ACEITAS, type DocumentoLido } from "@/lib/lerDocumento";
 
 const LIME = "#B9FF4B";
 const BG = "#07080A";
@@ -271,6 +272,41 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
    * Tetos iguais aos do chat: isto viaja em toda geração de roteiro.
    */
   const [docsDoProjeto, setDocsDoProjeto] = useState<{ nome: string; conteudo: string }[]>([]);
+
+  /**
+   * O conteúdo que o CLIENTE mandou, anexado aqui mesmo.
+   *
+   * É diferente do material dos Projetos: ali a Marcela lê o briefing e escreve
+   * o que quiser; aqui o documento É o conteúdo — ela traduz para o formato sem
+   * trocar o assunto nem inventar dado. O cliente vai comparar a peça com o que
+   * enviou, então a fidelidade é o produto.
+   *
+   * O texto é extraído no NAVEGADOR (mesmo leitor dos outros agentes: PDF,
+   * DOCX, texto) e viaja junto na geração — o arquivo em si não sobe.
+   */
+  const [fonteDoc, setFonteDoc] = useState<DocumentoLido | null>(null);
+  const [lendoFonte, setLendoFonte] = useState(false);
+  const fonteInputRef = useRef<HTMLInputElement | null>(null);
+
+  const anexarFonte = async (file: File | undefined) => {
+    if (!file) return;
+    setLendoFonte(true);
+    try {
+      // `lerDocumento` nunca lança: erro de leitura volta dentro do documento.
+      const doc = await lerDocumento(file);
+      if (doc.erro || !doc.conteudo.trim()) {
+        setFonteDoc(null);
+        toast.error(doc.erro || "Não consegui ler esse arquivo. Se for PDF escaneado, o texto é imagem.");
+        return;
+      }
+      setFonteDoc(doc);
+      toast.success(`${doc.nome} lido — ${doc.conteudo.length.toLocaleString("pt-BR")} caracteres.`);
+    } finally {
+      setLendoFonte(false);
+      // Permite reanexar o MESMO arquivo depois de remover.
+      if (fonteInputRef.current) fonteInputRef.current.value = "";
+    }
+  };
 
   /**
    * Produção em lote: N posts únicos + M carrosséis de uma vez.
@@ -910,14 +946,23 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
         .slice(0, total);
       const temas = lista.map((i) => i.tema);
       if (!temas.length) throw new Error("Não consegui gerar as pautas.");
+      /**
+       * Os carrosséis se espalham pelo lote em vez de ocuparem as primeiras
+       * posições. Com o calendário ligado, "os N primeiros" fazia TODO carrossel
+       * cair em autoridade/educar e nenhum em venda — o formato mais forte
+       * ficava fora justo dos objetivos que precisam dele.
+       */
+      const ehCarrosselNoIndice = new Set(
+        Array.from({ length: loteCarrosseis }, (_, k) => Math.floor(((k + 0.5) * total) / loteCarrosseis)),
+      );
       // Na tela ANTES de escrever: ela vê as 16 pautas e já sabe se vale seguir.
-      setLotePautas(lista.map((p, i) => ({ ...p, carrossel: i < loteCarrosseis, estado: "espera" as const })));
+      setLotePautas(lista.map((p, i) => ({ ...p, carrossel: ehCarrosselNoIndice.has(i), estado: "espera" as const })));
 
       let feitas = 0;
       for (let i = 0; i < temas.length; i++) {
         if (pararLoteRef.current) break;
         // Os carrosséis primeiro; o resto vira post único.
-        const ehCarrossel = i < loteCarrosseis;
+        const ehCarrossel = ehCarrosselNoIndice.has(i);
         const objetivoDaPeca = lista[i].objetivo;
         const rotulo = OBJETIVOS.find((o) => o.id === objetivoDaPeca)?.label ?? objetivoDaPeca;
         setLoteAndamento(`Escrevendo ${i + 1} de ${temas.length} — ${ehCarrossel ? "carrossel" : "post"} para ${rotulo.toLowerCase()}...`);
@@ -1235,7 +1280,8 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   /** Devolve os slides que acabou de escrever — o estado ainda não atualizou
    *  para quem chamou (closure), e o modo automático precisa da lista na mão. */
   const gerar = async (): Promise<SlideData[]> => {
-    if (!tema.trim()) { toast.error("Escreva o tema do conteúdo."); return []; }
+    // Com o conteúdo do cliente anexado o tema é opcional: ele sai do documento.
+    if (!tema.trim() && !fonteDoc) { toast.error("Escreva o tema do conteúdo ou anexe o material do cliente."); return []; }
     setGerando(true);
     try {
       const ctx = contextoCliente();
@@ -1251,6 +1297,8 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           // isto a Marcela era a única do time que escrevia sem ter lido o
           // briefing que a Carol anexou.
           documentos: docsDoProjeto,
+          // O conteúdo que o cliente mandou: aqui ela TRADUZ em vez de criar.
+          documentoFonte: fonteDoc ? { nome: fonteDoc.nome, conteudo: fonteDoc.conteudo } : undefined,
           ...ctx,
         },
       });
@@ -2021,17 +2069,54 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
               <Campo label="Sobre o que é o conteúdo">
                 <textarea
                   value={tema} onChange={(e) => setTema(e.target.value)} rows={3}
-                  placeholder="Ex.: por que 8 em cada 10 empresas perdem licitação no envelope de habilitação"
+                  placeholder={fonteDoc
+                    ? "Opcional — o conteúdo vem do arquivo. Escreva aqui só se quiser um recorte dele."
+                    : "Ex.: por que 8 em cada 10 empresas perdem licitação no envelope de habilitação"}
                   style={{ ...inputStyle, resize: "none" }}
                 />
-                <button
-                  onClick={pedirIdeias} disabled={buscandoIdeias}
-                  className="mt-2 flex items-center gap-1.5 text-[12px] font-semibold transition-colors"
-                  style={{ color: buscandoIdeias ? "rgba(255,255,255,0.3)" : LIME }}
-                >
-                  {buscandoIdeias ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lightbulb className="w-3.5 h-3.5" />}
-                  {buscandoIdeias ? "Pensando em pautas..." : "Não sei o tema — me sugere pautas"}
-                </button>
+
+                {/* O cliente mandou o conteúdo pronto: anexa aqui e a Marcela só
+                    dá forma. Antes o único caminho era Projetos & Arquivos, que
+                    é outro lugar e serve para outra coisa (material de apoio). */}
+                {fonteDoc ? (
+                  <div className="mt-2 rounded-xl p-3 flex items-start gap-2"
+                    style={{ background: `${LIME}0F`, border: `1px solid ${LIME}33` }}>
+                    <FileText className="w-4 h-4 mt-0.5 flex-shrink-0" style={{ color: LIME }} />
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[12px] font-semibold truncate" style={{ color: "#F0F0F0" }}>{fonteDoc.nome}</div>
+                      <div className="text-[11px]" style={{ color: "rgba(255,255,255,0.45)" }}>
+                        {fonteDoc.conteudo.length.toLocaleString("pt-BR")} caracteres lidos · a peça vai seguir este conteúdo
+                      </div>
+                    </div>
+                    <button onClick={() => setFonteDoc(null)} title="Remover"
+                      className="p-1 rounded-lg flex-shrink-0"
+                      style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}>
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : null}
+
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <button
+                    onClick={pedirIdeias} disabled={buscandoIdeias}
+                    className="flex items-center gap-1.5 text-[12px] font-semibold transition-colors"
+                    style={{ color: buscandoIdeias ? "rgba(255,255,255,0.3)" : LIME }}
+                  >
+                    {buscandoIdeias ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lightbulb className="w-3.5 h-3.5" />}
+                    {buscandoIdeias ? "Pensando em pautas..." : "Não sei o tema — me sugere pautas"}
+                  </button>
+
+                  <button
+                    onClick={() => fonteInputRef.current?.click()} disabled={lendoFonte}
+                    className="flex items-center gap-1.5 text-[12px] font-semibold transition-colors"
+                    style={{ color: lendoFonte ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.55)" }}
+                  >
+                    {lendoFonte ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                    {lendoFonte ? "Lendo o arquivo..." : fonteDoc ? "Trocar o arquivo" : "O cliente já mandou o conteúdo — anexar"}
+                  </button>
+                  <input ref={fonteInputRef} type="file" accept={EXTENSOES_ACEITAS} className="hidden"
+                    onChange={(e) => anexarFonte(e.target.files?.[0])} />
+                </div>
               </Campo>
 
               {ideias.length > 0 && (
