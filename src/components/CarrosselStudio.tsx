@@ -1521,6 +1521,10 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
       case "revista":
         // A foto entra como faixa no topo, sem texto por cima.
         return "CRITICAL COMPOSITION: horizontal banner crop, subject centred and fully visible. No text is composited over this image, so it does not need empty space.";
+      case "estudio":
+        // Modelo HTML: a foto é uma FAIXA na base (35% da altura), com degradê
+        // costurando com o papel. Nada de texto por cima dela.
+        return "CRITICAL COMPOSITION: the image becomes a WIDE HORIZONTAL BAND across the bottom third of the piece. Frame the subject so it survives a short, wide crop — centred, upper body only if it is a person, nothing important near the top or bottom edge. No text is composited over the photo, so it does not need empty space, but the upper part of the image must stay calm because it fades into the page.";
       default:
         return null;
     }
