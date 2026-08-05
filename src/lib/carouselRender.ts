@@ -3,14 +3,18 @@
  * Desenha slides prontos para publicar (1080px) em canvas, sem depender de Canva/Figma.
  */
 
-export type LayoutId = "estudio" | "vidro" | "capa" | "organico" | "agencia" | "editorial" | "impacto" | "revista" | "gradiente" | "minimal" | "foto";
+export type LayoutId =
+  | "estudio" | "dado" | "objeto" | "partido" | "citacao" | "chips" | "comparativo" | "convite"
+  | "vidro" | "capa" | "organico" | "agencia" | "editorial" | "impacto" | "revista" | "gradiente" | "minimal" | "foto";
 
 /**
  * Layouts desenhados pelo motor HTML e não pelo canvas. O app troca o caminho
  * de render por esta lista — é o que permite migrar um modelo por vez sem
  * derrubar os outros nove.
  */
-export const LAYOUTS_HTML: LayoutId[] = ["estudio"];
+export const LAYOUTS_HTML: LayoutId[] = [
+  "estudio", "dado", "objeto", "partido", "citacao", "chips", "comparativo", "convite",
+];
 export const ehLayoutHtml = (l: LayoutId) => LAYOUTS_HTML.includes(l);
 export type FormatId = "4:5" | "1:1" | "9:16";
 export type FontPairId =
@@ -113,7 +117,18 @@ export const FONT_PAIRS: Record<
 };
 
 export const LAYOUTS: { id: LayoutId; label: string; desc: string; precisaImagem?: boolean }[] = [
+  // ── Motor HTML ─────────────────────────────────────────────────────────
+  // Tipografia de verdade, degradê, marca d'água sangrando, cartões com raio
+  // grande: o acabamento que o canvas não alcança sem virar código de desenho.
   { id: "estudio", label: "Estúdio ✦", desc: "Papel quadriculado, cartão sólido de apoio, faixa de foto na base e a inicial da marca em marca d'água. Desenhado em HTML — tipografia e acabamento de peça de estúdio.", precisaImagem: true },
+  { id: "dado", label: "Dado gigante ✦", desc: "Cor cheia da marca e o número dominando a peça. Para economia, percentual, prazo — quando o argumento É o número." },
+  { id: "objeto", label: "Objeto herói ✦", desc: "Fundo escuro com glow radial dissolvendo o objeto no fundo. Para o produto, o equipamento, o documento — sem pessoa.", precisaImagem: true },
+  { id: "partido", label: "Partido ✦", desc: "Papel com o título em cima, cena fotográfica na base e tarja na palavra marcada. O mais versátil dos sete.", precisaImagem: true },
+  { id: "citacao", label: "Citação ✦", desc: "Aspas gráficas gigantes em cor cheia escura. Para frase de cliente, tese forte ou posicionamento." },
+  { id: "chips", label: "Cartões ✦", desc: "Grade de cartões técnicos sobre fundo escuro. Para etapas, requisitos ou dados que precisam ser lidos separados." },
+  { id: "comparativo", label: "Antes e depois ✦", desc: "Duas colunas confrontando a situação atual e o resultado. Escreva o corpo como \"antes → depois\"." },
+  { id: "convite", label: "Convite ✦", desc: "Retrato em tela cheia com degradê fechando na base e o convite embaixo. O mais quente dos sete.", precisaImagem: true },
+  // ── Motor de canvas ────────────────────────────────────────────────────
   { id: "vidro", label: "Vidro", desc: "Foto + cartão de vidro com o título. O padrão que mais roda no feed.", precisaImagem: true },
   { id: "capa", label: "Capa", desc: "Foto + título gigante direto na imagem, com seta e pílulas.", precisaImagem: true },
   { id: "organico", label: "Orgânico", desc: "Forma de marca gigante em cor cheia, foto recortada dentro dela e selo circular. O padrão de agência.", precisaImagem: true },

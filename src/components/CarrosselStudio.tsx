@@ -1522,9 +1522,16 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
         // A foto entra como faixa no topo, sem texto por cima.
         return "CRITICAL COMPOSITION: horizontal banner crop, subject centred and fully visible. No text is composited over this image, so it does not need empty space.";
       case "estudio":
-        // Modelo HTML: a foto é uma FAIXA na base (35% da altura), com degradê
+      case "partido":
+        // Modelos HTML de peça partida: a foto é uma FAIXA na base, com degradê
         // costurando com o papel. Nada de texto por cima dela.
         return "CRITICAL COMPOSITION: the image becomes a WIDE HORIZONTAL BAND across the bottom third of the piece. Frame the subject so it survives a short, wide crop — centred, upper body only if it is a person, nothing important near the top or bottom edge. No text is composited over the photo, so it does not need empty space, but the upper part of the image must stay calm because it fades into the page.";
+      case "objeto":
+        // O assunto flutua num halo: as quatro bordas dissolvem no fundo escuro.
+        return "CRITICAL COMPOSITION: the subject must be a SINGLE OBJECT centred in the frame, shot close, on a dark and quiet background, with generous empty space around it — the edges of the photo dissolve into darkness, so anything near a border disappears. Dramatic directional light on the object. No people.";
+      case "convite":
+        // Retrato em tela cheia com degradê pesado fechando a metade de baixo.
+        return "CRITICAL COMPOSITION: full-bleed vertical portrait. Keep the face in the UPPER THIRD of the frame and leave the lower half calm and uncluttered — a heavy gradient closes the bottom of the piece and the headline sits there.";
       default:
         return null;
     }
@@ -1729,6 +1736,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     const o = opcoesBase(i);
     if (ehLayoutHtml(layout)) {
       return await rasterizarSlide({
+        layout,
         slide: slides[i], index: i, total: slides.length,
         theme, brand, format: formatId,
         imagem: slides[i]?.imagem ?? null,
@@ -3068,6 +3076,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
               }}>
                 <div style={{ transform: `scale(${escalaPrevia})`, transformOrigin: "top left" }}>
                   <SlideHtml
+                    layout={layout}
                     slide={slides[ativo]}
                     index={ativo}
                     total={slides.length}
