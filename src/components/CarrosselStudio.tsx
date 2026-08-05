@@ -360,7 +360,12 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   /** Lote com calendário misto em vez de dez peças com o mesmo objetivo. */
   const [loteMix, setLoteMix] = useState(true);
   /** As pautas do lote ficam na tela: ela quer LER o que vai ser escrito. */
-  const [lotePautas, setLotePautas] = useState<Array<{ tema: string; gancho: string; objetivo: Objetivo; carrossel: boolean; estado: "espera" | "escrevendo" | "pronta" | "falhou" }>>([]);
+  const [lotePautas, setLotePautas] = useState<Array<{
+    tema: string; gancho: string; objetivo: Objetivo; carrossel: boolean;
+    estado: "espera" | "escrevendo" | "pronta" | "falhou";
+    /** Id na Biblioteca — é o que deixa abrir a peça direto da lista. */
+    memoriaId?: string;
+  }>>([]);
   const pararLoteRef = useRef(false);
 
   const [marcaCor, setMarcaCor] = useState("");
@@ -1041,6 +1046,10 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           design: { layout, fontPair, bg, fg, accent, formatId, acabamento },
         }).select("id").single();
 
+        // O id entra na lista assim que a peça é gravada, e não no fim do laço:
+        // assim ela já pode abrir a de nº 3 enquanto a de nº 4 está sendo escrita.
+        if (linha?.id) setLotePautas((p) => p.map((x, idx) => (idx === i ? { ...x, memoriaId: linha.id } : x)));
+
         /**
          * Marcela sozinha: o texto já está salvo, então a arte é um extra que
          * pode falhar sem levar a peça junto. Cada peça vira a peça aberta no
@@ -1060,7 +1069,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           setModoAuto(null);
         }
 
-        setLotePautas((p) => p.map((x, idx) => (idx === i ? { ...x, estado: "pronta" } : x)));
+        setLotePautas((p) => p.map((x, idx) => (idx === i ? { ...x, estado: "pronta", memoriaId: linha?.id } : x)));
         feitas++;
       }
 
@@ -2198,10 +2207,19 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                 {lotePautas.length > 0 && (
                   <div className="space-y-1 pt-1 max-h-72 overflow-y-auto pr-1">
                     {lotePautas.map((p, i) => (
-                      <div key={i} className="flex items-start gap-2 rounded-lg px-2.5 py-2"
+                      /* Peça pronta ABRE no clique. Sem isto a lista só informava
+                         que a peça existe: para ver a de nº 7 era preciso adivinhar
+                         que ela estava na Biblioteca, e a tela ficava parecendo que
+                         o lote só tinha produzido a primeira. */
+                      <div key={i}
+                        onClick={() => { if (p.memoriaId) { abrirDaBiblioteca(p.memoriaId); setMostrarBiblioteca(false); } }}
+                        role={p.memoriaId ? "button" : undefined}
+                        title={p.memoriaId ? "Abrir esta peça" : undefined}
+                        className="flex items-start gap-2 rounded-lg px-2.5 py-2"
                         style={{
                           background: p.estado === "escrevendo" ? `${LIME}12` : "rgba(255,255,255,0.03)",
                           border: `1px solid ${p.estado === "escrevendo" ? `${LIME}44` : "rgba(255,255,255,0.06)"}`,
+                          cursor: p.memoriaId ? "pointer" : "default",
                         }}>
                         <span className="text-[10px] mt-0.5 flex-shrink-0 w-4 text-center"
                           style={{ color: p.estado === "pronta" ? LIME : p.estado === "falhou" ? "#FF6060" : "rgba(255,255,255,0.3)" }}>
@@ -2223,14 +2241,18 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                           <span className="text-[9.5px]" style={{ color: "rgba(255,255,255,0.3)" }}>
                             {p.carrossel ? `carrossel · ${loteSlides}` : "post"}
                           </span>
+                          {p.memoriaId && (
+                            <span className="text-[9.5px] font-semibold" style={{ color: LIME }}>abrir →</span>
+                          )}
                         </div>
                       </div>
                     ))}
-                    {!loteAndamento && lotePautas.some((p) => p.estado === "pronta") && (
+                    {lotePautas.some((p) => p.estado === "pronta") && (
                       <button onClick={() => setMostrarBiblioteca(true)}
                         className="w-full mt-1.5 py-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5"
-                        style={{ background: "rgba(255,255,255,0.07)", color: "#EDEDED" }}>
-                        <Library className="w-3.5 h-3.5" /> Ver as peças na Biblioteca
+                        style={{ background: `${LIME}14`, color: "#EDEDED", border: `1px solid ${LIME}40` }}>
+                        <Library className="w-3.5 h-3.5" />
+                        Ver as {lotePautas.filter((p) => p.estado === "pronta").length} peças prontas na Biblioteca
                       </button>
                     )}
                   </div>
@@ -2474,6 +2496,17 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   // ── Tela 2: estúdio ────────────────────────────────────────────────────
   const slideAtivo = slides[Math.min(ativo, slides.length - 1)];
 
+  /** As peças do lote que já existem na Biblioteca, na ordem em que nasceram. */
+  const pecasDoLote = lotePautas.filter((p) => p.memoriaId);
+  const indiceNoLote = pecasDoLote.findIndex((p) => p.memoriaId === memoriaId);
+  const irParaPeca = (passo: -1 | 1) => {
+    const alvo = pecasDoLote[indiceNoLote + passo];
+    if (alvo?.memoriaId) {
+      abrirDaBiblioteca(alvo.memoriaId, true);
+      setTema(alvo.tema);
+    }
+  };
+
   return (
     <div className={embutido ? "" : "min-h-full"} style={{ background: fundo }}>
       {/* Topo */}
@@ -2506,6 +2539,46 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           </button>
         </div>
       </div>
+
+      {/* NAVEGAÇÃO DO LOTE.
+          Depois de produzir N peças, abrir uma delas trocava a tela e as outras
+          sumiam de vista — parecia que o lote tinha feito só a primeira. Aqui a
+          fila continua à mão: onde você está, quantas existem e como ir para a
+          próxima sem voltar à Biblioteca. */}
+      {pecasDoLote.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2 px-4 md:px-6 py-2 border-b"
+          style={{ borderColor: "rgba(255,255,255,0.07)", background: `${LIME}0A` }}>
+          <span className="text-[11px] font-semibold" style={{ color: LIME }}>
+            {indiceNoLote >= 0 ? `Peça ${indiceNoLote + 1} de ${pecasDoLote.length}` : `Lote com ${pecasDoLote.length} peças`}
+          </span>
+          <span className="text-[11px] truncate min-w-0 flex-1" style={{ color: "rgba(255,255,255,0.4)" }}>
+            {indiceNoLote >= 0 ? (pecasDoLote[indiceNoLote].gancho || pecasDoLote[indiceNoLote].tema) : ""}
+          </span>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <button onClick={() => irParaPeca(-1)} disabled={indiceNoLote <= 0}
+              className="px-2 py-1 rounded-lg text-[11px] font-semibold"
+              style={{
+                background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.7)",
+                opacity: indiceNoLote <= 0 ? 0.35 : 1,
+              }}>
+              ‹ anterior
+            </button>
+            <button onClick={() => irParaPeca(1)} disabled={indiceNoLote < 0 || indiceNoLote >= pecasDoLote.length - 1}
+              className="px-2 py-1 rounded-lg text-[11px] font-semibold"
+              style={{
+                background: LIME, color: "#07080A",
+                opacity: indiceNoLote < 0 || indiceNoLote >= pecasDoLote.length - 1 ? 0.35 : 1,
+              }}>
+              próxima ›
+            </button>
+            <button onClick={() => setMostrarBiblioteca(true)}
+              className="px-2 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1"
+              style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.7)" }}>
+              <Library className="w-3 h-3" /> todas
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col lg:flex-row" style={{ minHeight: alturaPainel }}>
         {/* Painel esquerdo */}
