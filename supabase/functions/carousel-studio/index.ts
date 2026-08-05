@@ -589,10 +589,39 @@ const objetivoGuia: Record<string, string> = {
  * onde ela lê o briefing e escreve o que quiser: aqui inventar assunto novo é
  * defeito, porque o cliente vai comparar a peça com o que mandou.
  */
+/** Teto do material somado. Acima disso o modelo perde o fio e a conta cresce. */
+const TETO_FONTE = 60_000;
+
+/**
+ * Aceita um documento ou VÁRIOS.
+ *
+ * A Carol pede o anexo no começo do estúdio, valendo para tudo que ela escolher
+ * depois — e material de cliente costuma vir em pedaços (o comunicado, a tabela
+ * de preços, o release). Cada arquivo entra identificado pelo nome, para a
+ * Marcela poder dizer de qual veio cada dado.
+ */
+function normalizarFontes(doc: unknown): Array<{ nome: string; conteudo: string }> {
+  const bruto = Array.isArray(doc) ? doc : [doc];
+  const fora: Array<{ nome: string; conteudo: string }> = [];
+  let usado = 0;
+  for (const item of bruto) {
+    const d = (item ?? {}) as { nome?: string; conteudo?: string };
+    const texto = (d.conteudo ?? "").trim();
+    if (!texto || usado >= TETO_FONTE) continue;
+    const fatia = texto.slice(0, TETO_FONTE - usado);
+    usado += fatia.length;
+    fora.push({ nome: d.nome ?? "documento", conteudo: fatia });
+  }
+  return fora;
+}
+
 function blocoDeFonte(doc: unknown, literal = false): string {
-  const d = (doc ?? {}) as { nome?: string; conteudo?: string };
-  const texto = (d.conteudo ?? "").trim();
-  if (!texto) return "";
+  const docs = normalizarFontes(doc);
+  if (!docs.length) return "";
+  const texto = docs.length === 1
+    ? docs[0].conteudo
+    : docs.map((d) => `### ${d.nome}\n${d.conteudo}`).join("\n\n");
+  const nomes = docs.map((d) => d.nome).join(", ");
 
   /**
    * Dois níveis de fidelidade, porque "usar o conteúdo do cliente" quer dizer
@@ -613,6 +642,11 @@ function blocoDeFonte(doc: unknown, literal = false): string {
       "2. Você PODE: escolher quais trechos entram, em que ordem e em qual slide; cortar uma frase longa pelas bordas; separar uma frase em duas linhas.",
       "3. Você NÃO PODE: trocar palavra por sinônimo, mudar a ordem das palavras dentro da frase, ajustar o tom, 'melhorar' a redação, criar frase que não existe no documento.",
       "4. O TÍTULO de cada slide é um trecho do próprio documento — a frase (ou o pedaço de frase) que carrega aquela ideia. Se nenhum trecho couber no limite de caracteres, use o mais curto que preserve o sentido, cortando pelas bordas, nunca reescrevendo.",
+      "4a. O trecho do título COMEÇA no início de uma oração e tem sujeito. Título que abre no meio da frase ('passa a ocorrer entre os dias 8 e 12') fica sem pé; o certo é começar onde a oração começa ('A leitura passa a ocorrer entre os dias 8 e 12'). Se a oração inteira não couber, corte o FIM dela, não o começo.",
+      "4b. Duas liberdades de FORMATAÇÃO, e só estas: maiúscula na primeira letra do trecho, e ponto final que sobrou de um corte pode sair. Nada disso muda palavra.",
+      "4c. PERGUNTA entra inteira, com o ponto de interrogação ('Quanto tempo leva para o desconto aparecer?'). Cortar a pergunta ao meio ('Quanto tempo leva para o desconto') deixa o slide sem sentido.",
+      "4d. Cabeçalho e rótulo do arquivo — 'PERGUNTAS FREQUENTES', 'COMUNICADO AOS ASSOCIADOS', numeração de seção, cabeçalho de tabela — são identificação do documento, NÃO conteúdo. Nunca use como corpo de slide. O conteúdo começa na primeira frase de verdade.",
+      "4e. Título e corpo do MESMO slide falam do MESMO assunto: o corpo é a continuação do trecho que virou título, no mesmo parágrafo ou na mesma resposta do documento. Slide com título sobre o vencimento do boleto e corpo sobre a data de leitura são dois assuntos colados — vira dois slides, ou escolhe-se um.",
       "5. Só é permitido acrescentar palavra fora do documento em UM lugar: o texto do botão do slide final. Todo o resto é do cliente.",
       "6. Marque a ênfase com *asteriscos* em palavras que JÁ ESTÃO na frase — a marcação é formatação, não texto novo.",
       "7. A legenda também é montada com trechos do documento, na ordem dele.",
@@ -629,11 +663,30 @@ function blocoDeFonte(doc: unknown, literal = false): string {
     ];
 
   return [
-    `CONTEÚDO ENVIADO PELO CLIENTE — é ESTE material que vira o carrossel (arquivo: ${d.nome ?? "documento"}):`,
+    `CONTEÚDO ENVIADO PELO CLIENTE — é ESTE material que vira o conteúdo (${docs.length > 1 ? `${docs.length} arquivos` : "arquivo"}: ${nomes}):`,
     "```",
-    texto.slice(0, 24000),
+    texto,
     "```",
     regras.join("\n"),
+  ].join("\n");
+}
+
+/**
+ * Versão curta da fonte, para a ação `ideias`.
+ *
+ * Pauta não precisa das regras de fidelidade (nada é escrito ainda), mas precisa
+ * NASCER do material — senão a Carol anexa o documento no começo, pede pautas e
+ * recebe assunto genérico do nicho, que é o oposto do que ela pediu.
+ */
+function blocoDeFonteParaPautas(doc: unknown): string {
+  const docs = normalizarFontes(doc);
+  if (!docs.length) return "";
+  return [
+    `MATERIAL QUE O CLIENTE ENVIOU (${docs.map((d) => d.nome).join(", ")}) — as pautas saem DAQUI:`,
+    "```",
+    docs.map((d) => `### ${d.nome}\n${d.conteudo}`).join("\n\n"),
+    "```",
+    "Cada pauta tem que corresponder a um trecho REAL deste material — um assunto, um dado, uma regra que está escrita aí. Não proponha tema que o material não sustenta, mesmo que seja bom para o nicho. Se o material não der o número de pautas pedido, devolva menos.",
   ].join("\n");
 }
 
@@ -818,8 +871,16 @@ Se a referência é uma agência verde e o cliente é uma clínica, a resposta n
         ].join("\n")
         : `Marque cada pauta com o objetivo dela no campo \`objetivo\` (${Object.keys(objetivoGuia).join(", ")}).`;
 
+      // O material que a Carol anexou no topo do estúdio vale para TUDO que ela
+      // pedir depois — inclusive as pautas. Sem isto ela anexava o documento e
+      // recebia assunto genérico do nicho.
+      const fontePautas = blocoDeFonteParaPautas(body.documentoFonte);
+
       const partes = [
-        `${cabecalhoMarca}Gere ${quantas} pautas de conteúdo para o nicho: ${nicho}.`,
+        fontePautas
+          ? `${cabecalhoMarca}Gere ${quantas} pautas a partir do material enviado pelo cliente (nicho: ${nicho}).`
+          : `${cabecalhoMarca}Gere ${quantas} pautas de conteúdo para o nicho: ${nicho}.`,
+        fontePautas,
         quantas > 1 ? `As ${quantas} precisam ser assuntos DIFERENTES entre si — nada de variação da mesma ideia com outro título.` : "",
         blocoMix,
         blocoDeMaterial(body.documentos),
