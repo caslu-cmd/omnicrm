@@ -442,6 +442,19 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   const cliente = clients.find((c) => c.id === clienteId);
   const noEstudio = slides.length > 0;
 
+  /**
+   * Público e tom que vêm do briefing do cliente, quando os campos do estúdio
+   * ficam vazios. É a MESMA leitura que o `contextoCliente()` faz na hora de
+   * chamar a IA — aqui ela só sobe para a tela, para a Carol ver para quem a
+   * peça está sendo escrita antes de mandar escrever.
+   */
+  const briefingDoCliente = useMemo<Record<string, unknown> | null>(() => {
+    if (!cliente) return null;
+    try { return JSON.parse(localStorage.getItem(`client-briefing-${cliente.id}`) ?? "null"); } catch { return null; }
+  }, [cliente]);
+  const publicoDoBriefing = String(briefingDoCliente?.publicoAlvo ?? "").trim();
+  const tomDoBriefing = String(briefingDoCliente?.tomDeVoz ?? "").trim();
+
   // `accent2` só entra quando a identidade está travada: solta, quem manda na
   // paleta é a direção de arte, e fixar um tom por trás dela seria sabotagem.
   const theme: Theme = useMemo(
@@ -2321,12 +2334,28 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                 </div>
               </Campo>
 
+              {/* Público e tom são herdados do briefing do cliente quando ficam
+                  vazios — e essa herança era invisível: a Carol não tinha como
+                  saber para quem a peça estava sendo escrita sem abrir o
+                  briefing. Agora o valor herdado aparece embaixo do campo. */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Campo label="Público (opcional)">
-                  <input value={publico} onChange={(e) => setPublico(e.target.value)} placeholder="donos de PME" style={inputStyle} />
+                  <input value={publico} onChange={(e) => setPublico(e.target.value)}
+                    placeholder={publicoDoBriefing || "donos de PME"} style={inputStyle} />
+                  {!publico.trim() && publicoDoBriefing && (
+                    <div className="text-[10px] mt-1 leading-snug" style={{ color: "rgba(255,255,255,0.4)" }}>
+                      Usando o do briefing de {cliente?.name ?? "cliente"}: <span style={{ color: LIME }}>{publicoDoBriefing}</span>
+                    </div>
+                  )}
                 </Campo>
                 <Campo label="Tom de voz (opcional)">
-                  <input value={tom} onChange={(e) => setTom(e.target.value)} placeholder="direto, sem juridiquês" style={inputStyle} />
+                  <input value={tom} onChange={(e) => setTom(e.target.value)}
+                    placeholder={tomDoBriefing || "direto, sem juridiquês"} style={inputStyle} />
+                  {!tom.trim() && tomDoBriefing && (
+                    <div className="text-[10px] mt-1 leading-snug" style={{ color: "rgba(255,255,255,0.4)" }}>
+                      Usando o do briefing: <span style={{ color: LIME }}>{tomDoBriefing}</span>
+                    </div>
+                  )}
                 </Campo>
               </div>
 
