@@ -17,6 +17,7 @@ import {
   ModeloChips, ModeloCitacao, ModeloComparativo, ModeloConvite,
   ModeloDado, ModeloObjeto, ModeloPartido, type ModeloProps,
 } from "@/components/slides/ModelosEmana";
+import ModeloGenerativo, { type Composicao } from "@/components/slides/ModeloGenerativo";
 
 export interface SlideHtmlProps {
   slide: SlideData;
@@ -33,6 +34,11 @@ export interface SlideHtmlProps {
   fatia?: { parte: number; de: number };
   /** Qual modelo HTML desenhar. Sem isso, o "estudio". */
   layout?: LayoutId;
+  /**
+   * A peça projetada pelo diretor de arte. Quando vem, MANDA — é ela que
+   * permite peça nova em vez de escolha entre modelos prontos.
+   */
+  composicao?: Composicao | null;
 }
 
 /**
@@ -104,6 +110,17 @@ function claro(hex: string): boolean {
  */
 const SlideHtml = forwardRef<HTMLDivElement, SlideHtmlProps>(function SlideHtml(props, ref) {
   const { slide, index, total, theme, brand, format, imagem, mostrarNumero, mostrarArraste, fatia } = props;
+
+  // A peça projetada tem prioridade sobre qualquer modelo pronto.
+  if (props.composicao) {
+    const [Wc, Hc] = FORMAT_SIZE[format];
+    return (
+      <div ref={ref} style={{ width: Wc, height: Hc, overflow: "hidden" }}>
+        <ModeloGenerativo slide={slide} index={index} total={total} theme={theme}
+          brand={brand} format={format} imagem={imagem} composicao={props.composicao} />
+      </div>
+    );
+  }
 
   // Modelo irmão: desenha o dele e sai. O wrapper tem o tamanho EXATO da peça —
   // `display:contents` não serviria, porque o rasterizador fotografa o primeiro

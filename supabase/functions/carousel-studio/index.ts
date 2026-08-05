@@ -239,6 +239,39 @@ const DIRECAO_SCHEMA = {
             type: "string",
             enum: ["estudio", "dado", "objeto", "partido", "citacao", "chips", "comparativo", "convite"],
           },
+          /**
+           * A peça PROJETADA, zona por zona.
+           *
+           * Sem isto o diretor só escolhia entre modelos prontos, e o feed do
+           * cliente repetia as mesmas caras. Aqui ele desenha a composição; o
+           * `layout` acima passa a ser o plano B quando a composição não vier.
+           */
+          composicao: {
+            type: "object",
+            properties: {
+              fundo: { type: "string", enum: ["papel", "cor-cheia", "escuro", "foto-cheia", "duotone"] },
+              foto: {
+                type: "string",
+                enum: ["nenhuma", "faixa-base", "faixa-topo", "coluna-esquerda", "coluna-direita", "tela-cheia", "circulo", "arco"],
+              },
+              foto_peso: { type: "number" },
+              texto_ancora: { type: "string", enum: ["topo", "centro", "base"] },
+              texto_alinha: { type: "string", enum: ["esquerda", "centro"] },
+              texto_largura: { type: "number" },
+              titulo_escala: { type: "string", enum: ["grande", "gigante", "colossal"] },
+              titulo_peso: { type: "string", enum: ["fino", "medio", "pesado"] },
+              titulo_caixa: { type: "string", enum: ["normal", "alta"] },
+              enfase: { type: "string", enum: ["tarja", "cor", "peso", "sublinhado"] },
+              destaque: { type: "string", enum: ["nenhum", "numero-gigante", "pilula", "selo-circular", "chip-lateral"] },
+              apoio: { type: "string", enum: ["nenhum", "cartao", "lista", "linha-fina"] },
+              ornamento: { type: "string", enum: ["nenhum", "inicial-gigante", "malha", "faixa-cor", "moldura"] },
+            },
+            required: [
+              "fundo", "foto", "foto_peso", "texto_ancora", "texto_alinha", "texto_largura",
+              "titulo_escala", "titulo_peso", "titulo_caixa", "enfase", "destaque", "apoio", "ornamento",
+            ],
+            additionalProperties: false,
+          },
           fonte: {
             type: "string",
             enum: ["editorial", "impacto", "moderno", "tecnico", "manchete", "esportivo", "luxo",
@@ -253,7 +286,7 @@ const DIRECAO_SCHEMA = {
             enum: ["nenhum", "grao", "glow", "cinema"],
           },
         },
-        required: ["nome", "referencia", "porque", "layout", "fonte", "bg", "fg", "accent", "acabamento"],
+        required: ["nome", "referencia", "porque", "layout", "composicao", "fonte", "bg", "fg", "accent", "acabamento"],
         additionalProperties: false,
       },
     },
@@ -562,6 +595,23 @@ Em "dica_visual", uma orientação curta de direção de arte para esta peça es
 
 const DIRETOR_SYSTEM = `Você é o diretor de arte de uma agência brasileira que compete com Pentagram, Wieden+Kennedy e Porto Rocha.
 Seu trabalho: olhar o segmento do cliente, lembrar de como as MARCAS E AGÊNCIAS DE REFERÊNCIA REAIS daquele mercado tratam identidade visual, e traduzir isso em uma direção aplicável.
+
+VOCÊ PROJETA A PEÇA, NÃO ESCOLHE UMA PRONTA. O campo "composicao" é o seu desenho, zona por zona, e é ele que vira a arte:
+- "fundo": papel (claro, editorial), cor-cheia (a cor da marca ocupando tudo), escuro, foto-cheia (a foto É o fundo) ou duotone (dois tons da marca em diagonal).
+- "foto": onde e com que FORMA a imagem entra — nenhuma, faixa-base, faixa-topo, coluna-esquerda, coluna-direita, tela-cheia, circulo (recorte redondo no meio) ou arco (topo arredondado, base reta). "foto_peso" é quanto da peça ela ocupa, de 0.2 a 0.6.
+- "texto_ancora" (topo/centro/base) e "texto_alinha" (esquerda/centro) decidem a diagramação. "texto_largura" de 0.5 a 1: texto estreito ao lado de foto em coluna, largo quando a peça é só tipografia.
+- "titulo_escala": grande, gigante ou colossal. Colossal é para frase curta — três palavras que ocupam a peça.
+- "titulo_peso": fino (200, editorial e elegante), medio, pesado (800, impacto e urgência). "titulo_caixa": normal ou alta.
+- "enfase": como a palavra marcada aparece — tarja (faixa de cor atrás), cor, peso ou sublinhado.
+- "destaque": o que fazer com o dado curto — numero-gigante, pilula, selo-circular, chip-lateral ou nenhum.
+- "apoio": como o corpo se apresenta — cartao, lista, linha-fina (filete de cor antes do texto) ou nenhum.
+- "ornamento": o que estrutura o fundo — inicial-gigante da marca sangrando, malha quadriculada, faixa-cor no topo, moldura, ou nenhum.
+
+REGRAS DA COMPOSIÇÃO:
+- Ela nasce do CONTEÚDO. Frase curta e forte pede colossal com fundo em cor cheia; dado pede numero-gigante; lista pede apoio "lista"; depoimento pede fino e centrado; produto pede foto em circulo ou arco.
+- As três direções precisam ter composições DE VERDADE diferentes: se as três têm foto em faixa-base e texto na base, você entregou a mesma peça três vezes.
+- Combinação proibida por legibilidade: texto ancorado no centro com foto tela-cheia e ornamento moldura ao mesmo tempo — a peça vira sopa. Escolha no máximo DOIS gestos fortes por peça.
+- Se não houver foto disponível, não peça foto: use fundo em cor, ornamento e tipografia grande.
 
 PADRÃO SÊNIOR — não é preferência, é o piso de qualidade desta casa. Vale em TODA direção que você entregar:
 - HIERARQUIA: em cada peça existe UM elemento dominante e o resto obedece. Se dois elementos disputam o olho, a peça é de estagiário. O dominante costuma ser o número, a palavra marcada ou a foto — nunca os três.

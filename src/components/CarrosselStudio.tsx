@@ -22,6 +22,7 @@ import SlideHtml from "@/components/SlideHtml";
 import { rasterizarSlide } from "@/lib/rasterizarSlide";
 import { lerDocumento, EXTENSOES_ACEITAS, type DocumentoLido } from "@/lib/lerDocumento";
 import { erroDaFuncao } from "@/lib/erroDaFuncao";
+import type { Composicao } from "@/components/slides/ModeloGenerativo";
 
 const LIME = "#B9FF4B";
 const BG = "#07080A";
@@ -33,6 +34,8 @@ interface Ideia { tema: string; gancho: string; formato: string; porque: string 
 interface Skill { id: string; tipo: "copy" | "design"; nome: string; resumo: string; instrucoes: string; nativa: boolean }
 interface Direcao {
   nome: string; referencia: string; porque: string;
+  /** A peça projetada zona por zona. Direção antiga não tem — daí o opcional. */
+  composicao?: Composicao;
   layout: LayoutId; fonte: FontPairId; bg: string; fg: string; accent: string;
   acabamento?: AcabamentoId;
 }
@@ -258,6 +261,12 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   const [formatId, setFormatId] = useState<FormatId>("4:5");
   const [fontPair, setFontPair] = useState<FontPairId>("editorial");
   const [acabamento, setAcabamento] = useState<AcabamentoId>("nenhum");
+  /**
+   * A peça projetada pelo diretor de arte nesta direção. Quando existe, ela
+   * manda no desenho — é o que permite peça NOVA em vez de escolha entre
+   * modelos prontos. Vive junto do design e é salva com ele na Biblioteca.
+   */
+  const [composicao, setComposicao] = useState<Composicao | null>(null);
   const [paleta, setPaleta] = useState(PALETTES[0]);
   const [bg, setBg] = useState(PALETTES[0].bg);
   const [fg, setFg] = useState(PALETTES[0].fg);
@@ -747,7 +756,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           slides: slides.map((s) => ({ ...s, imagem: s.imagemUrl ?? null })),
           legenda,
           hashtags,
-          design: { layout, fontPair, bg, fg, accent, formatId, acabamento },
+          design: { layout, fontPair, bg, fg, accent, formatId, acabamento, composicao },
         })
         .eq("id", memoriaId)
         .then(() => undefined, () => undefined);
@@ -965,6 +974,9 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
 
   const aplicarDirecao = (d: Direcao) => {
     setLayout(d.layout);
+    // A peça PROJETADA nesta direção manda no desenho; o `layout` acima vira o
+    // plano B, para direção antiga que não traz composição.
+    setComposicao(d.composicao ?? null);
     setBg(d.bg);
     setFg(d.fg);
     if (d.acabamento) setAcabamento(d.acabamento);
@@ -1104,7 +1116,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           slides: roteiro,
           legenda: data.legenda ?? "",
           hashtags: data.hashtags ?? [],
-          design: { layout, fontPair, bg, fg, accent, formatId, acabamento },
+          design: { layout, fontPair, bg, fg, accent, formatId, acabamento, composicao },
         }).select("id").single();
 
         // O id entra na lista assim que a peça é gravada, e não no fim do laço:
@@ -1448,7 +1460,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
             slides: novos,
             legenda: legendaFinal,
             hashtags: hashtagsFinais,
-            design: { layout, fontPair, bg, fg, accent, formatId, acabamento },
+            design: { layout, fontPair, bg, fg, accent, formatId, acabamento, composicao },
           }).select("id").single();
           if (salvo?.id) setMemoriaId(salvo.id as string);
           carregarMemoria();
@@ -1784,7 +1796,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     const o = opcoesBase(i);
     if (ehLayoutHtml(layout)) {
       return await rasterizarSlide({
-        layout,
+        layout, composicao,
         slide: slides[i], index: i, total: slides.length,
         theme, brand, format: formatId,
         imagem: slides[i]?.imagem ?? null,
@@ -3237,6 +3249,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                 <div style={{ transform: `scale(${escalaPrevia})`, transformOrigin: "top left" }}>
                   <SlideHtml
                     layout={layout}
+                    composicao={composicao}
                     slide={slides[ativo]}
                     index={ativo}
                     total={slides.length}
