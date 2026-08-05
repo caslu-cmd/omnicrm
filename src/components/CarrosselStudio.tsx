@@ -335,6 +335,28 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
       setFonteDocs((prev) => [...prev.filter((p) => !lidos.some((l) => l.nome === p.nome)), ...lidos]);
       const chars = lidos.reduce((s, d) => s + d.conteudo.length, 0);
       toast.success(`${lidos.length === 1 ? lidos[0].nome : `${lidos.length} arquivos`} — ${chars.toLocaleString("pt-BR")} caracteres lidos.`);
+
+      /**
+       * O material FICA SALVO no cliente.
+       *
+       * Antes ele vivia só no estado da tela: fechar o estúdio ou trocar de
+       * cliente perdia o arquivo, e a Carol tinha que anexar de novo a cada
+       * peça. O texto extraído é o que vale (o arquivo em si não sobe), então
+       * gravar é barato e vale em qualquer máquina — mesma decisão do briefing
+       * e da identidade da marca.
+       */
+      if (clienteId) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await (supabase as any).from("studio_material").upsert(
+            lidos.map((d) => ({
+              user_id: session.user.id, client_id: clienteId,
+              nome: d.nome, conteudo: d.conteudo.slice(0, 60000),
+            })),
+            { onConflict: "user_id,client_id,nome" },
+          );
+        }
+      }
     } finally {
       setLendoFonte(false);
       // Permite reanexar o MESMO arquivo depois de remover.
@@ -655,6 +677,24 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   }, [clienteId]);
 
   useEffect(() => { carregarMemoria(); }, [carregarMemoria]);
+
+  /** O material salvo do cliente volta sozinho ao abrir o estúdio. */
+  useEffect(() => {
+    if (!clienteId) { setFonteDocs([]); return; }
+    let vivo = true;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("studio_material")
+        .select("nome, conteudo")
+        .eq("client_id", clienteId)
+        .order("created_at", { ascending: false })
+        .limit(8);
+      if (!vivo) return;
+      setFonteDocs(((data ?? []) as Array<{ nome: string; conteudo: string }>)
+        .map((d) => ({ nome: d.nome, conteudo: d.conteudo })));
+    })();
+    return () => { vivo = false; };
+  }, [clienteId]);
 
   /**
    * Referências visuais que o diretor de arte OLHA antes de decidir.
@@ -1995,6 +2035,106 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     </div>
   );
 
+  /**
+   * A Biblioteca é um modal, e ela precisa existir nas DUAS telas.
+   *
+   * Estava só na tela do estúdio: na tela de briefing — que é justamente onde
+   * fica o botão "ver as N peças prontas" depois de um lote — o clique
+   * acendia o estado e não abria nada, porque o JSX do modal não estava
+   * montado ali. Como const, ele é renderizado nas duas.
+   */
+  const modalBiblioteca = mostrarBiblioteca ? (
+
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-5"
+          style={{ background: "rgba(0,0,0,0.86)", backdropFilter: "blur(10px)" }}
+          onClick={() => setMostrarBiblioteca(false)}>
+          <div onClick={(e) => e.stopPropagation()}
+            className="w-full rounded-2xl overflow-hidden flex flex-col"
+            style={{ maxWidth: 760, maxHeight: "86vh", background: "#0D0F12", border: "1px solid rgba(255,255,255,0.1)" }}>
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+              <div className="flex items-center gap-2">
+                <Library className="w-4 h-4" style={{ color: LIME }} />
+                <span className="text-sm font-bold" style={{ color: "#F0F0F0" }}>
+                  Biblioteca de {cliente?.name ?? "cliente"}
+                </span>
+              </div>
+              <button onClick={() => setMostrarBiblioteca(false)} className="p-1.5 rounded-lg"
+                style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}>
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            {/* Depois de um lote, quase tudo aqui está sem arte. Fazer uma a uma
+                é o trabalho braçal que ela justamente não quer. */}
+            {memoria.some((m) => !m.slides?.some((s) => s.imagem)) && (
+              <button onClick={darArteEmTodas} disabled={!!loteAndamento || !!modoAuto}
+                className="mx-4 mt-3 py-2.5 rounded-xl text-[11.5px] font-bold flex items-center justify-center gap-2 disabled:opacity-40"
+                style={{ background: LIME, color: "#07080A" }}>
+                <Sparkles className="w-3.5 h-3.5" />
+                Gerar a arte das {memoria.filter((m) => !m.slides?.some((s) => s.imagem)).length} peças que faltam
+              </button>
+            )}
+            <div className="overflow-y-auto p-4 space-y-2">
+              {memoria.length === 0 && (
+                <div className="text-[12px] text-center py-8" style={{ color: "rgba(255,255,255,0.35)" }}>
+                  Nenhum conteúdo criado ainda para este cliente.
+                </div>
+              )}
+              {memoria.map((m) => (
+                <div key={m.id}
+                  className="w-full text-left rounded-xl p-3.5 transition-all"
+                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.borderColor = `${LIME}55`)}
+                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)")}>
+                  <div className="flex gap-3">
+                    <MiniPeca item={m} brand={brand} fontesOk={fontesOk} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="text-[13px] font-semibold" style={{ color: "#EDEDED" }}>{m.tema}</span>
+                        <span className="text-[10px] flex-shrink-0 mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>
+                          {new Date(m.created_at).toLocaleDateString("pt-BR")}
+                        </span>
+                      </div>
+                      {m.angulo && (
+                        <div className="text-[11px] mt-1 leading-relaxed" style={{ color: "rgba(255,255,255,0.42)" }}>{m.angulo}</div>
+                      )}
+                      <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-2 text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                        {m.slides?.length ? <span>{m.slides.length} slides</span> : null}
+                        {m.design?.layout ? <span>· {LAYOUTS.find((l) => l.id === m.design?.layout)?.label}</span> : null}
+                        {m.design?.fontPair ? <span>· {FONT_PAIRS[m.design.fontPair]?.label}</span> : null}
+                        {m.design?.acabamento && m.design.acabamento !== "nenhum"
+                          ? <span>· {ACABAMENTOS.find((a) => a.id === m.design?.acabamento)?.label}</span> : null}
+                        {m.design?.accent ? (
+                          <span className="inline-block rounded-full" style={{ width: 8, height: 8, background: m.design.accent }} />
+                        ) : null}
+                      </div>
+                      {/* Duas saídas por peça: abrir para mexer no texto, ou
+                          mandar a Marcela dar arte. Depois de um lote, a
+                          segunda é a que ela vai usar dezesseis vezes. */}
+                      <div className="flex items-center gap-2 mt-2.5">
+                        <button onClick={() => abrirDaBiblioteca(m.id)}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10.5px] font-semibold"
+                          style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.72)" }}>
+                          <FolderOpen className="w-3 h-3" /> Abrir
+                        </button>
+                        <button onClick={() => gerarArteDaBiblioteca(m.id)} disabled={!!modoAuto}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10.5px] font-bold disabled:opacity-40"
+                          style={{ background: LIME, color: "#07080A" }}>
+                          <Sparkles className="w-3 h-3" />
+                          {m.slides?.some((s) => s.imagem) ? "Refazer a arte" : "Gerar a arte"}
+                        </button>
+                        {m.slides?.some((s) => s.imagem) && (
+                          <span className="text-[10px]" style={{ color: LIME }}>✓ com arte</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      
+  ) : null;
   // ── Tela 1: briefing ───────────────────────────────────────────────────
   if (!noEstudio) {
     return (
@@ -2056,8 +2196,8 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                 </div>
                 <div className="text-[10px] leading-snug" style={{ color: "rgba(255,255,255,0.42)" }}>
                   {temFonte
-                    ? "Tudo que você pedir daqui para baixo sai deste material — as pautas, o lote e a peça avulsa."
-                    : "Anexe o que o cliente mandou (PDF, Word ou texto) e tudo abaixo passa a se basear nele. Sem anexo, a Beatriz escreve a partir do briefing e do nicho."}
+                    ? "Tudo que você pedir daqui para baixo sai deste material — as pautas, o lote e a peça avulsa. Fica salvo neste cliente: da próxima vez ele já vem aqui."
+                    : "Anexe o que o cliente mandou (PDF, Word ou texto) e tudo abaixo passa a se basear nele. Fica salvo no cliente. Sem anexo, a Beatriz escreve a partir do briefing e do nicho."}
                 </div>
 
                 {fonteDocs.length > 0 && (
@@ -2072,7 +2212,18 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                             {d.conteudo.length.toLocaleString("pt-BR")} caracteres lidos
                           </div>
                         </div>
-                        <button onClick={() => setFonteDocs((p) => p.filter((x) => x.nome !== d.nome))} title="Remover"
+                        <button
+                          onClick={async () => {
+                            setFonteDocs((p) => p.filter((x) => x.nome !== d.nome));
+                            // Remover na tela remove no cliente também: material
+                            // que "some" e volta no próximo acesso é pior que
+                            // não ter salvo.
+                            if (clienteId) {
+                              await (supabase as any).from("studio_material")
+                                .delete().eq("client_id", clienteId).eq("nome", d.nome);
+                            }
+                          }}
+                          title="Remover"
                           className="p-1 rounded-lg flex-shrink-0"
                           style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}>
                           <X className="w-3.5 h-3.5" />
@@ -2530,6 +2681,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
             </div>
           </motion.div>
         </div>
+        {modalBiblioteca}
       </div>
     );
   }
@@ -3163,96 +3315,8 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
         </div>
       )}
 
-      {mostrarBiblioteca && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-5"
-          style={{ background: "rgba(0,0,0,0.86)", backdropFilter: "blur(10px)" }}
-          onClick={() => setMostrarBiblioteca(false)}>
-          <div onClick={(e) => e.stopPropagation()}
-            className="w-full rounded-2xl overflow-hidden flex flex-col"
-            style={{ maxWidth: 760, maxHeight: "86vh", background: "#0D0F12", border: "1px solid rgba(255,255,255,0.1)" }}>
-            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-              <div className="flex items-center gap-2">
-                <Library className="w-4 h-4" style={{ color: LIME }} />
-                <span className="text-sm font-bold" style={{ color: "#F0F0F0" }}>
-                  Biblioteca de {cliente?.name ?? "cliente"}
-                </span>
-              </div>
-              <button onClick={() => setMostrarBiblioteca(false)} className="p-1.5 rounded-lg"
-                style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}>
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-            {/* Depois de um lote, quase tudo aqui está sem arte. Fazer uma a uma
-                é o trabalho braçal que ela justamente não quer. */}
-            {memoria.some((m) => !m.slides?.some((s) => s.imagem)) && (
-              <button onClick={darArteEmTodas} disabled={!!loteAndamento || !!modoAuto}
-                className="mx-4 mt-3 py-2.5 rounded-xl text-[11.5px] font-bold flex items-center justify-center gap-2 disabled:opacity-40"
-                style={{ background: LIME, color: "#07080A" }}>
-                <Sparkles className="w-3.5 h-3.5" />
-                Gerar a arte das {memoria.filter((m) => !m.slides?.some((s) => s.imagem)).length} peças que faltam
-              </button>
-            )}
-            <div className="overflow-y-auto p-4 space-y-2">
-              {memoria.length === 0 && (
-                <div className="text-[12px] text-center py-8" style={{ color: "rgba(255,255,255,0.35)" }}>
-                  Nenhum conteúdo criado ainda para este cliente.
-                </div>
-              )}
-              {memoria.map((m) => (
-                <div key={m.id}
-                  className="w-full text-left rounded-xl p-3.5 transition-all"
-                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.borderColor = `${LIME}55`)}
-                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)")}>
-                  <div className="flex gap-3">
-                    <MiniPeca item={m} brand={brand} fontesOk={fontesOk} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-3">
-                        <span className="text-[13px] font-semibold" style={{ color: "#EDEDED" }}>{m.tema}</span>
-                        <span className="text-[10px] flex-shrink-0 mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>
-                          {new Date(m.created_at).toLocaleDateString("pt-BR")}
-                        </span>
-                      </div>
-                      {m.angulo && (
-                        <div className="text-[11px] mt-1 leading-relaxed" style={{ color: "rgba(255,255,255,0.42)" }}>{m.angulo}</div>
-                      )}
-                      <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-2 text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>
-                        {m.slides?.length ? <span>{m.slides.length} slides</span> : null}
-                        {m.design?.layout ? <span>· {LAYOUTS.find((l) => l.id === m.design?.layout)?.label}</span> : null}
-                        {m.design?.fontPair ? <span>· {FONT_PAIRS[m.design.fontPair]?.label}</span> : null}
-                        {m.design?.acabamento && m.design.acabamento !== "nenhum"
-                          ? <span>· {ACABAMENTOS.find((a) => a.id === m.design?.acabamento)?.label}</span> : null}
-                        {m.design?.accent ? (
-                          <span className="inline-block rounded-full" style={{ width: 8, height: 8, background: m.design.accent }} />
-                        ) : null}
-                      </div>
-                      {/* Duas saídas por peça: abrir para mexer no texto, ou
-                          mandar a Marcela dar arte. Depois de um lote, a
-                          segunda é a que ela vai usar dezesseis vezes. */}
-                      <div className="flex items-center gap-2 mt-2.5">
-                        <button onClick={() => abrirDaBiblioteca(m.id)}
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10.5px] font-semibold"
-                          style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.72)" }}>
-                          <FolderOpen className="w-3 h-3" /> Abrir
-                        </button>
-                        <button onClick={() => gerarArteDaBiblioteca(m.id)} disabled={!!modoAuto}
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10.5px] font-bold disabled:opacity-40"
-                          style={{ background: LIME, color: "#07080A" }}>
-                          <Sparkles className="w-3 h-3" />
-                          {m.slides?.some((s) => s.imagem) ? "Refazer a arte" : "Gerar a arte"}
-                        </button>
-                        {m.slides?.some((s) => s.imagem) && (
-                          <span className="text-[10px]" style={{ color: LIME }}>✓ com arte</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      {modalBiblioteca}
+
     </div>
   );
 }
