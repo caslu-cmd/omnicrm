@@ -470,7 +470,16 @@ LIMITES TÉCNICOS DE DESIGN (o texto é renderizado em canvas, respeite ou quebr
   Quando houver pessoa, descreva quem ela é (idade aproximada, aparência brasileira, roupa coerente com o nicho), a emoção exata, a ação, o cenário e a luz. MANTENHA A MESMA PESSOA, a mesma roupa e a mesma luz em todos os slides que tiverem gente — muda a cena e a ação, nunca o personagem. Slides de objeto no meio do carrossel não quebram isso: a luz e a paleta é que costuram a série.
   PROIBIDO: texto na imagem, logotipo, pessoa famosa, colagem, ilustração, aperto de mão em escritório, polegar para cima, gente de terno em fundo branco, "equipe diversa reunida em volta do notebook" — é banco de imagem e o público reconhece na hora.
   EM FOTO DE OBJETO, exija explicitamente no prompt que o equipamento seja GENÉRICO e SEM MARCA VISÍVEL ("unbranded, no logos, no brand names, no legible text on the equipment"). Sem isso o gerador estampa a marca de um fabricante real na peça do cliente — já aconteceu, e coloca uma terceira empresa dentro do anúncio dele.
-  PESSOA NÃO É OBRIGATÓRIA, NEM MESMO NA CAPA. Você escolhe o que dá mais impacto naquele slide: gente, ou um OBJETO tratado como herói — o interruptor, a lâmpada, a conta de luz, a chave, o documento, a peça de roupa —, fotografado de perto, com luz dramática e espaço vazio em volta. Peça de objeto costuma ganhar quando o assunto é um número, um custo, um prazo ou uma coisa física; peça de gente ganha quando o assunto é uma emoção, um erro humano ou uma decisão. Alternar entre os dois ao longo do carrossel é o que dá ritmo.
+  PESSOA NÃO É OBRIGATÓRIA, NEM MESMO NA CAPA. Peça de gente ganha quando o assunto é emoção, erro humano ou decisão; nos outros casos, mostre o SEGMENTO.
+  SEIS TIPOS DE IMAGEM, e um carrossel bom passa por vários. Escolha por slide, e NUNCA repita o mesmo tipo em dois slides seguidos:
+  a) PESSOA em ação — o profissional ou o cliente no meio do trabalho, emoção legível.
+  b) OBJETO HERÓI — a peça, o equipamento, a conta, o documento, o produto, isolado e de perto, luz dramática, espaço em volta.
+  c) LUGAR — onde esse negócio acontece: o galpão, a usina, o canteiro, a loja, a sala de audiência, a linha de produção. Plano aberto, sem gente em primeiro plano.
+  d) DETALHE TÉCNICO — macro do que ninguém olha: a conexão, a costura, a trinca, o mostrador, o carimbo, a textura do material.
+  e) PROCESSO — mãos executando a etapa, ferramenta em uso, algo sendo montado, medido, conferido, embalado.
+  f) ANTES/DEPOIS ou CONTRASTE dentro do mesmo quadro — o lado limpo e o sujo, o cheio e o vazio, o novo e o gasto.
+  Num carrossel de 6 slides, o normal é ter no MÁXIMO 2 de pessoa. Se todo slide virou retrato, você errou o brief.
+  O que muda de segmento para segmento é o REPERTÓRIO: energia tem inversor, medidor, telhado, subestação; moda tem tecido, arara, etiqueta, prova; licitação tem edital, protocolo, sala de sessão, carimbo. Use o vocabulário visual do nicho — é ele que faz a pessoa reconhecer que o post é sobre o mundo dela.
   Se você escolher pessoa, o rosto tem que aparecer inteiro e em foco — nunca de costas, cortado no queixo ou tapado pela mão. Se escolher objeto, ele ocupa o quadro; nada de pessoa entrando pela metade.
   Sempre termine com: "shot on 85mm, editorial photography, natural skin texture, cinematic lighting, shallow depth of field, negative space for text".
   Não descreva onde fica o espaço vazio: o app acrescenta essa exigência conforme o layout que o diretor de arte escolher.
@@ -615,7 +624,9 @@ function normalizarFontes(doc: unknown): Array<{ nome: string; conteudo: string 
   return fora;
 }
 
-function blocoDeFonte(doc: unknown, literal = false): string {
+export type ModoFonte = "briefing" | "adaptar" | "literal";
+
+function blocoDeFonte(doc: unknown, modo: ModoFonte = "briefing"): string {
   const docs = normalizarFontes(doc);
   if (!docs.length) return "";
   const texto = docs.length === 1
@@ -624,18 +635,32 @@ function blocoDeFonte(doc: unknown, literal = false): string {
   const nomes = docs.map((d) => d.nome).join(", ");
 
   /**
-   * Dois níveis de fidelidade, porque "usar o conteúdo do cliente" quer dizer
-   * coisas diferentes conforme o material.
+   * TRÊS níveis, porque "usar o material do cliente" quer dizer três coisas
+   * diferentes conforme o que veio e para que serve a peça:
    *
-   * ADAPTAR: o assunto e os dados são do documento, mas a escrita é dela. Serve
-   * para material bruto — ata de reunião, laudo, anotação solta.
+   * BRIEFING (padrão): o material dá o CONTEXTO — o que a empresa faz, os
+   * números reais, as regras, o vocabulário. A peça é conteúdo de marketing
+   * sobre o segmento e os benefícios, e pode trazer ângulo que o material não
+   * lista. É o caso mais comum: o cliente manda o que tem, não um post pronto.
    *
-   * LITERAL: as frases do cliente entram como estão. Serve para texto que já foi
-   * escrito para publicar (e revisado, e às vezes aprovado por jurídico) — nesse
-   * caso reescrever é ESTRAGAR, mesmo que fique mais bonito. Foi a queixa da
-   * Carol: "a Marcela está mudando o texto que está no anexo".
+   * ADAPTAR: o ASSUNTO é o do material; ela reescreve para o formato sem trazer
+   * tema de fora. Serve quando o material já é o recado (comunicado, aviso).
+   *
+   * LITERAL: as frases entram como estão. Serve para texto já escrito para
+   * publicar, revisado e às vezes aprovado por jurídico — aqui reescrever é
+   * ESTRAGAR, mesmo que fique mais bonito.
    */
-  const regras = literal
+  const regras = modo === "briefing"
+    ? [
+      "COMO USAR ESTE MATERIAL — ele é BRIEFING, não é o texto do post:",
+      "1. Daqui saem os FATOS: o que a empresa faz, números, prazos, regras, nomes próprios e o vocabulário que o público dela usa. Nada disso pode ser inventado nem arredondado.",
+      "2. O CONTEÚDO da peça é sobre o segmento e o que o cliente ganha: o problema que ele vive, o que muda na prática, quanto economiza, o que evita, como funciona. Fale de benefício, não de documento — a pessoa que vai ler não sabe que existe um arquivo.",
+      "3. Você PODE trazer ângulo, comparação e exemplo do nicho que não estão no material, desde que não contradigam o que está escrito aqui e que sejam verdade para esse segmento.",
+      "4. Não cite o material, não escreva 'segundo o comunicado', não reproduza cabeçalho, protocolo, numeração de seção nem linguagem administrativa.",
+      "5. Se o material tiver dado forte (um número, um prazo, uma economia), ele é a espinha do argumento — é o que separa esta peça de conteúdo genérico do nicho.",
+      "6. Termo técnico só entra se o público usa. Se for jargão interno, traduza para o efeito prático.",
+    ]
+    : modo === "literal"
     ? [
       "REGRAS DESTE MODO — TEXTO LITERAL. Elas mandam mais que qualquer outra instrução, inclusive as de estilo, gancho e persona:",
       "1. As frases do documento entram COMO ESTÃO. Copie, não reescreva.",
@@ -662,13 +687,11 @@ function blocoDeFonte(doc: unknown, literal = false): string {
       "6. Se algo estiver ambíguo no material, escolha a leitura mais literal. Não preencha lacuna com suposição sobre o nicho.",
     ];
 
-  return [
-    `CONTEÚDO ENVIADO PELO CLIENTE — é ESTE material que vira o conteúdo (${docs.length > 1 ? `${docs.length} arquivos` : "arquivo"}: ${nomes}):`,
-    "```",
-    texto,
-    "```",
-    regras.join("\n"),
-  ].join("\n");
+  const cabecalho = modo === "briefing"
+    ? `BRIEFING DO CLIENTE — material de contexto, NÃO é o texto do post (${docs.length > 1 ? `${docs.length} arquivos` : "arquivo"}: ${nomes}):`
+    : `CONTEÚDO ENVIADO PELO CLIENTE — é ESTE material que vira o conteúdo (${docs.length > 1 ? `${docs.length} arquivos` : "arquivo"}: ${nomes}):`;
+
+  return [cabecalho, "```", texto, "```", regras.join("\n")].join("\n");
 }
 
 /**
@@ -686,7 +709,7 @@ function blocoDeFonteParaPautas(doc: unknown): string {
     "```",
     docs.map((d) => `### ${d.nome}\n${d.conteudo}`).join("\n\n"),
     "```",
-    "Cada pauta tem que corresponder a um trecho REAL deste material — um assunto, um dado, uma regra que está escrita aí. Não proponha tema que o material não sustenta, mesmo que seja bom para o nicho. Se o material não der o número de pautas pedido, devolva menos.",
+    "Cada pauta se apoia neste material — num fato, num número, numa regra que está escrita aí —, mas o ASSUNTO da pauta é o que interessa ao público do segmento: o problema que ele vive, o que ganha, o que evita, como funciona na prática. Não devolva pauta que seja o resumo de uma seção do documento ('as regras do artigo 3'); devolva o benefício ou a dúvida real que aquele trecho responde.",
   ].join("\n");
 }
 
@@ -934,13 +957,24 @@ Se a referência é uma agência verde e o cliente é uma clínica, a resposta n
     // Com o conteúdo do cliente anexado, o tema deixa de ser obrigatório: ele
     // sai do próprio documento. Exigir tema aqui obrigaria a resumir na mão
     // aquilo que a Marcela vai ler inteiro logo em seguida.
-    const fonte = blocoDeFonte(body.documentoFonte, body.fonteLiteral === true);
+    // `fonteLiteral` é o campo antigo, de quando havia só dois modos — front
+    // publicado ainda pode mandar ele.
+    const modoFonte: ModoFonte = body.fonteModo === "literal" || body.fonteLiteral === true
+      ? "literal"
+      : body.fonteModo === "adaptar"
+      ? "adaptar"
+      : "briefing";
+    const fonte = blocoDeFonte(body.documentoFonte, modoFonte);
     if (!tema && !fonte) return respond({ error: "Informe o tema do conteúdo." }, 400);
 
     // Com conteúdo do cliente, o número de slides é TETO e não meta: esticar
     // material curto para bater a contagem é justamente o enchimento que a
     // regra 3 do bloco de fonte proíbe. As duas instruções brigariam.
-    const quantos = fonte && formato !== "post" ? `no MÁXIMO ${nSlides}` : `EXATAMENTE ${nSlides}`;
+    // Só quando o material É o conteúdo. No modo briefing ela escreve a peça
+    // inteira a partir do nicho, então a contagem volta a ser meta.
+    const quantos = fonte && modoFonte !== "briefing" && formato !== "post"
+      ? `no MÁXIMO ${nSlides}`
+      : `EXATAMENTE ${nSlides}`;
     const estrutura = formato === "post"
       ? 'Gere EXATAMENTE 1 slide, tipo "capa". Ele precisa funcionar sozinho: gancho no título, a ideia inteira no corpo e a promessa no destaque.'
       : `Gere ${quantos} slides nesta ordem:\n- slide 1: tipo "capa" (só o gancho + uma linha de contexto no corpo)\n- slides 2 a ${nSlides - 1}: tipo "conteudo" (progressão lógica, sem repetir ideia, cada um entrega algo aplicável)\n- slide ${nSlides}: tipo "cta"\nA sequência precisa ter arco: dor/tensão, virada, método, prova, próximo passo. O slide 2 nunca começa com "primeiro" ou "vamos falar sobre".`;

@@ -301,14 +301,15 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     : undefined;
   const temFonte = fonteDocs.length > 0;
   /**
-   * Texto do cliente ao pé da letra × reescrito por ela.
+   * O que o material É para a peça. Três respostas possíveis, e a Carol usa as
+   * três em semanas diferentes:
    *
-   * Nasce LIGADO: quem anexa um arquivo do cliente quase sempre quer aquele
-   * texto — foi a primeira coisa que a Carol reclamou ao testar ("a Marcela
-   * está mudando o texto que está no anexo"). Desligar faz sentido quando o
-   * material é bruto (ata, laudo, anotação) e precisa virar copy.
+   * briefing (padrão) — o arquivo dá contexto e números; a peça fala do nicho e
+   *   dos benefícios. *"O material é apenas para ela ter um briefing."*
+   * adaptar — o assunto é o do material, reescrito para o formato.
+   * literal — as frases do cliente entram como estão (texto já aprovado).
    */
-  const [fonteLiteral, setFonteLiteral] = useState(true);
+  const [fonteModo, setFonteModo] = useState<"briefing" | "adaptar" | "literal">("briefing");
   const [lendoFonte, setLendoFonte] = useState(false);
   const fonteInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -1016,7 +1017,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
             // Cada peça do lote também é escrita a partir do material — com a
             // pauta servindo de recorte dentro dele.
             documentoFonte: fontesParaIA,
-            fonteLiteral: temFonte ? fonteLiteral : undefined,
+            fonteModo: temFonte ? fonteModo : undefined,
             ...contextoCliente(),
           },
         });
@@ -1340,7 +1341,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           documentos: docsDoProjeto,
           // O conteúdo que o cliente mandou: aqui ela TRADUZ em vez de criar.
           documentoFonte: fontesParaIA,
-          fonteLiteral: temFonte ? fonteLiteral : undefined,
+          fonteModo: temFonte ? fonteModo : undefined,
           ...ctx,
         },
       });
@@ -2016,19 +2017,30 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                     onChange={(e) => anexarFonte(e.target.files)} />
                 </div>
 
-                {/* Texto ao pé da letra × reescrito. Só aparece com anexo: sem
+                {/* O que o material É para a peça. Só aparece com anexo: sem
                     arquivo a escolha não quer dizer nada. */}
                 {temFonte && (
-                  <label className="flex items-start gap-2 cursor-pointer pt-1.5"
-                    style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
-                    <input type="checkbox" checked={fonteLiteral} onChange={(e) => setFonteLiteral(e.target.checked)}
-                      className="mt-0.5" style={{ accentColor: LIME }} />
-                    <span className="text-[11px] leading-snug" style={{ color: "rgba(255,255,255,0.6)" }}>
-                      <span style={{ color: "#F0F0F0", fontWeight: 600 }}>Manter o texto exatamente como está</span> — ela só
-                      escolhe o que entra em cada slide e onde quebra. Desmarque se o material for bruto (ata, laudo,
-                      anotação) e você quiser que ela escreva a partir dele.
-                    </span>
-                  </label>
+                  <div className="pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                    <div className="text-[9.5px] uppercase tracking-widest mb-1.5" style={{ color: "rgba(255,255,255,0.3)" }}>
+                      o que fazer com ele
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {([
+                        ["briefing", "Briefing"],
+                        ["adaptar", "Adaptar"],
+                        ["literal", "Texto literal"],
+                      ] as const).map(([id, rotulo]) => (
+                        <Chip key={id} ativo={fonteModo === id} onClick={() => setFonteModo(id)}>{rotulo}</Chip>
+                      ))}
+                    </div>
+                    <div className="text-[10px] leading-snug mt-1.5" style={{ color: "rgba(255,255,255,0.42)" }}>
+                      {fonteModo === "briefing"
+                        ? "Ela usa os fatos e números daqui, mas escreve sobre o segmento e o que o cliente ganha. É o normal quando o cliente manda o que tem, não um post pronto."
+                        : fonteModo === "adaptar"
+                        ? "O assunto é o do material — ela só reescreve para o formato, sem trazer tema de fora."
+                        : "As frases entram como estão. Para texto já escrito para publicar, revisado ou aprovado por jurídico."}
+                    </div>
+                  </div>
                 )}
               </div>
 
