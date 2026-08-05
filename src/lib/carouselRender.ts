@@ -250,6 +250,59 @@ export function contrastOn(hex: string): string {
 }
 
 /**
+ * O hex descrito em palavras, em inglês, para o gerador de imagem.
+ *
+ * Gerador de imagem não obedece código hexadecimal: pedir "#005C0B" devolve
+ * qualquer verde, ou verde nenhum. Nome + hex junto funciona — o nome guia e o
+ * hex serve de referência para quem entende.
+ */
+export function nomeDaCor(hex: string): string {
+  const [r, g, b] = hexToRgb(hex).map((c) => c / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const d = max - min;
+  const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+
+  // Extremos antes da matiz: num tom quase preto ou quase branco a matiz
+  // existe na matemática mas ninguém enxerga — chamar #12181B de "azul" faria
+  // o gerador colorir de azul o que deveria ser preto.
+  if (l < 0.12) return "near-black";
+  if (l > 0.88 && s < 0.35) return "cream white";
+  if (s < 0.12) {
+    if (l > 0.85) return "off-white";
+    if (l > 0.6) return "light grey";
+    if (l > 0.35) return "medium grey";
+    return "charcoal grey";
+  }
+
+  let h = 0;
+  if (max === r) h = ((g - b) / d) % 6;
+  else if (max === g) h = (b - r) / d + 2;
+  else h = (r - g) / d + 4;
+  h = (h * 60 + 360) % 360;
+
+  const matiz =
+    h < 12 ? "red" :
+    h < 38 ? "orange" :
+    h < 52 ? "amber" :
+    h < 66 ? "yellow" :
+    h < 90 ? "lime green" :
+    h < 155 ? "green" :
+    h < 175 ? "teal" :
+    h < 195 ? "cyan" :
+    h < 235 ? "blue" :
+    h < 260 ? "indigo" :
+    h < 290 ? "violet" :
+    h < 330 ? "magenta" : "pink";
+
+  // Claridade primeiro: é o que mais muda a leitura da cor numa foto.
+  const tom = l < 0.22 ? "very dark " : l < 0.4 ? "deep " : l > 0.78 ? "pale " : l > 0.62 ? "light " : "";
+  const intensidade = s > 0.75 && l > 0.35 && l < 0.7 ? "vivid " : s < 0.3 ? "muted " : "";
+  return `${tom}${intensidade}${matiz}`.trim();
+}
+
+/**
  * Cor da ênfase do título. Precisa de duas coisas ao mesmo tempo: ler sobre o
  * fundo e se DISTINGUIR do resto do texto. Alguns layouts invertem a peça e
  * acabam com accent igual ao fg (o slide de CTA do editorial fazia isso) — aí a

@@ -13,7 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useClients } from "@/contexts/ClientsContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
-  renderSlide, ensureFonts, loadImage, canvasToBlob, ehLayoutHtml,
+  renderSlide, ensureFonts, loadImage, canvasToBlob, ehLayoutHtml, nomeDaCor,
   FORMAT_SIZE, FORMAT_LABEL, FONT_PAIRS, LAYOUTS, PALETTES, ACABAMENTOS,
   type SlideData, type LayoutId, type FormatId, type FontPairId, type Theme,
   type AcabamentoId, type BrandInfo,
@@ -1516,10 +1516,49 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     "dramatic and lit with intent, with generous empty space around it, and no people " +
     "half-entering the frame.";
 
+  /**
+   * A identidade do cliente DENTRO da foto, não só no canvas por cima dela.
+   *
+   * Pedido da Carol: *"crie sempre imagens que, se tiverem texto, seja em
+   * português, e com algum elemento que use a cor do cliente em destaque, pra
+   * peça ter toda a identidade do cliente"*.
+   *
+   * Mora aqui, e não no prompt do roteiro, pelo mesmo motivo da composição: o
+   * roteiro é escrito antes de existir cor aplicada, e instrução que depende de
+   * o modelo lembrar falha em metade das peças. Aqui é anexado em TODA foto.
+   *
+   * Duas armadilhas evitadas de propósito no texto:
+   *  - "elemento na cor" e não "imagem na cor": pedir a cor sem qualificar faz
+   *    o gerador aplicar um filtro colorido na foto inteira, que é exatamente
+   *    o visual amador que a gente evita.
+   *  - o hex vai junto do NOME da cor, porque gerador de imagem não interpreta
+   *    hexadecimal sozinho.
+   */
+  const identidadeNaFoto = (): string => {
+    const cor = (marcaCor || accent || "").trim();
+    if (!/^#?[0-9a-fA-F]{3,8}$/.test(cor)) return "";
+    const hex = cor.startsWith("#") ? cor : `#${cor}`;
+    return (
+      `BRAND IDENTITY IN THE SCENE: include at least one clearly visible element in ${nomeDaCor(hex)} (${hex}) — ` +
+      "a real object in the scene: a garment, a helmet, a painted wall or door, a machine, a crate, packaging, a cable, " +
+      "a chair, a folder, a mug, or a colored light source. It must look like something that is genuinely there, " +
+      "placed where the eye lands. NEVER apply this color as a filter, gradient or tint over the whole image, and never " +
+      "recolor skin. The rest of the palette stays natural. " +
+      "TEXT: prefer no text at all. If text is unavoidable because it belongs to the scene (a sign, a label, a screen, " +
+      "a printed page), it must be in BRAZILIAN PORTUGUESE, correctly spelled, short and generic — never English, " +
+      "never invented words, never a real brand name."
+    );
+  };
+
   /** Junta o pedido do roteiro com a composição que o layout exige. */
   const promptDaFoto = (s: SlideData, l: LayoutId) => {
     const base = s.prompt_imagem || `editorial photo about ${s.titulo}`;
-    const partes = [base, composicaoDoLayout(l), s.tipo === "capa" ? CAPA_COM_IMPACTO : null];
+    const partes = [
+      base,
+      composicaoDoLayout(l),
+      s.tipo === "capa" ? CAPA_COM_IMPACTO : null,
+      identidadeNaFoto(),
+    ];
     return partes.filter(Boolean).join("\n\n");
   };
 
