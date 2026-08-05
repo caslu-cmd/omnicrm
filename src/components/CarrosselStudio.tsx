@@ -246,7 +246,15 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   const [tituloProjeto, setTituloProjeto] = useState("");
 
   // Design
-  const [layout, setLayout] = useState<LayoutId>("vidro");
+  /**
+   * Nasce no motor HTML.
+   *
+   * O padrão era "vidro", que é canvas — então quem clicasse só em "escrever o
+   * roteiro", sem passar pela direção de arte, ficava com uma peça do motor
+   * antigo mesmo depois de o diretor ter sido restrito ao HTML. A regra "sempre
+   * HTML" precisa valer também para quem não pede direção nenhuma.
+   */
+  const [layout, setLayout] = useState<LayoutId>("estudio");
   const [formatId, setFormatId] = useState<FormatId>("4:5");
   const [fontPair, setFontPair] = useState<FontPairId>("editorial");
   const [acabamento, setAcabamento] = useState<AcabamentoId>("nenhum");
