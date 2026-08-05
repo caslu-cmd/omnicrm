@@ -180,6 +180,37 @@ const STRATEGY_SCHEMA = {
   additionalProperties: false,
 };
 
+/**
+ * Saída da passada de copy da Beatriz.
+ *
+ * Devolve os MESMOS slides, na mesma ordem e com os mesmos tipos: ela afia o
+ * texto, não remonta o carrossel. Se pudesse mudar a estrutura, o design já
+ * escolhido (layout, nº de slides, foto por slide) sairia do lugar.
+ */
+const COPY_SCHEMA = {
+  type: "object",
+  properties: {
+    slides: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          titulo: { type: "string" },
+          corpo: { type: "string" },
+          destaque: { type: "string" },
+        },
+        required: ["titulo", "corpo", "destaque"],
+        additionalProperties: false,
+      },
+    },
+    legenda: { type: "string" },
+    hashtags: { type: "array", items: { type: "string" } },
+    o_que_mudou: { type: "string" },
+  },
+  required: ["slides", "legenda", "hashtags", "o_que_mudou"],
+  additionalProperties: false,
+};
+
 const DIRECAO_SCHEMA = {
   type: "object",
   properties: {
@@ -442,6 +473,45 @@ function travarIdentidade<T extends { bg: string; fg: string; accent: string; fo
   if (!travada?.fonte) return ajustadas;
   return ajustadas.map((d) => ({ ...d, fonte: travada.fonte as string }));
 }
+
+/**
+ * A Beatriz, copywriter do time, revisando a peça que a Marcela escreveu.
+ *
+ * Pedido da Carol: *"quero que a Marcela acione o agente de copy também"*. A
+ * persona é a mesma que ela usa no chat do time (frameworks, Cialdini), com uma
+ * diferença que importa: aqui a Beatriz NÃO remonta o carrossel nem sugere
+ * formato — ela recebe uma peça já estruturada e devolve o texto afiado, dentro
+ * dos mesmos limites de caractere, porque o design já foi decidido em cima
+ * dessa estrutura.
+ */
+const COPY_SYSTEM = `Você é BEATRIZ, Copywriter Sênior da Calu Agência.
+Frameworks: PAS, AIDA, StoryBrand. Princípios de Cialdini (escassez, prova social, autoridade, reciprocidade, compromisso, simpatia). Psicologia de Kahneman e BJ Fogg.
+
+O QUE VOCÊ RECEBE: um carrossel (ou post) já escrito e já estruturado pela direção de conteúdo. O design foi decidido em cima desta estrutura.
+
+SEU TRABALHO: afiar o TEXTO. Nada mais.
+- Não mude a quantidade de slides, a ordem nem o tipo de cada um (capa / conteúdo / cta).
+- Não mude o assunto, não troque o ângulo, não acrescente tema novo.
+- Não invente número, prazo, valor, nome ou estatística. Se o dado não está no material que veio junto, ele não existe.
+
+ONDE VOCÊ GANHA A PEÇA:
+1. A CAPA. É 90% do resultado. Gancho concreto: número, contradição, erro caro, pergunta que dói, promessa mensurável. Se a capa que chegou é morna, é ali que você mexe primeiro.
+2. Verbo forte e voz ativa. Corte advérbio, corte "que", corte oração explicativa que não muda a decisão de ninguém.
+3. Ritmo entre slides: o slide seguinte responde uma pergunta que o anterior deixou no ar. Se dois slides dizem a mesma coisa com palavras diferentes, torne um deles específico.
+4. O CTA final: baixo atrito, uma ação só, e diz o que a pessoa ganha ao fazer.
+5. A LEGENDA é sua também: gancho na primeira linha (ela é o que aparece antes do "mais"), 3 a 6 linhas curtas com quebra dupla, e fecha com CTA + pergunta que dá vontade de responder.
+
+PROIBIDO: "no mundo de hoje", "cada vez mais", "revolucionário", "descubra o poder", "não é segredo que", "prepare-se para", "mergulhe", "desbloqueie", "elevar", "jornada", "transformar sua realidade". Emoji dentro dos slides. Reticências decorativas. Pergunta retórica vazia na capa ("Você sabia que...?").
+
+LIMITES TÉCNICOS (o texto é desenhado em canvas — estourar quebra o layout):
+- titulo: máximo 58 caracteres, e na capa máximo 42.
+- ÊNFASE: marque UM trecho do título com asteriscos — *assim* — de 1 a 3 palavras, na palavra que carrega o argumento (o número, o valor, o verbo, o nome do erro). Nunca em artigo ou preposição, nunca no título inteiro, no máximo uma por título. Os asteriscos não contam no limite.
+- corpo: máximo 190 caracteres, no máximo 2 frases.
+- destaque: 1 a 3 palavras ou um número curto. No slide de CTA, o destaque é o TEXTO DO BOTÃO (ex.: "CHAMAR NO DIRECT").
+- hashtags: 12 a 18, sem "#", misturando nicho específico, nicho amplo e marca.
+
+Em "o_que_mudou", diga em UMA frase o que você mexeu e por quê — a Carol lê isso para saber se valeu a passada.
+Português brasileiro. Entrega final, nunca esboço.`;
 
 // ── Prompt base ──────────────────────────────────────────────────────────
 const BASE_SYSTEM = `Você é MARCELA, diretora de conteúdo sênior de uma agência brasileira premiada.
@@ -872,6 +942,55 @@ Se a referência é uma agência verde e o cliente é uma clínica, a resposta n
       return respond({ ...lida, success: true, direcoes: travarIdentidade(lida.direcoes ?? [], body.identidade) });
     }
 
+    // ── Passada de copy da Beatriz ─────────────────────────────────────
+    if (action === "copy") {
+      const slides = (Array.isArray(body.slides) ? body.slides : []) as Array<{
+        tipo?: string; titulo?: string; corpo?: string; destaque?: string;
+      }>;
+      if (!slides.length) return respond({ error: "Sem slides para revisar." }, 400);
+
+      const partes = [
+        `${cabecalhoMarca}Revise a copy desta peça.`,
+        `TEMA: ${body.tema ?? "(não informado)"}`,
+        `OBJETIVO: ${body.objetivo ?? "autoridade"} — ${objetivoGuia[String(body.objetivo)] ?? objetivoGuia.autoridade}`,
+        body.publico ? `PÚBLICO: ${body.publico}` : "",
+        body.tom ? `TOM DE VOZ PEDIDO: ${body.tom}` : "",
+        // O material vai junto para ela poder afiar SEM inventar dado.
+        blocoDeFonte(body.documentoFonte, "briefing"),
+        blocoDeMaterial(body.documentos),
+        "PEÇA COMO ESTÁ (mantenha esta quantidade, esta ordem e estes tipos):",
+        JSON.stringify(
+          slides.map((s, i) => ({
+            n: i + 1,
+            tipo: s.tipo ?? (i === 0 ? "capa" : i === slides.length - 1 ? "cta" : "conteudo"),
+            titulo: s.titulo ?? "",
+            corpo: s.corpo ?? "",
+            destaque: s.destaque ?? "",
+          })),
+          null,
+          1,
+        ),
+        body.legenda ? `LEGENDA COMO ESTÁ:\n${String(body.legenda).slice(0, 3000)}` : "",
+        `Devolva os ${slides.length} slides revisados, na mesma ordem.`,
+      ].filter(Boolean);
+
+      const raw = await callClaude({
+        apiKey,
+        system: COPY_SYSTEM,
+        schema: COPY_SCHEMA,
+        effort: "high",
+        maxTokens: 8000,
+        user: partes.join("\n\n"),
+      });
+      const revisado = parseJson<{ slides?: Array<Record<string, string>> }>(raw);
+      // Rede de segurança: se ela devolver quantidade diferente, o design que já
+      // foi escolhido para N slides quebraria. Nesse caso a peça segue como está.
+      if (!Array.isArray(revisado.slides) || revisado.slides.length !== slides.length) {
+        return respond({ error: "A revisão de copy voltou com estrutura diferente; a peça foi mantida." }, 422);
+      }
+      return respond({ success: true, ...revisado });
+    }
+
     // ── Pautas ─────────────────────────────────────────────────────────
     if (action === "ideias") {
       const nicho = body.nicho ?? cliente.segmento ?? "marketing digital";
@@ -1021,6 +1140,22 @@ Se a referência é uma agência verde e o cliente é uma clínica, a resposta n
     const parsed = parseJson<{ slides: unknown[] }>(raw);
     if (!Array.isArray(parsed.slides) || parsed.slides.length === 0) {
       return respond({ error: "A IA não retornou slides. Tente de novo." }, 502);
+    }
+
+    /**
+     * Apara slide sobrando.
+     *
+     * Visto num teste real: pedidos 5 slides, vieram 6 — e o extra era um
+     * "Bônus" com corpo genérico, do tipo que a Carol teria que apagar na mão.
+     * O corte tira do MEIO e preserva capa e CTA, que são as duas posições em
+     * que o design conta ("é 90% do resultado" e "fecha a peça").
+     */
+    const slidesBrutos = parsed.slides as Array<{ tipo?: string }>;
+    if (slidesBrutos.length > nSlides) {
+      const cta = slidesBrutos[slidesBrutos.length - 1];
+      const ehCta = (s: { tipo?: string }) => s?.tipo === "cta";
+      const miolo = slidesBrutos.slice(1, -1).filter((s) => !ehCta(s));
+      parsed.slides = [slidesBrutos[0], ...miolo.slice(0, Math.max(0, nSlides - 2)), cta].slice(0, nSlides);
     }
 
     return respond({ success: true, ...parsed });

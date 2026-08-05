@@ -310,6 +310,15 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
    * literal — as frases do cliente entram como estão (texto já aprovado).
    */
   const [fonteModo, setFonteModo] = useState<"briefing" | "adaptar" | "literal">("briefing");
+
+  /**
+   * A copy passa pela Beatriz antes de a peça aparecer na tela.
+   *
+   * Desligado no modo LITERAL: ali o texto é do cliente e revisar seria
+   * justamente o que ele não quer.
+   */
+  const [passarPelaBeatrizPref, setPassarPelaBeatrizPref] = useState(true);
+  const passarPelaBeatriz = passarPelaBeatrizPref && !(temFonte && fonteModo === "literal");
   const [lendoFonte, setLendoFonte] = useState(false);
   const fonteInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -1319,6 +1328,50 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     };
   };
 
+  /**
+   * A Beatriz (copy do time) passando por cima do texto da Marcela.
+   *
+   * Pedido da Carol: *"quero que a Marcela acione o agente de copy também"*.
+   * Ela NÃO remonta a peça — devolve os mesmos slides com o texto afiado, nos
+   * mesmos limites de caractere, porque o design é escolhido em cima dessa
+   * estrutura. Se voltar com estrutura diferente, o cérebro recusa e a peça
+   * segue como estava: revisão de copy não pode custar a peça inteira.
+   */
+  const revisarComBeatriz = async (
+    lista: SlideData[],
+    legendaAtual: string,
+  ): Promise<{ slides: SlideData[]; legenda: string; hashtags: string[] } | null> => {
+    try {
+      setModoAuto("Beatriz revisando a copy...");
+      const { data, error } = await supabase.functions.invoke("carousel-studio", {
+        body: {
+          action: "copy",
+          slides: lista.map((s) => ({ tipo: s.tipo, titulo: s.titulo, corpo: s.corpo, destaque: s.destaque })),
+          legenda: legendaAtual,
+          tema, objetivo, publico, tom,
+          documentos: docsDoProjeto,
+          documentoFonte: fontesParaIA,
+          ...contextoCliente(),
+        },
+      });
+      if (error) throw new Error(await erroDaFuncao(error));
+      if (data?.error) throw new Error(data.error);
+      const revisados = (data.slides ?? []) as Array<{ titulo: string; corpo: string; destaque: string }>;
+      if (revisados.length !== lista.length) return null;
+      if (data.o_que_mudou) toast.success(`Beatriz: ${data.o_que_mudou}`);
+      return {
+        // O prompt_imagem e a foto são da Marcela — a Beatriz só toca no texto.
+        slides: lista.map((s, i) => ({ ...s, ...revisados[i] })),
+        legenda: data.legenda ?? legendaAtual,
+        hashtags: data.hashtags ?? [],
+      };
+    } catch (e) {
+      // Falha aqui não derruba a peça: ela continua com o texto da Marcela.
+      toast.error(e instanceof Error ? `Copy da Beatriz: ${e.message}` : "A Beatriz não conseguiu revisar; segue o texto da Marcela.");
+      return null;
+    }
+  };
+
   /** Devolve os slides que acabou de escrever — o estado ainda não atualizou
    *  para quem chamou (closure), e o modo automático precisa da lista na mão. */
   const gerar = async (): Promise<SlideData[]> => {
@@ -1348,10 +1401,24 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
       if (error) throw new Error(await erroDaFuncao(error));
       if (data?.error) throw new Error(data.error);
 
-      const novos: SlideData[] = (data.slides ?? []).map((s: SlideData) => ({ ...s, imagem: null }));
+      let novos: SlideData[] = (data.slides ?? []).map((s: SlideData) => ({ ...s, imagem: null }));
+      let legendaFinal: string = data.legenda ?? "";
+      let hashtagsFinais: string[] = data.hashtags ?? [];
+
+      // A Beatriz passa por cima do texto antes de a peça existir na tela: ver
+      // a versão fraca e depois a revisada só confundiria a revisão da Carol.
+      if (passarPelaBeatriz) {
+        const revisado = await revisarComBeatriz(novos, legendaFinal);
+        if (revisado) {
+          novos = revisado.slides;
+          legendaFinal = revisado.legenda;
+          hashtagsFinais = revisado.hashtags;
+        }
+      }
+
       setSlides(novos);
-      setLegenda(data.legenda ?? "");
-      setHashtags(data.hashtags ?? []);
+      setLegenda(legendaFinal);
+      setHashtags(hashtagsFinais);
       setAngulo(data.angulo ?? "");
       setDicaVisual(data.dica_visual ?? "");
       setMelhorHorario(data.melhor_horario ?? "");
@@ -1371,8 +1438,8 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
             objetivo,
             formato,
             slides: novos,
-            legenda: data.legenda ?? "",
-            hashtags: data.hashtags ?? [],
+            legenda: legendaFinal,
+            hashtags: hashtagsFinais,
             design: { layout, fontPair, bg, fg, accent, formatId, acabamento },
           }).select("id").single();
           if (salvo?.id) setMemoriaId(salvo.id as string);
@@ -2231,6 +2298,30 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                   </div>
                 )}
               </div>
+
+              {/* Quem escreve × quem revisa. Fica junto do briefing porque é
+                  decisão de PRODUÇÃO, e não de design. */}
+              <label className="flex items-start gap-2.5 rounded-xl px-3 py-2.5 cursor-pointer"
+                style={{
+                  background: passarPelaBeatriz ? `${LIME}12` : "rgba(255,255,255,0.03)",
+                  border: `1px solid ${passarPelaBeatriz ? `${LIME}44` : "rgba(255,255,255,0.08)"}`,
+                  opacity: temFonte && fonteModo === "literal" ? 0.55 : 1,
+                }}>
+                <input type="checkbox" checked={passarPelaBeatriz}
+                  disabled={temFonte && fonteModo === "literal"}
+                  onChange={(e) => setPassarPelaBeatrizPref(e.target.checked)} className="mt-0.5"
+                  style={{ accentColor: LIME }} />
+                <span className="min-w-0">
+                  <span className="block text-[11.5px] font-semibold" style={{ color: "#EDEDED" }}>
+                    A Beatriz revisa a copy
+                  </span>
+                  <span className="block text-[10px] leading-snug mt-0.5" style={{ color: "rgba(255,255,255,0.42)" }}>
+                    {temFonte && fonteModo === "literal"
+                      ? "Indisponível no modo Texto literal — ali o texto é do cliente e não deve ser reescrito."
+                      : "A Marcela escreve e estrutura; a copywriter do time passa por cima do gancho da capa, do ritmo entre slides, do CTA e da legenda. Custa uma chamada a mais por peça."}
+                  </span>
+                </span>
+              </label>
 
               <Campo label={temFonte ? "Recorte dentro do material (opcional)" : "Sobre o que é o conteúdo"}>
                 <textarea
