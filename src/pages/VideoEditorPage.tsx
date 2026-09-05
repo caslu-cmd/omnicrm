@@ -86,7 +86,14 @@ const TOOL_LABELS: Record<string, string> = {
   vignette: "Vinheta aplicada",
   sharpen: "Nitidez aumentada",
   blur_background: "Blur background aplicado",
+  captions_pro_subtitles: "Legendas Captions PRO prontas",
+  captions_translate: "Vídeo traduzido",
 };
+
+// Estilos do Captions conferidos frame a frame com fala em português. Os demais
+// renderizam a frase com corpo fixo e cortam palavra longa na margem — e a API
+// não expõe nenhum ajuste de fonte, então só dá para trocar de estilo.
+const PT_OK = ["Neon", "Buzz"];
 
 // ── Timeline Component ─────────────────────────────────────────────────────────
 function Timeline({
@@ -376,6 +383,14 @@ function VideoEditorPageInner() {
   const [subLang, setSubLang] = useState("pt");
   const [subBold, setSubBold] = useState(true);
 
+  // Captions PRO (nuvem, paga) — só aparece se a chave estiver configurada no Bobby
+  const [captionsOn, setCaptionsOn] = useState(false);
+  const [captionsTemplates, setCaptionsTemplates] = useState<
+    { id: string; name: string; preview_url?: string }[]
+  >([]);
+  const [captionsTemplate, setCaptionsTemplate] = useState<string>("");
+  const [captionsErro, setCaptionsErro] = useState<string | null>(null);
+
   // Premium (Efeitos tab)
   const [grainIntensity, setGrainIntensity] = useState(15);
 
@@ -400,6 +415,30 @@ function VideoEditorPageInner() {
   // Auto-load file passed from workspace (no Supabase upload, instant)
   useEffect(() => {
     if (incomingFile) handleUpload(incomingFile);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Estilos do Captions — só existem se a chave estiver no .env do Bobby
+  useEffect(() => {
+    if (!API) return;
+    (async () => {
+      try {
+        const r = await fetch(`${API}/captions/templates`);
+        const d = await r.json();
+        setCaptionsOn(!!d.configured);
+        setCaptionsTemplates(d.templates || []);
+        setCaptionsErro(d.error || null);
+        if (d.templates?.length) {
+          // Nunca cair no primeiro da lista: vários estilos cortam frase em
+          // português na margem e não há como ajustar isso pela API.
+          const seguro = d.templates.find((t: { name: string }) =>
+            PT_OK.includes(t.name?.trim())
+          );
+          setCaptionsTemplate((seguro ?? d.templates[0]).id);
+        }
+      } catch {
+        setCaptionsOn(false);
+      }
+    })();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Session ────────────────────────────────────────────────────────────────
@@ -1393,6 +1432,88 @@ function VideoEditorPageInner() {
                 <p className="text-[10px] text-[#333] text-center">
                   Bobby vai transcrever o áudio e aplicar as legendas com o estilo escolhido
                 </p>
+
+                {/* ── Captions PRO ───────────────────────────────────────── */}
+                {captionsOn && (
+                  <>
+                    <div className="border-t border-[#111]" />
+
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <p className="text-[10px] uppercase tracking-widest text-[#333]">
+                          Captions PRO
+                        </p>
+                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-[#B9FF4B]/10 text-[#B9FF4B] border border-[#B9FF4B]/20">
+                          consome crédito
+                        </span>
+                      </div>
+
+                      {captionsErro ? (
+                        <p className="text-[11px] text-[#a33] leading-relaxed">{captionsErro}</p>
+                      ) : (
+                        <>
+                          <p className="text-[10px] text-[#444] leading-relaxed">
+                            Legenda premium renderizada pelo Captions. Só aceita vídeo vertical
+                            (9:16) de até 5 minutos — se estiver deitado, reformate para Reels antes.
+                          </p>
+
+                          <select
+                            value={captionsTemplate}
+                            onChange={(e) => setCaptionsTemplate(e.target.value)}
+                            className="w-full bg-[#0d0d0d] border border-[#1a1a1a] rounded-lg px-3 py-2 text-xs text-[#ccc] focus:border-[#B9FF4B]/40 outline-none"
+                          >
+                            {[...captionsTemplates]
+                              .sort((a, b) => {
+                                const pa = PT_OK.includes(a.name?.trim()) ? 0 : 1;
+                                const pb = PT_OK.includes(b.name?.trim()) ? 0 : 1;
+                                return pa - pb;
+                              })
+                              .map((t) => (
+                                <option key={t.id} value={t.id}>
+                                  {PT_OK.includes(t.name?.trim()) ? `★ ${t.name}` : t.name}
+                                </option>
+                              ))}
+                          </select>
+
+                          <p className="text-[10px] text-[#444] leading-relaxed">
+                            ★ = conferido com fala em português. Os outros usam corpo de
+                            fonte fixo e <span className="text-[#a33]">cortam palavra longa
+                            na margem</span> — o Captions não deixa ajustar tamanho pela API.
+                            Para um estilo seu, crie o template no app do Captions que ele
+                            aparece aqui.
+                          </p>
+
+                          {(() => {
+                            const sel = captionsTemplates.find((t) => t.id === captionsTemplate);
+                            return sel?.preview_url ? (
+                              <video
+                                key={sel.id}
+                                src={sel.preview_url}
+                                autoPlay
+                                loop
+                                muted
+                                playsInline
+                                className="w-full rounded-lg border border-[#1a1a1a] bg-black"
+                              />
+                            ) : null;
+                          })()}
+
+                          <ApplyButton
+                            loading={toolLoading === "captions_pro_subtitles"}
+                            onClick={() =>
+                              applyEdit("captions_pro_subtitles", { template: captionsTemplate })
+                            }
+                            label="Legendar com Captions PRO"
+                            icon={<Subtitles />}
+                          />
+                          <p className="text-[10px] text-[#333] text-center">
+                            Sobe o vídeo, processa na nuvem e volta pronto. Pode levar alguns minutos.
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  </>
+                )}
               </div>
             )}
 

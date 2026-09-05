@@ -1,4 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { conferirAcesso, registrarUso } from "../_shared/fiscoAcesso.ts";
+
+const MODELO = "claude-sonnet-4-6";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -121,8 +124,10 @@ Deno.serve(async (req) => {
   let perfil = "geral";
   let documentos: Documento[] = [];
   let contexto = "";
+  let linkToken: string | null = null;
   try {
     const body = await req.json();
+    linkToken = body.token ? String(body.token).trim() : null;
     mensagem = String(body.mensagem ?? "").trim();
     historico = Array.isArray(body.historico) ? body.historico : [];
     const pedido = String(body.perfil ?? "").trim().toLowerCase();
@@ -142,6 +147,10 @@ Deno.serve(async (req) => {
       { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
+
+  // Quem está falando, e ainda tem cota? Antes daqui a função era aberta.
+  const { acesso, recusa } = await conferirAcesso(req, linkToken, "chat", corsHeaders);
+  if (recusa || !acesso) return recusa!;
 
   // Com anexo, a última fala vira blocos (documento/imagem + texto). Sem anexo,
   // continua sendo texto puro — o histórico antigo não muda de formato.
@@ -171,7 +180,7 @@ Deno.serve(async (req) => {
             "content-type": "application/json",
           },
           body: JSON.stringify({
-            model: "claude-sonnet-4-6",
+            model: MODELO,
             max_tokens: documentos.length ? 8000 : 4096,
             system,
             messages,
@@ -189,6 +198,10 @@ Deno.serve(async (req) => {
         const reader = resp.body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
+        // O consumo real vem no próprio stream: entrada no `message_start`,
+        // saída acumulada no `message_delta`.
+        let tokensIn = 0;
+        let tokensOut = 0;
 
         while (true) {
           const { value, done } = await reader.read();
@@ -206,6 +219,10 @@ Deno.serve(async (req) => {
               const evt = JSON.parse(payload);
               if (evt.type === "content_block_delta" && evt.delta?.type === "text_delta") {
                 controller.enqueue(sse({ tipo: "texto", conteudo: evt.delta.text }));
+              } else if (evt.type === "message_start") {
+                tokensIn = evt.message?.usage?.input_tokens ?? 0;
+              } else if (evt.type === "message_delta") {
+                tokensOut = evt.usage?.output_tokens ?? tokensOut;
               }
             } catch {
               // ignora linhas não-JSON
@@ -213,6 +230,7 @@ Deno.serve(async (req) => {
           }
         }
 
+        await registrarUso(acesso, "chat", MODELO, tokensIn, tokensOut);
         controller.enqueue(sse({ tipo: "fim" }));
         controller.close();
       } catch (e) {

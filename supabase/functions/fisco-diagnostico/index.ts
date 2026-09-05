@@ -1,4 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { conferirAcesso, registrarUso } from "../_shared/fiscoAcesso.ts";
+
+const MODELO = "claude-opus-5";
 
 /**
  * Fisco — Diagnóstico completo.
@@ -156,8 +159,10 @@ Deno.serve(async (req) => {
   let respostas: Resposta[] = [];
   let documentos: Documento[] = [];
   let observacoes = "";
+  let linkToken: string | null = null;
   try {
     const body = await req.json();
+    linkToken = body.token ? String(body.token).trim() : null;
     const p = String(body.perfil ?? "").trim().toLowerCase();
     if (p in PERFIS) perfil = p;
     respostas = Array.isArray(body.respostas) ? body.respostas : [];
@@ -179,6 +184,11 @@ Deno.serve(async (req) => {
       return json({ error: `O arquivo ${d.nome} é grande demais (limite de 4 MB).` }, 400);
     }
   }
+
+  // O diagnóstico é a chamada cara (Opus 5, teto de 32k). É aqui que a cota
+  // pesa — e é aqui que um teste grátis precisa ter fim.
+  const { acesso, recusa } = await conferirAcesso(req, linkToken, "diagnostico", cors);
+  if (recusa || !acesso) return recusa!;
 
   const questionario = respondidas
     .map((r) => `- ${r.pergunta}\n  Resposta: ${r.resposta}`)
@@ -237,7 +247,7 @@ Deno.serve(async (req) => {
           body: JSON.stringify({
             // 32k porque o raciocínio conta dentro do teto: com 16k o relatório
             // de um caso rico chegou a ser cortado no meio do JSON.
-            model: "claude-opus-5",
+            model: MODELO,
             max_tokens: 32000,
             thinking: { type: "adaptive" },
             system,
@@ -256,6 +266,8 @@ Deno.serve(async (req) => {
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
         let buffer = "";
+        let tokensIn = 0;
+        let tokensOut = 0;
 
         while (true) {
           const { value, done } = await reader.read();
@@ -278,7 +290,12 @@ Deno.serve(async (req) => {
                   // Só para a barra de progresso — o raciocínio não vai ao cliente.
                   controller.enqueue(sse({ tipo: "pensando" }));
                 }
-              } else if (evt.type === "message_delta" && evt.delta?.stop_reason === "max_tokens") {
+              } else if (evt.type === "message_start") {
+                tokensIn = evt.message?.usage?.input_tokens ?? 0;
+              } else if (evt.type === "message_delta" && evt.usage?.output_tokens) {
+                tokensOut = evt.usage.output_tokens;
+              }
+              if (evt.type === "message_delta" && evt.delta?.stop_reason === "max_tokens") {
                 // JSON cortado no meio vira "relatório ilegível" na tela; melhor
                 // dizer o que houve.
                 controller.enqueue(sse({
@@ -290,6 +307,7 @@ Deno.serve(async (req) => {
           }
         }
 
+        await registrarUso(acesso, "diagnostico", MODELO, tokensIn, tokensOut);
         controller.enqueue(sse({ tipo: "fim", perfil, gerado_em: new Date().toISOString() }));
         controller.close();
       } catch (e) {

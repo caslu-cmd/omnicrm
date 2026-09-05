@@ -151,11 +151,17 @@ Deno.serve(async (req) => {
     if (c.user_access_token && !(c.client_id in paginasAutorizadas)) {
       const userToken = deobfuscate(String(c.user_access_token), encKey);
       try {
-        const r = await fetch(`${GRAPH}/me/accounts?fields=id,name&limit=50&access_token=${userToken}`);
+        // `instagram_business_account` junto: conectar Instagram exige conta
+        // PROFISSIONAL vinculada à Página. Sem o vínculo o app não tem o que
+        // gravar, e o erro que chega na tela não explica isso.
+        const r = await fetch(`${GRAPH}/me/accounts?fields=id,name,instagram_business_account{id,username}&limit=50&access_token=${userToken}`);
         const d = await r.json();
         paginasAutorizadas[String(c.client_id)] = d.error
           ? `erro ${d.error.code}: ${String(d.error.message).slice(0, 140)}`
-          : (d.data ?? []).map((p: { id: string; name: string }) => `${p.name} (${p.id})`);
+          : (d.data ?? []).map((p: { id: string; name: string; instagram_business_account?: { username?: string; id?: string } }) => {
+            const ig = p.instagram_business_account;
+            return `${p.name} (${p.id}) — instagram: ${ig ? `@${ig.username ?? ig.id}` : "NÃO VINCULADO"}`;
+          });
       } catch (e) {
         paginasAutorizadas[String(c.client_id)] = String(e).slice(0, 140);
       }

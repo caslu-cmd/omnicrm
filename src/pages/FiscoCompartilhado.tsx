@@ -125,6 +125,8 @@ export default function FiscoCompartilhado() {
   const [erro, setErro] = useState("");
   const [confirmar, setConfirmar] = useState("");
   const [resetEnviado, setResetEnviado] = useState("");
+  /** Logada, mas o acesso a ESTE link ainda não foi liberado: falta o convite. */
+  const [precisaConvite, setPrecisaConvite] = useState(false);
 
   /** Confere se esta conta tem acesso a este link (e registra, se for a 1ª vez). */
   const validarAcesso = useCallback(async (codigoConvite?: string) => {
@@ -134,11 +136,19 @@ export default function FiscoCompartilhado() {
     });
     if (error) { setErro("Não consegui validar seu acesso."); return false; }
     if (data?.erro) {
-      // Sem convite na mão, a conta existe mas ainda não tem acesso: pede o código.
-      if (data.erro === "convite_invalido" && !codigoConvite) { setModo("criar"); return false; }
+      // A conta existe, mas ainda não tem acesso a este link: falta o convite.
+      // Mandar para "criar conta" aqui era um beco sem saída — o cadastro seria
+      // recusado por e-mail repetido. O certo é pedir só o código.
+      if (data.erro === "convite_invalido") {
+        setPrecisaConvite(true);
+        if (codigoConvite) setErro(ERROS.convite_invalido);
+        return false;
+      }
       setErro(ERROS[data.erro] ?? "Não consegui liberar o acesso.");
       return false;
     }
+    setPrecisaConvite(false);
+    sessionStorage.removeItem(`fisco-convite-${token}`);
     setContextNote(data?.context_note ?? null);
     setLiberado(true);
     return true;
@@ -149,7 +159,11 @@ export default function FiscoCompartilhado() {
       const { data } = await supabase.auth.getSession();
       if (data.session) {
         setTemSessao(true);
-        await validarAcesso();
+        // Quem volta do e-mail de confirmação chega logado e sem acesso ainda.
+        // O convite digitado no cadastro ficou guardado justamente para não
+        // pedir de novo depois da viagem pelo e-mail.
+        const guardado = sessionStorage.getItem(`fisco-convite-${token}`) || undefined;
+        await validarAcesso(guardado);
       } else {
         setTemSessao(false);
       }
@@ -170,9 +184,17 @@ export default function FiscoCompartilhado() {
         }
       } else {
         const { data, error } = await supabase.auth.signUp({
-          email, password: senha, options: { data: { full_name: nome } },
+          email,
+          password: senha,
+          options: {
+            data: { full_name: nome },
+            // Sem isso o link de confirmação joga a pessoa na LANDING da agência
+            // (o `site_url` do projeto) em vez de trazer de volta para o Fisco.
+            emailRedirectTo: `${window.location.origin}/fisco/${token}`,
+          },
         });
         if (error) throw new Error(error.message);
+        if (convite.trim()) sessionStorage.setItem(`fisco-convite-${token}`, convite.trim());
         // E-mail que JÁ TEM CONTA: o Supabase não avisa e não manda e-mail
         // nenhum (senão qualquer um descobriria quem tem cadastro) — devolve um
         // usuário de mentira com `identities` vazio. Sem tratar isso, a tela
@@ -237,9 +259,9 @@ export default function FiscoCompartilhado() {
 
   if (liberado) {
     const perfilDoLink = perfilDoTexto(contextNote);
-    if (perfilDoLink) return <FiscoTela perfilFixo={perfilDoLink} aoSair={sair} />;
+    if (perfilDoLink) return <FiscoTela perfilFixo={perfilDoLink} aoSair={sair} linkToken={token} />;
     if (!quemSou) return <EscolhaDePublico onEscolher={setQuemSou} />;
-    return <FiscoTela perfilInicial={quemSou} aoSair={sair} />;
+    return <FiscoTela perfilInicial={quemSou} aoSair={sair} linkToken={token} />;
   }
 
   return (
@@ -281,6 +303,39 @@ export default function FiscoCompartilhado() {
             >
               Já confirmei — entrar
             </button>
+          </div>
+        ) : temSessao && precisaConvite ? (
+          /* Logada, e-mail confirmado, mas este link ainda não foi liberado
+             para ela: aqui falta só o código, não uma conta nova. */
+          <div className="rounded-2xl p-6" style={{ background: "#0D0D14", border: "1px solid #1E1E2E" }}>
+            <p className="text-sm font-bold mb-1" style={{ color: "#E0E0F0" }}>Falta o código de convite</p>
+            <p className="text-xs leading-relaxed mb-4" style={{ color: "#8888A0" }}>
+              Sua conta está pronta. Digite o código que veio junto com o link para liberar seu acesso ao Fisco.
+            </p>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+                setErro("");
+                setOcupado(true);
+                await validarAcesso(convite.trim() || undefined);
+                setOcupado(false);
+              }}
+              className="flex flex-col gap-3"
+            >
+              <input value={convite} onChange={(ev) => setConvite(ev.target.value)}
+                placeholder="Código de convite" required style={campo} />
+              {erro && <p className="text-xs leading-relaxed" style={{ color: "#F87171" }}>{erro}</p>}
+              <button type="submit" disabled={ocupado}
+                className="w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-40"
+                style={{ background: GOLD, color: "#07080A" }}>
+                {ocupado ? <Loader2 className="w-4 h-4 animate-spin" /> : "Liberar meu acesso"}
+              </button>
+              <button type="button" onClick={sair}
+                className="w-full py-2 rounded-xl text-[11px] flex items-center justify-center gap-1.5"
+                style={{ background: "transparent", color: "#55556A" }}>
+                <LogOut className="w-3 h-3" /> Sair desta conta
+              </button>
+            </form>
           </div>
         ) : (
         <div className="rounded-2xl p-6" style={{ background: "#0D0D14", border: "1px solid #1E1E2E" }}>

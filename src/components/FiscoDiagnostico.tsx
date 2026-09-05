@@ -7,7 +7,7 @@ import {
   ClipboardList, HelpCircle, ShieldAlert, Save,
 } from "lucide-react";
 import { toast } from "sonner";
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
 
 const API = `${SUPABASE_URL}/functions/v1/fisco-diagnostico`;
 
@@ -229,12 +229,15 @@ interface DiagProps {
   /** Cliente escolhido na barra lateral: preenche o questionário de uma vez. */
   cliente?: ClienteFisco | null;
   onSalvarCliente?: (nome: string, perfil: PerfilId, respostas: Record<string, string>) => void;
+  /** Token do link — define o plano e a cota que o servidor aplica. */
+  linkToken?: string;
 }
 
 export default function FiscoDiagnostico({
   perfilInicial = "empresa" as PerfilId,
   cliente = null,
   onSalvarCliente,
+  linkToken,
 }: DiagProps) {
   const [etapa, setEtapa] = useState<0 | 1 | 2 | 3>(0);
   const [perfil, setPerfil] = useState<PerfilId>(cliente?.perfil ?? perfilInicial);
@@ -315,14 +318,18 @@ export default function FiscoDiagnostico({
         documentos,
       };
 
+      const { data: sess } = await supabase.auth.getSession();
+      const jwt = sess.session?.access_token;
+      if (!jwt) throw new Error("Sua sessão expirou. Entre de novo para continuar.");
+
       const resp = await fetch(API, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+          Authorization: `Bearer ${jwt}`,
           apikey: SUPABASE_PUBLISHABLE_KEY,
         },
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ ...payload, token: linkToken }),
       });
 
       // Erro de validação volta como JSON comum; o relatório vem em stream.

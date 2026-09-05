@@ -329,6 +329,17 @@ function PainelLinks() {
  * OmniCRM em volta) e no link compartilhado, onde ela é a página inteira. No
  * link, o público já vem definido pelo link — quem recebe não escolhe o perfil.
  */
+/** O que a RPC `fisco_cota` devolve — mesma fonte que o servidor consulta. */
+interface CotaFisco {
+  plano?: string;
+  plano_rotulo?: string;
+  expira_em?: string | null;
+  expirado?: boolean;
+  diag_restante?: number | null;
+  diag_total_restante?: number | null;
+  erro?: string;
+}
+
 interface Props {
   /** Link dedicado a um público: trava o perfil e some com o seletor. */
   perfilFixo?: PerfilId;
@@ -338,9 +349,11 @@ interface Props {
   gerenciarLinks?: boolean;
   /** No link compartilhado, cada pessoa entra com a conta dela — e pode sair. */
   aoSair?: () => void;
+  /** Token do link. É por ele que o servidor sabe qual plano e cota aplicar. */
+  linkToken?: string;
 }
 
-export default function FiscoTela({ perfilFixo, perfilInicial, gerenciarLinks = false, aoSair }: Props) {
+export default function FiscoTela({ perfilFixo, perfilInicial, gerenciarLinks = false, aoSair, linkToken }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [perfil, setPerfil] = useState<PerfilId>(() => {
     if (perfilFixo) return perfilFixo;
@@ -364,6 +377,25 @@ export default function FiscoTela({ perfilFixo, perfilInicial, gerenciarLinks = 
   const [clienteAtivo, setClienteAtivo] = useState<ClienteFisco | null>(null);
 
   useEffect(() => { listarClientes().then(setClientes); }, []);
+
+  /**
+   * Cota do plano deste link. Vem da MESMA função que o servidor usa para
+   * decidir — se a tela calculasse por conta própria, prometeria o que o
+   * servidor recusa.
+   */
+  const [cota, setCota] = useState<CotaFisco | null>(null);
+  const lerCota = useCallback(async () => {
+    if (!linkToken) return;
+    const { data } = await (supabase as any).rpc("fisco_cota", { p_token: linkToken });
+    if (data && !data.erro) setCota(data as CotaFisco);
+  }, [linkToken]);
+  useEffect(() => { lerCota(); }, [lerCota]);
+
+  const diasRestantes = useMemo(() => {
+    if (!cota?.expira_em) return null;
+    const ms = new Date(cota.expira_em).getTime() - Date.now();
+    return Math.max(Math.ceil(ms / 86400000), 0);
+  }, [cota?.expira_em]);
 
   // Anexo na conversa (o diagnóstico tem o próprio passo de documentos).
   const [anexos, setAnexos] = useState<File[]>([]);
@@ -453,17 +485,27 @@ export default function FiscoTela({ perfilFixo, perfilInicial, gerenciarLinks = 
         enviados.map(async (f) => ({ nome: f.name, tipo: f.type, base64: await lerBase64(f) })),
       );
 
+      // A função exige a sessão de quem está falando (a chave publicável é
+      // pública: com ela, qualquer um gastaria a conta de IA).
+      const { data: sess } = await supabase.auth.getSession();
+      const jwt = sess.session?.access_token;
+      if (!jwt) throw new Error("Sua sessão expirou. Entre de novo para continuar.");
+
       const resp = await fetch(API, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "Authorization": `Bearer ${SUPABASE_PUBLISHABLE_KEY}`,
+          "Authorization": `Bearer ${jwt}`,
           "apikey": SUPABASE_PUBLISHABLE_KEY,
         },
-        body: JSON.stringify({ mensagem: msg, historico, perfil, documentos, contexto }),
+        body: JSON.stringify({ mensagem: msg, historico, perfil, documentos, contexto, token: linkToken }),
       });
 
-      if (!resp.ok) throw new Error(`Erro ${resp.status} — Fisco indisponível.`);
+      if (!resp.ok) {
+        // 402/429 são cota, não falha: a função manda o texto certo para a tela.
+        const corpo = await resp.json().catch(() => null);
+        throw new Error(corpo?.error ?? `Erro ${resp.status} — Fisco indisponível.`);
+      }
       if (!resp.body) throw new Error("Stream não disponível.");
 
       const reader = resp.body.getReader();
@@ -605,6 +647,22 @@ export default function FiscoTela({ perfilFixo, perfilInicial, gerenciarLinks = 
             ))}
           </div>
         </div>
+
+        {/* Cota do plano: a pessoa sabe onde está antes de bater no limite. */}
+        {cota && cota.plano === "teste" && (
+          <div className="px-5 pt-4">
+            <div className="px-3 py-2 rounded-xl" style={{ background: "#141420", border: "1px solid #2A2A3A" }}>
+              <p className="text-[10px] uppercase tracking-widest mb-1" style={{ color: "#55556A" }}>
+                {cota.plano_rotulo ?? "Teste grátis"}
+              </p>
+              <p className="text-[11px] leading-relaxed" style={{ color: cota.expirado ? "#F87171" : "#8888A0" }}>
+                {cota.expirado
+                  ? "Seu teste terminou. Fale com a Calu Agência para continuar."
+                  : `${cota.diag_total_restante ?? "—"} ${cota.diag_total_restante === 1 ? "diagnóstico" : "diagnósticos"} restantes${diasRestantes != null ? ` · ${diasRestantes} ${diasRestantes === 1 ? "dia" : "dias"}` : ""}`}
+              </p>
+            </div>
+          </div>
+        )}
 
         {/* Para quem ele está falando — no link, quem define é o link */}
         {perfilFixo ? (
@@ -780,6 +838,7 @@ export default function FiscoTela({ perfilFixo, perfilInicial, gerenciarLinks = 
           perfilInicial={perfil}
           cliente={clienteAtivo}
           onSalvarCliente={guardarCliente}
+          linkToken={linkToken}
         />
       ) : (
       <div className="flex-1 flex flex-col overflow-hidden min-h-[400px] md:min-h-0">
