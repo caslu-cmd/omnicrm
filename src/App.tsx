@@ -177,6 +177,8 @@ const AppRoutes = () => (
     {/* Auth */}
     <Route path="/entrar" element={<EntrarRoute />} />
     <Route path="/auth" element={<EntrarRoute />} />
+    {/* Atalho em inglês — quem digita /login cairia no 404 */}
+    <Route path="/login" element={<Navigate to="/entrar" replace />} />
     <Route path="/sair" element={<SairRoute />} />
 
     {/* Portal do cliente (link externo enviado ao cliente) */}
