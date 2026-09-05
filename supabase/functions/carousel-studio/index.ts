@@ -165,18 +165,62 @@ const SLIDE_SCHEMA = {
   additionalProperties: false,
 };
 
+/**
+ * O slide como a BEATRIZ entrega: só texto.
+ *
+ * A divisão de trabalho é a do time de verdade — a Beatriz escreve, a Marcela
+ * dirige a arte. Por isso `prompt_imagem` NÃO está aqui: o brief da foto é
+ * decisão visual e sai na etapa da Marcela, com a copy já pronta na mão.
+ */
+const SLIDE_COPY_SCHEMA = {
+  type: "object",
+  properties: {
+    tipo: { type: "string", enum: ["capa", "conteudo", "cta"] },
+    titulo: { type: "string" },
+    corpo: { type: "string" },
+    destaque: { type: "string" },
+  },
+  required: ["tipo", "titulo", "corpo", "destaque"],
+  additionalProperties: false,
+};
+
+/** O que a Marcela devolve depois de ler a copy: a imagem de cada slide. */
+const FOTOS_SCHEMA = {
+  type: "object",
+  properties: {
+    fotos: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          n: { type: "integer" },
+          tipo_de_imagem: {
+            type: "string",
+            enum: ["pessoa", "objeto", "lugar", "detalhe", "processo", "contraste"],
+          },
+          prompt_imagem: { type: "string" },
+        },
+        required: ["n", "tipo_de_imagem", "prompt_imagem"],
+        additionalProperties: false,
+      },
+    },
+    dica_visual: { type: "string" },
+  },
+  required: ["fotos", "dica_visual"],
+  additionalProperties: false,
+};
+
 const STRATEGY_SCHEMA = {
   type: "object",
   properties: {
     titulo_projeto: { type: "string" },
     angulo: { type: "string" },
-    slides: { type: "array", items: SLIDE_SCHEMA },
+    slides: { type: "array", items: SLIDE_COPY_SCHEMA },
     legenda: { type: "string" },
     hashtags: { type: "array", items: { type: "string" } },
-    dica_visual: { type: "string" },
     melhor_horario: { type: "string" },
   },
-  required: ["titulo_projeto", "angulo", "slides", "legenda", "hashtags", "dica_visual", "melhor_horario"],
+  required: ["titulo_projeto", "angulo", "slides", "legenda", "hashtags", "melhor_horario"],
   additionalProperties: false,
 };
 
@@ -193,7 +237,40 @@ const DIRECAO_SCHEMA = {
           porque: { type: "string" },
           layout: {
             type: "string",
-            enum: ["vidro", "capa", "organico", "agencia", "editorial", "impacto", "revista", "gradiente", "minimal", "foto"],
+            enum: ["estudio", "dado", "objeto", "partido", "citacao", "chips", "comparativo", "convite"],
+          },
+          /**
+           * A peça PROJETADA, zona por zona.
+           *
+           * Sem isto o diretor só escolhia entre modelos prontos, e o feed do
+           * cliente repetia as mesmas caras. Aqui ele desenha a composição; o
+           * `layout` acima passa a ser o plano B quando a composição não vier.
+           */
+          composicao: {
+            type: "object",
+            properties: {
+              fundo: { type: "string", enum: ["papel", "cor-cheia", "escuro", "foto-cheia", "duotone"] },
+              foto: {
+                type: "string",
+                enum: ["nenhuma", "faixa-base", "faixa-topo", "coluna-esquerda", "coluna-direita", "tela-cheia", "circulo", "arco"],
+              },
+              foto_peso: { type: "number" },
+              texto_ancora: { type: "string", enum: ["topo", "centro", "base"] },
+              texto_alinha: { type: "string", enum: ["esquerda", "centro"] },
+              texto_largura: { type: "number" },
+              titulo_escala: { type: "string", enum: ["grande", "gigante", "colossal"] },
+              titulo_peso: { type: "string", enum: ["fino", "medio", "pesado"] },
+              titulo_caixa: { type: "string", enum: ["normal", "alta"] },
+              enfase: { type: "string", enum: ["tarja", "cor", "peso", "sublinhado"] },
+              destaque: { type: "string", enum: ["nenhum", "numero-gigante", "pilula", "selo-circular", "chip-lateral"] },
+              apoio: { type: "string", enum: ["nenhum", "cartao", "lista", "linha-fina"] },
+              ornamento: { type: "string", enum: ["nenhum", "inicial-gigante", "malha", "faixa-cor", "moldura"] },
+            },
+            required: [
+              "fundo", "foto", "foto_peso", "texto_ancora", "texto_alinha", "texto_largura",
+              "titulo_escala", "titulo_peso", "titulo_caixa", "enfase", "destaque", "apoio", "ornamento",
+            ],
+            additionalProperties: false,
           },
           fonte: {
             type: "string",
@@ -209,7 +286,7 @@ const DIRECAO_SCHEMA = {
             enum: ["nenhum", "grao", "glow", "cinema"],
           },
         },
-        required: ["nome", "referencia", "porque", "layout", "fonte", "bg", "fg", "accent", "acabamento"],
+        required: ["nome", "referencia", "porque", "layout", "composicao", "fonte", "bg", "fg", "accent", "acabamento"],
         additionalProperties: false,
       },
     },
@@ -443,9 +520,21 @@ function travarIdentidade<T extends { bg: string; fg: string; accent: string; fo
   return ajustadas.map((d) => ({ ...d, fonte: travada.fonte as string }));
 }
 
-// ── Prompt base ──────────────────────────────────────────────────────────
-const BASE_SYSTEM = `Você é MARCELA, diretora de conteúdo sênior de uma agência brasileira premiada.
+// ── Quem escreve ─────────────────────────────────────────────────────────
+/**
+ * A BEATRIZ escreve. A MARCELA é design.
+ *
+ * Era o contrário aqui dentro — o prompt de escrita se apresentava como
+ * "MARCELA, diretora de conteúdo", enquanto no time a Marcela é a designer e a
+ * Beatriz é a copywriter. A Carol corrigiu: *"a Marcela é só a design, a
+ * Beatriz quem vai escrever os copys"*. Agora a peça passa pelas duas, cada uma
+ * no seu ofício: Beatriz escreve os slides e a legenda, Marcela lê a copy
+ * pronta e dirige a imagem de cada slide (`MARCELA_FOTO_SYSTEM`).
+ */
+const BASE_SYSTEM = `Você é BEATRIZ, Copywriter Sênior da Calu Agência.
+Frameworks: PAS, AIDA, StoryBrand. Princípios de Cialdini (escassez, prova social, autoridade, reciprocidade, compromisso, simpatia). Psicologia de Kahneman e BJ Fogg.
 Você escreve carrosséis e posts únicos para Instagram e LinkedIn que param o scroll, ensinam de verdade e vendem sem soar vendedor.
+A direção de arte é da Marcela — você não escolhe layout, cor nem imagem. Você entrega o TEXTO.
 
 REGRAS INEGOCIÁVEIS DE COPY:
 1. NADA de linguagem genérica de IA. Proibido: "no mundo de hoje", "cada vez mais", "revolucionário", "descubra o poder", "não é segredo que", "prepare-se para", "mergulhe", "desbloqueie", "elevar", "jornada".
@@ -461,26 +550,77 @@ LIMITES TÉCNICOS DE DESIGN (o texto é renderizado em canvas, respeite ou quebr
 - ÊNFASE NO TÍTULO: marque UM trecho com asteriscos — *assim* — e ele sai na cor de destaque, mais encorpado, no meio da frase. É o recurso que faz o título parecer desenhado em vez de digitado, e aparece em toda peça boa de social media. Regras: no máximo UMA marcação por título (duas viram enfeite), de 1 a 3 palavras, e marque a palavra que carrega o argumento — o número, o valor, o verbo da ação, o nome do erro. Nunca marque artigo, preposição ou o título inteiro. Os asteriscos NÃO contam no limite de caracteres. Se nenhuma palavra for claramente mais importante, não marque nada.
 - corpo: máximo 190 caracteres. Pode ter no máximo 2 frases.
 - destaque: 1 a 3 palavras OU um número curto (ex.: "3 de 4", "R$ 12 mil", "48h"). É a palavra que vira gráfico no slide. Nunca repita o título inteiro. No slide de CTA, o destaque vira o TEXTO DO BOTÃO (ex.: "CHAMAR NO DIRECT", "BAIXAR O GUIA").
-- prompt_imagem: prompt EM INGLÊS para gerador de imagem. A foto não ilustra o tema do carrossel: ela mostra o MOMENTO DAQUELE SLIDE. Se o slide fala do erro, a foto é o erro acontecendo; se fala da virada, é a virada; se é o CTA, é o resultado já conquistado. Sete retratos da mesma pessoa sorrindo é o que faz um carrossel passar batido.
-  O que faz a foto parar o dedo, em ordem de importância:
-  1. UMA emoção específica e legível — irritação contida, alívio, concentração, susto, orgulho. Nunca "sorrindo simpático".
-  2. UM assunto só, grande no quadro, com contraste forte de claro e escuro. O feed é pequeno: se não lê em miniatura, não existe.
-  3. Momento pego, não posado. Pessoa no meio da ação, olhando para o trabalho e não para a lente (exceto na capa, onde olhar na câmera funciona).
-  4. Cenário concreto e específico do nicho, com objeto de trabalho de verdade na mão.
-  Quando houver pessoa, descreva quem ela é (idade aproximada, aparência brasileira, roupa coerente com o nicho), a emoção exata, a ação, o cenário e a luz. MANTENHA A MESMA PESSOA, a mesma roupa e a mesma luz em todos os slides que tiverem gente — muda a cena e a ação, nunca o personagem. Slides de objeto no meio do carrossel não quebram isso: a luz e a paleta é que costuram a série.
-  PROIBIDO: texto na imagem, logotipo, pessoa famosa, colagem, ilustração, aperto de mão em escritório, polegar para cima, gente de terno em fundo branco, "equipe diversa reunida em volta do notebook" — é banco de imagem e o público reconhece na hora.
-  EM FOTO DE OBJETO, exija explicitamente no prompt que o equipamento seja GENÉRICO e SEM MARCA VISÍVEL ("unbranded, no logos, no brand names, no legible text on the equipment"). Sem isso o gerador estampa a marca de um fabricante real na peça do cliente — já aconteceu, e coloca uma terceira empresa dentro do anúncio dele.
-  PESSOA NÃO É OBRIGATÓRIA, NEM MESMO NA CAPA. Você escolhe o que dá mais impacto naquele slide: gente, ou um OBJETO tratado como herói — o interruptor, a lâmpada, a conta de luz, a chave, o documento, a peça de roupa —, fotografado de perto, com luz dramática e espaço vazio em volta. Peça de objeto costuma ganhar quando o assunto é um número, um custo, um prazo ou uma coisa física; peça de gente ganha quando o assunto é uma emoção, um erro humano ou uma decisão. Alternar entre os dois ao longo do carrossel é o que dá ritmo.
-  Se você escolher pessoa, o rosto tem que aparecer inteiro e em foco — nunca de costas, cortado no queixo ou tapado pela mão. Se escolher objeto, ele ocupa o quadro; nada de pessoa entrando pela metade.
-  Sempre termine com: "shot on 85mm, editorial photography, natural skin texture, cinematic lighting, shallow depth of field, negative space for text".
-  Não descreva onde fica o espaço vazio: o app acrescenta essa exigência conforme o layout que o diretor de arte escolher.
-
 LEGENDA:
 - Abre com uma linha que repete o gancho de outro jeito, desenvolve em 3 a 6 linhas curtas com quebra de linha dupla, e fecha com o CTA + pergunta para comentário.
 - hashtags: 12 a 18, mistura de nicho específico, nicho amplo e branded. Sem "#", só a palavra.`;
 
+
+/**
+ * A MARCELA dirigindo a imagem, depois de a Beatriz escrever.
+ *
+ * Ela recebe a copy pronta e decide o que cada slide MOSTRA. Ficar depois do
+ * texto e nao antes e o que permite a foto ilustrar o momento daquele slide em
+ * vez do tema do carrossel inteiro.
+ */
+const MARCELA_FOTO_SYSTEM = `Você é MARCELA, diretora de arte e designer da Calu Agência.
+Você recebe a copy PRONTA de um carrossel e escreve, para CADA slide, o prompt da imagem que vai atrás daquele texto. Você não reescreve a copy — o texto é da Beatriz.
+
+Para cada slide devolva: "n" (a posição, começando em 1), "tipo_de_imagem" e "prompt_imagem" EM INGLÊS.
+
+A foto não ilustra o tema do carrossel: ela mostra o MOMENTO DAQUELE SLIDE. Se o slide fala do erro, a foto é o erro acontecendo; se fala da virada, é a virada; se é o CTA, é o resultado já conquistado. Sete retratos da mesma pessoa sorrindo é o que faz um carrossel passar batido.
+O que faz a foto parar o dedo, em ordem de importância:
+1. UMA emoção específica e legível — irritação contida, alívio, concentração, susto, orgulho. Nunca "sorrindo simpático".
+2. UM assunto só, grande no quadro, com contraste forte de claro e escuro. O feed é pequeno: se não lê em miniatura, não existe.
+3. Momento pego, não posado. Pessoa no meio da ação, olhando para o trabalho e não para a lente (exceto na capa, onde olhar na câmera funciona).
+4. Cenário concreto e específico do nicho, com objeto de trabalho de verdade na mão.
+Quando houver pessoa, descreva quem ela é (idade aproximada, aparência brasileira, roupa coerente com o nicho), a emoção exata, a ação, o cenário e a luz. MANTENHA A MESMA PESSOA, a mesma roupa e a mesma luz em todos os slides que tiverem gente — muda a cena e a ação, nunca o personagem. Slides de objeto no meio do carrossel não quebram isso: a luz e a paleta é que costuram a série.
+PROIBIDO: texto na imagem, logotipo, pessoa famosa, colagem, ilustração, aperto de mão em escritório, polegar para cima, gente de terno em fundo branco, "equipe diversa reunida em volta do notebook" — é banco de imagem e o público reconhece na hora.
+EM FOTO DE OBJETO, exija explicitamente no prompt que o equipamento seja GENÉRICO e SEM MARCA VISÍVEL ("unbranded, no logos, no brand names, no legible text on the equipment"). Sem isso o gerador estampa a marca de um fabricante real na peça do cliente — já aconteceu, e coloca uma terceira empresa dentro do anúncio dele.
+PESSOA NÃO É OBRIGATÓRIA, NEM MESMO NA CAPA. Peça de gente ganha quando o assunto é emoção, erro humano ou decisão; nos outros casos, mostre o SEGMENTO.
+SEIS TIPOS DE IMAGEM, e um carrossel bom passa por vários. Escolha por slide, e NUNCA repita o mesmo tipo em dois slides seguidos:
+a) PESSOA em ação — o profissional ou o cliente no meio do trabalho, emoção legível.
+b) OBJETO HERÓI — a peça, o equipamento, a conta, o documento, o produto, isolado e de perto, luz dramática, espaço em volta.
+c) LUGAR — onde esse negócio acontece: o galpão, a usina, o canteiro, a loja, a sala de audiência, a linha de produção. Plano aberto, sem gente em primeiro plano.
+d) DETALHE TÉCNICO — macro do que ninguém olha: a conexão, a costura, a trinca, o mostrador, o carimbo, a textura do material.
+e) PROCESSO — mãos executando a etapa, ferramenta em uso, algo sendo montado, medido, conferido, embalado.
+f) ANTES/DEPOIS ou CONTRASTE dentro do mesmo quadro — o lado limpo e o sujo, o cheio e o vazio, o novo e o gasto.
+Num carrossel de 6 slides, o normal é ter no MÁXIMO 2 de pessoa. Se todo slide virou retrato, você errou o brief.
+O que muda de segmento para segmento é o REPERTÓRIO: energia tem inversor, medidor, telhado, subestação; moda tem tecido, arara, etiqueta, prova; licitação tem edital, protocolo, sala de sessão, carimbo. Use o vocabulário visual do nicho — é ele que faz a pessoa reconhecer que o post é sobre o mundo dela.
+Se você escolher pessoa, o rosto tem que aparecer inteiro e em foco — nunca de costas, cortado no queixo ou tapado pela mão. Se escolher objeto, ele ocupa o quadro; nada de pessoa entrando pela metade.
+Sempre termine com: "shot on 85mm, editorial photography, natural skin texture, cinematic lighting, shallow depth of field, negative space for text".
+Não descreva onde fica o espaço vazio: o app acrescenta essa exigência conforme o layout que o diretor de arte escolher.
+
+
+Em "dica_visual", uma orientação curta de direção de arte para esta peça específica.`;
+
 const DIRETOR_SYSTEM = `Você é o diretor de arte de uma agência brasileira que compete com Pentagram, Wieden+Kennedy e Porto Rocha.
 Seu trabalho: olhar o segmento do cliente, lembrar de como as MARCAS E AGÊNCIAS DE REFERÊNCIA REAIS daquele mercado tratam identidade visual, e traduzir isso em uma direção aplicável.
+
+VOCÊ PROJETA A PEÇA, NÃO ESCOLHE UMA PRONTA. O campo "composicao" é o seu desenho, zona por zona, e é ele que vira a arte:
+- "fundo": papel (claro, editorial), cor-cheia (a cor da marca ocupando tudo), escuro, foto-cheia (a foto É o fundo) ou duotone (dois tons da marca em diagonal).
+- "foto": onde e com que FORMA a imagem entra — nenhuma, faixa-base, faixa-topo, coluna-esquerda, coluna-direita, tela-cheia, circulo (recorte redondo no meio) ou arco (topo arredondado, base reta). "foto_peso" é quanto da peça ela ocupa, de 0.2 a 0.6.
+- "texto_ancora" (topo/centro/base) e "texto_alinha" (esquerda/centro) decidem a diagramação. "texto_largura" de 0.5 a 1: texto estreito ao lado de foto em coluna, largo quando a peça é só tipografia.
+- "titulo_escala": grande, gigante ou colossal. Colossal é para frase curta — três palavras que ocupam a peça.
+- "titulo_peso": fino (200, editorial e elegante), medio, pesado (800, impacto e urgência). "titulo_caixa": normal ou alta.
+- "enfase": como a palavra marcada aparece — tarja (faixa de cor atrás), cor, peso ou sublinhado.
+- "destaque": o que fazer com o dado curto — numero-gigante, pilula, selo-circular, chip-lateral ou nenhum.
+- "apoio": como o corpo se apresenta — cartao, lista, linha-fina (filete de cor antes do texto) ou nenhum.
+- "ornamento": o que estrutura o fundo — inicial-gigante da marca sangrando, malha quadriculada, faixa-cor no topo, moldura, ou nenhum.
+
+REGRAS DA COMPOSIÇÃO:
+- Ela nasce do CONTEÚDO. Frase curta e forte pede colossal com fundo em cor cheia; dado pede numero-gigante; lista pede apoio "lista"; depoimento pede fino e centrado; produto pede foto em circulo ou arco.
+- As três direções precisam ter composições DE VERDADE diferentes: se as três têm foto em faixa-base e texto na base, você entregou a mesma peça três vezes.
+- Combinação proibida por legibilidade: texto ancorado no centro com foto tela-cheia e ornamento moldura ao mesmo tempo — a peça vira sopa. Escolha no máximo DOIS gestos fortes por peça.
+- Se não houver foto disponível, não peça foto: use fundo em cor, ornamento e tipografia grande.
+
+PADRÃO SÊNIOR — não é preferência, é o piso de qualidade desta casa. Vale em TODA direção que você entregar:
+- HIERARQUIA: em cada peça existe UM elemento dominante e o resto obedece. Se dois elementos disputam o olho, a peça é de estagiário. O dominante costuma ser o número, a palavra marcada ou a foto — nunca os três.
+- ESCALA: contraste tipográfico grande e deliberado (display gigante ao lado de corpo pequeno). Tamanhos médios e parecidos são o que faz peça amadora.
+- ESPAÇO NEGATIVO é elemento de design, não sobra. Peça respirando lê melhor no feed pequeno; encher todo canto é insegurança.
+- PALETA CURTA: três cores, e uma delas é quase toda a área. Quarta cor só com motivo declarado.
+- COERÊNCIA DE SISTEMA: o carrossel é uma sequência, não peças soltas. Mesma luz, mesma paleta, mesma família tipográfica — o que varia é o arranjo.
+- INTENÇÃO: toda escolha tem motivo ligado ao negócio do cliente. "Ficou bonito" não é motivo; "esse mercado é dominado por azul corporativo e a marca ganha destaque saindo dele" é.
+- ACABAMENTO: contraste que passa em tela pequena, texto que nunca encosta na borda, nada de efeito decorativo sem função.
 
 REGRAS:
 1. "referencia" cita marcas ou agências REAIS e reconhecíveis daquele segmento (ou de segmento vizinho, quando o mercado é visualmente pobre) e diz o que se rouba de cada uma. Nunca invente marca.
@@ -489,7 +629,7 @@ REGRAS:
    Legibilidade é requisito, não gosto: fg tem que ser claramente claro sobre bg escuro, ou claramente escuro sobre bg claro — nunca dois tons de intensidade parecida. O accent precisa se destacar do bg pela LUMINOSIDADE, não só pela matiz: laranja sobre vermelho, verde sobre vermelho ou azul sobre roxo têm matiz diferente e continuam ilegíveis. Se a direção pede uma cor de marca que briga com o fundo, mude a intensidade dela (mais clara ou mais escura) em vez de entregar algo que não se lê.
 4. Nada de roxo-degradê-em-fundo-branco, nada de "corporativo azul genérico" a não ser que o segmento realmente peça e você justifique.
 5. "porque" tem no máximo 2 linhas e fala de negócio, não de estética: o que essa direção comunica para ESSE público.
-6. Layouts disponíveis: "vidro" (foto + cartão translúcido com o título, o padrão campeão de Instagram), "capa" (foto + título gigante direto na imagem), "organico" (título em cima no fundo limpo e uma FORMA DE MARCA gigante em cor cheia ocupando a parte de baixo, com a foto recortada dentro dela e selo circular com a marca correndo na curva — escolha quando a marca tem uma cor forte e quer identidade própria), "agencia" (papel quadriculado, foto sangrando por um lado e do outro cartões sólidos EMPILHADOS com o título, bloco de contato fixo com o @ e uma palavra gigante sangrando pela base — é o padrão de peça de agência que a Carol usa como referência; escolha quando a marca quiser parecer feita por estúdio, com sistema visual próprio em vez de post avulso), "editorial" (fundo escuro tipográfico), "impacto" (cor cheia), "revista" (papel claro serifado), "gradiente", "minimal" (branco), "foto". **Não existe layout padrão: "vidro" e "capa" são seguros, e por isso mesmo viram monotonia se você os escolher sempre. Rode entre eles.**
+6. Layouts disponíveis — TODOS desenhados em HTML, que é o motor desta casa. Escolha entre estes OITO e nenhum outro: "estudio" (papel quadriculado, cartão de apoio, faixa de foto na base), "dado" (cor cheia da marca com um NÚMERO gigante dominando — só quando o destaque é número, percentual ou prazo), "objeto" (fundo escuro, objeto herói dissolvendo num halo de luz, sem pessoa), "partido" (papel com título grande em cima, tarja na palavra marcada e cena fotográfica na base — o mais versátil), "citacao" (aspas gigantes em cor cheia escura, para frase de cliente ou tese), "chips" (grade de cartões numerados sobre fundo escuro — escolha quando o corpo tem 2 a 4 itens separados por ponto), "comparativo" (duas colunas antes/depois — escolha quando o corpo estiver escrito como "situação antes → resultado depois"), "convite" (retrato em tela cheia com degradê fechando na base; o mais quente, bom para CTA). **As três direções NUNCA repetem o mesmo layout, e a escolha nasce do CONTEÚDO: número pede "dado", lista pede "chips", frase pede "citacao", produto pede "objeto", pessoa pede "convite" ou "partido".**
 7. Escolha fonte coerente com o layout: serifada + revista/minimal para autoridade; condensada + impacto para urgência; grotesk + vidro/capa/editorial para moderno.
 8. "acabamento" é o tratamento aplicado por cima da peça pronta. Escolha:
    - "nenhum": cor chapada. Use quando a direção é limpa, suíça, institucional, ou o fundo é claro.
@@ -497,7 +637,7 @@ REGRAS:
    - "glow": a tipografia e o accent espalham luz. Só em FUNDO ESCURO, e quando a direção é noturna, tech, neon, evento, música.
    - "cinema": glow discreto + vinheta + grão. O mais dramático. Use em fundo escuro quando a direção pede peso cinematográfico.
    Não use "glow" nem "cinema" com bg claro — o efeito lava a peça. Nesses casos use "grao" ou "nenhum".
-9. FOTO NÃO É OPCIONAL POR PADRÃO. O sistema gera a foto de cada slide automaticamente, e peça com foto de pessoa real é o que sustenta alcance no feed — as referências de qualidade desta casa são quase todas fotográficas. Cinco layouts usam foto: "vidro", "capa", "organico", "agencia" e "foto". Portanto: **pelo menos DUAS das suas três direções precisam usar um desses cinco layouts.** Direção sem foto (editorial, impacto, revista, gradiente, minimal) só como a terceira opção, e só quando houver um motivo real — dado numérico que pede tipografia gigante, marca que não pode mostrar pessoas, ou assunto sensível em que foto de gente empobrece. Se você entregar as três sem foto, errou a tarefa.`;
+9. FOTO NÃO É OPCIONAL POR PADRÃO. O sistema gera a foto de cada slide automaticamente, e peça com foto de pessoa real é o que sustenta alcance no feed — as referências de qualidade desta casa são quase todas fotográficas. Usam foto: "estudio", "partido", "objeto", "convite", "vidro", "capa", "organico", "agencia" e "foto". Os sem foto são "dado", "citacao", "chips", "comparativo", "editorial", "impacto", "revista", "gradiente" e "minimal". Portanto: **pelo menos DUAS das suas três direções precisam usar um desses cinco layouts.** Direção sem foto (editorial, impacto, revista, gradiente, minimal) só como a terceira opção, e só quando houver um motivo real — dado numérico que pede tipografia gigante, marca que não pode mostrar pessoas, ou assunto sensível em que foto de gente empobrece. Se você entregar as três sem foto, errou a tarefa.`;
 
 /**
  * Identidade travada do cliente. Quando a agência fixa cor e fonte, elas param
@@ -580,6 +720,129 @@ const objetivoGuia: Record<string, string> = {
   engajar: "Provocar resposta. Use contradição, opinião forte ou erro comum que o público comete. CTA: pergunta que dá vontade de responder.",
   lancamento: "Criar antecipação. Amarre problema, nova solução, prova e próximo passo. CTA: garantir vaga/avisar.",
 };
+
+/**
+ * O documento É o conteúdo — não é material de apoio.
+ *
+ * Caso real: o cliente manda o texto pronto em PDF ou Word e o trabalho da
+ * Marcela é transformar AQUILO em carrossel. É diferente de `blocoDeMaterial`,
+ * onde ela lê o briefing e escreve o que quiser: aqui inventar assunto novo é
+ * defeito, porque o cliente vai comparar a peça com o que mandou.
+ */
+/** Teto do material somado. Acima disso o modelo perde o fio e a conta cresce. */
+const TETO_FONTE = 60_000;
+
+/**
+ * Aceita um documento ou VÁRIOS.
+ *
+ * A Carol pede o anexo no começo do estúdio, valendo para tudo que ela escolher
+ * depois — e material de cliente costuma vir em pedaços (o comunicado, a tabela
+ * de preços, o release). Cada arquivo entra identificado pelo nome, para a
+ * Marcela poder dizer de qual veio cada dado.
+ */
+function normalizarFontes(doc: unknown): Array<{ nome: string; conteudo: string }> {
+  const bruto = Array.isArray(doc) ? doc : [doc];
+  const fora: Array<{ nome: string; conteudo: string }> = [];
+  let usado = 0;
+  for (const item of bruto) {
+    const d = (item ?? {}) as { nome?: string; conteudo?: string };
+    const texto = (d.conteudo ?? "").trim();
+    if (!texto || usado >= TETO_FONTE) continue;
+    const fatia = texto.slice(0, TETO_FONTE - usado);
+    usado += fatia.length;
+    fora.push({ nome: d.nome ?? "documento", conteudo: fatia });
+  }
+  return fora;
+}
+
+export type ModoFonte = "briefing" | "adaptar" | "literal";
+
+function blocoDeFonte(doc: unknown, modo: ModoFonte = "briefing"): string {
+  const docs = normalizarFontes(doc);
+  if (!docs.length) return "";
+  const texto = docs.length === 1
+    ? docs[0].conteudo
+    : docs.map((d) => `### ${d.nome}\n${d.conteudo}`).join("\n\n");
+  const nomes = docs.map((d) => d.nome).join(", ");
+
+  /**
+   * TRÊS níveis, porque "usar o material do cliente" quer dizer três coisas
+   * diferentes conforme o que veio e para que serve a peça:
+   *
+   * BRIEFING (padrão): o material dá o CONTEXTO — o que a empresa faz, os
+   * números reais, as regras, o vocabulário. A peça é conteúdo de marketing
+   * sobre o segmento e os benefícios, e pode trazer ângulo que o material não
+   * lista. É o caso mais comum: o cliente manda o que tem, não um post pronto.
+   *
+   * ADAPTAR: o ASSUNTO é o do material; ela reescreve para o formato sem trazer
+   * tema de fora. Serve quando o material já é o recado (comunicado, aviso).
+   *
+   * LITERAL: as frases entram como estão. Serve para texto já escrito para
+   * publicar, revisado e às vezes aprovado por jurídico — aqui reescrever é
+   * ESTRAGAR, mesmo que fique mais bonito.
+   */
+  const regras = modo === "briefing"
+    ? [
+      "COMO USAR ESTE MATERIAL — ele é BRIEFING, não é o texto do post:",
+      "1. Daqui saem os FATOS: o que a empresa faz, números, prazos, regras, nomes próprios e o vocabulário que o público dela usa. Nada disso pode ser inventado nem arredondado.",
+      "2. O CONTEÚDO da peça é sobre o segmento e o que o cliente ganha: o problema que ele vive, o que muda na prática, quanto economiza, o que evita, como funciona. Fale de benefício, não de documento — a pessoa que vai ler não sabe que existe um arquivo.",
+      "3. Você PODE trazer ângulo, comparação e exemplo do nicho que não estão no material, desde que não contradigam o que está escrito aqui e que sejam verdade para esse segmento.",
+      "4. Não cite o material, não escreva 'segundo o comunicado', não reproduza cabeçalho, protocolo, numeração de seção nem linguagem administrativa.",
+      "5. Se o material tiver dado forte (um número, um prazo, uma economia), ele é a espinha do argumento — é o que separa esta peça de conteúdo genérico do nicho.",
+      "6. Termo técnico só entra se o público usa. Se for jargão interno, traduza para o efeito prático.",
+    ]
+    : modo === "literal"
+    ? [
+      "REGRAS DESTE MODO — TEXTO LITERAL. Elas mandam mais que qualquer outra instrução, inclusive as de estilo, gancho e persona:",
+      "1. As frases do documento entram COMO ESTÃO. Copie, não reescreva.",
+      "2. Você PODE: escolher quais trechos entram, em que ordem e em qual slide; cortar uma frase longa pelas bordas; separar uma frase em duas linhas.",
+      "3. Você NÃO PODE: trocar palavra por sinônimo, mudar a ordem das palavras dentro da frase, ajustar o tom, 'melhorar' a redação, criar frase que não existe no documento.",
+      "4. O TÍTULO de cada slide é um trecho do próprio documento — a frase (ou o pedaço de frase) que carrega aquela ideia. Se nenhum trecho couber no limite de caracteres, use o mais curto que preserve o sentido, cortando pelas bordas, nunca reescrevendo.",
+      "4a. O trecho do título COMEÇA no início de uma oração e tem sujeito. Título que abre no meio da frase ('passa a ocorrer entre os dias 8 e 12') fica sem pé; o certo é começar onde a oração começa ('A leitura passa a ocorrer entre os dias 8 e 12'). Se a oração inteira não couber, corte o FIM dela, não o começo.",
+      "4b. Duas liberdades de FORMATAÇÃO, e só estas: maiúscula na primeira letra do trecho, e ponto final que sobrou de um corte pode sair. Nada disso muda palavra.",
+      "4c. PERGUNTA entra inteira, com o ponto de interrogação ('Quanto tempo leva para o desconto aparecer?'). Cortar a pergunta ao meio ('Quanto tempo leva para o desconto') deixa o slide sem sentido.",
+      "4d. Cabeçalho e rótulo do arquivo — 'PERGUNTAS FREQUENTES', 'COMUNICADO AOS ASSOCIADOS', numeração de seção, cabeçalho de tabela — são identificação do documento, NÃO conteúdo. Nunca use como corpo de slide. O conteúdo começa na primeira frase de verdade.",
+      "4e. Título e corpo do MESMO slide falam do MESMO assunto: o corpo é a continuação do trecho que virou título, no mesmo parágrafo ou na mesma resposta do documento. Slide com título sobre o vencimento do boleto e corpo sobre a data de leitura são dois assuntos colados — vira dois slides, ou escolhe-se um.",
+      "5. Só é permitido acrescentar palavra fora do documento em UM lugar: o texto do botão do slide final. Todo o resto é do cliente.",
+      "6. Marque a ênfase com *asteriscos* em palavras que JÁ ESTÃO na frase — a marcação é formatação, não texto novo.",
+      "7. A legenda também é montada com trechos do documento, na ordem dele.",
+      "8. Se o material não der para encher os slides pedidos, faça MENOS slides. Enchimento aqui é inventar texto, que é o que este modo proíbe.",
+    ]
+    : [
+      "REGRAS PARA ESTE MODO, e elas mandam mais que qualquer outra instrução:",
+      "1. O carrossel é a TRADUÇÃO deste conteúdo para o formato. Não troque o assunto, não escolha outro ângulo, não acrescente tema que não está aqui.",
+      "2. Todo número, nome, prazo, valor e termo técnico sai DAQUI, com a mesma grafia. Nunca arredonde nem invente dado para completar slide.",
+      "3. Se o material não der para encher os slides pedidos, faça MENOS slides em vez de esticar com enchimento.",
+      "4. O que você acrescenta é FORMA, não conteúdo: quebra em slides, hierarquia, título que segura a atenção, ordem que faz sentido na leitura arrastando.",
+      "5. Se houver ordem, passos ou lista no documento, respeite a sequência — ela costuma ser a espinha do carrossel.",
+      "6. Se algo estiver ambíguo no material, escolha a leitura mais literal. Não preencha lacuna com suposição sobre o nicho.",
+    ];
+
+  const cabecalho = modo === "briefing"
+    ? `BRIEFING DO CLIENTE — material de contexto, NÃO é o texto do post (${docs.length > 1 ? `${docs.length} arquivos` : "arquivo"}: ${nomes}):`
+    : `CONTEÚDO ENVIADO PELO CLIENTE — é ESTE material que vira o conteúdo (${docs.length > 1 ? `${docs.length} arquivos` : "arquivo"}: ${nomes}):`;
+
+  return [cabecalho, "```", texto, "```", regras.join("\n")].join("\n");
+}
+
+/**
+ * Versão curta da fonte, para a ação `ideias`.
+ *
+ * Pauta não precisa das regras de fidelidade (nada é escrito ainda), mas precisa
+ * NASCER do material — senão a Carol anexa o documento no começo, pede pautas e
+ * recebe assunto genérico do nicho, que é o oposto do que ela pediu.
+ */
+function blocoDeFonteParaPautas(doc: unknown): string {
+  const docs = normalizarFontes(doc);
+  if (!docs.length) return "";
+  return [
+    `MATERIAL QUE O CLIENTE ENVIOU (${docs.map((d) => d.nome).join(", ")}) — as pautas saem DAQUI:`,
+    "```",
+    docs.map((d) => `### ${d.nome}\n${d.conteudo}`).join("\n\n"),
+    "```",
+    "Cada pauta se apoia neste material — num fato, num número, numa regra que está escrita aí —, mas o ASSUNTO da pauta é o que interessa ao público do segmento: o problema que ele vive, o que ganha, o que evita, como funciona na prática. Não devolva pauta que seja o resumo de uma seção do documento ('as regras do artigo 3'); devolva o benefício ou a dúvida real que aquele trecho responde.",
+  ].join("\n");
+}
 
 function blocoDeMaterial(documentos: unknown): string {
   const docs = (Array.isArray(documentos) ? documentos : []) as Array<{ nome?: string; conteudo?: string }>;
@@ -762,8 +1025,16 @@ Se a referência é uma agência verde e o cliente é uma clínica, a resposta n
         ].join("\n")
         : `Marque cada pauta com o objetivo dela no campo \`objetivo\` (${Object.keys(objetivoGuia).join(", ")}).`;
 
+      // O material que a Carol anexou no topo do estúdio vale para TUDO que ela
+      // pedir depois — inclusive as pautas. Sem isto ela anexava o documento e
+      // recebia assunto genérico do nicho.
+      const fontePautas = blocoDeFonteParaPautas(body.documentoFonte);
+
       const partes = [
-        `${cabecalhoMarca}Gere ${quantas} pautas de conteúdo para o nicho: ${nicho}.`,
+        fontePautas
+          ? `${cabecalhoMarca}Gere ${quantas} pautas a partir do material enviado pelo cliente (nicho: ${nicho}).`
+          : `${cabecalhoMarca}Gere ${quantas} pautas de conteúdo para o nicho: ${nicho}.`,
+        fontePautas,
         quantas > 1 ? `As ${quantas} precisam ser assuntos DIFERENTES entre si — nada de variação da mesma ideia com outro título.` : "",
         blocoMix,
         blocoDeMaterial(body.documentos),
@@ -814,14 +1085,38 @@ Se a referência é uma agência verde e o cliente é uma clínica, a resposta n
       : Math.min(10, Math.max(4, Number(body.nSlides) || 7));
     const objetivo: string = body.objetivo ?? "autoridade";
     const tema: string = String(body.tema ?? "").trim();
-    if (!tema) return respond({ error: "Informe o tema do conteúdo." }, 400);
+    // Com o conteúdo do cliente anexado, o tema deixa de ser obrigatório: ele
+    // sai do próprio documento. Exigir tema aqui obrigaria a resumir na mão
+    // aquilo que a Marcela vai ler inteiro logo em seguida.
+    // `fonteLiteral` é o campo antigo, de quando havia só dois modos — front
+    // publicado ainda pode mandar ele.
+    const modoFonte: ModoFonte = body.fonteModo === "literal" || body.fonteLiteral === true
+      ? "literal"
+      : body.fonteModo === "adaptar"
+      ? "adaptar"
+      : "briefing";
+    const fonte = blocoDeFonte(body.documentoFonte, modoFonte);
+    if (!tema && !fonte) return respond({ error: "Informe o tema do conteúdo." }, 400);
 
+    // Com conteúdo do cliente, o número de slides é TETO e não meta: esticar
+    // material curto para bater a contagem é justamente o enchimento que a
+    // regra 3 do bloco de fonte proíbe. As duas instruções brigariam.
+    // Só quando o material É o conteúdo. No modo briefing ela escreve a peça
+    // inteira a partir do nicho, então a contagem volta a ser meta.
+    const quantos = fonte && modoFonte !== "briefing" && formato !== "post"
+      ? `no MÁXIMO ${nSlides}`
+      : `EXATAMENTE ${nSlides}`;
     const estrutura = formato === "post"
       ? 'Gere EXATAMENTE 1 slide, tipo "capa". Ele precisa funcionar sozinho: gancho no título, a ideia inteira no corpo e a promessa no destaque.'
-      : `Gere EXATAMENTE ${nSlides} slides nesta ordem:\n- slide 1: tipo "capa" (só o gancho + uma linha de contexto no corpo)\n- slides 2 a ${nSlides - 1}: tipo "conteudo" (progressão lógica, sem repetir ideia, cada um entrega algo aplicável)\n- slide ${nSlides}: tipo "cta"\nA sequência precisa ter arco: dor/tensão, virada, método, prova, próximo passo. O slide 2 nunca começa com "primeiro" ou "vamos falar sobre".`;
+      : `Gere ${quantos} slides nesta ordem:\n- slide 1: tipo "capa" (só o gancho + uma linha de contexto no corpo)\n- slides 2 a ${nSlides - 1}: tipo "conteudo" (progressão lógica, sem repetir ideia, cada um entrega algo aplicável)\n- slide ${nSlides}: tipo "cta"\nA sequência precisa ter arco: dor/tensão, virada, método, prova, próximo passo. O slide 2 nunca começa com "primeiro" ou "vamos falar sobre".`;
 
     const partes = [
-      `${cabecalhoMarca}TEMA: ${tema}`,
+      fonte
+        ? `${cabecalhoMarca}${tema ? `RECORTE PEDIDO PELA AGÊNCIA (use como foco DENTRO do conteúdo enviado, sem sair dele): ${tema}` : "O tema sai do próprio conteúdo enviado abaixo."}`
+        : `${cabecalhoMarca}TEMA: ${tema}`,
+      // A fonte vem cedo no prompt, antes das instruções de forma: o que ela
+      // deve dizer é decidido pelo documento, não pelo nicho.
+      fonte,
       `FORMATO: ${formato === "post" ? "post único (imagem única de feed)" : `carrossel de ${nSlides} slides`}`,
       `OBJETIVO: ${objetivo} — ${objetivoGuia[objetivo] ?? objetivoGuia.autoridade}`,
       `PLATAFORMA: ${body.plataforma ?? "Instagram"}`,
@@ -841,7 +1136,6 @@ Se a referência é uma agência verde e o cliente é uma clínica, a resposta n
 - "angulo": em uma frase, qual é o ângulo estratégico escolhido e por que ele funciona para esse público.
 - "legenda": legenda pronta para publicar.
 - "hashtags": lista sem o símbolo #.
-- "dica_visual": uma orientação curta de direção de arte para esse conteúdo específico.
 - "melhor_horario": melhor dia e horário para publicar esse conteúdo nesse nicho, com uma justificativa de meia linha.`,
     ].filter(Boolean);
 
@@ -857,6 +1151,59 @@ Se a referência é uma agência verde e o cliente é uma clínica, a resposta n
     const parsed = parseJson<{ slides: unknown[] }>(raw);
     if (!Array.isArray(parsed.slides) || parsed.slides.length === 0) {
       return respond({ error: "A IA não retornou slides. Tente de novo." }, 502);
+    }
+
+    /**
+     * Apara slide sobrando.
+     *
+     * Visto num teste real: pedidos 5 slides, vieram 6 — e o extra era um
+     * "Bônus" com corpo genérico, do tipo que a Carol teria que apagar na mão.
+     * O corte tira do MEIO e preserva capa e CTA, que são as duas posições em
+     * que o design conta ("é 90% do resultado" e "fecha a peça").
+     */
+    const slidesBrutos = parsed.slides as Array<{ tipo?: string }>;
+    if (slidesBrutos.length > nSlides) {
+      const cta = slidesBrutos[slidesBrutos.length - 1];
+      const ehCta = (s: { tipo?: string }) => s?.tipo === "cta";
+      const miolo = slidesBrutos.slice(1, -1).filter((s) => !ehCta(s));
+      parsed.slides = [slidesBrutos[0], ...miolo.slice(0, Math.max(0, nSlides - 2)), cta].slice(0, nSlides);
+    }
+
+    /**
+     * Segunda etapa: a MARCELA lê a copy pronta e dirige a imagem de cada slide.
+     *
+     * Roda aqui dentro, e não no app, para valer em TODO caminho de uma vez —
+     * peça avulsa, lote e rotina automática. Falha aqui não derruba a peça: o
+     * texto já está pronto e o app tem brief de reserva para a foto.
+     */
+    const copySlides = parsed.slides as Array<{ tipo?: string; titulo?: string; corpo?: string; destaque?: string }>;
+    try {
+      const rawFotos = await callClaude({
+        apiKey,
+        system: MARCELA_FOTO_SYSTEM,
+        schema: FOTOS_SCHEMA,
+        effort: "low",
+        maxTokens: 6000,
+        user: [
+          `${cabecalhoMarca}NICHO: ${cliente.segmento || body.nicho || "—"}`,
+          `TEMA DA PEÇA: ${tema || "(sai do material do cliente)"}`,
+          "COPY PRONTA (escreva uma imagem para cada slide, na ordem):",
+          JSON.stringify(
+            copySlides.map((s, i) => ({ n: i + 1, tipo: s.tipo, titulo: s.titulo, corpo: s.corpo })),
+            null,
+            1,
+          ),
+          `Devolva exatamente ${copySlides.length} fotos.`,
+        ].join("\n\n"),
+      });
+      const dir = parseJson<{ fotos?: Array<{ n?: number; prompt_imagem?: string }>; dica_visual?: string }>(rawFotos);
+      const porN = new Map((dir.fotos ?? []).map((f) => [Number(f.n), f.prompt_imagem ?? ""]));
+      parsed.slides = copySlides.map((s, i) => ({ ...s, prompt_imagem: porN.get(i + 1) ?? "" }));
+      (parsed as Record<string, unknown>).dica_visual = dir.dica_visual ?? "";
+    } catch (e) {
+      console.error("direcao de imagem falhou:", e);
+      parsed.slides = copySlides.map((s) => ({ ...s, prompt_imagem: "" }));
+      (parsed as Record<string, unknown>).dica_visual = "";
     }
 
     return respond({ success: true, ...parsed });

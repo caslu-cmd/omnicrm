@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useParams } from "react-router-dom";
+import RodapeIdentidade from "@/components/RodapeIdentidade";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import {
@@ -446,6 +447,7 @@ export default function ClientPortal() {
               {checkingPassword ? "Verificando..." : "Entrar"}
             </button>
           </div>
+          <RodapeIdentidade contexto="Este é o portal onde a agência mostra ao cliente o que foi entregue. A senha foi enviada por quem cuida da sua conta." />
         </div>
       </div>
     );

@@ -13,13 +13,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { useClients } from "@/contexts/ClientsContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
-  renderSlide, ensureFonts, loadImage, canvasToBlob, ehLayoutHtml,
+  renderSlide, ensureFonts, loadImage, canvasToBlob, ehLayoutHtml, nomeDaCor,
   FORMAT_SIZE, FORMAT_LABEL, FONT_PAIRS, LAYOUTS, PALETTES, ACABAMENTOS,
   type SlideData, type LayoutId, type FormatId, type FontPairId, type Theme,
   type AcabamentoId, type BrandInfo,
 } from "@/lib/carouselRender";
 import SlideHtml from "@/components/SlideHtml";
 import { rasterizarSlide } from "@/lib/rasterizarSlide";
+import { lerDocumento, EXTENSOES_ACEITAS, type DocumentoLido } from "@/lib/lerDocumento";
+import { erroDaFuncao } from "@/lib/erroDaFuncao";
+import type { Composicao } from "@/components/slides/ModeloGenerativo";
 
 const LIME = "#B9FF4B";
 const BG = "#07080A";
@@ -31,6 +34,8 @@ interface Ideia { tema: string; gancho: string; formato: string; porque: string 
 interface Skill { id: string; tipo: "copy" | "design"; nome: string; resumo: string; instrucoes: string; nativa: boolean }
 interface Direcao {
   nome: string; referencia: string; porque: string;
+  /** A peça projetada zona por zona. Direção antiga não tem — daí o opcional. */
+  composicao?: Composicao;
   layout: LayoutId; fonte: FontPairId; bg: string; fg: string; accent: string;
   acabamento?: AcabamentoId;
 }
@@ -244,10 +249,24 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   const [tituloProjeto, setTituloProjeto] = useState("");
 
   // Design
-  const [layout, setLayout] = useState<LayoutId>("vidro");
+  /**
+   * Nasce no motor HTML.
+   *
+   * O padrão era "vidro", que é canvas — então quem clicasse só em "escrever o
+   * roteiro", sem passar pela direção de arte, ficava com uma peça do motor
+   * antigo mesmo depois de o diretor ter sido restrito ao HTML. A regra "sempre
+   * HTML" precisa valer também para quem não pede direção nenhuma.
+   */
+  const [layout, setLayout] = useState<LayoutId>("estudio");
   const [formatId, setFormatId] = useState<FormatId>("4:5");
   const [fontPair, setFontPair] = useState<FontPairId>("editorial");
   const [acabamento, setAcabamento] = useState<AcabamentoId>("nenhum");
+  /**
+   * A peça projetada pelo diretor de arte nesta direção. Quando existe, ela
+   * manda no desenho — é o que permite peça NOVA em vez de escolha entre
+   * modelos prontos. Vive junto do design e é salva com ele na Biblioteca.
+   */
+  const [composicao, setComposicao] = useState<Composicao | null>(null);
   const [paleta, setPaleta] = useState(PALETTES[0]);
   const [bg, setBg] = useState(PALETTES[0].bg);
   const [fg, setFg] = useState(PALETTES[0].fg);
@@ -273,6 +292,96 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   const [docsDoProjeto, setDocsDoProjeto] = useState<{ nome: string; conteudo: string }[]>([]);
 
   /**
+   * O conteúdo que o CLIENTE mandou, anexado aqui mesmo.
+   *
+   * É diferente do material dos Projetos: ali a Marcela lê o briefing e escreve
+   * o que quiser; aqui o documento É o conteúdo — ela traduz para o formato sem
+   * trocar o assunto nem inventar dado. O cliente vai comparar a peça com o que
+   * enviou, então a fidelidade é o produto.
+   *
+   * O texto é extraído no NAVEGADOR (mesmo leitor dos outros agentes: PDF,
+   * DOCX, texto) e viaja junto na geração — o arquivo em si não sobe.
+   */
+  /**
+   * O material do cliente vale para o TRABALHO, não para uma peça.
+   *
+   * Pedido da Carol: *"quero que na Marcela exista a opção de inserir arquivo já
+   * no começo, pra que qualquer opção que eu escolher abaixo se baseie nos
+   * arquivos enviados"*. Por isso é uma LISTA (material de cliente vem em
+   * pedaços) e por isso ele entra em TODOS os caminhos: sugerir pautas, escrever
+   * a peça avulsa e produzir o lote.
+   */
+  const [fonteDocs, setFonteDocs] = useState<DocumentoLido[]>([]);
+  /** O que viaja para o cérebro; `undefined` quando não há anexo. */
+  const fontesParaIA = fonteDocs.length
+    ? fonteDocs.map((d) => ({ nome: d.nome, conteudo: d.conteudo }))
+    : undefined;
+  const temFonte = fonteDocs.length > 0;
+  /**
+   * O que o material É para a peça. Três respostas possíveis, e a Carol usa as
+   * três em semanas diferentes:
+   *
+   * briefing (padrão) — o arquivo dá contexto e números; a peça fala do nicho e
+   *   dos benefícios. *"O material é apenas para ela ter um briefing."*
+   * adaptar — o assunto é o do material, reescrito para o formato.
+   * literal — as frases do cliente entram como estão (texto já aprovado).
+   */
+  const [fonteModo, setFonteModo] = useState<"briefing" | "adaptar" | "literal">("briefing");
+
+  const [lendoFonte, setLendoFonte] = useState(false);
+  const fonteInputRef = useRef<HTMLInputElement | null>(null);
+
+  const anexarFonte = async (files: FileList | null) => {
+    const lista = Array.from(files ?? []);
+    if (!lista.length) return;
+    setLendoFonte(true);
+    try {
+      const lidos: DocumentoLido[] = [];
+      for (const file of lista) {
+        // `lerDocumento` nunca lança: erro de leitura volta dentro do documento.
+        const doc = await lerDocumento(file);
+        if (doc.erro || !doc.conteudo.trim()) {
+          // Arquivo ilegível é DITO, não ignorado: mandar vazio faria a Marcela
+          // escrever no vácuo achando que leu.
+          toast.error(`${doc.nome}: ${doc.erro || "não consegui ler. Se for PDF escaneado, o texto é imagem."}`);
+          continue;
+        }
+        lidos.push(doc);
+      }
+      if (!lidos.length) return;
+      setFonteDocs((prev) => [...prev.filter((p) => !lidos.some((l) => l.nome === p.nome)), ...lidos]);
+      const chars = lidos.reduce((s, d) => s + d.conteudo.length, 0);
+      toast.success(`${lidos.length === 1 ? lidos[0].nome : `${lidos.length} arquivos`} — ${chars.toLocaleString("pt-BR")} caracteres lidos.`);
+
+      /**
+       * O material FICA SALVO no cliente.
+       *
+       * Antes ele vivia só no estado da tela: fechar o estúdio ou trocar de
+       * cliente perdia o arquivo, e a Carol tinha que anexar de novo a cada
+       * peça. O texto extraído é o que vale (o arquivo em si não sobe), então
+       * gravar é barato e vale em qualquer máquina — mesma decisão do briefing
+       * e da identidade da marca.
+       */
+      if (clienteId) {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session) {
+          await (supabase as any).from("studio_material").upsert(
+            lidos.map((d) => ({
+              user_id: session.user.id, client_id: clienteId,
+              nome: d.nome, conteudo: d.conteudo.slice(0, 60000),
+            })),
+            { onConflict: "user_id,client_id,nome" },
+          );
+        }
+      }
+    } finally {
+      setLendoFonte(false);
+      // Permite reanexar o MESMO arquivo depois de remover.
+      if (fonteInputRef.current) fonteInputRef.current.value = "";
+    }
+  };
+
+  /**
    * Produção em lote: N posts únicos + M carrosséis de uma vez.
    *
    * O estúdio fazia uma peça por vez, e fechar um mês significava repetir o
@@ -290,7 +399,12 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   /** Lote com calendário misto em vez de dez peças com o mesmo objetivo. */
   const [loteMix, setLoteMix] = useState(true);
   /** As pautas do lote ficam na tela: ela quer LER o que vai ser escrito. */
-  const [lotePautas, setLotePautas] = useState<Array<{ tema: string; gancho: string; objetivo: Objetivo; carrossel: boolean; estado: "espera" | "escrevendo" | "pronta" | "falhou" }>>([]);
+  const [lotePautas, setLotePautas] = useState<Array<{
+    tema: string; gancho: string; objetivo: Objetivo; carrossel: boolean;
+    estado: "espera" | "escrevendo" | "pronta" | "falhou";
+    /** Id na Biblioteca — é o que deixa abrir a peça direto da lista. */
+    memoriaId?: string;
+  }>>([]);
   const pararLoteRef = useRef(false);
 
   const [marcaCor, setMarcaCor] = useState("");
@@ -366,6 +480,19 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
 
   const cliente = clients.find((c) => c.id === clienteId);
   const noEstudio = slides.length > 0;
+
+  /**
+   * Público e tom que vêm do briefing do cliente, quando os campos do estúdio
+   * ficam vazios. É a MESMA leitura que o `contextoCliente()` faz na hora de
+   * chamar a IA — aqui ela só sobe para a tela, para a Carol ver para quem a
+   * peça está sendo escrita antes de mandar escrever.
+   */
+  const briefingDoCliente = useMemo<Record<string, unknown> | null>(() => {
+    if (!cliente) return null;
+    try { return JSON.parse(localStorage.getItem(`client-briefing-${cliente.id}`) ?? "null"); } catch { return null; }
+  }, [cliente]);
+  const publicoDoBriefing = String(briefingDoCliente?.publicoAlvo ?? "").trim();
+  const tomDoBriefing = String(briefingDoCliente?.tomDeVoz ?? "").trim();
 
   // `accent2` só entra quando a identidade está travada: solta, quem manda na
   // paleta é a direção de arte, e fixar um tom por trás dela seria sabotagem.
@@ -568,6 +695,24 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
 
   useEffect(() => { carregarMemoria(); }, [carregarMemoria]);
 
+  /** O material salvo do cliente volta sozinho ao abrir o estúdio. */
+  useEffect(() => {
+    if (!clienteId) { setFonteDocs([]); return; }
+    let vivo = true;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from("studio_material")
+        .select("nome, conteudo")
+        .eq("client_id", clienteId)
+        .order("created_at", { ascending: false })
+        .limit(8);
+      if (!vivo) return;
+      setFonteDocs(((data ?? []) as Array<{ nome: string; conteudo: string }>)
+        .map((d) => ({ nome: d.nome, conteudo: d.conteudo })));
+    })();
+    return () => { vivo = false; };
+  }, [clienteId]);
+
   /**
    * Referências visuais que o diretor de arte OLHA antes de decidir.
    * Vêm as da casa (client_id nulo) e as específicas deste cliente. Não são
@@ -611,7 +756,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           slides: slides.map((s) => ({ ...s, imagem: s.imagemUrl ?? null })),
           legenda,
           hashtags,
-          design: { layout, fontPair, bg, fg, accent, formatId, acabamento },
+          design: { layout, fontPair, bg, fg, accent, formatId, acabamento, composicao },
         })
         .eq("id", memoriaId)
         .then(() => undefined, () => undefined);
@@ -644,7 +789,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
       const { data, error } = await supabase.functions.invoke("ben-trends", {
         body: { nicho, plataforma: "todas", tipo_conteudo: "carrossel", client_name: cliente?.name },
       });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(await erroDaFuncao(error));
       const conteudo: string = data?.content ?? "";
       if (!conteudo) throw new Error(data?.error ?? "O Ben não retornou nada.");
 
@@ -757,7 +902,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           ...contextoCliente(),
         },
       });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(await erroDaFuncao(error));
       if (data?.error) throw new Error(data.error);
       const lista: Direcao[] = data.direcoes ?? [];
       if (!lista.length) throw new Error("O diretor de arte não devolveu direções.");
@@ -813,7 +958,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           ...contextoCliente(),
         },
       });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(await erroDaFuncao(error));
       if (data?.error) throw new Error(data.error);
       const lista: Direcao[] = data.direcoes ?? [];
       if (!lista.length) throw new Error("Não consegui extrair uma direção dessa imagem.");
@@ -829,6 +974,9 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
 
   const aplicarDirecao = (d: Direcao) => {
     setLayout(d.layout);
+    // A peça PROJETADA nesta direção manda no desenho; o `layout` acima vira o
+    // plano B, para direção antiga que não traz composição.
+    setComposicao(d.composicao ?? null);
     setBg(d.bg);
     setFg(d.fg);
     if (d.acabamento) setAcabamento(d.acabamento);
@@ -893,6 +1041,8 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           objetivos: calendario,
           historico: historicoParaIA(),
           documentos: docsDoProjeto,
+          // O lote inteiro nasce do material do cliente quando ele existe.
+          documentoFonte: fontesParaIA,
           ...contextoCliente(),
         },
       });
@@ -910,14 +1060,23 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
         .slice(0, total);
       const temas = lista.map((i) => i.tema);
       if (!temas.length) throw new Error("Não consegui gerar as pautas.");
+      /**
+       * Os carrosséis se espalham pelo lote em vez de ocuparem as primeiras
+       * posições. Com o calendário ligado, "os N primeiros" fazia TODO carrossel
+       * cair em autoridade/educar e nenhum em venda — o formato mais forte
+       * ficava fora justo dos objetivos que precisam dele.
+       */
+      const ehCarrosselNoIndice = new Set(
+        Array.from({ length: loteCarrosseis }, (_, k) => Math.floor(((k + 0.5) * total) / loteCarrosseis)),
+      );
       // Na tela ANTES de escrever: ela vê as 16 pautas e já sabe se vale seguir.
-      setLotePautas(lista.map((p, i) => ({ ...p, carrossel: i < loteCarrosseis, estado: "espera" as const })));
+      setLotePautas(lista.map((p, i) => ({ ...p, carrossel: ehCarrosselNoIndice.has(i), estado: "espera" as const })));
 
       let feitas = 0;
       for (let i = 0; i < temas.length; i++) {
         if (pararLoteRef.current) break;
         // Os carrosséis primeiro; o resto vira post único.
-        const ehCarrossel = i < loteCarrosseis;
+        const ehCarrossel = ehCarrosselNoIndice.has(i);
         const objetivoDaPeca = lista[i].objetivo;
         const rotulo = OBJETIVOS.find((o) => o.id === objetivoDaPeca)?.label ?? objetivoDaPeca;
         setLoteAndamento(`Escrevendo ${i + 1} de ${temas.length} — ${ehCarrossel ? "carrossel" : "post"} para ${rotulo.toLowerCase()}...`);
@@ -934,6 +1093,10 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
             historico: historicoParaIA(),
             skills: skillsParaIA("copy"),
             documentos: docsDoProjeto,
+            // Cada peça do lote também é escrita a partir do material — com a
+            // pauta servindo de recorte dentro dele.
+            documentoFonte: fontesParaIA,
+            fonteModo: temFonte ? fonteModo : undefined,
             ...contextoCliente(),
           },
         });
@@ -953,8 +1116,12 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           slides: roteiro,
           legenda: data.legenda ?? "",
           hashtags: data.hashtags ?? [],
-          design: { layout, fontPair, bg, fg, accent, formatId, acabamento },
+          design: { layout, fontPair, bg, fg, accent, formatId, acabamento, composicao },
         }).select("id").single();
+
+        // O id entra na lista assim que a peça é gravada, e não no fim do laço:
+        // assim ela já pode abrir a de nº 3 enquanto a de nº 4 está sendo escrita.
+        if (linha?.id) setLotePautas((p) => p.map((x, idx) => (idx === i ? { ...x, memoriaId: linha.id } : x)));
 
         /**
          * Marcela sozinha: o texto já está salvo, então a arte é um extra que
@@ -975,7 +1142,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           setModoAuto(null);
         }
 
-        setLotePautas((p) => p.map((x, idx) => (idx === i ? { ...x, estado: "pronta" } : x)));
+        setLotePautas((p) => p.map((x, idx) => (idx === i ? { ...x, estado: "pronta", memoriaId: linha?.id } : x)));
         feitas++;
       }
 
@@ -1124,7 +1291,10 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   };
 
   const fazerTudoSozinha = async () => {
-    if (!tema.trim()) { toast.error("Escreva o tema (ou peça uma pauta) antes."); return; }
+    // Mesma regra do `gerar`: com o conteúdo do cliente anexado o tema é
+    // opcional. Esta trava era a que ainda exigia pauta depois de subir o
+    // arquivo — mudar só uma das duas portas não muda nada para quem usa.
+    if (!tema.trim() && !temFonte) { toast.error("Escreva o tema, peça uma pauta ou anexe o material do cliente."); return; }
     try {
       setModoAuto("Escrevendo o roteiro...");
       const novos = await gerar();
@@ -1235,7 +1405,8 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
   /** Devolve os slides que acabou de escrever — o estado ainda não atualizou
    *  para quem chamou (closure), e o modo automático precisa da lista na mão. */
   const gerar = async (): Promise<SlideData[]> => {
-    if (!tema.trim()) { toast.error("Escreva o tema do conteúdo."); return []; }
+    // Com o conteúdo do cliente anexado o tema é opcional: ele sai do documento.
+    if (!tema.trim() && !temFonte) { toast.error("Escreva o tema do conteúdo ou anexe o material do cliente."); return []; }
     setGerando(true);
     try {
       const ctx = contextoCliente();
@@ -1251,16 +1422,23 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           // isto a Marcela era a única do time que escrevia sem ter lido o
           // briefing que a Carol anexou.
           documentos: docsDoProjeto,
+          // O conteúdo que o cliente mandou: aqui ela TRADUZ em vez de criar.
+          documentoFonte: fontesParaIA,
+          fonteModo: temFonte ? fonteModo : undefined,
           ...ctx,
         },
       });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(await erroDaFuncao(error));
       if (data?.error) throw new Error(data.error);
 
-      const novos: SlideData[] = (data.slides ?? []).map((s: SlideData) => ({ ...s, imagem: null }));
+      let novos: SlideData[] = (data.slides ?? []).map((s: SlideData) => ({ ...s, imagem: null }));
+      let legendaFinal: string = data.legenda ?? "";
+      let hashtagsFinais: string[] = data.hashtags ?? [];
+
+
       setSlides(novos);
-      setLegenda(data.legenda ?? "");
-      setHashtags(data.hashtags ?? []);
+      setLegenda(legendaFinal);
+      setHashtags(hashtagsFinais);
       setAngulo(data.angulo ?? "");
       setDicaVisual(data.dica_visual ?? "");
       setMelhorHorario(data.melhor_horario ?? "");
@@ -1280,9 +1458,9 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
             objetivo,
             formato,
             slides: novos,
-            legenda: data.legenda ?? "",
-            hashtags: data.hashtags ?? [],
-            design: { layout, fontPair, bg, fg, accent, formatId, acabamento },
+            legenda: legendaFinal,
+            hashtags: hashtagsFinais,
+            design: { layout, fontPair, bg, fg, accent, formatId, acabamento, composicao },
           }).select("id").single();
           if (salvo?.id) setMemoriaId(salvo.id as string);
           carregarMemoria();
@@ -1307,10 +1485,13 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           nicho: cliente?.industry || tema || "marketing digital",
           benTrends: benParaIA(),
           historico: historicoParaIA(),
+          // Com material anexado, as pautas saem DELE — senão a Carol anexa o
+          // documento e recebe assunto genérico do nicho.
+          documentoFonte: fontesParaIA,
           ...contextoCliente(),
         },
       });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(await erroDaFuncao(error));
       if (data?.error) throw new Error(data.error);
       setIdeias(data.ideias ?? []);
     } catch (e) {
@@ -1332,7 +1513,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           ...contextoCliente(),
         },
       });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(await erroDaFuncao(error));
       if (data?.error) throw new Error(data.error);
       setSlides((prev) => prev.map((old, idx) => (idx === i ? { ...old, ...data.slide } : old)));
       toast.success("Slide reescrito.");
@@ -1400,6 +1581,17 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
       case "revista":
         // A foto entra como faixa no topo, sem texto por cima.
         return "CRITICAL COMPOSITION: horizontal banner crop, subject centred and fully visible. No text is composited over this image, so it does not need empty space.";
+      case "estudio":
+      case "partido":
+        // Modelos HTML de peça partida: a foto é uma FAIXA na base, com degradê
+        // costurando com o papel. Nada de texto por cima dela.
+        return "CRITICAL COMPOSITION: the image becomes a WIDE HORIZONTAL BAND across the bottom third of the piece. Frame the subject so it survives a short, wide crop — centred, upper body only if it is a person, nothing important near the top or bottom edge. No text is composited over the photo, so it does not need empty space, but the upper part of the image must stay calm because it fades into the page.";
+      case "objeto":
+        // O assunto flutua num halo: as quatro bordas dissolvem no fundo escuro.
+        return "CRITICAL COMPOSITION: the subject must be a SINGLE OBJECT centred in the frame, shot close, on a dark and quiet background, with generous empty space around it — the edges of the photo dissolve into darkness, so anything near a border disappears. Dramatic directional light on the object. No people.";
+      case "convite":
+        // Retrato em tela cheia com degradê pesado fechando a metade de baixo.
+        return "CRITICAL COMPOSITION: full-bleed vertical portrait. Keep the face in the UPPER THIRD of the frame and leave the lower half calm and uncluttered — a heavy gradient closes the bottom of the piece and the headline sits there.";
       default:
         return null;
     }
@@ -1422,10 +1614,49 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     "dramatic and lit with intent, with generous empty space around it, and no people " +
     "half-entering the frame.";
 
+  /**
+   * A identidade do cliente DENTRO da foto, não só no canvas por cima dela.
+   *
+   * Pedido da Carol: *"crie sempre imagens que, se tiverem texto, seja em
+   * português, e com algum elemento que use a cor do cliente em destaque, pra
+   * peça ter toda a identidade do cliente"*.
+   *
+   * Mora aqui, e não no prompt do roteiro, pelo mesmo motivo da composição: o
+   * roteiro é escrito antes de existir cor aplicada, e instrução que depende de
+   * o modelo lembrar falha em metade das peças. Aqui é anexado em TODA foto.
+   *
+   * Duas armadilhas evitadas de propósito no texto:
+   *  - "elemento na cor" e não "imagem na cor": pedir a cor sem qualificar faz
+   *    o gerador aplicar um filtro colorido na foto inteira, que é exatamente
+   *    o visual amador que a gente evita.
+   *  - o hex vai junto do NOME da cor, porque gerador de imagem não interpreta
+   *    hexadecimal sozinho.
+   */
+  const identidadeNaFoto = (): string => {
+    const cor = (marcaCor || accent || "").trim();
+    if (!/^#?[0-9a-fA-F]{3,8}$/.test(cor)) return "";
+    const hex = cor.startsWith("#") ? cor : `#${cor}`;
+    return (
+      `BRAND IDENTITY IN THE SCENE: include at least one clearly visible element in ${nomeDaCor(hex)} (${hex}) — ` +
+      "a real object in the scene: a garment, a helmet, a painted wall or door, a machine, a crate, packaging, a cable, " +
+      "a chair, a folder, a mug, or a colored light source. It must look like something that is genuinely there, " +
+      "placed where the eye lands. NEVER apply this color as a filter, gradient or tint over the whole image, and never " +
+      "recolor skin. The rest of the palette stays natural. " +
+      "TEXT: prefer no text at all. If text is unavoidable because it belongs to the scene (a sign, a label, a screen, " +
+      "a printed page), it must be in BRAZILIAN PORTUGUESE, correctly spelled, short and generic — never English, " +
+      "never invented words, never a real brand name."
+    );
+  };
+
   /** Junta o pedido do roteiro com a composição que o layout exige. */
   const promptDaFoto = (s: SlideData, l: LayoutId) => {
     const base = s.prompt_imagem || `editorial photo about ${s.titulo}`;
-    const partes = [base, composicaoDoLayout(l), s.tipo === "capa" ? CAPA_COM_IMPACTO : null];
+    const partes = [
+      base,
+      composicaoDoLayout(l),
+      s.tipo === "capa" ? CAPA_COM_IMPACTO : null,
+      identidadeNaFoto(),
+    ];
     return partes.filter(Boolean).join("\n\n");
   };
 
@@ -1464,7 +1695,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           referencias,
         },
       });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error(await erroDaFuncao(error));
       if (data?.error) throw new Error(data.error);
       if (!data?.imageData) throw new Error(data?.message ?? "A IA não retornou imagem.");
       const url = `data:${data.mimeType ?? "image/jpeg"};base64,${data.imageData}`;
@@ -1565,6 +1796,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     const o = opcoesBase(i);
     if (ehLayoutHtml(layout)) {
       return await rasterizarSlide({
+        layout, composicao,
         slide: slides[i], index: i, total: slides.length,
         theme, brand, format: formatId,
         imagem: slides[i]?.imagem ?? null,
@@ -1823,6 +2055,106 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
     </div>
   );
 
+  /**
+   * A Biblioteca é um modal, e ela precisa existir nas DUAS telas.
+   *
+   * Estava só na tela do estúdio: na tela de briefing — que é justamente onde
+   * fica o botão "ver as N peças prontas" depois de um lote — o clique
+   * acendia o estado e não abria nada, porque o JSX do modal não estava
+   * montado ali. Como const, ele é renderizado nas duas.
+   */
+  const modalBiblioteca = mostrarBiblioteca ? (
+
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-5"
+          style={{ background: "rgba(0,0,0,0.86)", backdropFilter: "blur(10px)" }}
+          onClick={() => setMostrarBiblioteca(false)}>
+          <div onClick={(e) => e.stopPropagation()}
+            className="w-full rounded-2xl overflow-hidden flex flex-col"
+            style={{ maxWidth: 760, maxHeight: "86vh", background: "#0D0F12", border: "1px solid rgba(255,255,255,0.1)" }}>
+            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+              <div className="flex items-center gap-2">
+                <Library className="w-4 h-4" style={{ color: LIME }} />
+                <span className="text-sm font-bold" style={{ color: "#F0F0F0" }}>
+                  Biblioteca de {cliente?.name ?? "cliente"}
+                </span>
+              </div>
+              <button onClick={() => setMostrarBiblioteca(false)} className="p-1.5 rounded-lg"
+                style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}>
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+            {/* Depois de um lote, quase tudo aqui está sem arte. Fazer uma a uma
+                é o trabalho braçal que ela justamente não quer. */}
+            {memoria.some((m) => !m.slides?.some((s) => s.imagem)) && (
+              <button onClick={darArteEmTodas} disabled={!!loteAndamento || !!modoAuto}
+                className="mx-4 mt-3 py-2.5 rounded-xl text-[11.5px] font-bold flex items-center justify-center gap-2 disabled:opacity-40"
+                style={{ background: LIME, color: "#07080A" }}>
+                <Sparkles className="w-3.5 h-3.5" />
+                Gerar a arte das {memoria.filter((m) => !m.slides?.some((s) => s.imagem)).length} peças que faltam
+              </button>
+            )}
+            <div className="overflow-y-auto p-4 space-y-2">
+              {memoria.length === 0 && (
+                <div className="text-[12px] text-center py-8" style={{ color: "rgba(255,255,255,0.35)" }}>
+                  Nenhum conteúdo criado ainda para este cliente.
+                </div>
+              )}
+              {memoria.map((m) => (
+                <div key={m.id}
+                  className="w-full text-left rounded-xl p-3.5 transition-all"
+                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.borderColor = `${LIME}55`)}
+                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)")}>
+                  <div className="flex gap-3">
+                    <MiniPeca item={m} brand={brand} fontesOk={fontesOk} />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-3">
+                        <span className="text-[13px] font-semibold" style={{ color: "#EDEDED" }}>{m.tema}</span>
+                        <span className="text-[10px] flex-shrink-0 mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>
+                          {new Date(m.created_at).toLocaleDateString("pt-BR")}
+                        </span>
+                      </div>
+                      {m.angulo && (
+                        <div className="text-[11px] mt-1 leading-relaxed" style={{ color: "rgba(255,255,255,0.42)" }}>{m.angulo}</div>
+                      )}
+                      <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-2 text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                        {m.slides?.length ? <span>{m.slides.length} slides</span> : null}
+                        {m.design?.layout ? <span>· {LAYOUTS.find((l) => l.id === m.design?.layout)?.label}</span> : null}
+                        {m.design?.fontPair ? <span>· {FONT_PAIRS[m.design.fontPair]?.label}</span> : null}
+                        {m.design?.acabamento && m.design.acabamento !== "nenhum"
+                          ? <span>· {ACABAMENTOS.find((a) => a.id === m.design?.acabamento)?.label}</span> : null}
+                        {m.design?.accent ? (
+                          <span className="inline-block rounded-full" style={{ width: 8, height: 8, background: m.design.accent }} />
+                        ) : null}
+                      </div>
+                      {/* Duas saídas por peça: abrir para mexer no texto, ou
+                          mandar a Marcela dar arte. Depois de um lote, a
+                          segunda é a que ela vai usar dezesseis vezes. */}
+                      <div className="flex items-center gap-2 mt-2.5">
+                        <button onClick={() => abrirDaBiblioteca(m.id)}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10.5px] font-semibold"
+                          style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.72)" }}>
+                          <FolderOpen className="w-3 h-3" /> Abrir
+                        </button>
+                        <button onClick={() => gerarArteDaBiblioteca(m.id)} disabled={!!modoAuto}
+                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10.5px] font-bold disabled:opacity-40"
+                          style={{ background: LIME, color: "#07080A" }}>
+                          <Sparkles className="w-3 h-3" />
+                          {m.slides?.some((s) => s.imagem) ? "Refazer a arte" : "Gerar a arte"}
+                        </button>
+                        {m.slides?.some((s) => s.imagem) && (
+                          <span className="text-[10px]" style={{ color: LIME }}>✓ com arte</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      
+  ) : null;
   // ── Tela 1: briefing ───────────────────────────────────────────────────
   if (!noEstudio) {
     return (
@@ -1869,6 +2201,98 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                 </button>
               )}
 
+              {/* MATERIAL DO CLIENTE — no começo de tudo, de propósito.
+                  Pedido da Carol: o que ela escolher abaixo (pautas, lote, peça
+                  avulsa) se baseia nestes arquivos. Por isso ele vem ANTES do
+                  lote e do tema, e não dentro de um campo específico. */}
+              <div className="rounded-xl p-3.5 space-y-2.5"
+                style={{
+                  background: temFonte ? `${LIME}0F` : "rgba(255,255,255,0.045)",
+                  border: `1px solid ${temFonte ? `${LIME}40` : "rgba(255,255,255,0.12)"}`,
+                }}>
+                <div className="flex items-center gap-1.5 text-[11px] font-bold" style={{ color: "#E8E8E8" }}>
+                  <FileText className="w-3.5 h-3.5" style={{ color: temFonte ? LIME : "rgba(255,255,255,0.5)" }} />
+                  Material do cliente
+                </div>
+                <div className="text-[10px] leading-snug" style={{ color: "rgba(255,255,255,0.42)" }}>
+                  {temFonte
+                    ? "Tudo que você pedir daqui para baixo sai deste material — as pautas, o lote e a peça avulsa. Fica salvo neste cliente: da próxima vez ele já vem aqui."
+                    : "Anexe o que o cliente mandou (PDF, Word ou texto) e tudo abaixo passa a se basear nele. Fica salvo no cliente. Sem anexo, a Beatriz escreve a partir do briefing e do nicho."}
+                </div>
+
+                {fonteDocs.length > 0 && (
+                  <div className="space-y-1.5">
+                    {fonteDocs.map((d) => (
+                      <div key={d.nome} className="flex items-center gap-2 rounded-lg px-2.5 py-2"
+                        style={{ background: "rgba(255,255,255,0.05)" }}>
+                        <FileText className="w-3.5 h-3.5 flex-shrink-0" style={{ color: LIME }} />
+                        <div className="min-w-0 flex-1">
+                          <div className="text-[11.5px] font-semibold truncate" style={{ color: "#F0F0F0" }}>{d.nome}</div>
+                          <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.42)" }}>
+                            {d.conteudo.length.toLocaleString("pt-BR")} caracteres lidos
+                          </div>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            setFonteDocs((p) => p.filter((x) => x.nome !== d.nome));
+                            // Remover na tela remove no cliente também: material
+                            // que "some" e volta no próximo acesso é pior que
+                            // não ter salvo.
+                            if (clienteId) {
+                              await (supabase as any).from("studio_material")
+                                .delete().eq("client_id", clienteId).eq("nome", d.nome);
+                            }
+                          }}
+                          title="Remover"
+                          className="p-1 rounded-lg flex-shrink-0"
+                          style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}>
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                  <button onClick={() => fonteInputRef.current?.click()} disabled={lendoFonte}
+                    className="flex items-center gap-1.5 text-[12px] font-semibold transition-colors"
+                    style={{ color: lendoFonte ? "rgba(255,255,255,0.3)" : LIME }}>
+                    {lendoFonte ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Upload className="w-3.5 h-3.5" />}
+                    {lendoFonte ? "Lendo..." : temFonte ? "Anexar mais" : "Anexar arquivos"}
+                  </button>
+                  {/* `multiple`: material de cliente vem em pedaços — o comunicado,
+                      a tabela, o release. */}
+                  <input ref={fonteInputRef} type="file" multiple accept={EXTENSOES_ACEITAS} className="hidden"
+                    onChange={(e) => anexarFonte(e.target.files)} />
+                </div>
+
+                {/* O que o material É para a peça. Só aparece com anexo: sem
+                    arquivo a escolha não quer dizer nada. */}
+                {temFonte && (
+                  <div className="pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+                    <div className="text-[9.5px] uppercase tracking-widest mb-1.5" style={{ color: "rgba(255,255,255,0.3)" }}>
+                      o que fazer com ele
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {([
+                        ["briefing", "Briefing"],
+                        ["adaptar", "Adaptar"],
+                        ["literal", "Texto literal"],
+                      ] as const).map(([id, rotulo]) => (
+                        <Chip key={id} ativo={fonteModo === id} onClick={() => setFonteModo(id)}>{rotulo}</Chip>
+                      ))}
+                    </div>
+                    <div className="text-[10px] leading-snug mt-1.5" style={{ color: "rgba(255,255,255,0.42)" }}>
+                      {fonteModo === "briefing"
+                        ? "Ela usa os fatos e números daqui, mas escreve sobre o segmento e o que o cliente ganha. É o normal quando o cliente manda o que tem, não um post pronto."
+                        : fonteModo === "adaptar"
+                        ? "O assunto é o do material — ela só reescreve para o formato, sem trazer tema de fora."
+                        : "As frases entram como estão. Para texto já escrito para publicar, revisado ou aprovado por jurídico."}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Produção em lote: fechar um mês sem repetir o ritual peça a
                   peça. Fica ANTES do tema porque, no lote, quem escolhe os
                   temas é ela — a Carol só diz quantas e de que tipo. */}
@@ -1878,7 +2302,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                   <Layers className="w-3.5 h-3.5" /> Produzir várias de uma vez
                 </div>
                 <div className="text-[10px] leading-snug" style={{ color: "rgba(255,255,255,0.42)" }}>
-                  A Marcela escolhe as pautas sem repetir o que já foi publicado, escreve cada peça
+                  A Beatriz escolhe as pautas sem repetir o que já foi publicado e escreve cada peça; a Marcela dirige a arte
                   e guarda na Biblioteca do cliente. As fotos você gera ao abrir cada uma.
                 </div>
                 <div className="flex flex-wrap items-center gap-3">
@@ -1941,7 +2365,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                     onChange={(e) => setLoteComArte(e.target.checked)} className="mt-0.5" />
                   <span className="min-w-0">
                     <span className="block text-[11.5px] font-semibold" style={{ color: "#EDEDED" }}>
-                      Fazer a arte também — a Marcela sozinha
+                      Fazer a arte também — o time inteiro sozinho
                     </span>
                     <span className="block text-[10px] leading-snug mt-0.5" style={{ color: "rgba(255,255,255,0.42)" }}>
                       Escreve, escolhe a direção de arte e fotografa cada peça: sai pronta para publicar.
@@ -1979,10 +2403,19 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                 {lotePautas.length > 0 && (
                   <div className="space-y-1 pt-1 max-h-72 overflow-y-auto pr-1">
                     {lotePautas.map((p, i) => (
-                      <div key={i} className="flex items-start gap-2 rounded-lg px-2.5 py-2"
+                      /* Peça pronta ABRE no clique. Sem isto a lista só informava
+                         que a peça existe: para ver a de nº 7 era preciso adivinhar
+                         que ela estava na Biblioteca, e a tela ficava parecendo que
+                         o lote só tinha produzido a primeira. */
+                      <div key={i}
+                        onClick={() => { if (p.memoriaId) { abrirDaBiblioteca(p.memoriaId); setMostrarBiblioteca(false); } }}
+                        role={p.memoriaId ? "button" : undefined}
+                        title={p.memoriaId ? "Abrir esta peça" : undefined}
+                        className="flex items-start gap-2 rounded-lg px-2.5 py-2"
                         style={{
                           background: p.estado === "escrevendo" ? `${LIME}12` : "rgba(255,255,255,0.03)",
                           border: `1px solid ${p.estado === "escrevendo" ? `${LIME}44` : "rgba(255,255,255,0.06)"}`,
+                          cursor: p.memoriaId ? "pointer" : "default",
                         }}>
                         <span className="text-[10px] mt-0.5 flex-shrink-0 w-4 text-center"
                           style={{ color: p.estado === "pronta" ? LIME : p.estado === "falhou" ? "#FF6060" : "rgba(255,255,255,0.3)" }}>
@@ -2004,33 +2437,42 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                           <span className="text-[9.5px]" style={{ color: "rgba(255,255,255,0.3)" }}>
                             {p.carrossel ? `carrossel · ${loteSlides}` : "post"}
                           </span>
+                          {p.memoriaId && (
+                            <span className="text-[9.5px] font-semibold" style={{ color: LIME }}>abrir →</span>
+                          )}
                         </div>
                       </div>
                     ))}
-                    {!loteAndamento && lotePautas.some((p) => p.estado === "pronta") && (
+                    {lotePautas.some((p) => p.estado === "pronta") && (
                       <button onClick={() => setMostrarBiblioteca(true)}
                         className="w-full mt-1.5 py-2 rounded-lg text-[11px] font-bold flex items-center justify-center gap-1.5"
-                        style={{ background: "rgba(255,255,255,0.07)", color: "#EDEDED" }}>
-                        <Library className="w-3.5 h-3.5" /> Ver as peças na Biblioteca
+                        style={{ background: `${LIME}14`, color: "#EDEDED", border: `1px solid ${LIME}40` }}>
+                        <Library className="w-3.5 h-3.5" />
+                        Ver as {lotePautas.filter((p) => p.estado === "pronta").length} peças prontas na Biblioteca
                       </button>
                     )}
                   </div>
                 )}
               </div>
 
-              <Campo label="Sobre o que é o conteúdo">
+              <Campo label={temFonte ? "Recorte dentro do material (opcional)" : "Sobre o que é o conteúdo"}>
                 <textarea
                   value={tema} onChange={(e) => setTema(e.target.value)} rows={3}
-                  placeholder="Ex.: por que 8 em cada 10 empresas perdem licitação no envelope de habilitação"
+                  placeholder={temFonte
+                    ? "Deixe vazio para ela usar o material inteiro. Ou diga o foco: 'só a parte do prazo de contestação'."
+                    : "Ex.: por que 8 em cada 10 empresas perdem licitação no envelope de habilitação"}
                   style={{ ...inputStyle, resize: "none" }}
                 />
+
                 <button
                   onClick={pedirIdeias} disabled={buscandoIdeias}
                   className="mt-2 flex items-center gap-1.5 text-[12px] font-semibold transition-colors"
                   style={{ color: buscandoIdeias ? "rgba(255,255,255,0.3)" : LIME }}
                 >
                   {buscandoIdeias ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Lightbulb className="w-3.5 h-3.5" />}
-                  {buscandoIdeias ? "Pensando em pautas..." : "Não sei o tema — me sugere pautas"}
+                  {buscandoIdeias
+                    ? "Pensando em pautas..."
+                    : temFonte ? "Que pautas dá para tirar deste material?" : "Não sei o tema — me sugere pautas"}
                 </button>
               </Campo>
 
@@ -2075,12 +2517,28 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
                 </div>
               </Campo>
 
+              {/* Público e tom são herdados do briefing do cliente quando ficam
+                  vazios — e essa herança era invisível: a Carol não tinha como
+                  saber para quem a peça estava sendo escrita sem abrir o
+                  briefing. Agora o valor herdado aparece embaixo do campo. */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Campo label="Público (opcional)">
-                  <input value={publico} onChange={(e) => setPublico(e.target.value)} placeholder="donos de PME" style={inputStyle} />
+                  <input value={publico} onChange={(e) => setPublico(e.target.value)}
+                    placeholder={publicoDoBriefing || "donos de PME"} style={inputStyle} />
+                  {!publico.trim() && publicoDoBriefing && (
+                    <div className="text-[10px] mt-1 leading-snug" style={{ color: "rgba(255,255,255,0.4)" }}>
+                      Usando o do briefing de {cliente?.name ?? "cliente"}: <span style={{ color: LIME }}>{publicoDoBriefing}</span>
+                    </div>
+                  )}
                 </Campo>
                 <Campo label="Tom de voz (opcional)">
-                  <input value={tom} onChange={(e) => setTom(e.target.value)} placeholder="direto, sem juridiquês" style={inputStyle} />
+                  <input value={tom} onChange={(e) => setTom(e.target.value)}
+                    placeholder={tomDoBriefing || "direto, sem juridiquês"} style={inputStyle} />
+                  {!tom.trim() && tomDoBriefing && (
+                    <div className="text-[10px] mt-1 leading-snug" style={{ color: "rgba(255,255,255,0.4)" }}>
+                      Usando o do briefing: <span style={{ color: LIME }}>{tomDoBriefing}</span>
+                    </div>
+                  )}
                 </Campo>
               </div>
 
@@ -2243,12 +2701,24 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
             </div>
           </motion.div>
         </div>
+        {modalBiblioteca}
       </div>
     );
   }
 
   // ── Tela 2: estúdio ────────────────────────────────────────────────────
   const slideAtivo = slides[Math.min(ativo, slides.length - 1)];
+
+  /** As peças do lote que já existem na Biblioteca, na ordem em que nasceram. */
+  const pecasDoLote = lotePautas.filter((p) => p.memoriaId);
+  const indiceNoLote = pecasDoLote.findIndex((p) => p.memoriaId === memoriaId);
+  const irParaPeca = (passo: -1 | 1) => {
+    const alvo = pecasDoLote[indiceNoLote + passo];
+    if (alvo?.memoriaId) {
+      abrirDaBiblioteca(alvo.memoriaId, true);
+      setTema(alvo.tema);
+    }
+  };
 
   return (
     <div className={embutido ? "" : "min-h-full"} style={{ background: fundo }}>
@@ -2282,6 +2752,46 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
           </button>
         </div>
       </div>
+
+      {/* NAVEGAÇÃO DO LOTE.
+          Depois de produzir N peças, abrir uma delas trocava a tela e as outras
+          sumiam de vista — parecia que o lote tinha feito só a primeira. Aqui a
+          fila continua à mão: onde você está, quantas existem e como ir para a
+          próxima sem voltar à Biblioteca. */}
+      {pecasDoLote.length > 1 && (
+        <div className="flex flex-wrap items-center gap-2 px-4 md:px-6 py-2 border-b"
+          style={{ borderColor: "rgba(255,255,255,0.07)", background: `${LIME}0A` }}>
+          <span className="text-[11px] font-semibold" style={{ color: LIME }}>
+            {indiceNoLote >= 0 ? `Peça ${indiceNoLote + 1} de ${pecasDoLote.length}` : `Lote com ${pecasDoLote.length} peças`}
+          </span>
+          <span className="text-[11px] truncate min-w-0 flex-1" style={{ color: "rgba(255,255,255,0.4)" }}>
+            {indiceNoLote >= 0 ? (pecasDoLote[indiceNoLote].gancho || pecasDoLote[indiceNoLote].tema) : ""}
+          </span>
+          <div className="flex items-center gap-1.5 flex-shrink-0">
+            <button onClick={() => irParaPeca(-1)} disabled={indiceNoLote <= 0}
+              className="px-2 py-1 rounded-lg text-[11px] font-semibold"
+              style={{
+                background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.7)",
+                opacity: indiceNoLote <= 0 ? 0.35 : 1,
+              }}>
+              ‹ anterior
+            </button>
+            <button onClick={() => irParaPeca(1)} disabled={indiceNoLote < 0 || indiceNoLote >= pecasDoLote.length - 1}
+              className="px-2 py-1 rounded-lg text-[11px] font-semibold"
+              style={{
+                background: LIME, color: "#07080A",
+                opacity: indiceNoLote < 0 || indiceNoLote >= pecasDoLote.length - 1 ? 0.35 : 1,
+              }}>
+              próxima ›
+            </button>
+            <button onClick={() => setMostrarBiblioteca(true)}
+              className="px-2 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1"
+              style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.7)" }}>
+              <Library className="w-3 h-3" /> todas
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col lg:flex-row" style={{ minHeight: alturaPainel }}>
         {/* Painel esquerdo */}
@@ -2738,6 +3248,8 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
               }}>
                 <div style={{ transform: `scale(${escalaPrevia})`, transformOrigin: "top left" }}>
                   <SlideHtml
+                    layout={layout}
+                    composicao={composicao}
                     slide={slides[ativo]}
                     index={ativo}
                     total={slides.length}
@@ -2824,96 +3336,8 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
         </div>
       )}
 
-      {mostrarBiblioteca && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-5"
-          style={{ background: "rgba(0,0,0,0.86)", backdropFilter: "blur(10px)" }}
-          onClick={() => setMostrarBiblioteca(false)}>
-          <div onClick={(e) => e.stopPropagation()}
-            className="w-full rounded-2xl overflow-hidden flex flex-col"
-            style={{ maxWidth: 760, maxHeight: "86vh", background: "#0D0F12", border: "1px solid rgba(255,255,255,0.1)" }}>
-            <div className="flex items-center justify-between px-5 py-4" style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-              <div className="flex items-center gap-2">
-                <Library className="w-4 h-4" style={{ color: LIME }} />
-                <span className="text-sm font-bold" style={{ color: "#F0F0F0" }}>
-                  Biblioteca de {cliente?.name ?? "cliente"}
-                </span>
-              </div>
-              <button onClick={() => setMostrarBiblioteca(false)} className="p-1.5 rounded-lg"
-                style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.5)" }}>
-                <X className="w-3.5 h-3.5" />
-              </button>
-            </div>
-            {/* Depois de um lote, quase tudo aqui está sem arte. Fazer uma a uma
-                é o trabalho braçal que ela justamente não quer. */}
-            {memoria.some((m) => !m.slides?.some((s) => s.imagem)) && (
-              <button onClick={darArteEmTodas} disabled={!!loteAndamento || !!modoAuto}
-                className="mx-4 mt-3 py-2.5 rounded-xl text-[11.5px] font-bold flex items-center justify-center gap-2 disabled:opacity-40"
-                style={{ background: LIME, color: "#07080A" }}>
-                <Sparkles className="w-3.5 h-3.5" />
-                Gerar a arte das {memoria.filter((m) => !m.slides?.some((s) => s.imagem)).length} peças que faltam
-              </button>
-            )}
-            <div className="overflow-y-auto p-4 space-y-2">
-              {memoria.length === 0 && (
-                <div className="text-[12px] text-center py-8" style={{ color: "rgba(255,255,255,0.35)" }}>
-                  Nenhum conteúdo criado ainda para este cliente.
-                </div>
-              )}
-              {memoria.map((m) => (
-                <div key={m.id}
-                  className="w-full text-left rounded-xl p-3.5 transition-all"
-                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}
-                  onMouseEnter={(e) => (e.currentTarget.style.borderColor = `${LIME}55`)}
-                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = "rgba(255,255,255,0.08)")}>
-                  <div className="flex gap-3">
-                    <MiniPeca item={m} brand={brand} fontesOk={fontesOk} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-start justify-between gap-3">
-                        <span className="text-[13px] font-semibold" style={{ color: "#EDEDED" }}>{m.tema}</span>
-                        <span className="text-[10px] flex-shrink-0 mt-0.5" style={{ color: "rgba(255,255,255,0.3)" }}>
-                          {new Date(m.created_at).toLocaleDateString("pt-BR")}
-                        </span>
-                      </div>
-                      {m.angulo && (
-                        <div className="text-[11px] mt-1 leading-relaxed" style={{ color: "rgba(255,255,255,0.42)" }}>{m.angulo}</div>
-                      )}
-                      <div className="flex items-center flex-wrap gap-x-2 gap-y-1 mt-2 text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>
-                        {m.slides?.length ? <span>{m.slides.length} slides</span> : null}
-                        {m.design?.layout ? <span>· {LAYOUTS.find((l) => l.id === m.design?.layout)?.label}</span> : null}
-                        {m.design?.fontPair ? <span>· {FONT_PAIRS[m.design.fontPair]?.label}</span> : null}
-                        {m.design?.acabamento && m.design.acabamento !== "nenhum"
-                          ? <span>· {ACABAMENTOS.find((a) => a.id === m.design?.acabamento)?.label}</span> : null}
-                        {m.design?.accent ? (
-                          <span className="inline-block rounded-full" style={{ width: 8, height: 8, background: m.design.accent }} />
-                        ) : null}
-                      </div>
-                      {/* Duas saídas por peça: abrir para mexer no texto, ou
-                          mandar a Marcela dar arte. Depois de um lote, a
-                          segunda é a que ela vai usar dezesseis vezes. */}
-                      <div className="flex items-center gap-2 mt-2.5">
-                        <button onClick={() => abrirDaBiblioteca(m.id)}
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10.5px] font-semibold"
-                          style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.72)" }}>
-                          <FolderOpen className="w-3 h-3" /> Abrir
-                        </button>
-                        <button onClick={() => gerarArteDaBiblioteca(m.id)} disabled={!!modoAuto}
-                          className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[10.5px] font-bold disabled:opacity-40"
-                          style={{ background: LIME, color: "#07080A" }}>
-                          <Sparkles className="w-3 h-3" />
-                          {m.slides?.some((s) => s.imagem) ? "Refazer a arte" : "Gerar a arte"}
-                        </button>
-                        {m.slides?.some((s) => s.imagem) && (
-                          <span className="text-[10px]" style={{ color: LIME }}>✓ com arte</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+      {modalBiblioteca}
+
     </div>
   );
 }

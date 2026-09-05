@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Send, Copy, Check, LogIn, UserPlus, Eye, EyeOff } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import RodapeIdentidade from "@/components/RodapeIdentidade";
 
 const SUBMIT_URL = "https://proldgiyterqhthludlp.supabase.co/functions/v1/agent-chat-public";
 
@@ -167,9 +168,7 @@ function LoginGate({ agentName, agentColor, agentRole, onAuth }: LoginGateProps)
           </form>
         </div>
 
-        <p style={{ textAlign: "center", color: "rgba(255,255,255,0.15)", fontSize: "0.65rem", marginTop: 20 }}>
-          Powered by <strong style={{ color: "rgba(255,255,255,0.25)" }}>Calu Agência</strong>
-        </p>
+        <RodapeIdentidade contexto="A conta serve só para o histórico da sua conversa com este agente de IA." />
       </motion.div>
     </div>
   );

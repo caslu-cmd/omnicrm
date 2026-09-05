@@ -11,6 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { erroDaFuncao } from "@/lib/erroDaFuncao";
 import { useSocialPosting } from "@/contexts/SocialPostingContext";
 
 // ── Types ──────────────────────────────────────────────────────
@@ -134,7 +135,10 @@ async function callFn(body: Record<string, unknown>) {
     body,
     headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
   });
-  if (error) throw error;
+  // `throw error` cru virava "Edge Function returned a non-2xx status code" na
+  // tela — o motivo (permissão da Meta, conta sem Instagram profissional, etc.)
+  // fica no CORPO da resposta e era descartado aqui.
+  if (error) throw new Error(await erroDaFuncao(error, "Erro ao falar com a Meta."));
   if (data?.error) throw new Error(data.error);
   return data;
 }
@@ -319,9 +323,9 @@ export default function SocialMediaTab({
       sessionStorage.removeItem("meta-oauth-pending");
       supabase.functions.invoke("smm", {
         body: { action: "oauth-callback", code, state, redirect_uri },
-      }).then(({ data, error }) => {
+      }).then(async ({ data, error }) => {
         if (error || data?.error) {
-          toast.error(data?.error ?? error?.message ?? "Erro ao conectar Facebook.");
+          toast.error(data?.error ?? await erroDaFuncao(error, "Erro ao conectar Facebook."));
         } else {
           toast.success("Facebook conectado!");
           loadConnections();

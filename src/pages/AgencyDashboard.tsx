@@ -350,6 +350,12 @@ export default function AgencyDashboard() {
                 transition={{ delay: 0.18 + i * 0.07, duration: 0.45 }}
                 onHoverStart={() => setHoveredId(client.id)}
                 onHoverEnd={() => setHoveredId(null)}
+                // O cartão inteiro abre o workspace. Ele já tinha cursor de mão e
+                // nenhuma ação: quem clicava no nome do cliente não ia a lugar
+                // nenhum e precisava achar o botão pequeno lá embaixo. Os botões
+                // de portal e excluir seguem com stopPropagation.
+                onClick={() => navigate(`/agency/clients/${client.id}`)}
+                role="link"
                 className="relative rounded-2xl overflow-hidden cursor-pointer"
                 style={{
                   background: "rgba(255,255,255,0.022)",

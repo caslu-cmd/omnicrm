@@ -3,14 +3,18 @@
  * Desenha slides prontos para publicar (1080px) em canvas, sem depender de Canva/Figma.
  */
 
-export type LayoutId = "estudio" | "vidro" | "capa" | "organico" | "agencia" | "editorial" | "impacto" | "revista" | "gradiente" | "minimal" | "foto";
+export type LayoutId =
+  | "estudio" | "dado" | "objeto" | "partido" | "citacao" | "chips" | "comparativo" | "convite"
+  | "vidro" | "capa" | "organico" | "agencia" | "editorial" | "impacto" | "revista" | "gradiente" | "minimal" | "foto";
 
 /**
  * Layouts desenhados pelo motor HTML e não pelo canvas. O app troca o caminho
  * de render por esta lista — é o que permite migrar um modelo por vez sem
  * derrubar os outros nove.
  */
-export const LAYOUTS_HTML: LayoutId[] = ["estudio"];
+export const LAYOUTS_HTML: LayoutId[] = [
+  "estudio", "dado", "objeto", "partido", "citacao", "chips", "comparativo", "convite",
+];
 export const ehLayoutHtml = (l: LayoutId) => LAYOUTS_HTML.includes(l);
 export type FormatId = "4:5" | "1:1" | "9:16";
 export type FontPairId =
@@ -113,7 +117,18 @@ export const FONT_PAIRS: Record<
 };
 
 export const LAYOUTS: { id: LayoutId; label: string; desc: string; precisaImagem?: boolean }[] = [
+  // ── Motor HTML ─────────────────────────────────────────────────────────
+  // Tipografia de verdade, degradê, marca d'água sangrando, cartões com raio
+  // grande: o acabamento que o canvas não alcança sem virar código de desenho.
   { id: "estudio", label: "Estúdio ✦", desc: "Papel quadriculado, cartão sólido de apoio, faixa de foto na base e a inicial da marca em marca d'água. Desenhado em HTML — tipografia e acabamento de peça de estúdio.", precisaImagem: true },
+  { id: "dado", label: "Dado gigante ✦", desc: "Cor cheia da marca e o número dominando a peça. Para economia, percentual, prazo — quando o argumento É o número." },
+  { id: "objeto", label: "Objeto herói ✦", desc: "Fundo escuro com glow radial dissolvendo o objeto no fundo. Para o produto, o equipamento, o documento — sem pessoa.", precisaImagem: true },
+  { id: "partido", label: "Partido ✦", desc: "Papel com o título em cima, cena fotográfica na base e tarja na palavra marcada. O mais versátil dos sete.", precisaImagem: true },
+  { id: "citacao", label: "Citação ✦", desc: "Aspas gráficas gigantes em cor cheia escura. Para frase de cliente, tese forte ou posicionamento." },
+  { id: "chips", label: "Cartões ✦", desc: "Grade de cartões técnicos sobre fundo escuro. Para etapas, requisitos ou dados que precisam ser lidos separados." },
+  { id: "comparativo", label: "Antes e depois ✦", desc: "Duas colunas confrontando a situação atual e o resultado. Escreva o corpo como \"antes → depois\"." },
+  { id: "convite", label: "Convite ✦", desc: "Retrato em tela cheia com degradê fechando na base e o convite embaixo. O mais quente dos sete.", precisaImagem: true },
+  // ── Motor de canvas ────────────────────────────────────────────────────
   { id: "vidro", label: "Vidro", desc: "Foto + cartão de vidro com o título. O padrão que mais roda no feed.", precisaImagem: true },
   { id: "capa", label: "Capa", desc: "Foto + título gigante direto na imagem, com seta e pílulas.", precisaImagem: true },
   { id: "organico", label: "Orgânico", desc: "Forma de marca gigante em cor cheia, foto recortada dentro dela e selo circular. O padrão de agência.", precisaImagem: true },
@@ -247,6 +262,59 @@ export function shade(hex: string, amount: number): string {
 /** Cor de texto legível sobre um fundo qualquer. */
 export function contrastOn(hex: string): string {
   return isLight(hex) ? "#0A0C0F" : "#FFFFFF";
+}
+
+/**
+ * O hex descrito em palavras, em inglês, para o gerador de imagem.
+ *
+ * Gerador de imagem não obedece código hexadecimal: pedir "#005C0B" devolve
+ * qualquer verde, ou verde nenhum. Nome + hex junto funciona — o nome guia e o
+ * hex serve de referência para quem entende.
+ */
+export function nomeDaCor(hex: string): string {
+  const [r, g, b] = hexToRgb(hex).map((c) => c / 255);
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  const d = max - min;
+  const s = d === 0 ? 0 : d / (1 - Math.abs(2 * l - 1));
+
+  // Extremos antes da matiz: num tom quase preto ou quase branco a matiz
+  // existe na matemática mas ninguém enxerga — chamar #12181B de "azul" faria
+  // o gerador colorir de azul o que deveria ser preto.
+  if (l < 0.12) return "near-black";
+  if (l > 0.88 && s < 0.35) return "cream white";
+  if (s < 0.12) {
+    if (l > 0.85) return "off-white";
+    if (l > 0.6) return "light grey";
+    if (l > 0.35) return "medium grey";
+    return "charcoal grey";
+  }
+
+  let h = 0;
+  if (max === r) h = ((g - b) / d) % 6;
+  else if (max === g) h = (b - r) / d + 2;
+  else h = (r - g) / d + 4;
+  h = (h * 60 + 360) % 360;
+
+  const matiz =
+    h < 12 ? "red" :
+    h < 38 ? "orange" :
+    h < 52 ? "amber" :
+    h < 66 ? "yellow" :
+    h < 90 ? "lime green" :
+    h < 155 ? "green" :
+    h < 175 ? "teal" :
+    h < 195 ? "cyan" :
+    h < 235 ? "blue" :
+    h < 260 ? "indigo" :
+    h < 290 ? "violet" :
+    h < 330 ? "magenta" : "pink";
+
+  // Claridade primeiro: é o que mais muda a leitura da cor numa foto.
+  const tom = l < 0.22 ? "very dark " : l < 0.4 ? "deep " : l > 0.78 ? "pale " : l > 0.62 ? "light " : "";
+  const intensidade = s > 0.75 && l > 0.35 && l < 0.7 ? "vivid " : s < 0.3 ? "muted " : "";
+  return `${tom}${intensidade}${matiz}`.trim();
 }
 
 /**
@@ -1062,6 +1130,20 @@ function layoutGradiente(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chr
   const escuro = !isLight(base);
   const fg = escuro ? "#FFFFFF" : "#0A0C0F";
   const local: Chrome = { ...c, fg, accent };
+  /**
+   * Marca cujo accent É o fundo (ABCER: verde #005C0B nos dois) fazia a palavra
+   * marcada sumir dentro do cartão. Os outros layouts já passavam por aqui; este
+   * mandava a cor crua. Os blobs continuam com o accent original, porque ali a
+   * cor é o próprio fundo e deve ser a da marca.
+   *
+   * Quando há SEGUNDA cor da marca, ela vem antes de clarear a primeira: é
+   * exatamente para isso que ela existe. Clarear o accent inventa um tom que não
+   * é da identidade; o accent2 já foi escolhido pela agência para contrastar com
+   * o principal.
+   */
+  const accentEnfase = o.theme.accent2
+    ? corEnfase(base, fg, o.theme.accent2)
+    : corEnfase(base, fg, accent);
 
   ctx.fillStyle = base;
   ctx.fillRect(0, 0, W, H);
@@ -1119,7 +1201,7 @@ function layoutGradiente(ctx: CanvasRenderingContext2D, o: RenderOptions, c: Chr
     tracking: fonts.tracking,
   });
   ctx.fillStyle = fg;
-  drawBlock(ctx, t, cardX + inner, cursor, { font: (s) => `${fonts.displayWeight} ${s}px ${fonts.display}`, tracking: fonts.tracking, accent });
+  drawBlock(ctx, t, cardX + inner, cursor, { font: (s) => `${fonts.displayWeight} ${s}px ${fonts.display}`, tracking: fonts.tracking, accent: accentEnfase });
   cursor += t.height + W * 0.04;
 
   if (o.slide.corpo) {

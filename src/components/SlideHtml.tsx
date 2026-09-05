@@ -11,8 +11,13 @@
  * e publicação não mudam nada.
  */
 import { forwardRef } from "react";
-import type { AcabamentoId, BrandInfo, FormatId, SlideData, Theme } from "@/lib/carouselRender";
+import type { AcabamentoId, BrandInfo, FormatId, LayoutId, SlideData, Theme } from "@/lib/carouselRender";
 import { FONT_PAIRS, FORMAT_SIZE, extrairEnfase } from "@/lib/carouselRender";
+import {
+  ModeloChips, ModeloCitacao, ModeloComparativo, ModeloConvite,
+  ModeloDado, ModeloObjeto, ModeloPartido, type ModeloProps,
+} from "@/components/slides/ModelosEmana";
+import ModeloGenerativo, { type Composicao } from "@/components/slides/ModeloGenerativo";
 
 export interface SlideHtmlProps {
   slide: SlideData;
@@ -27,7 +32,30 @@ export interface SlideHtmlProps {
   mostrarArraste?: boolean;
   /** Foto atravessando vários slides: cada peça mostra a sua janela. */
   fatia?: { parte: number; de: number };
+  /** Qual modelo HTML desenhar. Sem isso, o "estudio". */
+  layout?: LayoutId;
+  /**
+   * A peça projetada pelo diretor de arte. Quando vem, MANDA — é ela que
+   * permite peça nova em vez de escolha entre modelos prontos.
+   */
+  composicao?: Composicao | null;
 }
+
+/**
+ * Cada modelo do motor HTML entra aqui como irmão do "estudio".
+ *
+ * É este mapa que permite migrar um modelo por vez sem derrubar os outros: o
+ * que não está aqui continua sendo desenhado pelo canvas.
+ */
+const MODELOS: Partial<Record<LayoutId, (p: ModeloProps) => JSX.Element>> = {
+  dado: ModeloDado,
+  objeto: ModeloObjeto,
+  partido: ModeloPartido,
+  citacao: ModeloCitacao,
+  chips: ModeloChips,
+  comparativo: ModeloComparativo,
+  convite: ModeloConvite,
+};
 
 /** Título com a palavra marcada por *asteriscos* virando tarja. */
 function TituloComEnfase({ texto, corTarja, sobreTarja }: { texto: string; corTarja: string; sobreTarja: string }) {
@@ -82,6 +110,31 @@ function claro(hex: string): boolean {
  */
 const SlideHtml = forwardRef<HTMLDivElement, SlideHtmlProps>(function SlideHtml(props, ref) {
   const { slide, index, total, theme, brand, format, imagem, mostrarNumero, mostrarArraste, fatia } = props;
+
+  // A peça projetada tem prioridade sobre qualquer modelo pronto.
+  if (props.composicao) {
+    const [Wc, Hc] = FORMAT_SIZE[format];
+    return (
+      <div ref={ref} style={{ width: Wc, height: Hc, overflow: "hidden" }}>
+        <ModeloGenerativo slide={slide} index={index} total={total} theme={theme}
+          brand={brand} format={format} imagem={imagem} composicao={props.composicao} />
+      </div>
+    );
+  }
+
+  // Modelo irmão: desenha o dele e sai. O wrapper tem o tamanho EXATO da peça —
+  // `display:contents` não serviria, porque o rasterizador fotografa o primeiro
+  // filho do container e um elemento sem caixa não tem o que fotografar.
+  const Modelo = props.layout ? MODELOS[props.layout] : undefined;
+  if (Modelo) {
+    const [Wm, Hm] = FORMAT_SIZE[format];
+    return (
+      <div ref={ref} style={{ width: Wm, height: Hm, overflow: "hidden" }}>
+        <Modelo slide={slide} index={index} total={total} theme={theme} brand={brand}
+          format={format} imagem={imagem} mostrarNumero={mostrarNumero} />
+      </div>
+    );
+  }
   const [W, H] = FORMAT_SIZE[format];
   const fonts = FONT_PAIRS[theme.fontPair];
   const papel = claro(theme.bg) ? theme.bg : "#EEF1F6";
