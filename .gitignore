@@ -22,3 +22,7 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Config local do Claude Code, exceto o preview compartilhado
+.claude/*
+!.claude/launch.json
