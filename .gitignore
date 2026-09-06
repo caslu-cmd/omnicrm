@@ -26,3 +26,7 @@ dist-ssr
 # Config local do Claude Code, exceto o preview compartilhado
 .claude/*
 !.claude/launch.json
+!.claude/skills/
+
+# Saída de builds do scroll-craft (vídeos e frames, centenas de MB por build)
+scrollcraft/builds/
