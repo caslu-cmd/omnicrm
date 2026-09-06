@@ -24,6 +24,10 @@ import {
   type Etapa, type Agente,
 } from "../_shared/agencia.ts";
 import { blocoDeContexto, lerUrls } from "../_shared/documentos.ts";
+// Modelo escreve JSON "quase" válido com frequência (aspa sem escape dentro
+// de uma legenda, vírgula sobrando). Sem reparo, a entrega inteira vira null
+// e a fila de aprovação sai vazia.
+import { jsonrepair } from "https://esm.sh/jsonrepair@3.12.0";
 
 type SB = ReturnType<typeof createClient>;
 type Dict = Record<string, unknown>;
@@ -47,7 +51,13 @@ const ESFORCO: Record<string, string> = { queila: "high", vitoria: "high" };
 // A Beatriz estourou 14k e o JSON final foi cortado — sem ele a fila de
 // aprovação sai vazia. Teto maior para quem entrega em volume; e o prompt
 // pede o JSON como entrega única, sem repetir tudo em prosa antes.
-const MAX_TOKENS: Record<string, number> = { beatriz: 24000, marcela: 20000, teo: 20000, pedro: 12000, rafaela: 14000, bobby: 14000, aira: 12000 };
+// O teto inclui o raciocínio (thinking): a Vitória, com esforço alto, gastou
+// quase tudo pensando e a entrega visível saiu cortada com 4 mil caracteres.
+const MAX_TOKENS_PADRAO = 16000;
+const MAX_TOKENS: Record<string, number> = {
+  beatriz: 28000, marcela: 24000, teo: 24000, bobby: 18000, rafaela: 18000, pedro: 16000,
+  vitoria: 22000, queila: 22000, carolina: 16000, aira: 16000,
+};
 /** Quanto de cada entrega anterior entra no contexto do próximo agente. */
 const LIMITE_HANDOFF = 16000;
 
@@ -269,7 +279,7 @@ async function chamarClaude(system: string, user: string, id: string): Promise<s
   const t = setTimeout(() => ctrl.abort(), 330_000);
   const base = {
     model: MODELO,
-    max_tokens: MAX_TOKENS[id] ?? 8000,
+    max_tokens: MAX_TOKENS[id] ?? MAX_TOKENS_PADRAO,
     system,
     messages: [{ role: "user", content: user }],
   };
@@ -317,14 +327,64 @@ async function chamarClaude(system: string, user: string, id: string): Promise<s
   }
 }
 
-function extrair(texto: string): { nota: string | null; json: Dict | null } {
+/**
+ * Defeito mais comum visto em produção: o modelo fecha o objeto do item cedo
+ * demais — `"gatilho":"..."},"brief_visual":{...}` — e o JSON inteiro cai.
+ * Tirar a chave sobrando antes de um campo de item resolve sem tocar no resto.
+ */
+const CAMPOS_DE_ITEM = [
+  "brief_visual", "hashtags", "cta", "gatilho", "slides", "legenda", "tema", "formato", "plataforma",
+  "prompt_imagem", "composicao", "cores", "headline_na_arte", "ajuste_para_copy", "cenas", "gancho", "audio", "gravar",
+  "objetivo", "responsaveis", "correcao", "problema", "prioridade", "como_usar", "por_que",
+];
+const RE_CHAVE_SOBRANDO = new RegExp(`\\}(\\s*,\\s*"(?:${CAMPOS_DE_ITEM.join("|")})"\\s*:)`, "g");
+
+const tentarJson = (s: string): Dict | null => {
+  try {
+    const v = JSON.parse(s);
+    return v && typeof v === "object" && !Array.isArray(v) ? v as Dict : null;
+  } catch { return null; }
+};
+
+/** Cascata de reparos; aceita o primeiro resultado que tem a chave esperada. */
+function parsearBloco(bloco: string, chave?: string): Dict | null {
+  const candidatos: Array<() => Dict | null> = [
+    () => tentarJson(bloco),
+    () => tentarJson(bloco.replace(RE_CHAVE_SOBRANDO, "$1")),
+    () => tentarJson(jsonrepair(bloco)),
+    () => tentarJson(jsonrepair(bloco.replace(RE_CHAVE_SOBRANDO, "$1"))),
+  ];
+  let primeiro: Dict | null = null;
+  for (const c of candidatos) {
+    let r: Dict | null = null;
+    try { r = c(); } catch { r = null; }
+    if (!r) continue;
+    if (!chave || chave in r) return r;
+    primeiro ??= r;
+  }
+  return primeiro;
+}
+
+function extrair(texto: string, chave?: string): { nota: string | null; json: Dict | null } {
   const blocos = [...texto.matchAll(/```json\s*([\s\S]*?)```/gi)];
   let json: Dict | null = null;
   for (const b of blocos.reverse()) {
-    try { json = JSON.parse(b[1]); break; } catch { /* tenta o anterior */ }
+    json = parsearBloco(b[1], chave);
+    if (json) break;
+  }
+  // Bloco sem cerca de fechamento (entrega cortada): tenta do último ```json até o fim.
+  if (!json) {
+    const i = texto.lastIndexOf("```json");
+    if (i >= 0) json = parsearBloco(texto.slice(i + 7), chave);
   }
   const nota = texto.match(/###\s*Nota para o time\s*\n([\s\S]*?)(?=\n```|\n###|$)/i)?.[1]?.trim() ?? null;
   return { nota, json };
+}
+
+/** Primeira chave do JSON que o agente promete entregar (ex.: "pecas", "itens"). */
+function chaveDaEntrega(a: Agente): string | undefined {
+  if (!a.json) return undefined;
+  try { return Object.keys(JSON.parse(a.json))[0]; } catch { return a.json.match(/^\{\s*"([^"]+)"/)?.[1]; }
 }
 
 // ─── Prompt de cada agente ────────────────────────────────────────────────────
@@ -470,7 +530,7 @@ async function trabalhar(
 
     const anexos = blocoDeContexto((run.config as Dict)?.documentos, await lerUrls((run.config as Dict)?.urls));
     const texto = await chamarClaude(systemDe(a, ctx), pedidoDe(a, etapa, run, ctx, entregas, mensagens, extra, anexos), id);
-    const { nota, json: js } = extrair(texto);
+    const { nota, json: js } = extrair(texto, chaveDaEntrega(a));
     const structured: Dict = { json: js, nota };
 
     if (id === "marcela" && cfg.gerar_imagens !== false) {
@@ -854,6 +914,24 @@ Deno.serve(async (req) => {
     await msg(sb, run, etapa, "aira", "time", "sistema", `Retomando a partir de "${ETAPAS.find((e) => e.id === etapa)?.titulo}".`);
     await disparar(run.id as string, etapa);
     return json({ ok: true, etapa });
+  }
+
+  // ── reparsear (interno): reextrai nota/json das entregas já gravadas de um run.
+  // Serve para aplicar um parser melhor a produções antigas sem gastar tokens.
+  if (acao === "reparsear") {
+    if (!auth.interno) return json({ error: "sem acesso" }, 403);
+    const runId = String(body.run_id ?? "");
+    const { data: tasks } = await sb.from("orchestration_tasks")
+      .select("agent_key,output,structured_output").eq("run_id", runId).eq("status", "done");
+    const resultado: Dict = {};
+    for (const t of (tasks ?? []) as Dict[]) {
+      const ag = agente(String(t.agent_key).split(":")[1] ?? "");
+      const { nota, json: js } = extrair(String(t.output ?? ""), ag ? chaveDaEntrega(ag) : undefined);
+      const so = { ...((t.structured_output as Dict) ?? {}), json: js, nota };
+      await sb.from("orchestration_tasks").update({ structured_output: so }).eq("run_id", runId).eq("agent_key", t.agent_key);
+      resultado[t.agent_key as string] = js ? "ok" : "sem json";
+    }
+    return json({ reparseadas: resultado });
   }
 
   // ── diag: só o formato da chave do ambiente, nunca o valor ──
