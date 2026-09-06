@@ -35,11 +35,6 @@ const templates: Template[] = [
   { id: 6, name: "App Mobile", category: "Tech", preview: "📱", uses: 654 },
 ];
 
-const initialSites: Site[] = [
-  { id: 1, name: "Campanha Black Friday", url: "black-friday.omnicrm.app", status: "published", visits: 4320, conversions: 234, lastEdited: "Hoje" },
-  { id: 2, name: "Landing Webinar Março", url: "webinar-marco.omnicrm.app", status: "published", visits: 1890, conversions: 156, lastEdited: "Ontem" },
-  { id: 3, name: "Novo Produto 2026", url: "—", status: "draft", visits: 0, conversions: 0, lastEdited: "28 Fev" },
-];
 
 const editorBlocks = [
   { icon: Layout, label: "Hero" },
@@ -58,7 +53,7 @@ const item = { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } };
 const SitesPage = () => {
   const [tab, setTab] = useState<"sites" | "templates" | "editor">("sites");
   const [device, setDevice] = useState<"desktop" | "tablet" | "mobile">("desktop");
-  const [sites, setSites] = useState(initialSites);
+  const [sites, setSites] = useState<Site[]>([]);
 
   const handleDuplicate = (id: number) => {
     const s = sites.find(x => x.id === id);
@@ -94,6 +89,11 @@ const SitesPage = () => {
 
       {tab === "sites" && (
         <motion.div variants={item} className="space-y-3">
+          {sites.length === 0 && (
+            <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+              Nenhuma página criada ainda. Comece por um modelo em “Templates”.
+            </div>
+          )}
           {sites.map(s => (
             <div key={s.id} className="flex items-center gap-3 md:gap-4 rounded-xl border border-border bg-card p-3 md:p-5 shadow-card hover:shadow-elevated transition-shadow flex-wrap">
               <div className="flex h-12 w-14 md:h-14 md:w-20 items-center justify-center rounded-lg bg-muted border border-border text-2xl shrink-0">🌐</div>
@@ -166,7 +166,7 @@ const SitesPage = () => {
           {/* Preview */}
           <div className="flex-1 rounded-xl border border-border bg-card shadow-card overflow-hidden flex flex-col">
             <div className="flex items-center justify-between px-4 py-3 border-b border-border bg-muted/30">
-              <input defaultValue="Campanha Black Friday" className="text-sm font-semibold text-foreground bg-transparent border-none focus:outline-none" />
+              <input defaultValue="Nova página" className="text-sm font-semibold text-foreground bg-transparent border-none focus:outline-none" />
               <div className="flex items-center gap-2">
                 <div className="flex bg-muted rounded-lg p-0.5">
                   {[{ key: "desktop", icon: Monitor }, { key: "tablet", icon: Tablet }, { key: "mobile", icon: Smartphone }].map(d => (
@@ -182,18 +182,18 @@ const SitesPage = () => {
               <div className={cn("bg-card rounded-lg shadow-elevated border border-border transition-all overflow-hidden", device === "desktop" ? "w-full max-w-4xl" : device === "tablet" ? "w-[768px]" : "w-[375px]")}>
                 {/* Simulated page */}
                 <div className="bg-primary p-12 text-center">
-                  <h2 className="text-2xl font-bold font-display text-primary-foreground mb-2">Black Friday 2026 🔥</h2>
-                  <p className="text-primary-foreground/80 text-sm mb-6">Até 60% de desconto em todos os planos</p>
+                  <h2 className="text-2xl font-bold font-display text-primary-foreground mb-2">Título da sua página</h2>
+                  <p className="text-primary-foreground/80 text-sm mb-6">Uma frase que explica a oferta e por que ela importa</p>
                   <button onClick={() => toast.success("CTA clicado!")} className="px-6 py-3 rounded-lg bg-accent text-accent-foreground font-semibold text-sm">Aproveitar Agora</button>
                 </div>
                 <div className="p-8 space-y-6">
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    {["✨ Inbox Ilimitado", "🚀 Automações Pro", "📊 Relatórios Full"].map(f => (
+                    {["Benefício 1", "Benefício 2", "Benefício 3"].map(f => (
                       <div key={f} className="p-4 rounded-lg bg-muted text-center text-sm font-medium text-foreground">{f}</div>
                     ))}
                   </div>
                   <div className="rounded-lg border border-border p-6 text-center">
-                    <p className="text-sm font-medium text-foreground mb-3">Cadastre-se para receber a oferta</p>
+                    <p className="text-sm font-medium text-foreground mb-3">Formulário de captura</p>
                     <div className="flex gap-2 max-w-md mx-auto">
                       <input placeholder="Seu e-mail" className="flex-1 rounded-lg border border-input py-2 px-3 text-sm" />
                       <button onClick={() => toast.success("E-mail capturado!")} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium">Enviar</button>

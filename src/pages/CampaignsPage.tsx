@@ -30,13 +30,6 @@ interface Campaign {
   id: number; name: string; channel: "email" | "whatsapp"; status: "sent" | "scheduled" | "draft"; audience: number; delivered: number; opened: number; clicked: number; replied: number; sentAt: string;
 }
 
-const initialCampaigns: Campaign[] = [
-  { id: 1, name: "Black Friday 2026", channel: "email", status: "sent", audience: 12450, delivered: 11820, opened: 6540, clicked: 2130, replied: 340, sentAt: "28 Fev" },
-  { id: 2, name: "Lançamento Pro Plan", channel: "whatsapp", status: "sent", audience: 3200, delivered: 3180, opened: 2890, clicked: 1450, replied: 890, sentAt: "25 Fev" },
-  { id: 3, name: "Newsletter Março", channel: "email", status: "scheduled", audience: 8900, delivered: 0, opened: 0, clicked: 0, replied: 0, sentAt: "5 Mar 09:00" },
-  { id: 4, name: "Reativação Inativos", channel: "whatsapp", status: "draft", audience: 1560, delivered: 0, opened: 0, clicked: 0, replied: 0, sentAt: "—" },
-  { id: 5, name: "Webinar Convite", channel: "email", status: "sent", audience: 5600, delivered: 5320, opened: 3100, clicked: 1800, replied: 210, sentAt: "20 Fev" },
-];
 
 const statusConfig = {
   sent: { label: "Enviada", color: "bg-secondary/10 text-secondary", icon: CheckCircle2 },
@@ -51,7 +44,7 @@ const item = { hidden: { opacity: 0, y: 8 }, show: { opacity: 1, y: 0 } };
 const CampaignsPage = () => {
   const [tab, setTab] = useState<"list" | "compose">("list");
   const [composeChannel, setComposeChannel] = useState<"email" | "whatsapp">("email");
-  const [campaigns, setCampaigns] = useState(initialCampaigns);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [searchCamp, setSearchCamp] = useState("");
   const [campaignName, setCampaignName] = useState("");
   const [campaignSubject, setCampaignSubject] = useState("");
@@ -289,6 +282,11 @@ const CampaignsPage = () => {
           </motion.div>
 
           <motion.div variants={item} className="space-y-3">
+            {filtered.length === 0 && (
+              <div className="rounded-xl border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+                Nenhuma campanha ainda. Crie a primeira ou importe um arquivo.
+              </div>
+            )}
             {filtered.map(c => {
               const status = statusConfig[c.status]; const StatusIcon = status.icon; const ChannelIcon = channelIcon[c.channel];
               const openRate = c.delivered > 0 ? ((c.opened / c.delivered) * 100).toFixed(1) : "—";

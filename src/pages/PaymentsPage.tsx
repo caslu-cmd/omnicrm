@@ -36,12 +36,8 @@ const PaymentsPage = () => {
   const currentPlan = wlSettings?.remove_branding ? "Enterprise" : "Pro";
   const planPrice = currentPlan === "Enterprise" ? "R$ 997,00" : "R$ 297,00";
 
-  const myInvoices = [
-    { id: 1, description: "Assinatura mensal", amount: planPrice, date: "1 Mar 2026", status: "Pago" },
-    { id: 2, description: "Assinatura mensal", amount: planPrice, date: "1 Fev 2026", status: "Pago" },
-    { id: 3, description: "Assinatura mensal", amount: planPrice, date: "1 Jan 2026", status: "Pago" },
-    { id: 4, description: "Assinatura mensal", amount: planPrice, date: "1 Dez 2025", status: "Pago" },
-  ];
+  // Sem faturas inventadas: a lista so existe quando houver cobranca real.
+  const myInvoices: { id: number; description: string; amount: string; date: string; status: keyof typeof statusColors }[] = [];
 
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6 min-w-0 break-words">
@@ -116,6 +112,9 @@ const PaymentsPage = () => {
               <th className="px-5 py-3"></th>
             </tr></thead>
             <tbody>
+              {myInvoices.length === 0 && (
+                <tr><td colSpan={5} className="px-5 py-8 text-center text-sm text-muted-foreground">Nenhuma fatura ainda.</td></tr>
+              )}
               {myInvoices.map(inv => (
                 <tr key={inv.id} className="border-b border-border last:border-0 hover:bg-muted/30">
                   <td className="px-5 py-3 text-sm font-medium text-foreground flex items-center gap-2"><FileText className="h-4 w-4 text-muted-foreground" />{inv.description}</td>
