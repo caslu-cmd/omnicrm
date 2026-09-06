@@ -5,3 +5,8 @@ verify_jwt = false
 
 [functions.publish-scheduled]
 verify_jwt = false
+
+# Autentica por conta própria: JWT do usuário no início/consulta, chave de
+# serviço nas chamadas internas de etapa para etapa.
+[functions.agencia-pipeline]
+verify_jwt = false

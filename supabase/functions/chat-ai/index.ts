@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
 import { blocoDeContexto, lerUrls } from "../_shared/documentos.ts";
+import { agente as agenteDoTime, blocoDeSkills } from "../_shared/agencia.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -393,8 +394,16 @@ Deno.serve(async (req) => {
     // duas respostas. Ler a URL aqui é o que faltava — antes só a orquestração
     // sabia abrir link, e o agente que precisava do site do cliente travava.
     const contexto = blocoDeContexto(documentos, await lerUrls(urls));
-    const resolvedSystemPrompt =
-      (systemPrompt ?? (agentId ? AGENT_SKILLS[agentId.toLowerCase()] : null) ?? DEFAULT_SYSTEM_PROMPT) + contexto;
+    // O agente do chat é o MESMO do pipeline de produção: a persona daqui
+    // ganha as competências e o formato de entrega do registro do time
+    // (_shared/agencia.ts). Quem não está no registro segue como antes.
+    const doTime = agentId ? agenteDoTime(String(agentId).toLowerCase()) : undefined;
+    const base =
+      systemPrompt ??
+      (agentId ? AGENT_SKILLS[agentId.toLowerCase()] : null) ??
+      doTime?.system ??
+      DEFAULT_SYSTEM_PROMPT;
+    const resolvedSystemPrompt = (!systemPrompt && doTime ? base + blocoDeSkills(doTime) : base) + contexto;
 
     const selectedModel = anthropicKey ? (model ?? "claude-sonnet-4-6") : "claude-sonnet-4-6";
     // Cap thinking budget at 3000 — Supabase edge functions have 150s limit; 8000+ tokens cause 546 timeouts

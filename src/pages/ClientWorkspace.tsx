@@ -44,6 +44,7 @@ import InboxTab from "@/components/InboxTab";
 import { PIXEL_API } from "@/lib/agentApis";
 import AgentLinksTab from "@/components/AgentLinksTab";
 import OrchestratorPanel from "@/components/OrchestratorPanel";
+import PipelineAgencia from "@/components/PipelineAgencia";
 
 const SOURCES: Record<string, { label: string; color: string; bg: string }> = {
   instagram: { label: "Instagram", color: "#E1306C", bg: "rgba(225,48,108,0.1)" },
@@ -8036,6 +8037,14 @@ Regras:
                     </div>
                   )}
                 </div>
+
+                {/* ── Produção do período com o time completo (agencia-pipeline) ── */}
+                <PipelineAgencia
+                  clientId={id ?? ""}
+                  clientName={client?.name ?? ""}
+                  clientIndustry={clientBriefing?.segmento ?? client?.industry ?? ""}
+                  userId={user?.id}
+                />
 
                 {/* ── Orquestração Multi-Agente ── */}
                 <div className="rounded-2xl px-5 py-4 space-y-3"
