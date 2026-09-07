@@ -30,3 +30,7 @@ dist-ssr
 
 # Saída de builds do scroll-craft (vídeos e frames, centenas de MB por build)
 scrollcraft/builds/
+
+# scroll-craft: evidencias e ferramentas locais da verificacao
+scrollcraft/builds/*/lab/
+scrollcraft/builds/*/node_modules/

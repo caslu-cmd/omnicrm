@@ -1,342 +1,654 @@
 import caluLogo from "@/assets/calu-logo.png";
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useState, useEffect, useRef, useCallback, type CSSProperties } from "react";
+import { Link } from "react-router-dom";
+import { Zap, ArrowUpRight, MessageCircle, Instagram, Linkedin, ArrowRight, Check, Menu, X } from "lucide-react";
 
 /**
- * Landing da Calu como SUPERFÍCIE VIVA (scroll-craft, gramática 2.3).
+ * Landing page da Calu, sistema "Noir Volt".
  *
- * A página é a plataforma rodando um cenário de demonstração, rotulado como
- * tal. O scroll dirige o estado: o briefing entra, o time conversa, o painel
- * de ajuda explica quem faz o quê, o mês se monta (calendário + fila), a
- * revisão corrige, o visitante aprova ou devolve cada peça, e o relatório do
- * final é calculado do que ele aprovou. O fechamento é um input real.
- *
- * Motor: /public/scrollcraft (copiado do engine da skill, nunca editado).
- * Tudo que é bespoke lê `--sc-p` e o estado dos botões; o motor não é tocado.
- * BRIEF: scrollcraft/builds/calu-lp/BRIEF.md
+ * Preto profundo, verde-limão elétrico, Syne nos títulos, Manrope no texto,
+ * DM Mono nos rótulos. Grade editorial fluida: tipografia em clamp(), padding
+ * lateral em função da viewport, grids que colapsam sem `!important`, menu
+ * de verdade no celular. Conteúdo e interações (card do time no hero, linha
+ * do tempo do processo, carrossel do time) são os mesmos de antes, só a
+ * casa mudou.
  */
 
-const CANVAS = "#0A0B0A";
-const SURFACE = "#121412";
-const INK = "#F0EFE8";
-const INK_SOFT = "#9AA096";
-const ACCENT = "#B9FF4B";
+const LIME  = "#B9FF4B";
+const BLACK = "#080808";
+const OFF   = "#F0EFE8";
+const MUTED = "#6B6B6B";
+const DIM   = "rgba(240,239,232,0.5)";
+const WA    = "https://wa.me/5585986408404";
 
-type Agente = { id: string; nome: string; papel: string; cor: string; skills: string[] };
-
-/* Evidência: o registro real do time (supabase/functions/_shared/agencia.ts). */
-const TIME: Agente[] = [
-  { id: "lia", nome: "Lia", papel: "Diagnóstico e briefing", cor: "#38BDF8", skills: ["Leitura de briefing", "Público, dores e objeções", "Objetivo mensurável"] },
-  { id: "ben", nome: "Ben", papel: "Tendências", cor: "#B9FF4B", skills: ["Google Trends Brasil", "Formatos que estão performando", "Sazonalidade do nicho"] },
-  { id: "queila", nome: "Queila", papel: "Estratégia", cor: "#FBBF24", skills: ["Posicionamento e big idea", "Pilares de conteúdo", "Funil e KPIs"] },
-  { id: "carolina", nome: "Carolina", papel: "Direção de arte", cor: "#F472B6", skills: ["Conceito visual", "Paleta e tipografia", "Sistema de layout"] },
-  { id: "pedro", nome: "Pedro", papel: "Calendário editorial", cor: "#2DD4BF", skills: ["Cadência por canal", "Datas estratégicas", "Ordem de produção"] },
-  { id: "beatriz", nome: "Beatriz", papel: "Copy", cor: "#A78BFA", skills: ["Legendas, carrosséis, roteiros", "Hooks e CTAs", "Brief visual por peça"] },
-  { id: "marcela", nome: "Marcela", papel: "Design", cor: "#D946EF", skills: ["Peças para feed, stories, reels", "Aplicação da direção de arte", "Prompt de imagem"] },
-  { id: "bobby", nome: "Bobby", papel: "Vídeo", cor: "#B9FF4B", skills: ["Roteiro cena a cena", "Gancho nos 2 segundos", "O que o cliente precisa gravar"] },
-  { id: "rafaela", nome: "Rafaela", papel: "Tráfego pago", cor: "#F97316", skills: ["Meta e Google Ads", "Públicos e orçamento", "Plano de teste"] },
-  { id: "teo", nome: "Teo", papel: "Web e SEO", cor: "#06B6D4", skills: ["Artigo otimizado", "Landing page da campanha", "SEO técnico"] },
-  { id: "vitoria", nome: "Vitória", papel: "Revisão", cor: "#EC4899", skills: ["Gramática e tom de voz", "Claims e promessas", "Checklist de publicação"] },
-  { id: "aira", nome: "Aira", papel: "Orquestração", cor: "#B9FF4B", skills: ["Sequência do time", "Fila de aprovação", "Relatório executivo"] },
-  { id: "marina", nome: "Marina", papel: "Social media", cor: "#60A5FA", skills: ["Horários e publicação", "Resposta a comentários", "Monitoramento"] },
-  { id: "eduardo", nome: "Eduardo", papel: "Vendas e CRM", cor: "#F59E0B", skills: ["Qualificação no WhatsApp", "Cadência de follow-up", "Pipeline"] },
-  { id: "lucas", nome: "Lucas", papel: "Dados", cor: "#34D399", skills: ["KPIs e metas", "Relatório semanal", "Alertas"] },
-];
-const porId = Object.fromEntries(TIME.map((a) => [a.id, a])) as Record<string, Agente>;
-
-/* Cenário de demonstração. Cliente fictício, rotulado na página. */
-const CENARIO = {
-  cliente: "Clínica Vitta",
-  cidade: "Fortaleza",
-  mes: "setembro de 2026",
-  objetivo: "Preciso encher a agenda de setembro com pacientes novos. Já tentei impulsionar post e não deu em nada. E não quero prometer cura para ninguém.",
-};
-
-/* Conversa entre agentes, no formato real das notas de passagem. `em` é o ponto
-   do ato (0 a 1) em que a mensagem já aconteceu. */
-const CONVERSA = [
-  { em: 0.0, de: "lia", para: "ben", texto: "Público deste mês: pessoas de 35 a 60 anos com dor crônica que já tentaram remédio. Objetivo mensurável: 40 primeiras consultas. Restrição do cliente: nunca prometer cura." },
-  { em: 0.18, de: "ben", para: "queila", texto: "A busca por 'fisioterapia para dor nas costas' sobe em setembro em Fortaleza. Cortei as tendências de estética: não é esse público." },
-  { em: 0.36, de: "queila", para: "carolina, pedro", texto: "Big idea: 'A dor tem endereço.' Três pilares: educação (50%), bastidor (30%), prova (20%). Tom direto, sem jargão de consultório." },
-  { em: 0.54, de: "carolina", para: "marcela", texto: "Fundo claro sempre, azul-petróleo como tinta, limão em no máximo 8% da área. Foto real de consultório. Nunca ilustração de esqueleto." },
-  { em: 0.70, de: "pedro", para: "beatriz, marcela, bobby", texto: "Seis peças de 8 a 30 de setembro, terça e quinta ao meio-dia. Duas em vídeo para o Bobby. Nada nos feriados." },
-  { em: 0.86, de: "beatriz", para: "marcela", texto: "Copies prontas. O headline da capa de 12/09 tem cinco palavras: não cortar. Deixei o brief visual em cada peça." },
+const SERVICES = [
+  { n: "01", title: "Estratégia de Marca",     desc: "Posicionamento, pauta editorial e direção criativa alinhados ao seu negócio." },
+  { n: "02", title: "Criação de Conteúdo",     desc: "Posts, reels, stories, artigos e anúncios com foco em conversão real." },
+  { n: "03", title: "Tráfego Pago",            desc: "Meta e Google Ads gerenciados para CPA baixo e ROAS consistentemente alto." },
+  { n: "04", title: "Gestão de Redes Sociais", desc: "Publicação diária, atendimento e monitoramento de todas as suas plataformas." },
+  { n: "05", title: "SEO & Blog",              desc: "Conteúdo otimizado que atrai clientes orgânicos e posiciona sua marca como autoridade." },
+  { n: "06", title: "CRM & Automação",         desc: "Leads qualificados, nurturados e convertidos via WhatsApp e automações." },
 ];
 
-type Peca = { id: string; dia: number; formato: string; tema: string; legenda: string; hashtags: string; pilar: string };
+const PRODUCTS = [
+  {
+    tag: "CRM", name: "OmniCRM", sub: "Para agências e negócios locais", color: LIME,
+    desc: "Todos os canais do seu cliente em um lugar, WhatsApp, Instagram, e-mail, site. Pipeline visual para fechar mais negócios com menos esforço.",
+    items: ["Inbox unificado", "Pipeline de vendas", "Automações de follow-up", "Relatórios em tempo real"],
+  },
+  {
+    tag: "Saúde", name: "Posture.AI", sub: "Para fisioterapeutas, personal trainers e estúdios", color: "#A78BFA",
+    desc: "Tire uma foto e receba análise postural completa em segundos. IA treinada com 50 mil avaliações que identifica desalinhamentos, gera relatórios em PDF e acompanha a evolução de cada aluno.",
+    items: ["Análise postural com IA", "Gestão completa de alunos", "Relatórios PDF profissionais", "Ficha de anamnese digital"],
+  },
+  {
+    tag: "RH", name: "RH Inteligente", sub: "Para empresas em crescimento com time em expansão", color: "#34D399",
+    desc: "Do recrutamento ao onboarding, a IA assume o operacional para seu RH focar no que mais importa: as pessoas.",
+    items: ["Triagem automática de currículos", "Onboarding digital", "Avaliações de desempenho", "People analytics"],
+  },
+];
+
+const TEAM = [
+  { i: "Ai", name: "Aira",     role: "Orquestradora Geral",       color: LIME,      desc: "Coordena todo o time em tempo real, define prioridades e garante que cada entrega saia no prazo e com qualidade. É o cérebro que conecta todos os agentes.", tasks: ["Orquestração do time", "Controle de prazos", "Briefing automatizado", "Relatório executivo"] },
+  { i: "Q",  name: "Queila",   role: "Estrategista de Marca",     color: "#FBBF24", desc: "Define o posicionamento, a pauta editorial e a direção criativa da marca. Cria o mapa de conteúdo mensal e garante consistência de mensagem em todos os canais.", tasks: ["Pauta editorial mensal", "Posicionamento de marca", "Análise de concorrência", "Direção criativa"] },
+  { i: "B",  name: "Beatriz",  role: "Copywriter & Redatora",     color: "#A78BFA", desc: "Escreve cada legenda, artigo, e-mail e anúncio com foco em conversão. Seu copy tem personalidade, clareza e intenção, porque cada palavra tem um objetivo.", tasks: ["Legendas e posts", "Artigos e blog", "Roteiros de vídeo", "Copy de anúncios"] },
+  { i: "M",  name: "Marcela",  role: "Designer Visual",           color: "#D946EF", desc: "Cria todos os visuais da marca, posts, stories, banners, apresentações e peças de campanha. Cada pixel alinhado ao manual de identidade da empresa.", tasks: ["Posts e stories", "Banners e anúncios", "Apresentações", "Identidade visual"] },
+  { i: "R",  name: "Rafaela",  role: "Gestora de Tráfego Pago",   color: "#F97316", desc: "Gerencia campanhas no Meta Ads e Google Ads com foco em ROAS alto e CPA que faz sentido. Testa, otimiza e escala o que funciona, todos os dias.", tasks: ["Meta Ads (FB/IG)", "Google Ads", "Remarketing", "Otimização de verba"] },
+  { i: "Ma", name: "Marina",   role: "Social Media Manager",      color: "#60A5FA", desc: "Agenda, publica e monitora todo o conteúdo orgânico. Responde comentários, monitora menções e mantém sua marca ativa e presente em todos os momentos.", tasks: ["Agendamento de posts", "Engajamento", "Monitoramento", "Relatório semanal"] },
+  { i: "P",  name: "Pedro",    role: "Calendário Editorial",      color: "#2DD4BF", desc: "Planeja e organiza todo o calendário editorial, semanas, meses e campanhas sazonais. Cada post no lugar certo, na hora certa, com o pilar de conteúdo adequado.", tasks: ["Calendário mensal", "Pilares de conteúdo", "Datas estratégicas", "Cronograma de campanhas"] },
+  { i: "L",  name: "Lucas",    role: "Analista de Dados",         color: "#34D399", desc: "Transforma números em decisões. Monitora métricas de tráfego, engajamento e vendas, e entrega relatórios com insights claros e ações recomendadas.", tasks: ["Dashboards de resultado", "Google Analytics", "Relatórios semanais", "Insights estratégicos"] },
+  { i: "E",  name: "Eduardo",  role: "Agente de Vendas & CRM",    color: "#F59E0B", desc: "Qualifica leads via WhatsApp, alimenta o CRM e garante que nenhum contato seja perdido. Do primeiro 'oi' até o fechamento do contrato.", tasks: ["Qualificação de leads", "Follow-up automatizado", "Gestão do CRM", "Relatório de pipeline"] },
+  { i: "T",  name: "Teo",      role: "Web Designer & SEO",        color: "#06B6D4", desc: "Mantém seu site atualizado, publica no blog e otimiza cada página para os buscadores. Mais visibilidade orgânica, mais clientes chegando até você.", tasks: ["Atualização de site", "SEO on-page", "Blog e artigos", "Landing pages"] },
+  { i: "V",  name: "Vitória",  role: "Revisora de Conteúdo",      color: "#EC4899", desc: "Revisa e corrige 100% do conteúdo antes de publicar. Gramática, tom de voz, consistência de marca, zero erros, zero vergonha.", tasks: ["Revisão gramatical", "Tom de voz", "Checagem de fatos", "Aprovação final"] },
+  { i: "Be", name: "Ben",      role: "Especialista em Tendências", color: "#B9FF4B", desc: "Pesquisa o Google Trends Brasil em tempo real e entrega tendências do momento, queries em crescimento e ideias de conteúdo baseadas em dados reais, antes de qualquer produção.", tasks: ["Google Trends em tempo real", "Queries em crescimento", "Ideias de conteúdo viral", "Hashtags estratégicas"] },
+];
+
+const TICKER = [
+  "Criatividade que vende", "IA que escala", "Do briefing à publicação",
+  "OmniCRM", "Posture.AI", "RH Inteligente", "Fortaleza · Brasil",
+  "Fila de aprovação", "Marketing 24h", "Estratégia que decide",
+];
+
+const PROCESS = [
+  { n: "01", title: "Briefing IA",  duration: "30 min",   output: "Diagnóstico completo",       color: "#38BDF8", agents: [{ i: "L",  color: "#38BDF8", name: "Lia" }], desc: "Lia coleta briefing via conversa natural com IA, analisa concorrência e entrega um diagnóstico de marketing personalizado.", details: ["Formulário inteligente de onboarding", "Análise automática da concorrência", "Mapa de oportunidades da marca", "Briefing consolidado para o time"] },
+  { n: "02", title: "Estratégia",   duration: "2h",       output: "Pauta editorial mensal",     color: "#FBBF24", agents: [{ i: "Be", color: LIME, name: "Ben" }, { i: "Q", color: "#FBBF24", name: "Queila" }, { i: "P", color: "#2DD4BF", name: "Pedro" }], desc: "Ben pesquisa o Google Trends Brasil e entrega as tendências do momento. Queila usa esses dados para definir posicionamento e direção criativa. Pedro monta o calendário editorial estratégico para o mês.", details: ["Tendências reais do Google Trends", "Pauta editorial 30 dias", "Posicionamento e tom de voz", "Calendário de campanhas"] },
+  { n: "03", title: "Produção",     duration: "48h",      output: "Todos os assets criados",    color: "#A78BFA", agents: [{ i: "B", color: "#A78BFA", name: "Beatriz" }, { i: "M", color: "#D946EF", name: "Marcela" }, { i: "Bo", color: LIME, name: "Bobby" }], desc: "Beatriz escreve copy, Marcela cria os visuais e Bobby edita os vídeos, cada um em cima do trabalho do outro, sem retrabalho.", details: ["Copy para posts, reels e anúncios", "Peças visuais e templates", "Vídeos editados e formatados", "Assets aprovados para revisão"] },
+  { n: "04", title: "Revisão",      duration: "4h",       output: "Zero erros garantido",       color: "#EC4899", agents: [{ i: "V", color: "#EC4899", name: "Vitória" }], desc: "Vitória revisa 100% do conteúdo antes de qualquer aprovação, gramática, tom de voz, consistência de marca e checagem de fatos.", details: ["Revisão ortográfica e gramatical", "Checagem de tom de voz", "Consistência com o manual da marca", "Aprovação final para o cliente"] },
+  { n: "05", title: "Aprovação",    duration: "24h",      output: "Feedback do cliente",        color: LIME,      agents: [{ i: "Ai", color: LIME, name: "Aira" }], desc: "O cliente aprova tudo via portal exclusivo, vê os posts, sugere ajustes e aprova com um clique. Aira gerencia o fluxo de aprovação e sincroniza o time.", details: ["Portal de aprovação do cliente", "Comentários em cada peça", "Histórico de revisões", "Aprovação com um clique"] },
+  { n: "06", title: "Publicação",   duration: "contínuo", output: "Presença diária nas redes",  color: "#60A5FA", agents: [{ i: "Ma", color: "#60A5FA", name: "Marina" }, { i: "T", color: "#06B6D4", name: "Teo" }], desc: "Marina publica nos horários de maior engajamento e monitora comentários. Teo mantém o site e o blog atualizados com SEO otimizado.", details: ["Agendamento automático otimizado", "Publicação em todas as plataformas", "Monitoramento de comentários", "Blog e site atualizados"] },
+  { n: "07", title: "Tráfego Pago", duration: "24/7",     output: "ROAS maximizado",            color: "#F97316", agents: [{ i: "R", color: "#F97316", name: "Rafaela" }, { i: "E", color: "#F59E0B", name: "Eduardo" }], desc: "Rafaela ativa e otimiza campanhas no Meta e Google. Eduardo qualifica os leads que chegam via WhatsApp e alimenta o pipeline.", details: ["Meta Ads e Google Ads ativos", "Remarketing configurado", "Qualificação de leads no CRM", "Otimização diária de verbas"] },
+  { n: "08", title: "Relatório",    duration: "semanal",  output: "Insights + próximos passos", color: "#34D399", agents: [{ i: "L", color: "#34D399", name: "Lucas" }, { i: "Ai", color: LIME, name: "Aira" }], desc: "Lucas entrega relatório semanal com métricas reais. Aira consolida os dados e gera recomendações estratégicas para o próximo ciclo.", details: ["Dashboard de performance em tempo real", "Relatório semanal", "Análise de ROI por canal", "Recomendações para o próximo mês"] },
+];
+
+/* Cenário de demonstração da seção-assinatura: cliente fictício. */
+type Peca = { id: string; dia: number; formato: string; tema: string; pilar: string };
 const PECAS: Peca[] = [
-  { id: "p1", dia: 8,  formato: "reels",     pilar: "educação", tema: "Por que a dor volta",             legenda: "Remédio tira a dor de hoje. A causa continua lá amanhã. Em 40 segundos, o que a fisioterapia faz de diferente.", hashtags: "#fisioterapia #dorcronica #fortaleza" },
-  { id: "p2", dia: 12, formato: "carrossel", pilar: "educação", tema: "A dor tem endereço",              legenda: "Cinco lugares onde a dor nas costas costuma começar. Nenhum deles é onde ela dói.", hashtags: "#dornascostas #fisioterapia" },
-  { id: "p3", dia: 17, formato: "reels",     pilar: "bastidor", tema: "Primeira consulta, sem mistério", legenda: "O que acontece nos 50 minutos da primeira avaliação. Filmado no consultório, sem ator.", hashtags: "#clinicavitta #primeiraconsulta" },
-  { id: "p4", dia: 22, formato: "carrossel", pilar: "prova",    tema: "Três meses depois",               legenda: "Com autorização, o antes e o depois de quem chegou com dor há três meses. Sem promessa: registro.", hashtags: "#resultado #fisioterapiafortaleza" },
-  { id: "p5", dia: 24, formato: "post",      pilar: "educação", tema: "Sentar não é descansar",          legenda: "Oito horas sentado pedem dez minutos de mobilidade. Três exercícios que cabem no intervalo.", hashtags: "#mobilidade #trabalho" },
-  { id: "p6", dia: 30, formato: "carrossel", pilar: "bastidor", tema: "Quem cuida de você",              legenda: "O time da clínica, um por um, e o que cada um faz na sua consulta.", hashtags: "#clinicavitta #time" },
+  { id: "p1", dia: 8,  formato: "reels",     pilar: "educação", tema: "Por que a dor volta" },
+  { id: "p2", dia: 12, formato: "carrossel", pilar: "educação", tema: "A dor tem endereço" },
+  { id: "p3", dia: 17, formato: "reels",     pilar: "bastidor", tema: "Primeira consulta, sem mistério" },
+  { id: "p4", dia: 22, formato: "carrossel", pilar: "prova",    tema: "Três meses depois" },
+  { id: "p5", dia: 24, formato: "post",      pilar: "educação", tema: "Sentar não é descansar" },
+  { id: "p6", dia: 30, formato: "carrossel", pilar: "bastidor", tema: "Quem cuida de você" },
 ];
-/* Setembro de 2026 começa numa terça-feira e tem 30 dias. */
-const SET_INICIA_EM = 2; // 0 = domingo
-const SET_DIAS = 30;
-/** Ponto do ato 4 (0 a 1) em que a peça i já entrou no calendário e na fila. */
-const emDaPeca = (i: number) => 0.08 + i * 0.13;
-
-const REVISAO = [
-  { ok: true,  item: "Gramática e ortografia nas seis peças" },
-  { ok: true,  item: "Tom de voz: direto, sem jargão, conforme a estratégia" },
-  { ok: true,  item: "Direção de arte respeitada: fundo claro, limão em 8%" },
-  { ok: false, item: "Peça de 12/09 dizia 'acaba com a dor'. Trocado por 'trata a causa da dor'. O cliente proibiu promessa de cura." },
-  { ok: true,  item: "Hashtags com volume real e sem termo de saúde proibido" },
-];
-
-const ETAPAS = [
-  { id: "briefing", rotulo: "Briefing" },
-  { id: "time", rotulo: "Time" },
-  { id: "ajuda", rotulo: "Quem faz o quê" },
-  { id: "producao", rotulo: "Produção" },
-  { id: "revisao", rotulo: "Revisão" },
-  { id: "aprovacao", rotulo: "Aprovação" },
-  { id: "relatorio", rotulo: "Relatório" },
-];
-
-type Decisao = "pendente" | "aprovada" | "devolvida";
+/* Setembro de 2026 começa numa terça e tem 30 dias. */
+const CALENDARIO: Array<{ dia: number | null; i?: number }> = (() => {
+  const cells: Array<{ dia: number | null; i?: number }> = [];
+  for (let k = 0; k < 2; k++) cells.push({ dia: null });
+  for (let d = 1; d <= 30; d++) { const i = PECAS.findIndex((x) => x.dia === d); cells.push({ dia: d, i: i >= 0 ? i : undefined }); }
+  while (cells.length % 7) cells.push({ dia: null });
+  return cells;
+})();
+/** Ponto da seção (0 a 1) em que a peça i já entrou. */
+const emDaPeca = (i: number) => 0.1 + i * 0.13;
 const em = (v: number) => ({ "--em": v } as CSSProperties);
 
+const FLOW = [
+  { agent: "Queila",  role: "Estratégia",   color: "#FBBF24", desc: "Define o que dizer, para quem e quando" },
+  { agent: "Beatriz", role: "Copy & Texto", color: "#A78BFA", desc: "Escreve cada palavra para converter" },
+  { agent: "Marcela", role: "Design",       color: "#D946EF", desc: "Cria os visuais alinhados à sua marca" },
+  { agent: "Rafaela", role: "Tráfego Pago", color: "#F97316", desc: "Distribui com ROAS máximo" },
+  { agent: "Marina",  role: "Publicação",   color: "#60A5FA", desc: "Publica, monitora e responde" },
+];
+
+const SALARIES: Array<[string, string]> = [
+  ["Gerente de Marketing Sênior", "R$ 8.000–14.000"],
+  ["Copywriter / Redator",        "R$ 5.000–8.000"],
+  ["Designer Gráfico",            "R$ 5.000–9.000"],
+  ["Especialista em Tráfego",     "R$ 5.000–9.000"],
+  ["Social Media",                "R$ 3.500–5.500"],
+  ["Analista de Marketing",       "R$ 4.500–7.000"],
+  ["SDR / Pré-vendedor",          "R$ 3.500–6.000"],
+  ["Web Designer / WordPress",    "R$ 4.000–6.500"],
+  ["Revisora de Conteúdo",        "R$ 2.500–4.000"],
+];
+
+const fmt = (n: number) => n.toLocaleString("pt-BR");
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   CSS, mobile-first, sem !important. Tudo que é layout mora aqui; inline só
+   entra cor dinâmica por agente.
+   ───────────────────────────────────────────────────────────────────────── */
 const CSS = `
-  .lp { --sc-canvas:${CANVAS}; --sc-surface:${SURFACE}; --sc-ink:${INK}; --sc-ink-soft:${INK_SOFT}; --sc-accent:${ACCENT}; --sc-accent-ink:${CANVAS};
-        --sc-font-display:'Syne','Manrope',system-ui,sans-serif; --sc-font-text:'Manrope',system-ui,sans-serif;
-        --bar:56px; --rail:224px; --tab:60px; --hair:1px solid rgba(240,239,232,.08); --edge: inset 0 1px 0 rgba(240,239,232,.06);
-        --shadow: 0 10px 30px -12px rgba(0,0,0,.6), 0 2px 6px -2px rgba(0,0,0,.4);
-        background: var(--sc-canvas); color: var(--sc-ink); font-family: var(--sc-font-text); min-height:100vh; }
-  .lp *, .lp *::before, .lp *::after { box-sizing: border-box; }
-  /* O motor liga scroll-behavior: smooth no html; aqui os saltos do trilho já são suaves por JS, e o suave global engole rolagens programáticas. */
-  html:has(.lp) { scroll-behavior: auto; }
-  .lp a { color: inherit; text-decoration: none; }
-  .lp button { font: inherit; color: inherit; cursor: pointer; }
-  .lp h1, .lp h2, .lp h3 { font-family: var(--sc-font-display); letter-spacing: -0.03em; line-height: 1.08; text-wrap: balance; margin: 0; }
-  .lp p { margin: 0; text-wrap: pretty; }
-  .lp :focus-visible { outline: 2px solid var(--sc-accent); outline-offset: 3px; }
-  .lp ::selection { background: rgba(185,255,75,.28); }
+  .cl { --lime:${LIME}; --off:${OFF}; --dim:${DIM}; --muted:${MUTED};
+        --pad: clamp(20px, 5vw, 64px); --w: 1200px;
+        --font-display: 'Syne', 'Manrope', sans-serif;
+        --font-body: 'Manrope', 'Inter', system-ui, sans-serif;
+        --font-mono: 'DM Mono', ui-monospace, monospace;
+        font-family: var(--font-body); -webkit-font-smoothing: antialiased; }
+  .cl *, .cl *::before, .cl *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  .cl a { text-decoration: none; color: inherit; }
+  .cl button { font: inherit; color: inherit; }
+  .cl h1, .cl h2, .cl h3, .cl h4 { font-family: var(--font-display); letter-spacing: -0.04em; line-height: 1.02; overflow-wrap: normal; }
+  .cl-mono { font-family: var(--font-mono); letter-spacing: .1em; text-transform: uppercase; font-size: 11px; }
+  .cl-wrap { max-width: var(--w); margin: 0 auto; padding-left: var(--pad); padding-right: var(--pad); }
+  .cl-section { padding-top: clamp(64px, 10vw, 120px); padding-bottom: clamp(64px, 10vw, 120px); }
+  .cl-eyebrow { display:inline-flex; align-items:center; gap:8px; color: var(--lime); }
+  .cl-h2 { font-size: clamp(30px, 4.6vw, 54px); font-weight: 800; margin-top: 14px; }
+  .cl-lede { font-size: clamp(15px, 1.4vw, 18px); color: var(--dim); line-height: 1.65; margin-top: 16px; max-width: 560px; }
+  .cl-head { display:flex; flex-direction:column; gap: 12px; margin-bottom: clamp(36px, 5vw, 64px); }
+  @media (min-width: 900px) { .cl-head.is-split { flex-direction: row; align-items: flex-end; justify-content: space-between; } .cl-head.is-split .cl-lede { text-align: right; margin-top: 0; max-width: 300px; } }
 
-  /* ── chrome do produto ── */
-  .bar { position: fixed; top: 0; left: 0; right: 0; height: var(--bar); z-index: 60; display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 12px; padding: 0 16px; background: rgba(10,11,10,.88); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); border-bottom: var(--hair); }
-  .bar__brand { display: flex; align-items: center; gap: 9px; font-family: var(--sc-font-display); font-weight: 700; font-size: 14px; letter-spacing: -0.02em; }
-  .bar__brand img { width: 26px; height: 26px; border-radius: 7px; object-fit: cover; }
-  .bar__mid { display: flex; align-items: center; gap: 10px; min-width: 0; font-size: 12px; color: var(--sc-ink-soft); }
-  .bar__mid .st { display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px; border-radius: 999px; border: var(--hair); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .bar__mid .st i { width: 6px; height: 6px; border-radius: 50%; background: var(--sc-accent); flex-shrink: 0; }
-  .bar__mid .st--etapa { color: var(--sc-ink); }
-  .bar__right { display: flex; align-items: center; gap: 10px; }
-  .ledger { display: flex; align-items: baseline; gap: 6px; font-variant-numeric: tabular-nums; font-size: 12px; color: var(--sc-ink-soft); }
-  .ledger b { font-family: var(--sc-font-display); font-size: 18px; color: var(--sc-accent); letter-spacing: -0.02em; }
-  .bar__entrar { font-size: 12px; font-weight: 700; padding: 7px 12px; border-radius: 8px; border: 1px solid rgba(185,255,75,.35); color: var(--sc-accent); transition: background .16s var(--sc-ease-out), transform .12s; }
-  .bar__entrar:hover { background: rgba(185,255,75,.1); }
-  .bar__entrar:active { transform: translateY(1px); }
-  @media (max-width: 720px) { .bar__mid .st--demo, .ledger span { display: none; } }
+  /* grain + atmosfera */
+  .cl-grain { position: fixed; inset: 0; pointer-events: none; z-index: 1; opacity: .35; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.4'/%3E%3C/svg%3E"); }
+  .cl-glow { position:absolute; border-radius:50%; pointer-events:none; filter: blur(60px); }
 
-  .rail { position: fixed; top: var(--bar); left: 0; bottom: 0; width: var(--rail); z-index: 50; display: none; flex-direction: column; padding: 18px 12px; gap: 2px; border-right: var(--hair); background: rgba(10,11,10,.6); }
-  .rail__label { font-size: 10px; text-transform: uppercase; letter-spacing: .12em; color: var(--sc-ink-soft); padding: 0 10px 10px; }
-  .rail button { display: flex; align-items: center; gap: 10px; width: 100%; text-align: left; padding: 9px 10px; border-radius: 9px; border: 1px solid transparent; background: transparent; font-size: 13px; font-weight: 600; color: var(--sc-ink-soft); transition: color .14s, background .14s; }
-  .rail button i { width: 7px; height: 7px; border-radius: 50%; background: rgba(240,239,232,.15); flex-shrink: 0; transition: background .2s; }
-  .rail button:hover { color: var(--sc-ink); background: rgba(240,239,232,.04); }
-  .rail button.is-on { color: var(--sc-ink); background: rgba(185,255,75,.08); border-color: rgba(185,255,75,.18); }
-  .rail button.is-on i, .rail button.is-past i { background: var(--sc-accent); }
-  .rail__foot { margin-top: auto; padding: 10px; font-size: 11px; line-height: 1.5; color: var(--sc-ink-soft); border-top: var(--hair); }
-  @media (min-width: 1024px) { .rail { display: flex; } }
+  /* NAV */
+  .cl-nav { position: fixed; inset: 0 0 auto 0; z-index: 200; height: 64px; display:flex; align-items:center; transition: background .3s, border-color .3s, backdrop-filter .3s; border-bottom: 1px solid transparent; }
+  .cl-nav.is-scrolled { background: rgba(8,8,8,.86); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border-color: rgba(255,255,255,.06); }
+  .cl-nav-in { width:100%; display:flex; align-items:center; justify-content:space-between; gap: 16px; }
+  .cl-brand { display:flex; align-items:center; gap:10px; font-family: var(--font-display); font-weight: 700; font-size: 15px; letter-spacing: -0.02em; }
+  .cl-brand img { width: 30px; height: 30px; border-radius: 8px; object-fit: cover; }
+  .cl-links { display:none; align-items:center; gap: 26px; }
+  .cl-links a { font-size: 13px; font-weight: 600; color: var(--dim); transition: color .18s; }
+  .cl-links a:hover { color: var(--lime); }
+  .cl-burger { display:inline-flex; width: 42px; height: 42px; align-items:center; justify-content:center; border-radius: 12px; border:1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.03); cursor:pointer; }
+  @media (min-width: 960px) { .cl-links { display:flex; } .cl-burger { display:none; } }
+  .cl-menu { position: fixed; inset: 0; z-index: 190; background: #080808; isolation: isolate; display:flex; flex-direction:column; justify-content:center; padding: 96px var(--pad) 40px; gap: 6px; animation: cl-fade .25s ease both; }
+  .cl-menu a { font-family: var(--font-display); font-size: clamp(30px, 8vw, 44px); font-weight: 800; letter-spacing: -0.04em; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.06); color: var(--off); }
+  .cl-menu a:hover { color: var(--lime); }
+  .cl-menu-cta { margin-top: 24px; display:flex; flex-direction: column; gap: 10px; }
+  .cl-menu-cta a { font-size: 15px; border: none; padding: 0; }
 
-  .tabs { position: fixed; left: 0; right: 0; bottom: 0; height: calc(var(--tab) + env(safe-area-inset-bottom)); padding-bottom: env(safe-area-inset-bottom); z-index: 60; display: flex; background: rgba(10,11,10,.92); backdrop-filter: blur(14px); border-top: var(--hair); overflow-x: auto; scrollbar-width: none; }
-  .tabs::-webkit-scrollbar { display: none; }
-  .tabs button { flex: 1 0 auto; min-width: 84px; padding: 10px 8px; font-size: 11px; font-weight: 700; color: var(--sc-ink-soft); background: transparent; border: 0; border-top: 2px solid transparent; white-space: nowrap; }
-  .tabs button.is-on { color: var(--sc-accent); border-top-color: var(--sc-accent); }
-  @media (min-width: 1024px) { .tabs { display: none; } }
-  /* O banner de cookies do app é fixo no rodapé; na landing, sobe acima da tira de abas. */
-  @media (max-width: 1023px) { body:has(.lp) .fixed.inset-x-0.bottom-0 { bottom: calc(var(--tab, 60px) + env(safe-area-inset-bottom)); } }
+  /* botões */
+  .cl-btn { display:inline-flex; align-items:center; justify-content:center; gap: 9px; border-radius: 100px; font-weight: 700; font-size: 14px; padding: 13px 24px; white-space: nowrap; transition: transform .18s, box-shadow .18s, background .18s, border-color .18s; cursor:pointer; border: 1px solid transparent; }
+  .cl-btn:hover { transform: translateY(-1px); }
+  .cl-btn-lime { background: var(--lime); color: ${BLACK}; box-shadow: 0 0 28px rgba(185,255,75,.18); }
+  .cl-btn-lime:hover { box-shadow: 0 0 36px rgba(185,255,75,.35); }
+  .cl-btn-ghost { border-color: rgba(255,255,255,.14); color: var(--off); }
+  .cl-btn-ghost:hover { border-color: rgba(185,255,75,.45); color: var(--lime); }
+  .cl-btn-sm { padding: 8px 16px; font-size: 12px; }
 
-  /* ── área de trabalho ── */
-  .work { padding-top: var(--bar); padding-bottom: calc(var(--tab) + 24px); }
-  @media (min-width: 1024px) { .work { padding-left: var(--rail); padding-bottom: 0; } }
-  .wrap { width: min(1120px, 100% - 2 * clamp(14px, 3vw, 32px)); margin-inline: auto; }
-  .panel { background: var(--sc-surface); border: var(--hair); border-radius: 16px; box-shadow: var(--edge), var(--shadow); }
-  .panel__head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 16px; border-bottom: var(--hair); }
-  .panel__title { font-family: var(--sc-font-display); font-size: 13px; font-weight: 700; letter-spacing: -0.01em; display: flex; align-items: center; gap: 8px; }
-  .panel__meta { font-size: 11px; color: var(--sc-ink-soft); font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--sc-ink-soft); }
-  .status { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; border: var(--hair); color: var(--sc-ink-soft); white-space: nowrap; }
-  .status i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
-  .status--on { color: var(--sc-accent); border-color: rgba(185,255,75,.3); }
-  .avatar { width: 30px; height: 30px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; font-family: var(--sc-font-display); font-weight: 800; font-size: 12px; flex-shrink: 0; }
-  .avatar--sm { width: 24px; height: 24px; font-size: 11px; }
+  /* HERO */
+  .cl-hero { position: relative; overflow: hidden; padding-top: 112px; padding-bottom: clamp(56px, 8vw, 96px); min-height: 100svh; display:flex; align-items:center; }
+  .cl-hero-grid { display:grid; grid-template-columns: 1fr; gap: clamp(36px, 5vw, 64px); align-items:center; width: 100%; }
+  @media (min-width: 900px) { .cl-hero-grid { grid-template-columns: minmax(0, 1.15fr) minmax(320px, 420px); } }
+  .cl-h1 { font-size: clamp(36px, 9.6vw, 82px); font-weight: 800; margin: 22px 0 22px; overflow-wrap: normal; word-break: keep-all; }
+  @media (min-width: 900px) { .cl-h1 { font-size: clamp(48px, 5.4vw, 82px); } }
+  .cl-hero p { font-size: clamp(15px, 1.5vw, 18px); color: var(--dim); line-height: 1.65; max-width: 520px; }
+  .cl-hero-actions { display:flex; flex-wrap:wrap; gap: 12px; margin-top: 30px; }
+  .cl-stats { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin-top: clamp(36px, 5vw, 56px); }
+  .cl-stat { padding: 16px 0 0; border-top: 1px solid rgba(255,255,255,.08); min-width: 0; }
+  .cl-stat b { display:block; font-family: var(--font-display); font-size: clamp(22px, 4vw, 40px); font-weight: 800; letter-spacing: -0.04em; line-height: 1; color: var(--off); }
+  .cl-stat span { display:block; margin-top: 6px; font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 
-  /* ato 1: briefing (flow) */
-  .a1 { padding: clamp(28px, 5vw, 64px) 0 clamp(36px, 6vw, 80px); }
-  .a1__grid { display: grid; grid-template-columns: 1fr; gap: 18px; align-items: start; }
-  @media (min-width: 900px) { .a1__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr); gap: 24px; } }
-  .help { padding: clamp(18px, 3vw, 28px); }
-  .help h1 { font-size: clamp(26px, 3.4vw, 40px); margin-bottom: 14px; }
-  .help p { font-size: 15px; line-height: 1.6; color: var(--sc-ink-soft); max-width: 46ch; }
-  .help p + p { margin-top: 10px; }
-  .help .demo { margin-top: 18px; padding: 10px 12px; border-radius: 10px; background: rgba(185,255,75,.06); border: 1px solid rgba(185,255,75,.18); font-size: 12px; line-height: 1.5; color: var(--sc-ink); }
-  .inbox .msg { padding: 16px; display: grid; grid-template-columns: auto 1fr; gap: 12px; }
-  .inbox .msg + .msg { border-top: var(--hair); }
-  .msg__who { font-weight: 700; font-size: 13px; display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
-  .msg__who small { font-weight: 500; font-size: 11px; color: var(--sc-ink-soft); }
-  .msg__text { font-size: 14px; line-height: 1.6; color: var(--sc-ink); margin-top: 4px; }
-  .lines p { font-size: 14px; line-height: 1.6; padding: 6px 0; border-top: 1px dashed rgba(240,239,232,.08); }
-  .lines p:first-child { border-top: 0; }
-  .lines p.soft { color: var(--sc-ink-soft); }
+  /* overflow-x:hidden em ancestrais quebra o position:sticky do palco pinado; clip não. */
+  html:has(.cl), body:has(.cl) { overflow-x: clip; scroll-behavior: auto; }
+  body:has(.cl) .fixed.inset-x-0.bottom-0 { z-index: 60; }
+  /* planos do hero: cada um numa taxa; o texto e o card viajam a 1x */
+  .cl-plane { position:absolute; inset:-12% 0; pointer-events:none; will-change: transform; }
+  .cl-plane--far { z-index:0; background: radial-gradient(52% 46% at 78% 28%, rgba(185,255,75,.13), transparent 62%), radial-gradient(38% 38% at 8% 92%, rgba(167,139,250,.08), transparent 66%); }
+  .cl-plane--grid { z-index:0; background-image: linear-gradient(rgba(240,239,232,.055) 1px, transparent 1px), linear-gradient(90deg, rgba(240,239,232,.055) 1px, transparent 1px); background-size: 56px 56px; -webkit-mask-image: radial-gradient(64% 58% at 62% 46%, #000 18%, transparent 74%); mask-image: radial-gradient(64% 58% at 62% 46%, #000 18%, transparent 74%); }
+  .cl-plane--near { z-index:3; background: radial-gradient(46% 26% at 68% 112%, rgba(185,255,75,.16), transparent 70%); }
+  .cl-hero .cl-hero-grid { position:relative; z-index:2; }
+  .cl-hero-card { position:relative; }
+  .cl-hero-card::after { content:""; position:absolute; inset:auto -8% -10% -8%; height: 42%; border-radius: 50%; background: radial-gradient(closest-side, rgba(0,0,0,.55), transparent); z-index:-1; filter: blur(14px); }
 
-  /* ato 2: time (pin) */
-  .stage { min-height: 100svh; display: flex; align-items: center; padding: calc(var(--bar) + 16px) 0 24px; }
-  .chat { width: 100%; }
-  .chat__list { padding: 6px 0; }
-  .chat .m { display: grid; grid-template-columns: auto 1fr; gap: 12px; padding: 12px 16px; border-top: var(--hair);
-    --v: clamp(0, calc((var(--sc-p, 0) - var(--em)) * 9), 1); opacity: var(--v); transform: translateY(calc((1 - var(--v)) * 10px)); }
-  .chat .m:first-of-type { border-top: 0; }
-  .m__who { font-size: 12px; display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
-  .m__who b { font-weight: 700; }
-  .m__who span { color: var(--sc-ink-soft); }
-  .m__text { font-size: 14px; line-height: 1.6; margin-top: 3px; max-width: 70ch; }
-  .chat__empty { padding: 14px 16px; font-size: 12px; color: var(--sc-ink-soft); }
-  @media (prefers-reduced-motion: reduce) { .chat .m { --v: 1; transform: none; } }
-
-  /* ato 3: ajuda (flow) */
-  .a3 { padding: clamp(24px, 5vw, 56px) 0; }
-  .who__row { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px 20px; padding: 12px 0; border-top: var(--hair); }
-  @media (min-width: 640px) { .who__row { grid-template-columns: 200px minmax(0, 1fr); } }
-  .who__name { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 14px; }
-  .who__name small { font-weight: 500; color: var(--sc-ink-soft); font-size: 12px; }
-  .who__skills { font-size: 13px; color: var(--sc-ink-soft); line-height: 1.55; }
-  .who__skills span + span::before { content: " · "; }
-
-  /* ato 4: produção (pin, pico) */
-  .prod { width: 100%; display: grid; grid-template-columns: 1fr; gap: 14px; }
-  @media (min-width: 900px) { .prod { grid-template-columns: minmax(0, 1.4fr) minmax(300px, 1fr); } }
-  .cal__grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; padding: 10px; }
-  .cal__dow { font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: var(--sc-ink-soft); text-align: center; padding: 4px 0 6px; }
-  .cal__d { position: relative; aspect-ratio: 1 / .9; border-radius: 8px; border: 1px solid rgba(240,239,232,.06); padding: 5px 6px; font-size: 11px; color: var(--sc-ink-soft); font-variant-numeric: tabular-nums; overflow: hidden; }
-  .cal__d.is-off { opacity: .28; border-style: dashed; }
-  .cal__d.has { --v: clamp(0, calc((var(--sc-p, 0) - var(--em)) * 7), 1); border-color: rgba(185,255,75,calc(var(--v) * .45)); }
-  .cal__d .chip { position: absolute; left: 4px; right: 4px; bottom: 4px; padding: 3px 5px; border-radius: 6px; font-size: 10px; font-weight: 700; color: var(--sc-accent-ink); background: var(--sc-accent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    opacity: var(--v, 0); transform: translateY(calc((1 - var(--v, 0)) * 6px)) scale(calc(.94 + var(--v, 0) * .06)); }
-  .queue__list { padding: 6px 0; min-height: 200px; }
-  .queue .q { display: grid; grid-template-columns: auto 1fr; gap: 10px; padding: 10px 14px; border-top: var(--hair);
-    --v: clamp(0, calc((var(--sc-p, 0) - var(--em)) * 7), 1); opacity: var(--v); transform: translateX(calc((1 - var(--v)) * 12px)); }
-  .queue .q:first-child { border-top: 0; }
-  .q__date { font-family: var(--sc-font-display); font-weight: 800; font-size: 15px; letter-spacing: -0.02em; line-height: 1; padding-top: 2px; text-align: center; min-width: 34px; }
-  .q__date small { display: block; font-family: var(--sc-font-text); font-weight: 600; font-size: 9px; text-transform: uppercase; letter-spacing: .08em; color: var(--sc-ink-soft); margin-top: 3px; }
-  .q__title { font-size: 13px; font-weight: 700; }
-  .q__sub { font-size: 12px; color: var(--sc-ink-soft); margin-top: 2px; }
-  .prod__count { font-family: var(--sc-font-display); font-weight: 800; font-size: clamp(28px, 4vw, 44px); letter-spacing: -0.03em; line-height: 1; color: var(--sc-accent); font-variant-numeric: tabular-nums; }
-  .prod__foot { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 12px 16px; border-top: var(--hair); }
-  .prod__foot p { font-size: 12px; color: var(--sc-ink-soft); max-width: 30ch; line-height: 1.5; }
-  @media (prefers-reduced-motion: reduce) { .cal__d.has, .queue .q { --v: 1; transform: none; opacity: 1; } }
-  /* Celular: calendário e fila empilhados precisam caber no palco pinado. */
+  /* seção-assinatura: o mês se montando */
+  .cl-live__stage { min-height: 100svh; display:flex; align-items: safe center; padding: 84px 0 32px; }
+  @media (max-height: 760px) { .cl-live__stage { padding-top: 72px; } .cl-live .cl-h2 { font-size: clamp(28px, 4.2vh, 44px); } .cl-live__head { margin-bottom: 12px; } .cl-live .cl-cal__d { aspect-ratio: 1 / .58; } .cl-live .cl-q { padding: 7px 14px; } .cl-live__foot { padding: 8px 16px; } }
+  .cl-live__head { display:grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 22px; }
+  @media (min-width: 900px) { .cl-live__head { grid-template-columns: minmax(0,1fr) minmax(0,1fr); align-items:end; gap: 32px; } .cl-live__head .cl-lede { margin-top: 0; } }
+  .cl-live__grid { display:grid; grid-template-columns: 1fr; gap: 12px; }
+  @media (min-width: 900px) { .cl-live__grid { grid-template-columns: minmax(0,1.4fr) minmax(300px,1fr); } }
+  .cl-panel { background: #101210; border: 1px solid rgba(240,239,232,.08); border-radius: 18px; box-shadow: inset 0 1px 0 rgba(240,239,232,.06), 0 14px 40px -18px rgba(0,0,0,.7); }
+  .cl-panel__head { display:flex; align-items:center; justify-content:space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid rgba(240,239,232,.08); font-family: var(--font-display); font-size: 13px; font-weight: 700; }
+  .cl-cal { display:grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 4px; padding: 10px; }
+  .cl-cal__dow { font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; color: var(--muted); text-align:center; padding: 4px 0 6px; }
+  .cl-cal__d { position:relative; aspect-ratio: 1 / .72; border-radius: 8px; border: 1px solid rgba(240,239,232,.06); padding: 5px 6px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); overflow:hidden; }
+  .cl-cal__d.is-off { opacity: .28; border-style: dashed; }
+  .cl-cal__d.has { --v: clamp(0, calc((var(--sc-p, 0) - var(--em)) * 7), 1); border-color: rgba(185,255,75,calc(var(--v) * .5)); }
+  .cl-cal__chip { position:absolute; left:4px; right:4px; bottom:4px; padding: 3px 5px; border-radius: 6px; font-family: var(--font-body); font-size: 10px; font-weight: 700; color: ${BLACK}; background: var(--lime); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity: var(--v, 0); transform: translateY(calc((1 - var(--v, 0)) * 6px)); }
+  .cl-live__foot { display:flex; align-items:flex-end; justify-content:space-between; gap: 12px; padding: 12px 16px; border-top: 1px solid rgba(240,239,232,.08); }
+  .cl-live__foot p { font-size: 12.5px; color: var(--dim); line-height: 1.5; max-width: 34ch; }
+  .cl-live__count { font-family: var(--font-display); font-weight: 800; font-size: clamp(30px, 4vw, 46px); letter-spacing: -0.03em; line-height: 1; color: var(--lime); display:flex; align-items:baseline; gap: 6px; }
+  .cl-live__count small { font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .cl-queue { padding: 4px 0; }
+  .cl-q { display:grid; grid-template-columns: auto 1fr; gap: 10px; padding: 10px 14px; border-top: 1px solid rgba(240,239,232,.06); --v: clamp(0, calc((var(--sc-p, 0) - var(--em)) * 7), 1); opacity: var(--v); transform: translateX(calc((1 - var(--v)) * 12px)); }
+  .cl-q:first-child { border-top: 0; }
+  .cl-q__date { font-family: var(--font-display); font-weight: 800; font-size: 15px; line-height: 1; text-align:center; min-width: 34px; padding-top: 2px; }
+  .cl-q__date small { display:block; font-family: var(--font-mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
+  .cl-q__title { font-size: 13px; font-weight: 700; }
+  .cl-q__sub { font-size: 12px; color: var(--dim); margin-top: 2px; }
+  @media (prefers-reduced-motion: reduce) { .cl-cal__d.has, .cl-q { --v: 1; transform:none; opacity:1; } }
   @media (max-width: 899px) {
-    .prod { gap: 10px; }
-    .cal__grid { gap: 3px; padding: 8px; }
-    .cal__d { aspect-ratio: 1 / .62; padding: 3px 5px; font-size: 10px; border-radius: 6px; }
-    .cal__d .chip { left: 3px; right: 3px; bottom: 3px; padding: 2px 4px; font-size: 9px; }
-    .prod__foot p { display: none; }
-    .prod__foot { padding: 8px 14px; }
-    .queue__list { min-height: 0; padding: 2px 0; }
-    .queue .q { padding: 7px 12px; }
-    .q__sub { display: none; }
-    .panel__head { padding: 9px 12px; }
-    /* Fechamento: relatório + campo precisam caber numa tela de 812px com barra e abas. */
-    .ask { padding: 14px 16px; gap: 8px; }
-    .ask > p { display: none; }
-    .ask textarea { min-height: 72px; }
-    .report dl div { padding: 7px 14px; }
-    .report__note { padding: 8px 14px; }
-    .foot { margin-top: 10px; padding-top: 10px; }
-    .stage { padding: calc(var(--bar) + 8px) 0 8px; }
+    .cl-live__stage { padding: 68px 0 16px; }
+    .cl-live .cl-h2 { font-size: clamp(24px, 7.4vw, 34px); }
+    .cl-live .cl-h2 br { display:none; }
+    .cl-live__head { margin-bottom: 10px; gap: 6px; }
+    .cl-live__head .cl-lede { font-size: 13px; line-height: 1.45; margin-top: 0; }
+    .cl-live__grid { gap: 8px; }
+    .cl-panel { border-radius: 14px; }
+    .cl-panel__head { padding: 8px 12px; font-size: 12px; }
+    .cl-cal { gap: 3px; padding: 6px; }
+    .cl-cal__dow { padding: 2px 0 4px; font-size: 9px; }
+    .cl-cal__d { aspect-ratio: 1 / .5; font-size: 10px; padding: 3px 5px; border-radius: 6px; }
+    .cl-cal__chip { font-size: 9px; padding: 2px 4px; left:3px; right:3px; bottom:3px; }
+    .cl-live__foot { padding: 6px 12px; }
+    .cl-live__foot p { display:none; }
+    .cl-live__count { font-size: 26px; }
+    .cl-q { padding: 5px 12px; gap: 8px; }
+    .cl-q__date { font-size: 13px; min-width: 28px; }
+    .cl-q__date small { display:inline; margin-left: 2px; margin-top: 0; }
+    .cl-q__title { font-size: 12px; }
+    .cl-q__sub { display:none; }
   }
 
-  /* ato 5: revisão (flow + reveal) */
-  .a5 { padding: clamp(24px, 5vw, 56px) 0; }
-  .rev { max-width: 720px; }
-  .rev ul { margin: 0; padding: 4px 0; list-style: none; }
-  .rev li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; padding: 11px 16px; border-top: var(--hair); font-size: 14px; line-height: 1.55; }
-  .rev li:first-child { border-top: 0; }
-  .rev .tick { width: 18px; height: 18px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; margin-top: 2px; }
-  .rev .tick--ok { background: rgba(185,255,75,.14); color: var(--sc-accent); }
-  .rev .tick--fix { background: rgba(236,72,153,.16); color: #F9A8D4; }
-  .rev li.fix { background: rgba(236,72,153,.05); }
+  /* card do time no hero */
+  .cl-agent { border-radius: 26px; padding: clamp(20px, 3vw, 28px); position: relative; overflow: hidden; transition: background .6s, border-color .6s, box-shadow .6s; }
+  .cl-agent-grid { display:grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 6px; }
+  @media (min-width: 420px) { .cl-agent-grid { gap: 8px; } }
+  .cl-agent-btn { height: 44px; border-radius: 12px; border: none; display:flex; flex-direction:column; align-items:center; justify-content:center; gap: 2px; cursor:pointer; transition: transform .2s; min-width: 0; }
+  .cl-agent-btn:hover { transform: scale(1.08); }
+  .cl-tasks { display:grid; grid-template-columns: 1fr; gap: 7px 12px; }
+  @media (min-width: 420px) { .cl-tasks { grid-template-columns: 1fr 1fr; } }
 
-  /* ato 6: aprovação (pan) */
-  .rail6 { display: flex; align-items: stretch; gap: 14px; padding: 0 clamp(14px, 3vw, 32px); }
-  @media (min-width: 1024px) { .rail6 { padding-left: calc(var(--rail) + 32px); } }
-  .rail6 > * { flex: 0 0 auto; }
-  .rail6__lead { width: min(340px, 78vw); display: flex; flex-direction: column; justify-content: center; gap: 12px; }
-  .rail6__lead h2 { font-size: clamp(24px, 3vw, 34px); }
-  .rail6__lead p { font-size: 14px; color: var(--sc-ink-soft); line-height: 1.6; max-width: 34ch; }
-  .card { width: min(300px, 78vw); display: flex; flex-direction: column; transition: border-color .16s var(--sc-ease-out); }
-  .card--aprovada { border-color: rgba(185,255,75,.4); }
-  .card--devolvida { border-color: rgba(236,72,153,.35); }
-  .card__body { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; flex-grow: 1; }
-  .card__legenda { font-size: 13px; line-height: 1.6; color: var(--sc-ink); }
-  .card__tags { font-size: 12px; color: var(--sc-ink-soft); }
-  .card__actions { display: flex; gap: 8px; padding: 12px 16px; border-top: var(--hair); }
-  .btn { flex: 1; padding: 10px 12px; border-radius: 9px; font-size: 13px; font-weight: 700; border: 1px solid rgba(240,239,232,.12); background: transparent; transition: background .12s, border-color .12s, transform .1s; }
-  .btn:active { transform: translateY(1px); }
-  .btn--ok { background: var(--sc-accent); color: var(--sc-accent-ink); border-color: transparent; }
-  .btn--ok:hover { background: #CBFF7A; }
-  .btn--ok[aria-pressed="true"] { box-shadow: inset 0 0 0 2px rgba(10,11,10,.35); }
-  .btn--no:hover { border-color: rgba(236,72,153,.5); color: #F9A8D4; }
-  .btn--no[aria-pressed="true"] { border-color: rgba(236,72,153,.6); color: #F9A8D4; background: rgba(236,72,153,.1); }
-  .rail6__end { width: min(300px, 78vw); display: flex; flex-direction: column; justify-content: center; gap: 8px; }
-  .rail6__end p { font-size: 13px; color: var(--sc-ink-soft); line-height: 1.6; }
-  .rail6__end b { font-family: var(--sc-font-display); font-size: clamp(26px, 3vw, 36px); color: var(--sc-accent); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1; }
+  /* ticker */
+  .cl-ticker { background: var(--lime); overflow:hidden; padding: 13px 0; }
+  .cl-ticker-track { display:flex; width: max-content; animation: cl-tick 30s linear infinite; }
+  .cl-ticker span { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: ${BLACK}; white-space: nowrap; padding: 0 26px; }
 
-  /* ato 7: relatório (pin, segura) */
-  .close { width: 100%; }
-  .close__grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
-  @media (min-width: 900px) { .close__grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
-  .report dl { margin: 0; padding: 6px 0; }
-  .report dl div { display: flex; justify-content: space-between; gap: 12px; padding: 9px 16px; border-top: var(--hair); font-size: 13px; }
-  .report dl div:first-child { border-top: 0; }
-  .report dt { color: var(--sc-ink-soft); }
-  .report dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
-  .report dd.ok { color: var(--sc-accent); }
-  .report__note { padding: 12px 16px; border-top: var(--hair); font-size: 12px; line-height: 1.55; color: var(--sc-ink-soft); }
-  .ask { padding: clamp(18px, 3vw, 28px); display: flex; flex-direction: column; gap: 12px; }
-  .ask h2 { font-size: clamp(24px, 3vw, 34px); }
-  .ask p { font-size: 14px; color: var(--sc-ink-soft); line-height: 1.6; max-width: 40ch; }
-  .ask label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: var(--sc-ink-soft); }
-  .ask textarea { width: 100%; min-height: 96px; resize: vertical; padding: 12px 14px; border-radius: 10px; border: 1px solid rgba(240,239,232,.14); background: rgba(10,11,10,.6); color: var(--sc-ink); font-size: 15px; line-height: 1.5; caret-color: var(--sc-accent); }
-  .ask textarea::placeholder { color: rgba(154,160,150,.7); }
-  .ask__row { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
-  .ask__go { padding: 12px 18px; border-radius: 10px; background: var(--sc-accent); color: var(--sc-accent-ink); font-weight: 800; font-size: 14px; border: 0; transition: background .12s, transform .1s; }
-  .ask__go:hover { background: #CBFF7A; }
-  .ask__go:active { transform: translateY(1px); }
-  .ask__row a { font-size: 13px; font-weight: 600; color: var(--sc-ink-soft); text-decoration: underline; text-underline-offset: 3px; }
-  .foot { margin-top: 18px; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px 18px; font-size: 12px; color: var(--sc-ink-soft); padding-top: 14px; border-top: var(--hair); }
-  .foot nav { display: flex; gap: 14px; flex-wrap: wrap; }
-  .foot a:hover { color: var(--sc-ink); }
+  /* processo (linha do tempo) */
+  .cl-tl-row { display:grid; grid-template-columns: 44px minmax(0,1fr); column-gap: 14px; align-items: start; }
+  .cl-tl-left, .cl-tl-right { grid-column: 2; grid-row: 1; min-width: 0; padding-bottom: 22px; }
+  .cl-tl-spine { grid-column: 1; grid-row: 1; display:flex; flex-direction:column; align-items:center; align-self: stretch; }
+  .cl-tl-node { width: 44px; height: 44px; border-radius: 50%; display:flex; align-items:center; justify-content:center; font-family: var(--font-mono); font-size: 13px; font-weight: 800; cursor:pointer; flex-shrink: 0; z-index: 2; transition: all .4s cubic-bezier(.22,.68,0,1.2); }
+  .cl-tl-line { width: 2px; flex-grow: 1; min-height: 40px; position: relative; margin: 8px 0; }
+  .cl-tl-card { padding: clamp(20px, 3vw, 32px); border-radius: 22px; cursor:pointer; position:relative; overflow:hidden; transition: background .28s, border-color .28s, box-shadow .28s, transform .28s cubic-bezier(.22,.68,0,1.2); }
+  .cl-tl-card h3 { font-size: clamp(20px, 2.4vw, 28px); font-weight: 800; }
+  .cl-tl-head { display:flex; align-items:flex-start; justify-content:space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; position:relative; }
+  .cl-tl-card p { font-size: 15px; color: var(--dim); line-height: 1.7; position: relative; }
+  .cl-tl-details { display:grid; grid-template-columns: 1fr; gap: 10px 28px; margin-bottom: 20px; }
+  @media (min-width: 640px) { .cl-tl-details { grid-template-columns: 1fr 1fr; } }
+  @media (min-width: 900px) {
+    .cl-tl-row { grid-template-columns: minmax(0,1fr) 100px minmax(0,1fr); column-gap: 0; }
+    .cl-tl-left { grid-column: 1; padding-right: 32px; }
+    .cl-tl-spine { grid-column: 2; }
+    .cl-tl-right { grid-column: 3; padding-left: 32px; }
+    .cl-tl-node { width: 64px; height: 64px; font-size: 15px; }
+  }
+  .cl-pill-note { display:inline-flex; align-items:center; gap: 12px; padding: 14px 22px; border-radius: 100px; background: rgba(185,255,75,.06); border: 1px solid rgba(185,255,75,.22); text-align:left; }
+  .cl-pill-note span { font-size: 15px; color: var(--off); }
+
+  /* fluxo 5 agentes */
+  .cl-flow { display:grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: clamp(36px, 5vw, 64px); }
+  @media (min-width: 560px) { .cl-flow { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+  @media (min-width: 960px) { .cl-flow { grid-template-columns: repeat(5, minmax(0,1fr)); gap: 8px; } }
+  .cl-flow-card { padding: 22px 20px; border-radius: 16px; background: rgba(255,255,255,.025); height: 100%; }
+  .cl-results { display:grid; grid-template-columns: 1fr; gap: 12px; }
+  @media (min-width: 760px) { .cl-results { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+
+  /* serviços */
+  .cl-services { display:grid; grid-template-columns: 1fr; border: 1px solid rgba(255,255,255,.08); border-radius: 20px; overflow:hidden; }
+  @media (min-width: 640px) { .cl-services { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+  @media (min-width: 960px) { .cl-services { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+  .cl-service { padding: clamp(24px, 3vw, 36px) clamp(20px, 2.6vw, 30px); background: ${BLACK}; border: 0 solid rgba(255,255,255,.07); border-bottom-width: 1px; transition: background .2s; position: relative; }
+  .cl-service:hover { background: rgba(185,255,75,.045); }
+  @media (min-width: 640px) { .cl-service:nth-child(odd) { border-right-width: 1px; } }
+  @media (min-width: 960px) { .cl-service:nth-child(odd) { border-right-width: 0; } .cl-service:not(:nth-child(3n)) { border-right-width: 1px; } .cl-service:nth-last-child(-n+3) { border-bottom-width: 0; } }
+  @media (max-width: 959px) and (min-width: 640px) { .cl-service:nth-last-child(-n+2) { border-bottom-width: 0; } }
+  @media (max-width: 639px) { .cl-service:last-child { border-bottom-width: 0; } }
+  .cl-service h3 { font-size: 20px; font-weight: 700; margin: 14px 0 10px; }
+  .cl-service p { font-size: 14px; color: var(--dim); line-height: 1.65; }
+
+  /* produtos */
+  .cl-products { display:grid; grid-template-columns: 1fr; gap: 16px; }
+  @media (min-width: 900px) { .cl-products { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+  .cl-product { border-radius: 22px; background: rgba(255,255,255,.025); padding: clamp(24px, 3vw, 34px) clamp(20px, 2.6vw, 28px); position:relative; overflow:hidden; transition: transform .22s, box-shadow .22s; display:flex; flex-direction:column; }
+  .cl-product:hover { transform: translateY(-4px); box-shadow: 0 24px 64px rgba(0,0,0,.35); }
+  .cl-product h3 { font-size: clamp(24px, 2.6vw, 30px); font-weight: 800; }
+  .cl-product p { font-size: 14px; color: var(--dim); line-height: 1.7; margin: 16px 0 22px; }
+  .cl-product ul { list-style: none; display:flex; flex-direction:column; gap: 9px; margin-bottom: 28px; flex-grow: 1; }
+  .cl-product li { display:flex; align-items:center; gap: 9px; font-size: 13px; font-weight: 600; color: rgba(240,239,232,.6); }
+
+  /* time (carrossel) */
+  .cl-team-head { display:flex; flex-direction: column; gap: 18px; margin-bottom: 36px; }
+  @media (min-width: 900px) { .cl-team-head { flex-direction: row; align-items: flex-end; justify-content: space-between; } }
+  .cl-team-ctl { display:flex; align-items:center; gap: 10px; flex-wrap: wrap; }
+  .cl-round { width: 42px; height: 42px; border-radius: 50%; border: 1px solid rgba(255,255,255,.12); background: transparent; color: var(--off); display:flex; align-items:center; justify-content:center; cursor:pointer; transition: border-color .2s, background .2s; }
+  .cl-round:hover { border-color: var(--lime); background: rgba(185,255,75,.08); }
+  .cl-track { display:flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding: 6px var(--pad) 36px; scroll-padding-left: var(--pad); }
+  .cl-track::-webkit-scrollbar { display:none; }
+  .cl-tcard { flex-shrink: 0; width: min(340px, 84vw); scroll-snap-align: start; border-radius: 22px; padding: clamp(24px, 3vw, 36px) clamp(20px, 2.6vw, 28px); display:flex; flex-direction:column; min-height: 440px; position:relative; overflow:hidden; transition: background .3s, border-color .3s, box-shadow .3s, transform .3s cubic-bezier(.22,.68,0,1.2); }
+  .cl-tcard h3 { font-size: 24px; font-weight: 800; margin-bottom: 4px; }
+  .cl-tcard p { font-size: 14px; line-height: 1.7; margin-bottom: 22px; flex-grow: 1; transition: color .3s; }
+  .cl-dots { display:flex; justify-content:center; gap: 6px; margin-top: 4px; }
+
+  /* como funciona (4 passos) */
+  .cl-steps { display:grid; grid-template-columns: 1fr; gap: 28px; }
+  @media (min-width: 560px) { .cl-steps { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+  @media (min-width: 960px) { .cl-steps { grid-template-columns: repeat(4, minmax(0,1fr)); } }
+  .cl-step h3 { font-size: 19px; font-weight: 700; margin: 20px 0 10px; }
+  .cl-step p { font-size: 14px; color: var(--dim); line-height: 1.65; }
+
+  /* economia */
+  .cl-savings { display:grid; grid-template-columns: 1fr; gap: clamp(32px, 5vw, 72px); align-items:center; }
+  @media (min-width: 900px) { .cl-savings { grid-template-columns: minmax(0,1fr) minmax(0,1.15fr); } }
+  .cl-table { border-radius: 18px; border: 1px solid rgba(255,255,255,.08); overflow:hidden; }
+  .cl-table-row { display:flex; justify-content:space-between; align-items:center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid rgba(255,255,255,.05); background: ${BLACK}; }
+  .cl-table-row:hover { background: rgba(185,255,75,.03); }
+  .cl-table-row > span:first-child { display:flex; align-items:center; gap: 8px; font-size: 13px; font-weight: 600; color: rgba(240,239,232,.6); min-width: 0; }
+  .cl-table-row > span:last-child { font-family: var(--font-mono); font-size: 11px; color: rgba(240,239,232,.35); white-space: nowrap; }
+
+  /* cta */
+  .cl-cta { background: var(--lime); border-radius: 26px; padding: clamp(32px, 5vw, 60px) clamp(22px, 4vw, 52px); display:flex; flex-direction:column; gap: 28px; position: relative; overflow:hidden; }
+  @media (min-width: 900px) { .cl-cta { flex-direction: row; align-items:center; justify-content:space-between; } }
+  .cl-cta h2 { font-size: clamp(28px, 4vw, 44px); font-weight: 800; color: ${BLACK}; }
+  .cl-cta-actions { display:flex; flex-direction:column; gap: 10px; flex-shrink: 0; }
+  .cl-cta-actions .cl-btn { white-space: normal; }
+
+  /* rodapé */
+  .cl-footer { border-top: 1px solid rgba(255,255,255,.06); padding: 32px 0; }
+  .cl-footer-row { display:flex; flex-direction: column; align-items:center; text-align:center; gap: 18px; }
+  @media (min-width: 760px) { .cl-footer-row { flex-direction: row; justify-content: space-between; text-align:left; } }
+  .cl-social { width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(255,255,255,.1); display:flex; align-items:center; justify-content:center; transition: border-color .18s; }
+  .cl-social:hover { border-color: var(--lime); }
+
+  /* animações */
+  @keyframes cl-in { from { opacity:0; transform: translateY(18px); } to { opacity:1; transform:none; } }
+  @keyframes cl-fade { from { opacity:0; } to { opacity:1; } }
+  @keyframes cl-tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+  @keyframes cl-bob { 0%,100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, 6px); } }
+  @keyframes cl-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(185,255,75,.5); } 50% { box-shadow: 0 0 0 6px rgba(185,255,75,0); } }
+  @keyframes cl-agent-in { from { opacity:0; transform: translateY(12px) scale(.96); } to { opacity:1; transform:none; } }
+  .cl-a1 { animation: cl-in .65s ease both .05s } .cl-a2 { animation: cl-in .65s ease both .18s }
+  .cl-a3 { animation: cl-in .65s ease both .30s } .cl-a4 { animation: cl-in .65s ease both .44s }
+  .cl-dot { animation: cl-pulse 2.2s ease-in-out infinite; }
+  .cl-agent-in { animation: cl-agent-in .42s cubic-bezier(.22,.68,0,1.2) both; }
+  @media (prefers-reduced-motion: reduce) { .cl *, .cl *::before, .cl *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
 `;
 
-/** Lê `--sc-p` de um ato como número (0 a 1). */
-const pDe = (el: Element | null) => {
-  if (!el) return 0;
-  const v = parseFloat(getComputedStyle(el).getPropertyValue("--sc-p"));
-  return Number.isFinite(v) ? Math.max(0, Math.min(1, v)) : 0;
-};
+/* ─── Card do time no hero ────────────────────────────────────────────────── */
+function HeroAgentCard() {
+  const [active, setActive] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [key, setKey] = useState(0);
+
+  useEffect(() => {
+    if (paused) return;
+    const t = setInterval(() => { setActive((p) => (p + 1) % TEAM.length); setKey((k) => k + 1); }, 2800);
+    return () => clearInterval(t);
+  }, [paused]);
+
+  const agent = TEAM[active];
+  return (
+    <div className="cl-agent" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}
+      style={{ background: `${agent.color}08`, border: `1px solid ${agent.color}38`, boxShadow: `0 0 80px -20px ${agent.color}55, 0 0 0 1px ${agent.color}18` }}>
+      <div className="cl-glow" style={{ top: -80, right: -80, width: 300, height: 300, background: `radial-gradient(circle, ${agent.color}2A 0%, transparent 68%)` }} />
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, position: "relative" }}>
+        <span className="cl-mono" style={{ fontSize: 10, color: LIME }}>Time ativo agora</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <i className="cl-dot" style={{ width: 7, height: 7, borderRadius: "50%", background: LIME, boxShadow: `0 0 10px ${LIME}` }} />
+          <span className="cl-mono" style={{ fontSize: 10, color: LIME, letterSpacing: 0, textTransform: "none" }}>{TEAM.length} online</span>
+        </span>
+      </div>
+      <div key={key} className="cl-agent-in" style={{ marginBottom: 18, position: "relative" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+          <div style={{ width: 64, height: 64, borderRadius: 18, background: `${agent.color}1C`, border: `2px solid ${agent.color}60`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Syne, sans-serif", fontSize: 22, fontWeight: 800, color: agent.color, flexShrink: 0, boxShadow: `0 0 36px -6px ${agent.color}80` }}>{agent.i}</div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontFamily: "Syne, sans-serif", fontSize: 22, fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1.05, color: OFF }}>{agent.name}</div>
+            <div className="cl-mono" style={{ fontSize: 10, color: agent.color, marginTop: 5, opacity: .85, letterSpacing: ".06em" }}>{agent.role}</div>
+          </div>
+        </div>
+        <div style={{ background: "rgba(0,0,0,.4)", borderRadius: 14, padding: "14px 16px", border: `1px solid ${agent.color}18` }}>
+          <div className="cl-mono" style={{ fontSize: 9, color: MUTED, marginBottom: 10 }}>Executando agora</div>
+          <div className="cl-tasks">
+            {agent.tasks.map((task, j) => (
+              <div key={j} style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                <i style={{ width: 4, height: 4, borderRadius: "50%", background: j === 0 ? agent.color : "rgba(255,255,255,.15)", flexShrink: 0, boxShadow: j === 0 ? `0 0 6px ${agent.color}` : "none" }} />
+                <span style={{ fontSize: 12.5, color: j === 0 ? "rgba(240,239,232,.8)" : "rgba(240,239,232,.4)", lineHeight: 1.4, overflowWrap: "anywhere" }}>{task}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div style={{ height: 1, background: `linear-gradient(to right, ${agent.color}25, rgba(255,255,255,.04), transparent)`, marginBottom: 16 }} />
+      <div className="cl-agent-grid">
+        {TEAM.map((t, i) => (
+          <button key={t.name} className="cl-agent-btn" title={t.name}
+            onClick={() => { setActive(i); setKey((k) => k + 1); setPaused(true); }}
+            style={{ background: i === active ? `${t.color}22` : "rgba(255,255,255,.04)", outline: i === active ? `1.5px solid ${t.color}70` : "1px solid rgba(255,255,255,.07)", boxShadow: i === active ? `0 0 18px -4px ${t.color}70` : "none" }}>
+            <span style={{ fontFamily: "Syne, sans-serif", fontSize: 12, fontWeight: 800, color: i === active ? t.color : MUTED }}>{t.i}</span>
+            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 8, color: i === active ? t.color : "rgba(255,255,255,.22)", lineHeight: 1 }}>{t.name.slice(0, 3)}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Linha do tempo do processo ──────────────────────────────────────────── */
+function ProcessTimeline() {
+  const [activeStep, setActiveStep] = useState<number | null>(null);
+  const [hov, setHov] = useState<number | null>(null);
+
+  return (
+    <section id="processo" className="cl-section" style={{ borderBottom: "1px solid rgba(255,255,255,.06)", position: "relative", overflow: "hidden" }}>
+      <div className="cl-glow" style={{ top: "30%", left: "50%", transform: "translateX(-50%)", width: "min(1000px, 120vw)", height: 700, background: "radial-gradient(circle, rgba(185,255,75,.035) 0%, transparent 62%)" }} />
+      <div className="cl-wrap" style={{ position: "relative", maxWidth: 1120 }}>
+        <div className="cl-head" style={{ alignItems: "center", textAlign: "center" }}>
+          <span className="cl-eyebrow cl-mono">Do briefing à publicação</span>
+          <h2 className="cl-h2">Como a Calu trabalha<br /><span style={{ color: LIME }}>do início ao resultado.</span></h2>
+          <p className="cl-lede" style={{ margin: "12px auto 0" }}>Toque em cada etapa para ver o que acontece nos bastidores.</p>
+        </div>
+
+        {PROCESS.map((step, i) => {
+          const isActive = activeStep === i;
+          const isPassed = activeStep !== null && i <= activeStep;
+          const isLast = i === PROCESS.length - 1;
+          const isRight = i % 2 === 0;
+          const isHov = hov === i && !isActive;
+          const card = (
+            <div className="cl-tl-card" onClick={() => setActiveStep(isActive ? null : i)} onMouseEnter={() => setHov(i)} onMouseLeave={() => setHov(null)}
+              style={{
+                background: isActive ? `${step.color}09` : isHov ? `${step.color}06` : "rgba(255,255,255,.028)",
+                border: `1px solid ${isActive ? `${step.color}60` : isHov ? `${step.color}50` : "rgba(185,255,75,.14)"}`,
+                boxShadow: isActive ? `0 0 0 1px ${step.color}1A, 0 20px 64px -20px ${step.color}65` : isHov ? `0 12px 44px -16px ${step.color}55` : "inset 0 1px 0 rgba(255,255,255,.04)",
+                transform: isHov ? "translateY(-4px)" : "none",
+              }}>
+              <div className="cl-glow" style={{ top: -90, [isRight ? "left" : "right"]: -90, width: 280, height: 280, background: `radial-gradient(circle, ${step.color}${isActive ? "18" : isHov ? "12" : "07"} 0%, transparent 68%)` }} />
+              <div className="cl-tl-head">
+                <div style={{ minWidth: 0 }}>
+                  <div className="cl-mono" style={{ fontSize: 10, color: step.color, marginBottom: 8, opacity: .9 }}>{step.n} · {step.duration}</div>
+                  <h3 style={{ color: isActive ? OFF : "rgba(240,239,232,.85)" }}>{step.title}</h3>
+                </div>
+                <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                  {step.agents.map((a) => (
+                    <div key={a.name} title={a.name} style={{ width: 38, height: 38, borderRadius: 12, background: `${a.color}15`, border: `1.5px solid ${a.color}55`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Syne, sans-serif", fontSize: 12, fontWeight: 800, color: a.color, boxShadow: isActive ? `0 0 20px -4px ${a.color}80` : "none", transition: "box-shadow .3s" }}>{a.i}</div>
+                  ))}
+                </div>
+              </div>
+              <p>{step.desc}</p>
+              {isActive && (
+                <div style={{ marginTop: 22, position: "relative" }}>
+                  <div style={{ height: 1, background: `linear-gradient(to right, ${step.color}35, transparent)`, marginBottom: 20 }} />
+                  <div className="cl-mono" style={{ fontSize: 10, color: step.color, marginBottom: 14 }}>Entregáveis</div>
+                  <div className="cl-tl-details">
+                    {step.details.map((d) => (
+                      <div key={d} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                        <i style={{ width: 6, height: 6, borderRadius: "50%", background: step.color, flexShrink: 0, marginTop: 8, boxShadow: `0 0 8px ${step.color}` }} />
+                        <span style={{ fontSize: 14.5, color: "rgba(240,239,232,.62)", lineHeight: 1.6 }}>{d}</span>
+                      </div>
+                    ))}
+                  </div>
+                  <div style={{ display: "inline-flex", alignItems: "center", flexWrap: "wrap", gap: 10, padding: "12px 18px", borderRadius: 14, background: `${step.color}0E`, border: `1px solid ${step.color}38` }}>
+                    <i style={{ width: 7, height: 7, borderRadius: "50%", background: step.color, boxShadow: `0 0 10px ${step.color}` }} />
+                    <span className="cl-mono" style={{ fontSize: 10, color: step.color, letterSpacing: ".04em", textTransform: "none" }}>Output →</span>
+                    <span style={{ fontSize: 15, fontWeight: 700, color: OFF }}>{step.output}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+          return (
+            <div key={step.n} className="cl-tl-row">
+              <div className="cl-tl-left">{!isRight ? card : null}</div>
+              <div className="cl-tl-spine">
+                <div className="cl-tl-node" onClick={() => setActiveStep(isActive ? null : i)}
+                  style={{ background: isActive ? `${step.color}1C` : isPassed ? `${LIME}0D` : "rgba(255,255,255,.05)", border: `2px solid ${isActive ? step.color : isPassed ? `${LIME}95` : "rgba(255,255,255,.13)"}`, color: isActive ? step.color : isPassed ? LIME : MUTED, boxShadow: isActive ? `0 0 0 8px ${step.color}10, 0 0 48px -8px ${step.color}95` : isPassed ? `0 0 22px -5px ${LIME}60` : "none" }}>{step.n}</div>
+                {!isLast && (
+                  <div className="cl-tl-line">
+                    <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,.06)", borderRadius: 2 }} />
+                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: isPassed ? "100%" : "0%", background: `linear-gradient(to bottom, ${LIME}, ${LIME}45)`, borderRadius: 2, boxShadow: isPassed ? `0 0 12px ${LIME}80` : "none", transition: "height .6s ease" }} />
+                  </div>
+                )}
+              </div>
+              <div className="cl-tl-right">{isRight ? card : null}</div>
+            </div>
+          );
+        })}
+
+        <div style={{ textAlign: "center", marginTop: clamp(40) }}>
+          <div className="cl-pill-note">
+            <i className="cl-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: LIME, boxShadow: `0 0 14px ${LIME}`, flexShrink: 0 }} />
+            <span>Cada agente trabalha em cima do que o anterior entregou, <strong style={{ color: LIME }}>como numa agência de verdade</strong>.</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+const clamp = (px: number) => `clamp(${Math.round(px * 0.6)}px, 6vw, ${px * 2}px)`;
+
+/* ─── Carrossel do time ───────────────────────────────────────────────────── */
+function TeamCarousel() {
+  const trackRef = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [hov, setHov] = useState<number | null>(null);
+
+  /** Largura real do card + gap, muda com a viewport, então mede na hora. */
+  const passo = useCallback(() => {
+    const el = trackRef.current;
+    const card = el?.firstElementChild as HTMLElement | null;
+    if (!el || !card) return 356;
+    const gap = parseFloat(getComputedStyle(el).columnGap || getComputedStyle(el).gap || "16") || 16;
+    return card.getBoundingClientRect().width + gap;
+  }, []);
+
+  const scrollTo = useCallback((idx: number) => {
+    const el = trackRef.current; if (!el) return;
+    const clamped = Math.max(0, Math.min(idx, TEAM.length - 1));
+    setActive(clamped);
+    el.scrollTo({ left: clamped * passo(), behavior: "smooth" });
+  }, [passo]);
+
+  const onScroll = () => {
+    const el = trackRef.current; if (!el) return;
+    setActive(Math.round(el.scrollLeft / passo()));
+  };
+
+  useEffect(() => {
+    if (paused) return;
+    const timer = setInterval(() => {
+      setActive((prev) => {
+        const next = (prev + 1) % TEAM.length;
+        trackRef.current?.scrollTo({ left: next * passo(), behavior: "smooth" });
+        return next;
+      });
+    }, 3200);
+    return () => clearInterval(timer);
+  }, [paused, passo]);
+
+  return (
+    <section id="time" className="cl-section" style={{ overflow: "hidden", paddingLeft: 0, paddingRight: 0 }}>
+      <div className="cl-wrap cl-team-head">
+        <div>
+          <span className="cl-eyebrow cl-mono">Nosso time de IA</span>
+          <h2 className="cl-h2">{TEAM.length} especialistas.<br />1 investimento.</h2>
+        </div>
+        <div className="cl-team-ctl">
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "9px 16px", borderRadius: 100, border: "1px solid rgba(185,255,75,.2)", background: "rgba(185,255,75,.06)" }}>
+            <i className="cl-dot" style={{ width: 7, height: 7, borderRadius: "50%", background: LIME }} />
+            <span className="cl-mono" style={{ fontSize: 10, color: LIME, textTransform: "none", letterSpacing: 0 }}>Todos online agora</span>
+          </span>
+          <button className="cl-round" onClick={() => setPaused((p) => !p)} title={paused ? "Retomar" : "Pausar"} style={{ width: "auto", padding: "0 14px", borderRadius: 100, gap: 7 }}>
+            <span style={{ fontSize: 12 }}>{paused ? "▶" : "⏸"}</span>
+            <span className="cl-mono" style={{ fontSize: 10, textTransform: "none", letterSpacing: 0, color: paused ? LIME : MUTED }}>{paused ? "retomar" : "pausar"}</span>
+          </button>
+          <button className="cl-round" onClick={() => scrollTo(active - 1)} aria-label="Anterior">←</button>
+          <button className="cl-round" onClick={() => scrollTo(active + 1)} aria-label="Próximo">→</button>
+        </div>
+      </div>
+
+      <div ref={trackRef} onScroll={onScroll} className="cl-track">
+        {TEAM.map((t, idx) => {
+          const on = idx === active;
+          const lit = on || (hov === idx);
+          return (
+            <div key={t.name} className="cl-tcard" onMouseEnter={() => setHov(idx)} onMouseLeave={() => setHov(null)} onClick={() => setPaused((p) => !p)}
+              style={{
+                background: on ? `${t.color}0F` : lit ? `${t.color}08` : "rgba(255,255,255,.022)",
+                border: `1px solid ${on ? `${t.color}65` : lit ? `${t.color}45` : "rgba(255,255,255,.07)"}`,
+                boxShadow: on ? `0 0 0 1px ${t.color}1A, 0 24px 72px -24px ${t.color}70` : "inset 0 1px 0 rgba(255,255,255,.04)",
+                transform: on ? "translateY(-6px)" : lit ? "translateY(-3px)" : "none",
+              }}>
+              <div className="cl-glow" style={{ top: -80, right: -80, width: 260, height: 260, background: `radial-gradient(circle, ${t.color}${on ? "22" : lit ? "14" : "05"} 0%, transparent 68%)` }} />
+              <div style={{ width: 64, height: 64, borderRadius: 18, background: `${t.color}${on ? "28" : "18"}`, border: `2px solid ${on ? t.color : `${t.color}45`}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Syne, sans-serif", fontSize: 22, fontWeight: 800, color: t.color, marginBottom: 22, boxShadow: on ? `0 0 32px -6px ${t.color}90` : "none", transition: "all .3s", position: "relative" }}>{t.i}</div>
+              <div className="cl-mono" style={{ fontSize: 9, color: t.color, marginBottom: 6, opacity: lit ? 1 : .55 }}>Agente especialista</div>
+              <h3 style={{ color: lit ? OFF : "rgba(240,239,232,.55)", transition: "color .3s" }}>{t.name}</h3>
+              <div className="cl-mono" style={{ fontSize: 10, color: lit ? t.color : MUTED, marginBottom: 18, textTransform: "none", letterSpacing: ".04em" }}>{t.role}</div>
+              <p style={{ color: lit ? "rgba(240,239,232,.7)" : "rgba(240,239,232,.32)" }}>{t.desc}</p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 22 }}>
+                {t.tasks.map((task) => (
+                  <div key={task} style={{ display: "flex", alignItems: "center", gap: 9 }}>
+                    <i style={{ width: 5, height: 5, borderRadius: "50%", background: lit ? t.color : "rgba(255,255,255,.15)", flexShrink: 0 }} />
+                    <span style={{ fontSize: 13, fontWeight: 600, color: lit ? "rgba(240,239,232,.7)" : "rgba(240,239,232,.28)", transition: "color .3s" }}>{task}</span>
+                  </div>
+                ))}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 18, borderTop: `1px solid ${on ? `${t.color}25` : "rgba(255,255,255,.06)"}` }}>
+                <i style={{ width: 7, height: 7, borderRadius: "50%", background: LIME, boxShadow: on ? `0 0 10px ${LIME}` : "none" }} />
+                <span className="cl-mono" style={{ fontSize: 10, color: LIME, textTransform: "none", letterSpacing: 0 }}>trabalhando agora</span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="cl-dots">
+        {TEAM.map((_, i) => (
+          <button key={i} onClick={() => scrollTo(i)} aria-label={`Ir para ${TEAM[i].name}`}
+            style={{ width: i === active ? 24 : 7, height: 7, borderRadius: 100, background: i === active ? LIME : "rgba(255,255,255,.2)", border: "none", cursor: "pointer", padding: 0, transition: "width .3s, background .3s" }} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ─── Página ──────────────────────────────────────────────────────────────── */
+const NAV = [["Serviços", "#servicos"], ["Processo", "#processo"], ["Soluções IA", "#solucoes"], ["Time", "#time"], ["Contato", "#contato"]] as const;
 
 type Motor = { mount: (el: Element) => unknown };
 
 export default function LandingPage() {
-  const navigate = useNavigate();
+  const [scrolled, setScrolled] = useState(false);
+  const [menu, setMenu] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
-  const [etapa, setEtapa] = useState("briefing");
-  const [razao, setRazao] = useState({ mensagens: 0, pecas: 0 });
-  const [decisao, setDecisao] = useState<Record<string, Decisao>>({});
-  const [objetivo, setObjetivo] = useState("");
+  const contadorRef = useRef<HTMLSpanElement>(null);
 
-  const aprovadas = PECAS.filter((p) => decisao[p.id] === "aprovada").length;
-  const devolvidas = PECAS.filter((p) => decisao[p.id] === "devolvida").length;
-  const pendentes = PECAS.length - aprovadas - devolvidas;
-  const entregas = razao.mensagens + razao.pecas + aprovadas;
-  const verifyState = `msgs:${razao.mensagens} pecas:${razao.pecas} aprov:${aprovadas} dev:${devolvidas} etapa:${etapa}`;
-
-  /* Motor: carrega CSS + JS uma vez, monta na raiz, e um laço próprio lê
-     `--sc-p` para o livro-razão e a etapa atual. Nada disso toca o motor. */
+  /* Motor da scroll-craft (public/scrollcraft, nunca editado): profundidade
+     do hero por planos em taxas diferentes, reveals e a seção pinada em que
+     o mês se monta. O contador lê --sc-p da seção sem passar por estado. */
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
@@ -345,348 +657,335 @@ export default function LandingPage() {
     const link = document.createElement("link");
     link.rel = "stylesheet"; link.href = "/scrollcraft/scrollcraft.css";
     document.head.appendChild(link);
-
-    const loop = () => {
+    const laco = () => {
       if (!vivo) return;
-      const acts = Array.from(root.querySelectorAll<HTMLElement>("[data-sc-act]"));
-      const meio = window.innerHeight * 0.5;
-      let atual: string | null = null;
-      for (const a of acts) {
-        const r = a.getBoundingClientRect();
-        if (r.top <= meio && r.bottom >= meio) { atual = a.dataset.etapa ?? null; break; }
+      const sec = root.querySelector<HTMLElement>(".cl-live");
+      if (sec && contadorRef.current) {
+        const p = parseFloat(getComputedStyle(sec).getPropertyValue("--sc-p")) || 0;
+        const reduz = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        const n = reduz ? PECAS.length : PECAS.filter((_, i) => p - emDaPeca(i) > 0.02).length;
+        if (contadorRef.current.textContent !== String(n)) contadorRef.current.textContent = String(n);
       }
-      const pTime = pDe(root.querySelector('[data-etapa="time"]'));
-      const pProd = pDe(root.querySelector('[data-etapa="producao"]'));
-      const reduz = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      const msgs = reduz ? CONVERSA.length : CONVERSA.filter((m) => pTime - m.em > 0.02).length;
-      const pecas = reduz ? PECAS.length : PECAS.filter((_, i) => pProd - emDaPeca(i) > 0.02).length;
-      if (atual) setEtapa((e) => (e === atual ? e : atual as string));
-      setRazao((r) => (r.mensagens === msgs && r.pecas === pecas ? r : { mensagens: msgs, pecas }));
-      raf = requestAnimationFrame(loop);
+      raf = requestAnimationFrame(laco);
     };
-
     const montar = () => {
       const SC = (window as unknown as { ScrollCraft?: Motor }).ScrollCraft;
       if (!SC || !vivo) return;
       SC.mount(root);
-      raf = requestAnimationFrame(loop);
+      raf = requestAnimationFrame(laco);
     };
-    const existente = document.querySelector<HTMLScriptElement>("script[data-scrollcraft]");
     if ((window as unknown as { ScrollCraft?: Motor }).ScrollCraft) montar();
-    else if (existente) existente.addEventListener("load", montar, { once: true });
     else {
-      const s = document.createElement("script");
-      s.src = "/scrollcraft/scrollcraft.js"; s.async = true; s.dataset.scrollcraft = "1";
-      s.addEventListener("load", montar, { once: true });
-      document.head.appendChild(s);
+      const existente = document.querySelector<HTMLScriptElement>("script[data-scrollcraft]");
+      const sc = existente ?? Object.assign(document.createElement("script"), { src: "/scrollcraft/scrollcraft.js", async: true });
+      sc.dataset.scrollcraft = "1";
+      sc.addEventListener("load", montar, { once: true });
+      if (!existente) document.head.appendChild(sc);
     }
     return () => {
       vivo = false;
       cancelAnimationFrame(raf);
       link.remove();
-      // O motor pinta o chão (drift) no documento; ao sair da landing, devolve.
-      document.documentElement.style.removeProperty("background-color");
-      document.body.style.removeProperty("background-color");
       document.documentElement.style.removeProperty("--sc-canvas");
     };
   }, []);
 
-  const irPara = (id: string) => {
-    const el = rootRef.current?.querySelector<HTMLElement>(`[data-etapa="${id}"]`);
-    if (!el) return;
-    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 56, behavior: "smooth" });
-  };
-
-  const enviar = (e: FormEvent) => {
-    e.preventDefault();
-    const q = objetivo.trim();
-    navigate(q ? `/briefing?objetivo=${encodeURIComponent(q)}` : "/briefing");
-  };
-
-  const idxEtapa = Math.max(0, ETAPAS.findIndex((x) => x.id === etapa));
-  const calendario = useMemo(() => {
-    const cells: Array<{ dia: number | null; peca?: Peca; i?: number }> = [];
-    for (let i = 0; i < SET_INICIA_EM; i++) cells.push({ dia: null });
-    for (let d = 1; d <= SET_DIAS; d++) {
-      const i = PECAS.findIndex((p) => p.dia === d);
-      cells.push({ dia: d, peca: i >= 0 ? PECAS[i] : undefined, i: i >= 0 ? i : undefined });
-    }
-    while (cells.length % 7) cells.push({ dia: null });
-    return cells;
+  useEffect(() => {
+    const fn = () => setScrolled(window.scrollY > 24);
+    fn();
+    window.addEventListener("scroll", fn, { passive: true });
+    return () => window.removeEventListener("scroll", fn);
   }, []);
-
-  const decidir = (id: string, d: Decisao) =>
-    setDecisao((s) => ({ ...s, [id]: s[id] === d ? "pendente" : d }));
-
-  const av = (a: Agente, sm = false) => (
-    <span className={`avatar${sm ? " avatar--sm" : ""}`} style={{ background: `${a.cor}22`, color: a.cor }}>{a.nome.slice(0, 1)}</span>
-  );
+  useEffect(() => {
+    document.body.style.overflow = menu ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [menu]);
 
   return (
-    <div className="lp" ref={rootRef}>
+    <div className="cl" ref={rootRef} style={{ background: BLACK, color: OFF, minHeight: "100vh", overflowX: "clip" }}>
       <style>{CSS}</style>
-      <div className="sc-grain" aria-hidden="true" />
+      <div className="cl-grain" />
 
-      {/* ── chrome do produto ── */}
-      <header className="bar" data-sc-verify-state={verifyState}>
-        <Link to="/" className="bar__brand"><img src={caluLogo} alt="" /> Calu</Link>
-        <div className="bar__mid">
-          <span className="st st--demo"><i />Demonstração · {CENARIO.cliente} · {CENARIO.mes}</span>
-          <span className="st st--etapa" aria-live="polite">{ETAPAS[idxEtapa].rotulo}</span>
-        </div>
-        <div className="bar__right">
-          <span className="ledger" title="Entregas do time enquanto você rola"><b>{entregas}</b><span>entregas</span></span>
-          <Link to="/entrar" className="bar__entrar">Entrar</Link>
-        </div>
-      </header>
-
-      <nav className="rail" aria-label="Etapas da produção">
-        <div className="rail__label">Produção</div>
-        {ETAPAS.map((e, i) => (
-          <button key={e.id} type="button" onClick={() => irPara(e.id)} className={i === idxEtapa ? "is-on" : i < idxEtapa ? "is-past" : ""} aria-current={i === idxEtapa ? "step" : undefined}>
-            <i />{e.rotulo}
+      {/* NAV */}
+      <nav className={`cl-nav ${scrolled || menu ? "is-scrolled" : ""}`}>
+        <div className="cl-wrap cl-nav-in">
+          <a href="#" className="cl-brand" onClick={() => setMenu(false)}>
+            <img src={caluLogo} alt="Calu Agência" /> Calu Agência
+          </a>
+          <div className="cl-links">
+            {NAV.map(([l, h]) => <a key={l} href={h}>{l}</a>)}
+            <a href="/briefing" className="cl-btn cl-btn-ghost cl-btn-sm"><Zap size={12} /> Diagnóstico IA</a>
+            <a href={WA} target="_blank" rel="noreferrer" className="cl-btn cl-btn-lime cl-btn-sm">Começar agora</a>
+          </div>
+          <button className="cl-burger" onClick={() => setMenu((m) => !m)} aria-label={menu ? "Fechar menu" : "Abrir menu"} aria-expanded={menu}>
+            {menu ? <X size={18} /> : <Menu size={18} />}
           </button>
-        ))}
-        <div className="rail__foot">Calu Agência · Fortaleza, CE<br />Publicidade, tecnologia e IA.</div>
+        </div>
       </nav>
-      <nav className="tabs" aria-label="Etapas da produção">
-        {ETAPAS.map((e, i) => (
-          <button key={e.id} type="button" onClick={() => irPara(e.id)} className={i === idxEtapa ? "is-on" : ""} aria-current={i === idxEtapa ? "step" : undefined}>{e.rotulo}</button>
-        ))}
-      </nav>
-
-      <main className="work">
-        {/* ── 1 · BRIEFING (flow): a superfície já em estado ── */}
-        <section data-sc-act="flow" data-sc-drift={CANVAS} data-etapa="briefing" className="a1">
-          <div className="wrap a1__grid" data-sc-in data-sc-stagger="70">
-            <aside className="panel help">
-              <h1>Uma agência inteira, operada por um time de IA que trabalha como uma agência de verdade.</h1>
-              <p>Isto não é um vídeo nem uma maquete. É a plataforma da Calu rodando um mês de produção para um cliente. Role a página e o time trabalha: um briefing entra, os agentes conversam entre si, o calendário se monta, a revisão corrige, e você aprova cada peça.</p>
-              <p>No final, o relatório é o que você aprovou.</p>
-              <div className="demo">Cenário de demonstração. {CENARIO.cliente} é um cliente fictício; as peças, as mensagens e os números desta página são calculados dos dados de exemplo que ela contém.</div>
-            </aside>
-            <div className="panel inbox">
-              <div className="panel__head">
-                <span className="panel__title"><span className="status status--on"><i />Briefing recebido</span></span>
-                <span className="panel__meta">dia 1 · 09:12</span>
-              </div>
-              <div className="msg">
-                <span className="avatar" style={{ background: "rgba(240,239,232,.08)", color: INK }}>CV</span>
-                <div>
-                  <div className="msg__who">{CENARIO.cliente} <small>{CENARIO.cidade} · cliente</small></div>
-                  <p className="msg__text">{CENARIO.objetivo}</p>
-                </div>
-              </div>
-              <div className="msg">
-                {av(porId.lia)}
-                <div>
-                  <div className="msg__who">Lia <small>{porId.lia.papel}</small></div>
-                  <div className="lines">
-                    <p>Li o briefing. O público não é "todo mundo com dor": é quem já tentou remédio e cansou.</p>
-                    <p>Objetivo mensurável: 40 primeiras consultas em setembro.</p>
-                    <p>Restrição registrada para o time inteiro: nunca prometer cura.</p>
-                    <p className="soft">Passando para o Ben e a Queila.</p>
-                  </div>
-                </div>
-              </div>
-            </div>
+      {menu && (
+        <div className="cl-menu">
+          {NAV.map(([l, h]) => <a key={l} href={h} onClick={() => setMenu(false)}>{l}</a>)}
+          <div className="cl-menu-cta">
+            <a href="/briefing" className="cl-btn cl-btn-ghost" onClick={() => setMenu(false)}><Zap size={14} /> Diagnóstico gratuito com IA</a>
+            <a href={WA} target="_blank" rel="noreferrer" className="cl-btn cl-btn-lime"><MessageCircle size={14} /> Falar no WhatsApp</a>
           </div>
-        </section>
+        </div>
+      )}
 
-        {/* ── 2 · TIME (pin): a conversa avança enquanto o quadro segura ── */}
-        <section data-sc-act="pin" data-sc-span="2.6" data-sc-drift="#0C0E0C" data-etapa="time">
-          <div data-sc-stage className="stage">
-            <div className="wrap">
-              <div className="panel chat">
-                <div className="panel__head">
-                  <span className="panel__title">Conversa do time</span>
-                  <span className="panel__meta">{razao.mensagens} de {CONVERSA.length} passagens de bastão</span>
-                </div>
-                <div className="chat__list">
-                  <p className="chat__empty">Os agentes se falam por notas de passagem: cada um termina a entrega dizendo ao próximo o que precisa saber.</p>
-                  {CONVERSA.map((m, i) => {
-                    const de = porId[m.de];
-                    return (
-                      <div key={i} className="m" style={em(m.em)}>
-                        {av(de)}
-                        <div>
-                          <div className="m__who"><b>{de.nome}</b><span>para {m.para.split(",").map((p) => porId[p.trim()]?.nome ?? p.trim()).join(", ")}</span></div>
-                          <p className="m__text">{m.texto}</p>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
+      {/* HERO */}
+      <section className="cl-hero" data-sc-act="flow">
+        <div className="cl-plane cl-plane--far" data-sc-parallax="-1.3" aria-hidden="true" />
+        <div className="cl-plane cl-plane--grid" data-sc-parallax="-0.6" aria-hidden="true" />
+        <div className="cl-wrap cl-hero-grid">
+          <div style={{ minWidth: 0 }}>
+            <span className="cl-eyebrow cl-mono cl-a1">
+              <i className="cl-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: LIME }} />
+              Publicidade · Tecnologia · IA
+            </span>
+            <h1 className="cl-h1 cl-a2">Criatividade<br />que vende.<br /><span style={{ color: LIME }}>IA que escala.</span></h1>
+            <p className="cl-a3">A Calu Agência une estratégia criativa de alta performance com tecnologia de IA proprietária, para sua marca crescer sem limite de equipe ou orçamento.</p>
+            <div className="cl-hero-actions cl-a4">
+              <a href={WA} target="_blank" rel="noreferrer" className="cl-btn cl-btn-lime"><MessageCircle size={15} /> Fale conosco</a>
+              <a href="#servicos" className="cl-btn cl-btn-ghost">Ver serviços <ArrowRight size={14} /></a>
             </div>
-          </div>
-        </section>
-
-        {/* ── 3 · QUEM FAZ O QUÊ (flow): o silêncio antes do pico ── */}
-        <section data-sc-act="flow" data-sc-drift={CANVAS} data-etapa="ajuda" className="a3">
-          <div className="wrap" data-sc-in data-sc-stagger="40">
-            <div className="label" style={{ marginBottom: 10 }}>Painel de ajuda · o time</div>
-            <h2 style={{ fontSize: "clamp(22px, 2.6vw, 30px)", marginBottom: 18 }}>Quinze agentes. Cada um faz uma coisa, e passa o bastão.</h2>
-            <div className="who">
-              {TIME.map((a) => (
-                <div key={a.id} className="who__row">
-                  <div className="who__name">{av(a, true)}{a.nome} <small>{a.papel}</small></div>
-                  <div className="who__skills">{a.skills.map((s) => <span key={s}>{s}</span>)}</div>
-                </div>
+            <div className="cl-stats cl-a4">
+              {[[String(TEAM.length), "agentes no time"], ["48h", "da estratégia ao post"], ["24/7", "produção contínua"]].map(([v, l]) => (
+                <div key={l} className="cl-stat"><b>{v}</b><span>{l}</span></div>
               ))}
             </div>
           </div>
-        </section>
+          <div className="cl-a3 cl-hero-card"><HeroAgentCard /></div>
+        </div>
+        <div className="cl-plane cl-plane--near" data-sc-parallax="0.9" aria-hidden="true" />
+      </section>
 
-        {/* ── 4 · PRODUÇÃO (pin, pico): o mês se monta na sua frente ── */}
-        <section data-sc-act="pin" data-sc-span="3.4" data-sc-drift="#0E110D" data-etapa="producao">
-          <div data-sc-stage className="stage">
-            <div className="wrap prod">
-              <div className="panel cal">
-                <div className="panel__head">
-                  <span className="panel__title">Calendário editorial · setembro</span>
-                  <span className="panel__meta">{razao.pecas} de {PECAS.length} peças</span>
-                </div>
-                <div className="cal__grid">
-                  {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => <div key={i} className="cal__dow">{d}</div>)}
-                  {calendario.map((c, i) => (
-                    <div key={i} className={`cal__d ${c.dia === null ? "is-off" : ""} ${c.peca ? "has" : ""}`} style={c.i !== undefined ? em(emDaPeca(c.i)) : undefined}>
+      {/* TICKER */}
+      <div className="cl-ticker" aria-hidden>
+        <div className="cl-ticker-track">
+          {[...TICKER, ...TICKER, ...TICKER, ...TICKER].map((t, i) => <span key={i}>{t} <em style={{ opacity: .3, fontStyle: "normal" }}>·</em></span>)}
+        </div>
+      </div>
+
+      <ProcessTimeline />
+
+      {/* O MÊS SE MONTANDO: a seção-assinatura. Cenário de demonstração rotulado. */}
+      <section className="cl-live" data-sc-act="pin" data-sc-span="3" aria-label="Demonstração: um mês de produção se montando">
+        <div data-sc-stage className="cl-live__stage">
+          <div className="cl-wrap">
+            <div className="cl-live__head">
+              <h2 className="cl-h2">Veja um mês inteiro{" "}<br /><span style={{ color: LIME }}>se montar.</span></h2>
+              <p className="cl-lede">Role devagar. O calendário enche, a fila de aprovação cresce e o contador sobe: é o que acontece na plataforma depois que o time recebe o briefing. Cenário de demonstração com cliente fictício.</p>
+            </div>
+            <div className="cl-live__grid">
+              <div className="cl-panel">
+                <div className="cl-panel__head"><span>Calendário editorial · setembro</span><span className="cl-mono" style={{ fontSize: 10, color: MUTED, textTransform: "none", letterSpacing: 0 }}>Clínica Vitta</span></div>
+                <div className="cl-cal">
+                  {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => <div key={i} className="cl-cal__dow">{d}</div>)}
+                  {CALENDARIO.map((c, i) => (
+                    <div key={i} className={`cl-cal__d${c.dia === null ? " is-off" : ""}${c.i !== undefined ? " has" : ""}`} style={c.i !== undefined ? em(emDaPeca(c.i)) : undefined}>
                       {c.dia ?? ""}
-                      {c.peca && <span className="chip">{c.peca.formato}</span>}
+                      {c.i !== undefined && <span className="cl-cal__chip">{PECAS[c.i].formato}</span>}
                     </div>
                   ))}
                 </div>
-                <div className="prod__foot">
-                  <p>Pedro calendarizou; Beatriz escreveu; Marcela desenhou em cima da copy dela. Cada peça entra na fila com data e hora.</p>
-                  <div className="prod__count" aria-label={`${razao.pecas} peças`}>{razao.pecas}</div>
+                <div className="cl-live__foot">
+                  <p>Pedro calendarizou, Beatriz escreveu, Marcela desenhou em cima da copy. Cada peça entra na fila com data e hora.</p>
+                  <span className="cl-live__count"><span ref={contadorRef}>0</span><small>peças</small></span>
                 </div>
               </div>
-              <div className="panel queue">
-                <div className="panel__head">
-                  <span className="panel__title">Fila de aprovação</span>
-                  <span className="status"><i />aguardando você</span>
-                </div>
-                <div className="queue__list">
-                  {PECAS.map((p, i) => (
-                    <div key={p.id} className="q" style={em(emDaPeca(i))}>
-                      <div className="q__date">{String(p.dia).padStart(2, "0")}<small>set</small></div>
-                      <div>
-                        <div className="q__title">{p.tema}</div>
-                        <div className="q__sub">{p.formato} · pilar {p.pilar} · 12:00</div>
-                      </div>
+              <div className="cl-panel">
+                <div className="cl-panel__head"><span>Fila de aprovação</span><span className="cl-mono" style={{ fontSize: 10, color: LIME, textTransform: "none", letterSpacing: 0 }}>aguardando o cliente</span></div>
+                <div className="cl-queue">
+                  {PECAS.map((pc, i) => (
+                    <div key={pc.id} className="cl-q" style={em(emDaPeca(i))}>
+                      <div className="cl-q__date">{String(pc.dia).padStart(2, "0")}<small>set</small></div>
+                      <div><div className="cl-q__title">{pc.tema}</div><div className="cl-q__sub">{pc.formato} · pilar {pc.pilar} · 12:00</div></div>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
           </div>
-        </section>
+        </div>
+      </section>
 
-        {/* ── 5 · REVISÃO (flow + reveal): a Vitória pega o que não pode ir ── */}
-        <section data-sc-act="flow" data-sc-drift={CANVAS} data-etapa="revisao" className="a5">
-          <div className="wrap">
-            <div className="panel rev" data-sc-reveal="left" data-sc-reveal-at="0.08 0.5">
-              <div className="panel__head">
-                <span className="panel__title">{av(porId.vitoria, true)}Revisão da Vitória</span>
-                <span className="status status--on"><i />aprovado com 1 ajuste</span>
-              </div>
-              <ul>
-                {REVISAO.map((r, i) => (
-                  <li key={i} className={r.ok ? "" : "fix"}>
-                    <span className={`tick ${r.ok ? "tick--ok" : "tick--fix"}`} aria-hidden="true">{r.ok ? "✓" : "!"}</span>
-                    <span>{r.item}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+      {/* MARKETING + IA */}
+      <section className="cl-section" style={{ borderBottom: "1px solid rgba(255,255,255,.06)" }}>
+        <div className="cl-wrap">
+          <div className="cl-head" style={{ alignItems: "center", textAlign: "center" }}>
+            <h2 className="cl-h2">Marketing executado<br /><span style={{ color: LIME }}>por inteligência artificial.</span></h2>
+            <p className="cl-lede" style={{ margin: "12px auto 0" }}>Cada post, anúncio, artigo e campanha passa por um time de agentes especializados, trabalhando em sequência, 24 horas por dia.</p>
           </div>
-        </section>
-
-        {/* ── 6 · APROVAÇÃO (pan): agora é a sua mão ── */}
-        <section data-sc-act="pan" data-sc-span="2.2" data-sc-drift="#0C0E0C" data-etapa="aprovacao">
-          <div data-sc-stage className="stage">
-            <div className="rail6" data-sc-pan="0.06">
-              <div className="rail6__lead">
-                <span className="label">Fila de aprovação</span>
-                <h2>Seis peças. Aprove ou devolva cada uma.</h2>
-                <p>No produto, o cliente faz exatamente isto pelo portal. Aqui, o que você decidir vira o relatório no fim da página.</p>
-              </div>
-              {PECAS.map((p) => {
-                const d = decisao[p.id] ?? "pendente";
-                return (
-                  <article key={p.id} className={`panel card${d !== "pendente" ? ` card--${d}` : ""}`}>
-                    <div data-sc-tilt="4">
-                      <div className="panel__head">
-                        <span className="panel__title">{String(p.dia).padStart(2, "0")}/09 · {p.formato}</span>
-                        <span className={`status${d === "aprovada" ? " status--on" : ""}`}><i />{d}</span>
-                      </div>
-                      <div className="card__body">
-                        <div className="q__title">{p.tema}</div>
-                        <p className="card__legenda">{p.legenda}</p>
-                        <div className="card__tags">{p.hashtags}</div>
-                      </div>
-                    </div>
-                    <div className="card__actions">
-                      <button type="button" className="btn btn--ok" aria-pressed={d === "aprovada"} onClick={() => decidir(p.id, "aprovada")}>Aprovar</button>
-                      <button type="button" className="btn btn--no" aria-pressed={d === "devolvida"} onClick={() => decidir(p.id, "devolvida")}>Devolver</button>
-                    </div>
-                  </article>
-                );
-              })}
-              <div className="rail6__end">
-                <b>{aprovadas}</b>
-                <p>{aprovadas === PECAS.length ? "Tudo aprovado. A Marina agenda e publica nos horários do calendário." : aprovadas === 0 ? "aprovadas até agora. Nada vai ao ar sem o seu ok." : `de ${PECAS.length} aprovadas. As devolvidas voltam para a Beatriz e a Marcela com o seu comentário.`}</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* ── 7 · RELATÓRIO (pin, segura): o que você aprovou, e um campo ── */}
-        <section data-sc-act="pin" data-sc-span="1.2" data-sc-drift={CANVAS} data-etapa="relatorio" id="contato">
-          <div data-sc-stage className="stage">
-            <div className="wrap close">
-              <div className="close__grid">
-                <div className="panel report">
-                  <div className="panel__head">
-                    <span className="panel__title">{av(porId.aira, true)}Relatório da Aira</span>
-                    <span className="panel__meta">{CENARIO.cliente} · {CENARIO.mes}</span>
-                  </div>
-                  <dl>
-                    <div><dt>Passagens de bastão entre agentes</dt><dd>{CONVERSA.length}</dd></div>
-                    <div><dt>Peças calendarizadas e produzidas</dt><dd>{PECAS.length}</dd></div>
-                    <div><dt>Ajustes pedidos pela revisão</dt><dd>{REVISAO.filter((r) => !r.ok).length}</dd></div>
-                    <div><dt>Aprovadas por você</dt><dd className="ok">{aprovadas}</dd></div>
-                    <div><dt>Devolvidas para ajuste</dt><dd>{devolvidas}</dd></div>
-                    <div><dt>Ainda aguardando decisão</dt><dd>{pendentes}</dd></div>
-                  </dl>
-                  <p className="report__note">
-                    {aprovadas === 0 && devolvidas === 0
-                      ? "Você ainda não decidiu nenhuma peça. Volte à fila de aprovação: o relatório muda com o que você escolher."
-                      : aprovadas === PECAS.length
-                        ? "Setembro fechado: seis peças aprovadas vão ao ar nas datas do calendário. A Marina publica; o Lucas mede; a Aira reporta toda semana."
-                        : `${aprovadas} peça(s) vão ao ar; ${devolvidas} voltam para ajuste e ${pendentes} esperam você. No produto, tudo isso acontece no portal do cliente.`}
-                  </p>
+          <div className="cl-flow">
+            {FLOW.map((s, i) => (
+              <div key={s.agent} className="cl-flow-card" style={{ border: `1px solid ${s.color}28` }}>
+                <div className="cl-mono" style={{ fontSize: 10, color: s.color, marginBottom: 12, letterSpacing: ".06em" }}>0{i + 1} · {s.agent}</div>
+                <div style={{ fontFamily: "Syne, sans-serif", fontSize: 16, fontWeight: 700, color: OFF, letterSpacing: "-0.02em", marginBottom: 8 }}>{s.role}</div>
+                <p style={{ fontSize: 13.5, color: DIM, lineHeight: 1.55 }}>{s.desc}</p>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 16 }}>
+                  <i style={{ width: 5, height: 5, borderRadius: "50%", background: s.color }} />
+                  <span className="cl-mono" style={{ fontSize: 9, color: s.color, textTransform: "none", letterSpacing: 0 }}>ativo agora</span>
                 </div>
-                <form className="panel ask" onSubmit={enviar} action="/briefing" method="get">
-                  <span className="label">Agora o seu mês</span>
-                  <h2>Qual é o objetivo do seu próximo mês?</h2>
-                  <p>Escreva como falaria com alguém da equipe. A Lia lê, faz o diagnóstico gratuito e o time começa por aí.</p>
-                  <label htmlFor="objetivo">Objetivo</label>
-                  <textarea id="objetivo" name="objetivo" value={objetivo} onChange={(e) => setObjetivo(e.target.value)} placeholder="Ex.: Preciso encher a agenda de setembro com pacientes novos, sem prometer cura." />
-                  <div className="ask__row">
-                    <button type="submit" className="ask__go">Começar o diagnóstico</button>
-                    <a href="https://wa.me/5585986408404" target="_blank" rel="noreferrer">ou falar no WhatsApp</a>
-                  </div>
-                  <footer className="foot">
-                    <span>© {new Date().getFullYear()} Calu Agência · Fortaleza, CE</span>
-                    <nav aria-label="Legal"><Link to="/privacy">Privacidade</Link><Link to="/terms">Termos</Link><Link to="/cookies">Cookies</Link><Link to="/entrar">Entrar</Link></nav>
-                  </footer>
-                </form>
               </div>
+            ))}
+          </div>
+          <div className="cl-results">
+            {[["Estratégia → publicação", "em até 48h", LIME], ["Ciclo de aprovação", "via portal do cliente", "#A78BFA"], ["Relatório de performance", "semanal, automático", "#34D399"]].map(([label, value, color]) => (
+              <div key={label} style={{ display: "flex", alignItems: "center", gap: 14, padding: "18px 22px", border: `1px solid ${color}22`, borderRadius: 14, background: `${color}06`, minWidth: 0 }}>
+                <i style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
+                <div style={{ minWidth: 0 }}>
+                  <div className="cl-mono" style={{ fontSize: 10, color, marginBottom: 4 }}>{label}</div>
+                  <div style={{ fontFamily: "Syne, sans-serif", fontSize: 16, fontWeight: 700, color: OFF, letterSpacing: "-0.02em" }}>{value}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* SERVIÇOS */}
+      <section id="servicos" className="cl-section">
+        <div className="cl-wrap">
+          <div className="cl-head is-split">
+            <div>
+              <span className="cl-eyebrow cl-mono">O que fazemos</span>
+              <h2 className="cl-h2">Tudo que sua marca<br />precisa, em um lugar.</h2>
+            </div>
+            <p className="cl-lede">Serviços integrados que trabalham juntos para crescer seu negócio.</p>
+          </div>
+          <div className="cl-services">
+            {SERVICES.map((s) => (
+              <div key={s.n} className="cl-service">
+                <span className="cl-mono" style={{ fontSize: 11, color: LIME, letterSpacing: ".06em" }}>{s.n}</span>
+                <h3>{s.title}</h3>
+                <p>{s.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* SOLUÇÕES */}
+      <section id="solucoes" className="cl-section" style={{ background: "#0C0C0C", borderTop: "1px solid rgba(255,255,255,.05)", borderBottom: "1px solid rgba(255,255,255,.05)" }}>
+        <div className="cl-wrap">
+          <div className="cl-head">
+            <div>
+              <span className="cl-eyebrow cl-mono">Soluções com IA</span>
+              <h2 className="cl-h2">Tecnologia que<br />trabalha por você.</h2>
+            </div>
+            <p className="cl-lede">Cada produto foi desenvolvido para um nicho específico, resolvendo problemas reais de segmentos que a tecnologia genérica não atende.</p>
+          </div>
+          <div className="cl-products">
+            {PRODUCTS.map((p) => (
+              <div key={p.name} className="cl-product" style={{ border: `1px solid ${p.color}22` }}>
+                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: p.color }} />
+                <span className="cl-mono" style={{ fontSize: 9, fontWeight: 700, color: p.color, background: `${p.color}15`, border: `1px solid ${p.color}30`, padding: "4px 12px", borderRadius: 100, display: "inline-block", marginBottom: 20, alignSelf: "flex-start" }}>{p.tag}</span>
+                <h3>{p.name}</h3>
+                <div className="cl-mono" style={{ fontSize: 10, color: p.color, marginTop: 6, textTransform: "none", letterSpacing: ".04em" }}>{p.sub}</div>
+                <p>{p.desc}</p>
+                <ul>{p.items.map((it) => <li key={it}><i style={{ width: 5, height: 5, borderRadius: "50%", background: p.color, flexShrink: 0 }} />{it}</li>)}</ul>
+                <a href={WA} target="_blank" rel="noreferrer" className="cl-btn cl-btn-sm" style={{ alignSelf: "flex-start", color: p.color, background: `${p.color}10`, borderColor: `${p.color}30` }}>Saber mais <ArrowUpRight size={13} /></a>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <TeamCarousel />
+
+      {/* COMO FUNCIONA */}
+      <section className="cl-section" style={{ borderTop: "1px solid rgba(255,255,255,.05)" }}>
+        <div className="cl-wrap">
+          <div className="cl-head">
+            <div>
+              <h2 className="cl-h2">Do briefing<br />aos resultados.</h2>
             </div>
           </div>
-        </section>
-      </main>
+          <div className="cl-steps">
+            {[["01", "Briefing", "Uma conversa sobre seu negócio, público, metas e tom de voz."], ["02", "Estratégia", "Em até 48h, plano editorial, campanhas e calendário prontos."], ["03", "Execução", "Conteúdo, design, ads e automações rodando em sequência."], ["04", "Resultados", "Relatórios semanais com métricas reais e ajustes contínuos."]].map(([n, t, d], i) => (
+              <div key={n} className="cl-step">
+                <div style={{ width: 52, height: 52, borderRadius: 14, background: i === 0 ? LIME : "rgba(185,255,75,.08)", border: `1px solid ${i === 0 ? "transparent" : "rgba(185,255,75,.22)"}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <span className="cl-mono" style={{ fontSize: 12, fontWeight: 700, color: i === 0 ? BLACK : LIME, letterSpacing: 0 }}>{n}</span>
+                </div>
+                <h3>{t}</h3>
+                <p>{d}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ECONOMIA */}
+      <section className="cl-section" style={{ borderTop: "1px solid rgba(255,255,255,.05)" }}>
+        <div className="cl-wrap cl-savings">
+          <div>
+            <h2 className="cl-h2">Economize<br /><span style={{ color: LIME }}>R$ {fmt(39500)}+</span><br />por mês.</h2>
+            <p className="cl-lede">Uma equipe completa custa entre <strong style={{ color: OFF }}>R$ {fmt(39500)}</strong> e <strong style={{ color: OFF }}>R$ {fmt(79500)}</strong>/mês em salários, sem contar encargos e ferramentas.</p>
+            <a href={WA} target="_blank" rel="noreferrer" className="cl-btn cl-btn-lime" style={{ marginTop: 28 }}>Quero saber o valor <ArrowUpRight size={14} /></a>
+          </div>
+          <div className="cl-table">
+            <div className="cl-table-row" style={{ background: "rgba(255,255,255,.02)" }}>
+              <span className="cl-mono" style={{ fontSize: 10, color: MUTED }}>Profissional</span>
+              <span className="cl-mono" style={{ fontSize: 10, color: MUTED }}>Salário / mês</span>
+            </div>
+            {SALARIES.map(([r, v]) => (
+              <div key={r} className="cl-table-row">
+                <span><Check size={12} color={LIME} strokeWidth={2.5} /> <span style={{ overflowWrap: "anywhere" }}>{r}</span></span>
+                <span>{v}</span>
+              </div>
+            ))}
+            <div className="cl-table-row" style={{ background: `${LIME}10`, borderTop: `1px solid ${LIME}20`, borderBottom: "none" }}>
+              <span style={{ fontWeight: 700, color: LIME }}>Total estimado</span>
+              <span style={{ color: LIME, fontWeight: 700 }}>R$ {fmt(39500)}+/mês</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA */}
+      <section id="contato" className="cl-section" style={{ paddingTop: clamp(40), paddingBottom: clamp(40) }}>
+        <div className="cl-wrap">
+          <div className="cl-cta">
+            <div className="cl-glow" style={{ top: -120, right: -80, width: 320, height: 320, background: "radial-gradient(circle, rgba(8,8,8,.18) 0%, transparent 70%)" }} />
+            <div style={{ position: "relative" }}>
+              <div className="cl-mono" style={{ fontSize: 10, color: "rgba(8,8,8,.45)", marginBottom: 12 }}>Pronto para escalar?</div>
+              <h2>Seu time completo<br />começa hoje.</h2>
+            </div>
+            <div className="cl-cta-actions" style={{ position: "relative" }}>
+              <a href="/briefing" className="cl-btn" style={{ background: BLACK, color: LIME }}><Zap size={15} /> Diagnóstico gratuito com IA</a>
+              <a href={WA} target="_blank" rel="noreferrer" className="cl-btn" style={{ background: "rgba(8,8,8,.1)", color: BLACK, fontWeight: 600 }}><MessageCircle size={14} /> Falar no WhatsApp</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* FOOTER */}
+      <footer className="cl-footer">
+        <div className="cl-wrap cl-footer-row">
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <img src={caluLogo} alt="Calu Agência" style={{ width: 28, height: 28, borderRadius: 8, objectFit: "cover" }} />
+            <div>
+              <div style={{ fontFamily: "Syne, sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: "-0.02em" }}>Calu Agência</div>
+              <div className="cl-mono" style={{ fontSize: 9, color: MUTED, letterSpacing: ".06em" }}>Publicidade · Tecnologia · IA · Fortaleza, CE</div>
+            </div>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center" }}>
+            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center" }}>
+              <Link to="/privacy" className="cl-mono" style={{ fontSize: 10, color: DIM }}>Privacidade</Link>
+              <Link to="/cookies" className="cl-mono" style={{ fontSize: 10, color: DIM }}>Cookies</Link>
+              <Link to="/terms" className="cl-mono" style={{ fontSize: 10, color: DIM }}>Termos</Link>
+              <Link to="/entrar" className="cl-mono" style={{ fontSize: 10, color: LIME }}>Entrar</Link>
+            </div>
+            <div className="cl-mono" style={{ fontSize: 9, color: "rgba(240,239,232,.22)", letterSpacing: ".04em" }}>© {new Date().getFullYear()} Calu Agência</div>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {[[Instagram, "Instagram"], [Linkedin, "LinkedIn"], [MessageCircle, "WhatsApp"]].map(([Icon, label]) => {
+              const I = Icon as typeof Instagram;
+              return <a key={label as string} href={label === "WhatsApp" ? WA : "#"} className="cl-social" aria-label={label as string}><I size={13} color={DIM} /></a>;
+            })}
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

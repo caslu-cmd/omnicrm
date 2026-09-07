@@ -41,7 +41,8 @@ reusing: a grammar, a nav treatment, a close pattern, a signature move, an
 act-count-and-length band. The shared columns are what the next build inherits
 as a constraint, so writing them down is the whole point.
 
-Nothing is taken yet.
+- Superfície viva (calu-lp): barra de status + trilho de etapas, fechamento com input real dentro de palco pinado, livro-razão que vira relatório.
+- Marketing em cenas (calu-lp-marketing): hero em planos com parallax, um único pin como pico (o mês se montando), fechamento em cartão de CTA com rodapé aberto.
 
 ---
 
@@ -64,3 +65,4 @@ collide, read `EXAMPLES.md` in the scroll-craft repository. Treat it as
 illustration only: those rows are somebody else's builds and they do **not**
 constrain yours.
 | calu-lp (2026-09-07) | Superfície viva (2.3) | Chrome do produto: barra de status fixa com cenário, etapa atual e livro-razão de entregas; trilho de etapas clicável à esquerda no desktop, tira de abas no rodapé no celular | Caixa de entrada já em estado (`flow` + `in`): briefing do cliente e resposta da Lia, painel de ajuda com o h1 ao lado | flow, pin 2.6, flow, pin 3.4 (pico), flow + reveal, pan 2.2, pin 1.2 = 7 atos, ~12.5vh desktop / 13.1vh celular | Palco pinado que segura: relatório calculado do estado da página + textarea real que envia o objetivo para /briefing; rodapé dentro do palco | Livro-razão que vira relatório: o contador da barra acumula entregas conforme o scroll, e o que o visitante aprova/devolve no trilho determina o relatório final | Não fotográfico: a própria interface do produto (painéis, calendário, fila), dados de demonstração rotulados | React (rota /), motor em /public/scrollcraft, Cloudflare Workers |
+| calu-lp-marketing (2026-09-07, substitui a superfície viva em produção) | Marketing premium, cenas distintas: hero dimensional + argumento por seções | Barra de marketing translúcida (logo, âncoras, Diagnóstico IA, CTA), menu overlay no celular | Hero em planos (`flow` + `parallax`): fundo de luz a -1.3, grade a -0.6, texto e card do time a 1x, névoa limão a 0.9 na frente, sem cobrir o CTA | flow (hero), seções livres com `in`/`reveal`, 1 pin 3.0 (pico: o mês se montando), seções livres até o CTA; ~14.7vh celular | CTA em cartão limão (Diagnóstico + WhatsApp) e rodapé aberto, sem palco pinado | O mês se montando: calendário editorial e fila de aprovação populam via `--sc-p` e o contador de peças acompanha, rotulado como demonstração | Não fotográfico: luz, grade e a interface do produto como ilustração | React (rota /), motor em /public/scrollcraft, Cloudflare Workers |
