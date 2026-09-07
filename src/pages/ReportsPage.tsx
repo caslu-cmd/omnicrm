@@ -144,7 +144,7 @@ const ReportsPage = () => {
       variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.04 } } }}
       className="p-3 md:p-6 space-y-6 min-w-0 break-words">
       <div>
-        <h1 className="text-2xl font-bold font-display text-foreground">Relatórios</h1>
+        <h1 className="text-xl md:text-2xl font-bold font-display text-foreground">Relatórios</h1>
         <p className="text-muted-foreground text-sm mt-1">O que o banco sabe responder hoje. Nada aqui é estimado.</p>
       </div>
 

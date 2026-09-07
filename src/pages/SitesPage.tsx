@@ -13,7 +13,6 @@ interface Template {
   name: string;
   category: string;
   preview: string;
-  uses: number;
 }
 
 interface Site {
@@ -27,14 +26,13 @@ interface Site {
 }
 
 const templates: Template[] = [
-  { id: 1, name: "SaaS Landing", category: "SaaS", preview: "🚀", uses: 2340 },
-  { id: 2, name: "Captura de Leads", category: "Lead Gen", preview: "📧", uses: 1890 },
-  { id: 3, name: "Webinar Signup", category: "Eventos", preview: "🎓", uses: 1230 },
-  { id: 4, name: "E-commerce Promo", category: "E-commerce", preview: "🛍️", uses: 980 },
-  { id: 5, name: "Consultoria", category: "Serviços", preview: "💼", uses: 756 },
-  { id: 6, name: "App Mobile", category: "Tech", preview: "📱", uses: 654 },
+  { id: 1, name: "SaaS Landing", category: "SaaS", preview: "🚀" },
+  { id: 2, name: "Captura de Leads", category: "Lead Gen", preview: "📧" },
+  { id: 3, name: "Webinar Signup", category: "Eventos", preview: "🎓" },
+  { id: 4, name: "E-commerce Promo", category: "E-commerce", preview: "🛍️" },
+  { id: 5, name: "Consultoria", category: "Serviços", preview: "💼" },
+  { id: 6, name: "App Mobile", category: "Tech", preview: "📱" },
 ];
-
 
 const editorBlocks = [
   { icon: Layout, label: "Hero" },
@@ -138,7 +136,6 @@ const SitesPage = () => {
                   <h3 className="text-sm font-semibold text-foreground">{t.name}</h3>
                   <span className="text-[11px] font-medium text-primary bg-primary/10 px-1.5 py-0.5 rounded">{t.category}</span>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">{t.uses.toLocaleString()} usos</p>
                 <button onClick={() => { setTab("editor"); toast.success(`Template "${t.name}" carregado`); }} className="mt-3 w-full py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium opacity-0 group-hover:opacity-100 transition-opacity">
                   Usar Template
                 </button>

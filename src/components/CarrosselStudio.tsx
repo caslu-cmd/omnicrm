@@ -3005,7 +3005,7 @@ export default function CarrosselStudio({ clientIdInicial = "", embutido = false
               </Campo>
 
               <Campo label="Paleta">
-                <div className="grid grid-cols-4 gap-1.5">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                   {PALETTES.map((p) => (
                     <button key={p.id}
                       onClick={() => { setPaleta(p); setBg(p.bg); setFg(p.fg); setAccent(p.accent); }}

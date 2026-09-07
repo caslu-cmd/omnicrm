@@ -10,7 +10,6 @@ import { toast } from "sonner";
 
 const tabs = [
   { key: "templates", label: "Templates", icon: Zap },
-  { key: "marketplace", label: "Marketplace", icon: Package },
   { key: "sdk", label: "SDK & API", icon: Code },
   { key: "partners", label: "Parceiros", icon: Users },
 ];
@@ -24,14 +23,6 @@ const workflowTemplates = [
   { id: 6, name: "Social Scheduling Pro", category: "Social", author: "SocialKit", downloads: 654, rating: 4.5, nodes: 9 },
 ];
 
-const marketplaceItems = [
-  { name: "CRM Analytics Pro", type: "Plugin", author: "DataViz Inc", price: "R$ 49/mês", installs: 1200, rating: 4.7 },
-  { name: "WhatsApp Bulk Sender", type: "Extensão", author: "MsgFlow", price: "R$ 29/mês", installs: 3400, rating: 4.5 },
-  { name: "AI Content Generator", type: "Plugin", author: "ContentAI", price: "Grátis", installs: 5600, rating: 4.8 },
-  { name: "Custom Dashboard Builder", type: "Plugin", author: "DashKit", price: "R$ 19/mês", installs: 890, rating: 4.4 },
-  { name: "Multi-Language Pack", type: "Extensão", author: "i18nPro", price: "Grátis", installs: 2300, rating: 4.6 },
-  { name: "Advanced Reports Export", type: "Plugin", author: "ReportLab", price: "R$ 15/mês", installs: 1100, rating: 4.3 },
-];
 
 const sdkEndpoints = [
   { method: "GET", path: "/api/v1/contacts", desc: "Listar contatos com filtros" },
@@ -60,7 +51,7 @@ const HelpPage = () => {
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6 min-w-0 break-words">
       <motion.div variants={item}>
-        <h1 className="text-2xl font-bold font-display text-foreground">Ajuda, SDK & Marketplace</h1>
+        <h1 className="text-xl md:text-2xl font-bold font-display text-foreground">Ajuda, SDK & Marketplace</h1>
         <p className="text-sm text-muted-foreground mt-1">Templates validados, marketplace de plugins, SDK público e programa de parceiros</p>
       </motion.div>
 
@@ -97,29 +88,6 @@ const HelpPage = () => {
               </motion.div>
             ))}
           </div>
-        </div>
-      )}
-
-      {tab === "marketplace" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {marketplaceItems.map(m => (
-            <motion.div key={m.name} variants={item} whileHover={{ y: -2 }} className="rounded-xl border border-border bg-card p-5 shadow-card hover:shadow-elevated transition-all">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-secondary/10"><Package className="h-5 w-5 text-secondary" /></div>
-                <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-muted text-muted-foreground">{m.type}</span>
-              </div>
-              <h3 className="text-sm font-semibold text-foreground">{m.name}</h3>
-              <p className="text-xs text-muted-foreground mt-0.5">por {m.author}</p>
-              <div className="flex items-center justify-between mt-3">
-                <span className="text-sm font-semibold text-foreground">{m.price}</span>
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span className="flex items-center gap-0.5"><Star className="h-3 w-3 text-accent-foreground fill-accent" />{m.rating}</span>
-                  <span>{m.installs.toLocaleString()} installs</span>
-                </div>
-              </div>
-              <button className="mt-3 w-full py-2 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90">Instalar</button>
-            </motion.div>
-          ))}
         </div>
       )}
 
@@ -175,11 +143,9 @@ const HelpPage = () => {
             <Award className="h-12 w-12 text-primary mx-auto mb-4" />
             <h2 className="text-xl font-bold font-display text-foreground mb-2">Programa de Parceiros OmniCRM</h2>
             <p className="text-sm text-muted-foreground max-w-lg mx-auto mb-6">Junte-se ao ecossistema de agências, integradores e MSPs que revendem e expandem o OmniCRM para seus clientes.</p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-w-md mx-auto mb-6">
+            <div className="max-w-md mx-auto mb-6">
               {[
                 { label: "Comissão", value: "até 30%" },
-                { label: "Parceiros", value: "120+" },
-                { label: "Países", value: "12" },
               ].map(s => (
                 <div key={s.label}><p className="text-lg font-bold text-primary">{s.value}</p><p className="text-xs text-muted-foreground">{s.label}</p></div>
               ))}

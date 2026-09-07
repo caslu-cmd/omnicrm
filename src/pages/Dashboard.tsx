@@ -128,7 +128,7 @@ const Dashboard = () => {
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6 min-w-0 break-words">
       <motion.div variants={item}>
-        <h1 className="text-2xl font-bold font-display text-foreground">Dashboard</h1>
+        <h1 className="text-xl md:text-2xl font-bold font-display text-foreground">Dashboard</h1>
         <p className="text-muted-foreground text-sm mt-1">Visão geral da operação — {dataDeHoje}</p>
       </motion.div>
 

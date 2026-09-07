@@ -116,7 +116,7 @@ function DiagnosisScreen({ diagnosis, nome, empresa }: { diagnosis: string; nome
           </p>
         </motion.div>
 
-        <div className="grid grid-cols-3 gap-3 pb-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pb-8">
           {[{ n: "11", label: "Especialistas IA" }, { n: "90d", label: "Primeiros resultados" }, { n: "100%", label: "Personalizado" }].map(({ n, label }) => (
             <div key={label} className="rounded-xl p-3 text-center" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
               <p className="text-xl font-black" style={{ color: GREEN }}>{n}</p>

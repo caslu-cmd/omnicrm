@@ -42,7 +42,7 @@ const PaymentsPage = () => {
   return (
     <motion.div variants={container} initial="hidden" animate="show" className="p-3 md:p-6 space-y-6 min-w-0 break-words">
       <motion.div variants={item}>
-        <h1 className="text-2xl font-bold font-display text-foreground">Minha Assinatura</h1>
+        <h1 className="text-xl md:text-2xl font-bold font-display text-foreground">Minha Assinatura</h1>
         <p className="text-sm text-muted-foreground mt-1">Gerencie seu plano, faturas e método de pagamento</p>
       </motion.div>
 

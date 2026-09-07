@@ -32,7 +32,7 @@ const VoicePage = () => {
   return (
     <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="p-3 md:p-6 space-y-6 min-w-0">
       <div>
-        <h1 className="text-2xl font-bold font-display text-foreground">Voz</h1>
+        <h1 className="text-xl md:text-2xl font-bold font-display text-foreground">Voz</h1>
         <p className="text-muted-foreground text-sm mt-1">Atendimento por telefone com transcrição e resumo automático.</p>
       </div>
 

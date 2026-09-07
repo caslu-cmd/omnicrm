@@ -394,7 +394,7 @@ export default function PipelineAgencia({ clientId, clientName, clientIndustry, 
                 {open && t.output && (
                   <div className="px-4 pb-4 space-y-3">
                     {imgs.length > 0 && (
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         {imgs.map((i, n) => (
                           <a key={n} href={i.url} target="_blank" rel="noreferrer" className="block rounded-lg overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
                             <img src={i.url} alt={i.headline ?? i.tema ?? ""} className="w-full aspect-[4/5] object-cover" />

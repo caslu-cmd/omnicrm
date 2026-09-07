@@ -116,16 +116,32 @@
     color-scheme: dark;
   }
 
+  html, body {
+    /* Nenhuma tela pode empurrar a página para o lado no celular. */
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: 'Manrope', 'Inter', system-ui, sans-serif;
     font-size: 15px;
+    line-height: 1.5;
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: 'Inter', system-ui, sans-serif;
-    letter-spacing: -0.01em;
+    font-family: 'Syne', 'Manrope', system-ui, sans-serif;
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    overflow-wrap: anywhere;
   }
+
+  /* Mídia e código nunca estouram a coluna. */
+  img, video, canvas, svg { max-width: 100%; height: auto; }
+  pre { overflow-x: auto; }
+  input, textarea, select, button { font-family: inherit; }
+  /* Alvo de toque confortável em telas de toque. */
+  @media (pointer: coarse) { button, [role="button"], a.btn-lime { min-height: 40px; } }
 
   /* Seleção de texto com cor verde limão */
   ::selection {
@@ -232,7 +248,7 @@
     @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-all;
     background: #B9FF4B;
     color: #080A06;
-    font-family: 'Inter', sans-serif;
+    font-family: 'Manrope', 'Inter', sans-serif;
   }
   .btn-lime:hover {
     background: #CEFF72;
@@ -254,6 +270,18 @@
     border-color: rgba(185, 255, 75, 0.35);
     box-shadow: 0 0 16px -4px rgba(185, 255, 75, 0.25);
   }
+}
+
+/* ── Página padrão da plataforma ──
+   Todas as telas internas usam a mesma moldura: padding que cresce com a
+   viewport, título em Syne, tabela que rola dentro do próprio cartão. */
+@layer components {
+  .page { @apply space-y-6 min-w-0 break-words; padding: clamp(12px, 3vw, 24px); }
+  .page-title { @apply font-display font-bold text-foreground; font-size: clamp(20px, 2.4vw, 26px); letter-spacing: -0.03em; }
+  .page-subtitle { @apply text-sm text-muted-foreground mt-1; }
+  .table-wrap { @apply w-full overflow-x-auto rounded-xl border border-border; -webkit-overflow-scrolling: touch; }
+  .table-wrap table { @apply w-full min-w-[560px]; }
+  .kpi-grid { @apply grid gap-3 sm:gap-4; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
 }
 
 /* ── Animação de entrada suave ── */
