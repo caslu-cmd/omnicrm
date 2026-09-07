@@ -155,7 +155,7 @@ const CSS = `
 
   /* NAV */
   .cl-nav { position: fixed; inset: 0 0 auto 0; z-index: 200; height: 64px; display:flex; align-items:center; transition: background .3s, border-color .3s, backdrop-filter .3s; border-bottom: 1px solid transparent; }
-  .cl-nav.is-scrolled { background: rgba(8,8,8,.86); backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); border-color: rgba(255,255,255,.06); }
+  .cl-nav.is-scrolled { background: rgba(8,8,8,.94); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-color: rgba(255,255,255,.06); }
   .cl-nav-in { width:100%; display:flex; align-items:center; justify-content:space-between; gap: 16px; }
   .cl-brand { display:flex; align-items:center; gap:10px; font-family: var(--font-display); font-weight: 700; font-size: 15px; letter-spacing: -0.02em; }
   .cl-brand img { width: 30px; height: 30px; border-radius: 8px; object-fit: cover; }
@@ -370,11 +370,11 @@ const CSS = `
   @keyframes cl-tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
   @keyframes cl-bob { 0%,100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, 6px); } }
   @keyframes cl-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(185,255,75,.5); } 50% { box-shadow: 0 0 0 6px rgba(185,255,75,0); } }
-  @keyframes cl-agent-in { from { opacity:0; transform: translateY(12px) scale(.96); } to { opacity:1; transform:none; } }
+  @keyframes cl-agent-in { from { opacity:.35; transform: translateY(8px); } to { opacity:1; transform:none; } }
   .cl-a1 { animation: cl-in .65s ease both .05s } .cl-a2 { animation: cl-in .65s ease both .18s }
   .cl-a3 { animation: cl-in .65s ease both .30s } .cl-a4 { animation: cl-in .65s ease both .44s }
   .cl-dot { animation: cl-pulse 2.2s ease-in-out infinite; }
-  .cl-agent-in { animation: cl-agent-in .42s cubic-bezier(.22,.68,0,1.2) both; }
+  .cl-agent-in { animation: cl-agent-in .5s cubic-bezier(.22,.68,0,1) both; }
   @media (prefers-reduced-motion: reduce) { .cl *, .cl *::before, .cl *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
 `;
 
@@ -386,7 +386,7 @@ function HeroAgentCard() {
 
   useEffect(() => {
     if (paused) return;
-    const t = setInterval(() => { setActive((p) => (p + 1) % TEAM.length); setKey((k) => k + 1); }, 2800);
+    const t = setInterval(() => { setActive((p) => (p + 1) % TEAM.length); setKey((k) => k + 1); }, 4200);
     return () => clearInterval(t);
   }, [paused]);
 
