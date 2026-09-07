@@ -276,7 +276,8 @@ export default function BriefingPage() {
   const linkedClientId = searchParams.get("clientId");
   const [phase, setPhase] = useState<Phase>("intro");
   const [liaMsgs, setLiaMsgs] = useState<LiaMsg[]>([]);
-  const [input, setInput] = useState("");
+  // A landing manda o objetivo do visitante em ?objetivo=; a Lia começa por ele.
+  const [input, setInput] = useState(() => searchParams.get("objetivo") ?? "");
   const [liaLoading, setLiaLoading] = useState(false);
   const [agentMsgs, setAgentMsgs] = useState<AgentMsg[]>([]);
   const [currentAgent, setCurrentAgent] = useState<string | null>(null);
