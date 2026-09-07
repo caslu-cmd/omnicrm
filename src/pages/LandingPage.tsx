@@ -1,24 +1,24 @@
 import caluLogo from "@/assets/calu-logo.png";
-import { useState, useEffect, useRef, useCallback, type CSSProperties } from "react";
+import { useState, useEffect, useRef, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
-import { Zap, ArrowUpRight, MessageCircle, Instagram, Linkedin, ArrowRight, Check, Menu, X } from "lucide-react";
+import { ArrowUpRight, ArrowRight, MessageCircle, Instagram, Linkedin, Menu, X, Plus } from "lucide-react";
 
 /**
- * Landing page da Calu, sistema "Noir Volt".
+ * Landing page da Calu Agência. Direção: editorial noir.
  *
- * Preto profundo, verde-limão elétrico, Syne nos títulos, Manrope no texto,
- * DM Mono nos rótulos. Grade editorial fluida: tipografia em clamp(), padding
- * lateral em função da viewport, grids que colapsam sem `!important`, menu
- * de verdade no celular. Conteúdo e interações (card do time no hero, linha
- * do tempo do processo, carrossel do time) são os mesmos de antes, só a
- * casa mudou.
+ * Uma revista de luxo impressa em preto, com um único acento (limão), uma
+ * família para títulos (Syne) e uma para texto (Manrope), rótulos em mono.
+ * A página argumenta por capítulos numerados separados por linhas finas,
+ * não por cards. O scroll dirige três coisas: a profundidade do hero (planos
+ * em taxas diferentes), as entradas de cada capítulo e a única seção pinada,
+ * em que um mês de produção se monta na frente do visitante.
+ *
+ * O motor da scroll-craft mora em /public/scrollcraft e nunca é editado.
  */
 
 const LIME  = "#B9FF4B";
-const BLACK = "#080808";
-const OFF   = "#F0EFE8";
-const MUTED = "#6B6B6B";
-const DIM   = "rgba(240,239,232,0.5)";
+const INK   = "#F2F1EA";
+const CANVAS = "#0A0A0A";
 const WA    = "https://wa.me/5585986408404";
 
 const SERVICES = [
@@ -33,7 +33,7 @@ const SERVICES = [
 const PRODUCTS = [
   {
     tag: "CRM", name: "OmniCRM", sub: "Para agências e negócios locais", color: LIME,
-    desc: "Todos os canais do seu cliente em um lugar, WhatsApp, Instagram, e-mail, site. Pipeline visual para fechar mais negócios com menos esforço.",
+    desc: "Todos os canais do seu cliente em um lugar: WhatsApp, Instagram, e-mail, site. Pipeline visual para fechar mais negócios com menos esforço.",
     items: ["Inbox unificado", "Pipeline de vendas", "Automações de follow-up", "Relatórios em tempo real"],
   },
   {
@@ -49,38 +49,32 @@ const PRODUCTS = [
 ];
 
 const TEAM = [
-  { i: "Ai", name: "Aira",     role: "Orquestradora Geral",       color: LIME,      desc: "Coordena todo o time em tempo real, define prioridades e garante que cada entrega saia no prazo e com qualidade. É o cérebro que conecta todos os agentes.", tasks: ["Orquestração do time", "Controle de prazos", "Briefing automatizado", "Relatório executivo"] },
-  { i: "Q",  name: "Queila",   role: "Estrategista de Marca",     color: "#FBBF24", desc: "Define o posicionamento, a pauta editorial e a direção criativa da marca. Cria o mapa de conteúdo mensal e garante consistência de mensagem em todos os canais.", tasks: ["Pauta editorial mensal", "Posicionamento de marca", "Análise de concorrência", "Direção criativa"] },
-  { i: "B",  name: "Beatriz",  role: "Copywriter & Redatora",     color: "#A78BFA", desc: "Escreve cada legenda, artigo, e-mail e anúncio com foco em conversão. Seu copy tem personalidade, clareza e intenção, porque cada palavra tem um objetivo.", tasks: ["Legendas e posts", "Artigos e blog", "Roteiros de vídeo", "Copy de anúncios"] },
-  { i: "M",  name: "Marcela",  role: "Designer Visual",           color: "#D946EF", desc: "Cria todos os visuais da marca, posts, stories, banners, apresentações e peças de campanha. Cada pixel alinhado ao manual de identidade da empresa.", tasks: ["Posts e stories", "Banners e anúncios", "Apresentações", "Identidade visual"] },
-  { i: "R",  name: "Rafaela",  role: "Gestora de Tráfego Pago",   color: "#F97316", desc: "Gerencia campanhas no Meta Ads e Google Ads com foco em ROAS alto e CPA que faz sentido. Testa, otimiza e escala o que funciona, todos os dias.", tasks: ["Meta Ads (FB/IG)", "Google Ads", "Remarketing", "Otimização de verba"] },
-  { i: "Ma", name: "Marina",   role: "Social Media Manager",      color: "#60A5FA", desc: "Agenda, publica e monitora todo o conteúdo orgânico. Responde comentários, monitora menções e mantém sua marca ativa e presente em todos os momentos.", tasks: ["Agendamento de posts", "Engajamento", "Monitoramento", "Relatório semanal"] },
-  { i: "P",  name: "Pedro",    role: "Calendário Editorial",      color: "#2DD4BF", desc: "Planeja e organiza todo o calendário editorial, semanas, meses e campanhas sazonais. Cada post no lugar certo, na hora certa, com o pilar de conteúdo adequado.", tasks: ["Calendário mensal", "Pilares de conteúdo", "Datas estratégicas", "Cronograma de campanhas"] },
-  { i: "L",  name: "Lucas",    role: "Analista de Dados",         color: "#34D399", desc: "Transforma números em decisões. Monitora métricas de tráfego, engajamento e vendas, e entrega relatórios com insights claros e ações recomendadas.", tasks: ["Dashboards de resultado", "Google Analytics", "Relatórios semanais", "Insights estratégicos"] },
-  { i: "E",  name: "Eduardo",  role: "Agente de Vendas & CRM",    color: "#F59E0B", desc: "Qualifica leads via WhatsApp, alimenta o CRM e garante que nenhum contato seja perdido. Do primeiro 'oi' até o fechamento do contrato.", tasks: ["Qualificação de leads", "Follow-up automatizado", "Gestão do CRM", "Relatório de pipeline"] },
-  { i: "T",  name: "Teo",      role: "Web Designer & SEO",        color: "#06B6D4", desc: "Mantém seu site atualizado, publica no blog e otimiza cada página para os buscadores. Mais visibilidade orgânica, mais clientes chegando até você.", tasks: ["Atualização de site", "SEO on-page", "Blog e artigos", "Landing pages"] },
-  { i: "V",  name: "Vitória",  role: "Revisora de Conteúdo",      color: "#EC4899", desc: "Revisa e corrige 100% do conteúdo antes de publicar. Gramática, tom de voz, consistência de marca, zero erros, zero vergonha.", tasks: ["Revisão gramatical", "Tom de voz", "Checagem de fatos", "Aprovação final"] },
-  { i: "Be", name: "Ben",      role: "Especialista em Tendências", color: "#B9FF4B", desc: "Pesquisa o Google Trends Brasil em tempo real e entrega tendências do momento, queries em crescimento e ideias de conteúdo baseadas em dados reais, antes de qualquer produção.", tasks: ["Google Trends em tempo real", "Queries em crescimento", "Ideias de conteúdo viral", "Hashtags estratégicas"] },
-];
-
-const TICKER = [
-  "Criatividade que vende", "IA que escala", "Do briefing à publicação",
-  "OmniCRM", "Posture.AI", "RH Inteligente", "Fortaleza · Brasil",
-  "Fila de aprovação", "Marketing 24h", "Estratégia que decide",
+  { i: "Ai", name: "Aira",     role: "Orquestradora Geral",        color: LIME,      desc: "Coordena todo o time em tempo real, define prioridades e garante que cada entrega saia no prazo e com qualidade.", tasks: ["Orquestração do time", "Controle de prazos", "Briefing automatizado", "Relatório executivo"] },
+  { i: "Q",  name: "Queila",   role: "Estrategista de Marca",      color: "#FBBF24", desc: "Define o posicionamento, a pauta editorial e a direção criativa. Cria o mapa de conteúdo mensal e garante consistência em todos os canais.", tasks: ["Pauta editorial mensal", "Posicionamento de marca", "Análise de concorrência", "Direção criativa"] },
+  { i: "B",  name: "Beatriz",  role: "Copywriter & Redatora",      color: "#A78BFA", desc: "Escreve cada legenda, artigo, e-mail e anúncio com foco em conversão. Copy com personalidade, clareza e intenção.", tasks: ["Legendas e posts", "Artigos e blog", "Roteiros de vídeo", "Copy de anúncios"] },
+  { i: "M",  name: "Marcela",  role: "Designer Visual",            color: "#D946EF", desc: "Cria todos os visuais da marca: posts, stories, banners, apresentações e peças de campanha, dentro do manual de identidade.", tasks: ["Posts e stories", "Banners e anúncios", "Apresentações", "Identidade visual"] },
+  { i: "R",  name: "Rafaela",  role: "Gestora de Tráfego Pago",    color: "#F97316", desc: "Gerencia campanhas no Meta Ads e Google Ads com foco em ROAS alto e CPA que faz sentido. Testa, otimiza e escala todos os dias.", tasks: ["Meta Ads (FB/IG)", "Google Ads", "Remarketing", "Otimização de verba"] },
+  { i: "Ma", name: "Marina",   role: "Social Media Manager",       color: "#60A5FA", desc: "Agenda, publica e monitora todo o conteúdo orgânico. Responde comentários, monitora menções e mantém a marca presente.", tasks: ["Agendamento de posts", "Engajamento", "Monitoramento", "Relatório semanal"] },
+  { i: "P",  name: "Pedro",    role: "Calendário Editorial",       color: "#2DD4BF", desc: "Planeja o calendário editorial, semanas, meses e campanhas sazonais. Cada post no lugar certo, na hora certa.", tasks: ["Calendário mensal", "Pilares de conteúdo", "Datas estratégicas", "Cronograma de campanhas"] },
+  { i: "L",  name: "Lucas",    role: "Analista de Dados",          color: "#34D399", desc: "Transforma números em decisões. Monitora tráfego, engajamento e vendas, e entrega relatórios com ações recomendadas.", tasks: ["Dashboards de resultado", "Google Analytics", "Relatórios semanais", "Insights estratégicos"] },
+  { i: "E",  name: "Eduardo",  role: "Agente de Vendas & CRM",     color: "#F59E0B", desc: "Qualifica leads via WhatsApp, alimenta o CRM e garante que nenhum contato seja perdido, do primeiro oi ao fechamento.", tasks: ["Qualificação de leads", "Follow-up automatizado", "Gestão do CRM", "Relatório de pipeline"] },
+  { i: "T",  name: "Teo",      role: "Web Designer & SEO",         color: "#06B6D4", desc: "Mantém o site atualizado, publica no blog e otimiza cada página para os buscadores.", tasks: ["Atualização de site", "SEO on-page", "Blog e artigos", "Landing pages"] },
+  { i: "V",  name: "Vitória",  role: "Revisora de Conteúdo",       color: "#EC4899", desc: "Revisa e corrige todo o conteúdo antes de publicar: gramática, tom de voz, consistência de marca.", tasks: ["Revisão gramatical", "Tom de voz", "Checagem de fatos", "Aprovação final"] },
+  { i: "Be", name: "Ben",      role: "Especialista em Tendências", color: LIME,      desc: "Pesquisa o Google Trends Brasil em tempo real e entrega tendências, queries em crescimento e ideias de conteúdo antes de qualquer produção.", tasks: ["Google Trends em tempo real", "Queries em crescimento", "Ideias de conteúdo", "Hashtags estratégicas"] },
 ];
 
 const PROCESS = [
-  { n: "01", title: "Briefing IA",  duration: "30 min",   output: "Diagnóstico completo",       color: "#38BDF8", agents: [{ i: "L",  color: "#38BDF8", name: "Lia" }], desc: "Lia coleta briefing via conversa natural com IA, analisa concorrência e entrega um diagnóstico de marketing personalizado.", details: ["Formulário inteligente de onboarding", "Análise automática da concorrência", "Mapa de oportunidades da marca", "Briefing consolidado para o time"] },
-  { n: "02", title: "Estratégia",   duration: "2h",       output: "Pauta editorial mensal",     color: "#FBBF24", agents: [{ i: "Be", color: LIME, name: "Ben" }, { i: "Q", color: "#FBBF24", name: "Queila" }, { i: "P", color: "#2DD4BF", name: "Pedro" }], desc: "Ben pesquisa o Google Trends Brasil e entrega as tendências do momento. Queila usa esses dados para definir posicionamento e direção criativa. Pedro monta o calendário editorial estratégico para o mês.", details: ["Tendências reais do Google Trends", "Pauta editorial 30 dias", "Posicionamento e tom de voz", "Calendário de campanhas"] },
-  { n: "03", title: "Produção",     duration: "48h",      output: "Todos os assets criados",    color: "#A78BFA", agents: [{ i: "B", color: "#A78BFA", name: "Beatriz" }, { i: "M", color: "#D946EF", name: "Marcela" }, { i: "Bo", color: LIME, name: "Bobby" }], desc: "Beatriz escreve copy, Marcela cria os visuais e Bobby edita os vídeos, cada um em cima do trabalho do outro, sem retrabalho.", details: ["Copy para posts, reels e anúncios", "Peças visuais e templates", "Vídeos editados e formatados", "Assets aprovados para revisão"] },
-  { n: "04", title: "Revisão",      duration: "4h",       output: "Zero erros garantido",       color: "#EC4899", agents: [{ i: "V", color: "#EC4899", name: "Vitória" }], desc: "Vitória revisa 100% do conteúdo antes de qualquer aprovação, gramática, tom de voz, consistência de marca e checagem de fatos.", details: ["Revisão ortográfica e gramatical", "Checagem de tom de voz", "Consistência com o manual da marca", "Aprovação final para o cliente"] },
-  { n: "05", title: "Aprovação",    duration: "24h",      output: "Feedback do cliente",        color: LIME,      agents: [{ i: "Ai", color: LIME, name: "Aira" }], desc: "O cliente aprova tudo via portal exclusivo, vê os posts, sugere ajustes e aprova com um clique. Aira gerencia o fluxo de aprovação e sincroniza o time.", details: ["Portal de aprovação do cliente", "Comentários em cada peça", "Histórico de revisões", "Aprovação com um clique"] },
-  { n: "06", title: "Publicação",   duration: "contínuo", output: "Presença diária nas redes",  color: "#60A5FA", agents: [{ i: "Ma", color: "#60A5FA", name: "Marina" }, { i: "T", color: "#06B6D4", name: "Teo" }], desc: "Marina publica nos horários de maior engajamento e monitora comentários. Teo mantém o site e o blog atualizados com SEO otimizado.", details: ["Agendamento automático otimizado", "Publicação em todas as plataformas", "Monitoramento de comentários", "Blog e site atualizados"] },
-  { n: "07", title: "Tráfego Pago", duration: "24/7",     output: "ROAS maximizado",            color: "#F97316", agents: [{ i: "R", color: "#F97316", name: "Rafaela" }, { i: "E", color: "#F59E0B", name: "Eduardo" }], desc: "Rafaela ativa e otimiza campanhas no Meta e Google. Eduardo qualifica os leads que chegam via WhatsApp e alimenta o pipeline.", details: ["Meta Ads e Google Ads ativos", "Remarketing configurado", "Qualificação de leads no CRM", "Otimização diária de verbas"] },
-  { n: "08", title: "Relatório",    duration: "semanal",  output: "Insights + próximos passos", color: "#34D399", agents: [{ i: "L", color: "#34D399", name: "Lucas" }, { i: "Ai", color: LIME, name: "Aira" }], desc: "Lucas entrega relatório semanal com métricas reais. Aira consolida os dados e gera recomendações estratégicas para o próximo ciclo.", details: ["Dashboard de performance em tempo real", "Relatório semanal", "Análise de ROI por canal", "Recomendações para o próximo mês"] },
+  { n: "01", title: "Briefing",     duration: "30 min",   agents: ["Lia"],                        desc: "Lia coleta o briefing numa conversa natural, analisa a concorrência e entrega um diagnóstico de marketing personalizado.", details: ["Formulário inteligente de onboarding", "Análise automática da concorrência", "Mapa de oportunidades da marca", "Briefing consolidado para o time"] },
+  { n: "02", title: "Estratégia",   duration: "2h",       agents: ["Ben", "Queila", "Pedro"],     desc: "Ben pesquisa o Google Trends Brasil. Queila define posicionamento e direção criativa. Pedro monta o calendário editorial do mês.", details: ["Tendências reais do Google Trends", "Pauta editorial de 30 dias", "Posicionamento e tom de voz", "Calendário de campanhas"] },
+  { n: "03", title: "Produção",     duration: "48h",      agents: ["Beatriz", "Marcela", "Bobby"], desc: "Beatriz escreve a copy, Marcela cria os visuais e Bobby edita os vídeos, cada um em cima do trabalho do outro.", details: ["Copy para posts, reels e anúncios", "Peças visuais e templates", "Vídeos editados e formatados", "Assets prontos para revisão"] },
+  { n: "04", title: "Revisão",      duration: "4h",       agents: ["Vitória"],                    desc: "Vitória revisa todo o conteúdo antes de qualquer aprovação: gramática, tom de voz, consistência de marca e checagem de fatos.", details: ["Revisão ortográfica e gramatical", "Checagem de tom de voz", "Consistência com o manual da marca", "Aprovação final para o cliente"] },
+  { n: "05", title: "Aprovação",    duration: "24h",      agents: ["Aira"],                       desc: "Você aprova tudo num portal exclusivo: vê as peças, sugere ajustes e aprova com um clique. Aira gerencia o fluxo.", details: ["Portal de aprovação do cliente", "Comentários em cada peça", "Histórico de revisões", "Aprovação com um clique"] },
+  { n: "06", title: "Publicação",   duration: "contínuo", agents: ["Marina", "Teo"],              desc: "Marina publica nos horários de maior engajamento e monitora comentários. Teo mantém site e blog atualizados.", details: ["Agendamento otimizado", "Publicação em todas as plataformas", "Monitoramento de comentários", "Blog e site atualizados"] },
+  { n: "07", title: "Tráfego",      duration: "24/7",     agents: ["Rafaela", "Eduardo"],         desc: "Rafaela ativa e otimiza campanhas no Meta e no Google. Eduardo qualifica os leads que chegam pelo WhatsApp.", details: ["Meta Ads e Google Ads ativos", "Remarketing configurado", "Qualificação de leads no CRM", "Otimização diária de verbas"] },
+  { n: "08", title: "Relatório",    duration: "semanal",  agents: ["Lucas", "Aira"],              desc: "Lucas entrega o relatório semanal com métricas reais. Aira consolida e recomenda o próximo ciclo.", details: ["Dashboard de performance", "Relatório semanal", "Análise de ROI por canal", "Recomendações para o próximo mês"] },
 ];
 
-/* Cenário de demonstração da seção-assinatura: cliente fictício. */
+/* Cenário de demonstração da seção pinada: cliente fictício. */
 type Peca = { id: string; dia: number; formato: string; tema: string; pilar: string };
 const PECAS: Peca[] = [
   { id: "p1", dia: 8,  formato: "reels",     pilar: "educação", tema: "Por que a dor volta" },
@@ -98,557 +92,338 @@ const CALENDARIO: Array<{ dia: number | null; i?: number }> = (() => {
   while (cells.length % 7) cells.push({ dia: null });
   return cells;
 })();
-/** Ponto da seção (0 a 1) em que a peça i já entrou. */
 const emDaPeca = (i: number) => 0.1 + i * 0.13;
 const em = (v: number) => ({ "--em": v } as CSSProperties);
 
-const FLOW = [
-  { agent: "Queila",  role: "Estratégia",   color: "#FBBF24", desc: "Define o que dizer, para quem e quando" },
-  { agent: "Beatriz", role: "Copy & Texto", color: "#A78BFA", desc: "Escreve cada palavra para converter" },
-  { agent: "Marcela", role: "Design",       color: "#D946EF", desc: "Cria os visuais alinhados à sua marca" },
-  { agent: "Rafaela", role: "Tráfego Pago", color: "#F97316", desc: "Distribui com ROAS máximo" },
-  { agent: "Marina",  role: "Publicação",   color: "#60A5FA", desc: "Publica, monitora e responde" },
-];
-
+/* Faixas salariais de mercado (estimativa), usadas na comparação de custo. */
 const SALARIES: Array<[string, string]> = [
-  ["Gerente de Marketing Sênior", "R$ 8.000–14.000"],
-  ["Copywriter / Redator",        "R$ 5.000–8.000"],
-  ["Designer Gráfico",            "R$ 5.000–9.000"],
-  ["Especialista em Tráfego",     "R$ 5.000–9.000"],
-  ["Social Media",                "R$ 3.500–5.500"],
-  ["Analista de Marketing",       "R$ 4.500–7.000"],
-  ["SDR / Pré-vendedor",          "R$ 3.500–6.000"],
-  ["Web Designer / WordPress",    "R$ 4.000–6.500"],
-  ["Revisora de Conteúdo",        "R$ 2.500–4.000"],
+  ["Gerente de Marketing Sênior", "R$ 8.000 a 14.000"],
+  ["Copywriter / Redator",        "R$ 5.000 a 8.000"],
+  ["Designer Gráfico",            "R$ 5.000 a 9.000"],
+  ["Especialista em Tráfego",     "R$ 5.000 a 9.000"],
+  ["Social Media",                "R$ 3.500 a 5.500"],
+  ["Analista de Marketing",       "R$ 4.500 a 7.000"],
+  ["SDR / Pré-vendedor",          "R$ 3.500 a 6.000"],
+  ["Web Designer / WordPress",    "R$ 4.000 a 6.500"],
+  ["Revisora de Conteúdo",        "R$ 2.500 a 4.000"],
 ];
 
-const fmt = (n: number) => n.toLocaleString("pt-BR");
+const NAV: Array<[string, string]> = [["Processo", "#processo"], ["Serviços", "#servicos"], ["Soluções", "#solucoes"], ["Time", "#time"]];
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   CSS, mobile-first, sem !important. Tudo que é layout mora aqui; inline só
-   entra cor dinâmica por agente.
+   CSS. Mobile-first, sem !important. Tokens no topo; tudo que é layout mora
+   aqui, inline só entra cor dinâmica por agente.
    ───────────────────────────────────────────────────────────────────────── */
 const CSS = `
-  .cl { --lime:${LIME}; --off:${OFF}; --dim:${DIM}; --muted:${MUTED};
-        --pad: clamp(20px, 5vw, 64px); --w: 1200px;
-        --font-display: 'Syne', 'Manrope', sans-serif;
-        --font-body: 'Manrope', 'Inter', system-ui, sans-serif;
-        --font-mono: 'DM Mono', ui-monospace, monospace;
-        font-family: var(--font-body); -webkit-font-smoothing: antialiased; }
-  .cl *, .cl *::before, .cl *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  .cl a { text-decoration: none; color: inherit; }
-  .cl button { font: inherit; color: inherit; }
-  .cl h1, .cl h2, .cl h3, .cl h4 { font-family: var(--font-display); letter-spacing: -0.04em; line-height: 1.02; overflow-wrap: normal; }
-  .cl-mono { font-family: var(--font-mono); letter-spacing: .1em; text-transform: uppercase; font-size: 11px; }
-  .cl-wrap { max-width: var(--w); margin: 0 auto; padding-left: var(--pad); padding-right: var(--pad); }
-  .cl-section { padding-top: clamp(64px, 10vw, 120px); padding-bottom: clamp(64px, 10vw, 120px); }
-  .cl-eyebrow { display:inline-flex; align-items:center; gap:8px; color: var(--lime); }
-  .cl-h2 { font-size: clamp(30px, 4.6vw, 54px); font-weight: 800; margin-top: 14px; }
-  .cl-lede { font-size: clamp(15px, 1.4vw, 18px); color: var(--dim); line-height: 1.65; margin-top: 16px; max-width: 560px; }
-  .cl-head { display:flex; flex-direction:column; gap: 12px; margin-bottom: clamp(36px, 5vw, 64px); }
-  @media (min-width: 900px) { .cl-head.is-split { flex-direction: row; align-items: flex-end; justify-content: space-between; } .cl-head.is-split .cl-lede { text-align: right; margin-top: 0; max-width: 300px; } }
-
-  /* grain + atmosfera */
-  .cl-grain { position: fixed; inset: 0; pointer-events: none; z-index: 1; opacity: .35; mix-blend-mode: overlay;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.4'/%3E%3C/svg%3E"); }
-  .cl-glow { position:absolute; border-radius:50%; pointer-events:none; filter: blur(60px); }
-
-  /* NAV */
-  .cl-nav { position: fixed; inset: 0 0 auto 0; z-index: 200; height: 64px; display:flex; align-items:center; transition: background .3s, border-color .3s, backdrop-filter .3s; border-bottom: 1px solid transparent; }
-  .cl-nav.is-scrolled { background: rgba(8,8,8,.94); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-color: rgba(255,255,255,.06); }
-  .cl-nav-in { width:100%; display:flex; align-items:center; justify-content:space-between; gap: 16px; }
-  .cl-brand { display:flex; align-items:center; gap:10px; font-family: var(--font-display); font-weight: 700; font-size: 15px; letter-spacing: -0.02em; }
-  .cl-brand img { width: 30px; height: 30px; border-radius: 8px; object-fit: cover; }
-  .cl-links { display:none; align-items:center; gap: 26px; }
-  .cl-links a { font-size: 13px; font-weight: 600; color: var(--dim); transition: color .18s; }
-  .cl-links a:hover { color: var(--lime); }
-  .cl-burger { display:inline-flex; width: 42px; height: 42px; align-items:center; justify-content:center; border-radius: 12px; border:1px solid rgba(255,255,255,.1); background: rgba(255,255,255,.03); cursor:pointer; }
-  @media (min-width: 960px) { .cl-links { display:flex; } .cl-burger { display:none; } }
-  .cl-menu { position: fixed; inset: 0; z-index: 190; background: #080808; isolation: isolate; display:flex; flex-direction:column; justify-content:center; padding: 96px var(--pad) 40px; gap: 6px; animation: cl-fade .25s ease both; }
-  .cl-menu a { font-family: var(--font-display); font-size: clamp(30px, 8vw, 44px); font-weight: 800; letter-spacing: -0.04em; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,.06); color: var(--off); }
-  .cl-menu a:hover { color: var(--lime); }
-  .cl-menu-cta { margin-top: 24px; display:flex; flex-direction: column; gap: 10px; }
-  .cl-menu-cta a { font-size: 15px; border: none; padding: 0; }
+  .lp { --lime:${LIME}; --ink:${INK}; --canvas:${CANVAS};
+        --ink-2: rgba(242,241,234,.62); --ink-3: rgba(242,241,234,.38);
+        --line: rgba(242,241,234,.12); --line-2: rgba(242,241,234,.22);
+        --pad: clamp(20px, 5vw, 72px); --w: 1360px;
+        --display: 'Syne', 'Manrope', sans-serif;
+        --body: 'Manrope', 'Inter', system-ui, sans-serif;
+        --mono: 'DM Mono', ui-monospace, monospace;
+        font-family: var(--body); color: var(--ink); background: var(--canvas);
+        -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+  html:has(.lp), body:has(.lp) { overflow-x: clip; scroll-behavior: auto; background: ${CANVAS}; }
+  body:has(.lp) .fixed.inset-x-0.bottom-0 { z-index: 60; }
+  .lp *, .lp *::before, .lp *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  .lp a { color: inherit; text-decoration: none; }
+  .lp button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  .lp h1, .lp h2, .lp h3 { font-family: var(--display); font-weight: 800; letter-spacing: -0.045em; line-height: .96; overflow-wrap: normal; }
+  .lp p { line-height: 1.6; }
+  .lp ::selection { background: var(--lime); color: ${CANVAS}; }
+  .lp-mono { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
+  .lp-wrap { max-width: var(--w); margin: 0 auto; padding-left: var(--pad); padding-right: var(--pad); }
+  .lp-outline { color: transparent; -webkit-text-stroke: 1.5px var(--lime); }
+  @supports not (-webkit-text-stroke: 1px #000) { .lp-outline { color: var(--lime); } }
+  .lp-grain { position: fixed; inset: 0; pointer-events: none; z-index: 1; opacity: .05; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
 
   /* botões */
-  .cl-btn { display:inline-flex; align-items:center; justify-content:center; gap: 9px; border-radius: 100px; font-weight: 700; font-size: 14px; padding: 13px 24px; white-space: nowrap; transition: transform .18s, box-shadow .18s, background .18s, border-color .18s; cursor:pointer; border: 1px solid transparent; }
-  .cl-btn:hover { transform: translateY(-1px); }
-  .cl-btn-lime { background: var(--lime); color: ${BLACK}; box-shadow: 0 0 28px rgba(185,255,75,.18); }
-  .cl-btn-lime:hover { box-shadow: 0 0 36px rgba(185,255,75,.35); }
-  .cl-btn-ghost { border-color: rgba(255,255,255,.14); color: var(--off); }
-  .cl-btn-ghost:hover { border-color: rgba(185,255,75,.45); color: var(--lime); }
-  .cl-btn-sm { padding: 8px 16px; font-size: 12px; }
+  .lp-btn { display: inline-flex; align-items: center; gap: 10px; height: 52px; padding: 0 26px; border-radius: 999px; font-weight: 700; font-size: 14px; border: 1px solid var(--line-2); transition: transform .35s cubic-bezier(.2,.7,0,1), background .25s, color .25s, border-color .25s; white-space: nowrap; }
+  .lp-btn:hover { transform: translateY(-2px); border-color: var(--ink); }
+  .lp-btn--lime { background: var(--lime); color: ${CANVAS}; border-color: var(--lime); }
+  .lp-btn--lime:hover { background: #ceff70; border-color: #ceff70; }
+  .lp-btn--ink { background: var(--ink); color: ${CANVAS}; border-color: var(--ink); }
+  .lp-btn--sm { height: 40px; padding: 0 18px; font-size: 13px; }
+  .lp-link { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; border-bottom: 1px solid var(--line-2); padding-bottom: 4px; transition: border-color .25s, gap .25s; }
+  .lp-link:hover { border-color: var(--lime); gap: 12px; }
 
-  /* HERO */
-  .cl-hero { position: relative; overflow: hidden; padding-top: 112px; padding-bottom: clamp(56px, 8vw, 96px); min-height: 100svh; display:flex; align-items:center; }
-  .cl-hero-grid { display:grid; grid-template-columns: 1fr; gap: clamp(36px, 5vw, 64px); align-items:center; width: 100%; }
-  @media (min-width: 900px) { .cl-hero-grid { grid-template-columns: minmax(0, 1.15fr) minmax(320px, 420px); } }
-  .cl-h1 { font-size: clamp(36px, 9.6vw, 82px); font-weight: 800; margin: 22px 0 22px; overflow-wrap: normal; word-break: keep-all; }
-  @media (min-width: 900px) { .cl-h1 { font-size: clamp(48px, 5.4vw, 82px); } }
-  .cl-hero p { font-size: clamp(15px, 1.5vw, 18px); color: var(--dim); line-height: 1.65; max-width: 520px; }
-  .cl-hero-actions { display:flex; flex-wrap:wrap; gap: 12px; margin-top: 30px; }
-  .cl-stats { display:grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 12px; margin-top: clamp(36px, 5vw, 56px); }
-  .cl-stat { padding: 16px 0 0; border-top: 1px solid rgba(255,255,255,.08); min-width: 0; }
-  .cl-stat b { display:block; font-family: var(--font-display); font-size: clamp(22px, 4vw, 40px); font-weight: 800; letter-spacing: -0.04em; line-height: 1; color: var(--off); }
-  .cl-stat span { display:block; margin-top: 6px; font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-
-  /* overflow-x:hidden em ancestrais quebra o position:sticky do palco pinado; clip não. */
-  html:has(.cl), body:has(.cl) { overflow-x: clip; scroll-behavior: auto; }
-  body:has(.cl) .fixed.inset-x-0.bottom-0 { z-index: 60; }
-  /* planos do hero: cada um numa taxa; o texto e o card viajam a 1x */
-  .cl-plane { position:absolute; inset:-12% 0; pointer-events:none; will-change: transform; }
-  .cl-plane--far { z-index:0; background: radial-gradient(52% 46% at 78% 28%, rgba(185,255,75,.13), transparent 62%), radial-gradient(38% 38% at 8% 92%, rgba(167,139,250,.08), transparent 66%); }
-  .cl-plane--grid { z-index:0; background-image: linear-gradient(rgba(240,239,232,.055) 1px, transparent 1px), linear-gradient(90deg, rgba(240,239,232,.055) 1px, transparent 1px); background-size: 56px 56px; -webkit-mask-image: radial-gradient(64% 58% at 62% 46%, #000 18%, transparent 74%); mask-image: radial-gradient(64% 58% at 62% 46%, #000 18%, transparent 74%); }
-  .cl-plane--near { z-index:3; background: radial-gradient(46% 26% at 68% 112%, rgba(185,255,75,.16), transparent 70%); }
-  .cl-hero .cl-hero-grid { position:relative; z-index:2; }
-  .cl-hero-card { position:relative; }
-  .cl-hero-card::after { content:""; position:absolute; inset:auto -8% -10% -8%; height: 42%; border-radius: 50%; background: radial-gradient(closest-side, rgba(0,0,0,.55), transparent); z-index:-1; filter: blur(14px); }
-
-  /* seção-assinatura: o mês se montando */
-  .cl-live__stage { min-height: 100svh; display:flex; align-items: safe center; padding: 84px 0 32px; }
-  @media (max-height: 760px) { .cl-live__stage { padding-top: 72px; } .cl-live .cl-h2 { font-size: clamp(28px, 4.2vh, 44px); } .cl-live__head { margin-bottom: 12px; } .cl-live .cl-cal__d { aspect-ratio: 1 / .58; } .cl-live .cl-q { padding: 7px 14px; } .cl-live__foot { padding: 8px 16px; } }
-  .cl-live__head { display:grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: 22px; }
-  @media (min-width: 900px) { .cl-live__head { grid-template-columns: minmax(0,1fr) minmax(0,1fr); align-items:end; gap: 32px; } .cl-live__head .cl-lede { margin-top: 0; } }
-  .cl-live__grid { display:grid; grid-template-columns: 1fr; gap: 12px; }
-  @media (min-width: 900px) { .cl-live__grid { grid-template-columns: minmax(0,1.4fr) minmax(300px,1fr); } }
-  .cl-panel { background: #101210; border: 1px solid rgba(240,239,232,.08); border-radius: 18px; box-shadow: inset 0 1px 0 rgba(240,239,232,.06), 0 14px 40px -18px rgba(0,0,0,.7); }
-  .cl-panel__head { display:flex; align-items:center; justify-content:space-between; gap: 12px; padding: 12px 16px; border-bottom: 1px solid rgba(240,239,232,.08); font-family: var(--font-display); font-size: 13px; font-weight: 700; }
-  .cl-cal { display:grid; grid-template-columns: repeat(7, minmax(0,1fr)); gap: 4px; padding: 10px; }
-  .cl-cal__dow { font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; color: var(--muted); text-align:center; padding: 4px 0 6px; }
-  .cl-cal__d { position:relative; aspect-ratio: 1 / .72; border-radius: 8px; border: 1px solid rgba(240,239,232,.06); padding: 5px 6px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); overflow:hidden; }
-  .cl-cal__d.is-off { opacity: .28; border-style: dashed; }
-  .cl-cal__d.has { --v: clamp(0, calc((var(--sc-p, 0) - var(--em)) * 7), 1); border-color: rgba(185,255,75,calc(var(--v) * .5)); }
-  .cl-cal__chip { position:absolute; left:4px; right:4px; bottom:4px; padding: 3px 5px; border-radius: 6px; font-family: var(--font-body); font-size: 10px; font-weight: 700; color: ${BLACK}; background: var(--lime); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; opacity: var(--v, 0); transform: translateY(calc((1 - var(--v, 0)) * 6px)); }
-  .cl-live__foot { display:flex; align-items:flex-end; justify-content:space-between; gap: 12px; padding: 12px 16px; border-top: 1px solid rgba(240,239,232,.08); }
-  .cl-live__foot p { font-size: 12.5px; color: var(--dim); line-height: 1.5; max-width: 34ch; }
-  .cl-live__count { font-family: var(--font-display); font-weight: 800; font-size: clamp(30px, 4vw, 46px); letter-spacing: -0.03em; line-height: 1; color: var(--lime); display:flex; align-items:baseline; gap: 6px; }
-  .cl-live__count small { font-family: var(--font-mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-  .cl-queue { padding: 4px 0; }
-  .cl-q { display:grid; grid-template-columns: auto 1fr; gap: 10px; padding: 10px 14px; border-top: 1px solid rgba(240,239,232,.06); --v: clamp(0, calc((var(--sc-p, 0) - var(--em)) * 7), 1); opacity: var(--v); transform: translateX(calc((1 - var(--v)) * 12px)); }
-  .cl-q:first-child { border-top: 0; }
-  .cl-q__date { font-family: var(--font-display); font-weight: 800; font-size: 15px; line-height: 1; text-align:center; min-width: 34px; padding-top: 2px; }
-  .cl-q__date small { display:block; font-family: var(--font-mono); font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
-  .cl-q__title { font-size: 13px; font-weight: 700; }
-  .cl-q__sub { font-size: 12px; color: var(--dim); margin-top: 2px; }
-  @media (prefers-reduced-motion: reduce) { .cl-cal__d.has, .cl-q { --v: 1; transform:none; opacity:1; } }
-  @media (max-width: 899px) {
-    .cl-live__stage { padding: 68px 0 16px; }
-    .cl-live .cl-h2 { font-size: clamp(24px, 7.4vw, 34px); }
-    .cl-live .cl-h2 br { display:none; }
-    .cl-live__head { margin-bottom: 10px; gap: 6px; }
-    .cl-live__head .cl-lede { font-size: 13px; line-height: 1.45; margin-top: 0; }
-    .cl-live__grid { gap: 8px; }
-    .cl-panel { border-radius: 14px; }
-    .cl-panel__head { padding: 8px 12px; font-size: 12px; }
-    .cl-cal { gap: 3px; padding: 6px; }
-    .cl-cal__dow { padding: 2px 0 4px; font-size: 9px; }
-    .cl-cal__d { aspect-ratio: 1 / .5; font-size: 10px; padding: 3px 5px; border-radius: 6px; }
-    .cl-cal__chip { font-size: 9px; padding: 2px 4px; left:3px; right:3px; bottom:3px; }
-    .cl-live__foot { padding: 6px 12px; }
-    .cl-live__foot p { display:none; }
-    .cl-live__count { font-size: 26px; }
-    .cl-q { padding: 5px 12px; gap: 8px; }
-    .cl-q__date { font-size: 13px; min-width: 28px; }
-    .cl-q__date small { display:inline; margin-left: 2px; margin-top: 0; }
-    .cl-q__title { font-size: 12px; }
-    .cl-q__sub { display:none; }
-  }
-
-  /* card do time no hero */
-  .cl-agent { border-radius: 26px; padding: clamp(20px, 3vw, 28px); position: relative; overflow: hidden; transition: background .6s, border-color .6s, box-shadow .6s; }
-  .cl-agent-grid { display:grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 6px; }
-  @media (min-width: 420px) { .cl-agent-grid { gap: 8px; } }
-  .cl-agent-btn { height: 44px; border-radius: 12px; border: none; display:flex; flex-direction:column; align-items:center; justify-content:center; gap: 2px; cursor:pointer; transition: transform .2s; min-width: 0; }
-  .cl-agent-btn:hover { transform: scale(1.08); }
-  .cl-tasks { display:grid; grid-template-columns: 1fr; gap: 7px 12px; }
-  @media (min-width: 420px) { .cl-tasks { grid-template-columns: 1fr 1fr; } }
-
-  /* ticker */
-  .cl-ticker { background: var(--lime); overflow:hidden; padding: 13px 0; }
-  .cl-ticker-track { display:flex; width: max-content; animation: cl-tick 30s linear infinite; }
-  .cl-ticker span { font-family: var(--font-mono); font-size: 12px; font-weight: 600; color: ${BLACK}; white-space: nowrap; padding: 0 26px; }
-
-  /* processo (linha do tempo) */
-  .cl-tl-row { display:grid; grid-template-columns: 44px minmax(0,1fr); column-gap: 14px; align-items: start; }
-  .cl-tl-left, .cl-tl-right { grid-column: 2; grid-row: 1; min-width: 0; padding-bottom: 22px; }
-  .cl-tl-spine { grid-column: 1; grid-row: 1; display:flex; flex-direction:column; align-items:center; align-self: stretch; }
-  .cl-tl-node { width: 44px; height: 44px; border-radius: 50%; display:flex; align-items:center; justify-content:center; font-family: var(--font-mono); font-size: 13px; font-weight: 800; cursor:pointer; flex-shrink: 0; z-index: 2; transition: all .4s cubic-bezier(.22,.68,0,1.2); }
-  .cl-tl-line { width: 2px; flex-grow: 1; min-height: 40px; position: relative; margin: 8px 0; }
-  .cl-tl-card { padding: clamp(20px, 3vw, 32px); border-radius: 22px; cursor:pointer; position:relative; overflow:hidden; transition: background .28s, border-color .28s, box-shadow .28s, transform .28s cubic-bezier(.22,.68,0,1.2); }
-  .cl-tl-card h3 { font-size: clamp(20px, 2.4vw, 28px); font-weight: 800; }
-  .cl-tl-head { display:flex; align-items:flex-start; justify-content:space-between; gap: 12px; flex-wrap: wrap; margin-bottom: 14px; position:relative; }
-  .cl-tl-card p { font-size: 15px; color: var(--dim); line-height: 1.7; position: relative; }
-  .cl-tl-details { display:grid; grid-template-columns: 1fr; gap: 10px 28px; margin-bottom: 20px; }
-  @media (min-width: 640px) { .cl-tl-details { grid-template-columns: 1fr 1fr; } }
+  /* barra */
+  .lp-nav { position: fixed; inset: 0 0 auto 0; z-index: 200; height: 68px; display: flex; align-items: center; border-bottom: 1px solid transparent; transition: background .35s, border-color .35s; }
+  .lp-nav.is-solid { background: rgba(10,10,10,.92); border-color: var(--line); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
+  .lp-nav__in { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+  .lp-brand { display: inline-flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 800; font-size: 16px; letter-spacing: -0.02em; }
+  .lp-brand img { width: 30px; height: 30px; border-radius: 8px; }
+  .lp-nav__links { display: none; }
+  .lp-nav__cta { display: none; }
+  .lp-burger { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line-2); border-radius: 999px; }
   @media (min-width: 900px) {
-    .cl-tl-row { grid-template-columns: minmax(0,1fr) 100px minmax(0,1fr); column-gap: 0; }
-    .cl-tl-left { grid-column: 1; padding-right: 32px; }
-    .cl-tl-spine { grid-column: 2; }
-    .cl-tl-right { grid-column: 3; padding-left: 32px; }
-    .cl-tl-node { width: 64px; height: 64px; font-size: 15px; }
+    .lp-nav__links { display: flex; gap: 32px; font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
+    .lp-nav__links a { transition: color .2s; } .lp-nav__links a:hover { color: var(--ink); }
+    .lp-nav__cta { display: flex; align-items: center; gap: 22px; }
+    .lp-nav__cta .lp-entrar { font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
+    .lp-burger { display: none; }
   }
-  .cl-pill-note { display:inline-flex; align-items:center; gap: 12px; padding: 14px 22px; border-radius: 100px; background: rgba(185,255,75,.06); border: 1px solid rgba(185,255,75,.22); text-align:left; }
-  .cl-pill-note span { font-size: 15px; color: var(--off); }
+  .lp-menu { position: fixed; inset: 0; z-index: 190; background: var(--canvas); display: flex; flex-direction: column; justify-content: center; padding: 96px var(--pad) 40px; gap: 6px; }
+  .lp-menu a.lp-menu__l { font-family: var(--display); font-weight: 800; font-size: clamp(34px, 9vw, 56px); letter-spacing: -0.04em; line-height: 1.05; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .lp-menu__cta { display: flex; flex-direction: column; gap: 10px; margin-top: 28px; }
 
-  /* fluxo 5 agentes */
-  .cl-flow { display:grid; grid-template-columns: 1fr; gap: 10px; margin-bottom: clamp(36px, 5vw, 64px); }
-  @media (min-width: 560px) { .cl-flow { grid-template-columns: repeat(2, minmax(0,1fr)); } }
-  @media (min-width: 960px) { .cl-flow { grid-template-columns: repeat(5, minmax(0,1fr)); gap: 8px; } }
-  .cl-flow-card { padding: 22px 20px; border-radius: 16px; background: rgba(255,255,255,.025); height: 100%; }
-  .cl-results { display:grid; grid-template-columns: 1fr; gap: 12px; }
-  @media (min-width: 760px) { .cl-results { grid-template-columns: repeat(3, minmax(0,1fr)); } }
+  /* hero */
+  .lp-hero { position: relative; min-height: 100svh; display: flex; flex-direction: column; justify-content: flex-end; padding: 120px 0 34px; overflow: hidden; isolation: isolate; }
+  .lp-plane { position: absolute; inset: -14% 0; pointer-events: none; will-change: transform; }
+  .lp-plane--far { z-index: 0; background: radial-gradient(48% 42% at 76% 30%, rgba(185,255,75,.14), transparent 62%), radial-gradient(34% 34% at 6% 96%, rgba(185,255,75,.05), transparent 66%); }
+  .lp-plane--rule { z-index: 0; background-image: linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: calc(100% / 6) 100%; -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent); mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent); opacity: .7; }
+  .lp-plane--near { z-index: 3; background: radial-gradient(40% 22% at 72% 108%, rgba(185,255,75,.14), transparent 70%); }
+  .lp-hero__in { position: relative; z-index: 2; }
+  .lp-hero__eyebrow { display: flex; align-items: center; gap: 14px; margin-bottom: clamp(28px, 5vh, 56px); }
+  .lp-hero__eyebrow i { display: block; width: 44px; height: 1px; background: var(--lime); }
+  .lp-h1 { font-size: clamp(34px, 9.4vw, 150px); line-height: .92; letter-spacing: -0.05em; max-width: 100%; }
+  .lp-hero__in { min-width: 0; max-width: 100%; }
+  @media (max-width: 899px) { .lp-outline { -webkit-text-stroke-width: 1px; } }
+  .lp-h1 .l { display: block; }
+  .lp-h1 .l1 { opacity: 0; animation: lp-rise .9s cubic-bezier(.2,.7,0,1) .1s forwards; }
+  .lp-h1 .l2 { opacity: 0; animation: lp-rise .9s cubic-bezier(.2,.7,0,1) .28s forwards; }
+  .lp-hero__row { display: grid; grid-template-columns: 1fr; gap: 24px; margin-top: clamp(28px, 4vh, 48px); padding-top: 22px; border-top: 1px solid var(--line-2); opacity: 0; animation: lp-rise .9s cubic-bezier(.2,.7,0,1) .5s forwards; }
+  .lp-hero__lede { font-size: clamp(16px, 1.25vw, 19px); color: var(--ink-2); max-width: 46ch; }
+  .lp-hero__lede b { color: var(--ink); font-weight: 600; }
+  .lp-hero__ctas { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .lp-hero__row .lp-hero__index { display: none; }
+  @media (min-width: 900px) {
+    .lp-hero { padding: 140px 0 44px; }
+    .lp-h1 { font-size: clamp(80px, 8.8vw, 140px); }
+    .lp-hero__row { grid-template-columns: 1.2fr 1fr .9fr; gap: 40px; align-items: start; }
+    .lp-hero__row .lp-hero__index { display: grid; justify-self: end; }
+  }
+  .lp-orbit { position: absolute; z-index: 1; right: -22vw; top: 4vh; width: min(84vw, 560px); aspect-ratio: 1; pointer-events: none; opacity: .75; }
+  @media (min-width: 900px) { .lp-orbit { right: -6vw; top: 2vh; width: min(52vw, 760px); opacity: .85; } }
+  .lp-orbit__ring { animation: lp-spin 80s linear infinite; transform-origin: 50% 50%; }
+  .lp-orbit__node { transition: r .4s, fill .4s; }
+  .lp-orbit__label { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; fill: rgba(242,241,234,.42); }
+  .lp-orbit__center { font-family: var(--display); font-weight: 800; letter-spacing: -0.03em; fill: var(--ink); }
+  .lp-orbit__role { font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; fill: var(--lime); }
+  .lp-index { list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 22px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
+  .lp-index li { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; border-bottom: 1px solid var(--line); }
+  .lp-index li b { color: var(--ink-2); font-weight: 500; }
+  .lp-index li.is-on b { color: var(--lime); }
+  @keyframes lp-rise { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
+  @keyframes lp-spin { to { transform: rotate(360deg); } }
 
-  /* serviços */
-  .cl-services { display:grid; grid-template-columns: 1fr; border: 1px solid rgba(255,255,255,.08); border-radius: 20px; overflow:hidden; }
-  @media (min-width: 640px) { .cl-services { grid-template-columns: repeat(2, minmax(0,1fr)); } }
-  @media (min-width: 960px) { .cl-services { grid-template-columns: repeat(3, minmax(0,1fr)); } }
-  .cl-service { padding: clamp(24px, 3vw, 36px) clamp(20px, 2.6vw, 30px); background: ${BLACK}; border: 0 solid rgba(255,255,255,.07); border-bottom-width: 1px; transition: background .2s; position: relative; }
-  .cl-service:hover { background: rgba(185,255,75,.045); }
-  @media (min-width: 640px) { .cl-service:nth-child(odd) { border-right-width: 1px; } }
-  @media (min-width: 960px) { .cl-service:nth-child(odd) { border-right-width: 0; } .cl-service:not(:nth-child(3n)) { border-right-width: 1px; } .cl-service:nth-last-child(-n+3) { border-bottom-width: 0; } }
-  @media (max-width: 959px) and (min-width: 640px) { .cl-service:nth-last-child(-n+2) { border-bottom-width: 0; } }
-  @media (max-width: 639px) { .cl-service:last-child { border-bottom-width: 0; } }
-  .cl-service h3 { font-size: 20px; font-weight: 700; margin: 14px 0 10px; }
-  .cl-service p { font-size: 14px; color: var(--dim); line-height: 1.65; }
+  /* manifesto */
+  .lp-manifesto { padding: clamp(56px, 10vw, 120px) 0; border-top: 1px solid var(--line); }
+  .lp-manifesto p { font-family: var(--display); font-weight: 700; font-size: clamp(24px, 4.2vw, 56px); letter-spacing: -0.035em; line-height: 1.12; max-width: 22ch; }
+  .lp-manifesto p em { font-style: normal; color: var(--lime); }
+  .lp-manifesto__meta { display: flex; gap: 28px; flex-wrap: wrap; margin-top: 28px; }
+  .lp-manifesto__meta span { display: inline-flex; align-items: center; gap: 10px; }
+  .lp-manifesto__meta i { width: 6px; height: 6px; border-radius: 50%; background: var(--lime); display: inline-block; }
 
-  /* produtos */
-  .cl-products { display:grid; grid-template-columns: 1fr; gap: 16px; }
-  @media (min-width: 900px) { .cl-products { grid-template-columns: repeat(3, minmax(0,1fr)); } }
-  .cl-product { border-radius: 22px; background: rgba(255,255,255,.025); padding: clamp(24px, 3vw, 34px) clamp(20px, 2.6vw, 28px); position:relative; overflow:hidden; transition: transform .22s, box-shadow .22s; display:flex; flex-direction:column; }
-  .cl-product:hover { transform: translateY(-4px); box-shadow: 0 24px 64px rgba(0,0,0,.35); }
-  .cl-product h3 { font-size: clamp(24px, 2.6vw, 30px); font-weight: 800; }
-  .cl-product p { font-size: 14px; color: var(--dim); line-height: 1.7; margin: 16px 0 22px; }
-  .cl-product ul { list-style: none; display:flex; flex-direction:column; gap: 9px; margin-bottom: 28px; flex-grow: 1; }
-  .cl-product li { display:flex; align-items:center; gap: 9px; font-size: 13px; font-weight: 600; color: rgba(240,239,232,.6); }
+  /* capítulos */
+  .lp-chapter { border-top: 1px solid var(--line); padding: clamp(56px, 9vw, 120px) 0; }
+  .lp-chapter__grid { display: grid; grid-template-columns: 1fr; gap: 28px; }
+  @media (min-width: 900px) { .lp-chapter__grid { grid-template-columns: minmax(0, 5.5fr) minmax(0, 6.5fr); gap: 64px; } .lp-chapter__head { position: sticky; top: 100px; align-self: start; } }
+  .lp-chapter__n { font-family: var(--mono); font-size: 12px; letter-spacing: .14em; color: var(--lime); display: flex; align-items: center; gap: 12px; }
+  .lp-chapter__n::after { content: ""; flex: 0 0 40px; height: 1px; background: var(--line-2); }
+  .lp-h2 { font-size: clamp(32px, 3.9vw, 58px); margin-top: 18px; }
+  .lp-chapter__lede { font-size: clamp(15px, 1.2vw, 18px); color: var(--ink-2); margin-top: 22px; max-width: 44ch; }
+  .lp-chapter__lede + .lp-link { margin-top: 22px; }
 
-  /* time (carrossel) */
-  .cl-team-head { display:flex; flex-direction: column; gap: 18px; margin-bottom: 36px; }
-  @media (min-width: 900px) { .cl-team-head { flex-direction: row; align-items: flex-end; justify-content: space-between; } }
-  .cl-team-ctl { display:flex; align-items:center; gap: 10px; flex-wrap: wrap; }
-  .cl-round { width: 42px; height: 42px; border-radius: 50%; border: 1px solid rgba(255,255,255,.12); background: transparent; color: var(--off); display:flex; align-items:center; justify-content:center; cursor:pointer; transition: border-color .2s, background .2s; }
-  .cl-round:hover { border-color: var(--lime); background: rgba(185,255,75,.08); }
-  .cl-track { display:flex; gap: 16px; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; -webkit-overflow-scrolling: touch; padding: 6px var(--pad) 36px; scroll-padding-left: var(--pad); }
-  .cl-track::-webkit-scrollbar { display:none; }
-  .cl-tcard { flex-shrink: 0; width: min(340px, 84vw); scroll-snap-align: start; border-radius: 22px; padding: clamp(24px, 3vw, 36px) clamp(20px, 2.6vw, 28px); display:flex; flex-direction:column; min-height: 440px; position:relative; overflow:hidden; transition: background .3s, border-color .3s, box-shadow .3s, transform .3s cubic-bezier(.22,.68,0,1.2); }
-  .cl-tcard h3 { font-size: 24px; font-weight: 800; margin-bottom: 4px; }
-  .cl-tcard p { font-size: 14px; line-height: 1.7; margin-bottom: 22px; flex-grow: 1; transition: color .3s; }
-  .cl-dots { display:flex; justify-content:center; gap: 6px; margin-top: 4px; }
+  /* processo: linhas expansíveis */
+  .lp-rows { border-top: 1px solid var(--line-2); }
+  .lp-row { border-bottom: 1px solid var(--line); }
+  .lp-row__btn { width: 100%; display: grid; grid-template-columns: 34px 1fr auto; align-items: baseline; gap: 14px; padding: 20px 0; text-align: left; transition: padding .3s; }
+  .lp-row__btn:hover .lp-row__t { color: var(--lime); }
+  .lp-row__n { font-family: var(--mono); font-size: 12px; color: var(--ink-3); letter-spacing: .1em; }
+  .lp-row__t { font-family: var(--display); font-weight: 800; font-size: clamp(22px, 2.6vw, 34px); letter-spacing: -0.035em; transition: color .25s; }
+  .lp-row__meta { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); display: none; }
+  .lp-row__plus { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line-2); border-radius: 50%; transition: transform .35s cubic-bezier(.2,.7,0,1), background .25s, color .25s; align-self: center; }
+  .lp-row[data-open="true"] .lp-row__plus { transform: rotate(45deg); background: var(--lime); color: ${CANVAS}; border-color: var(--lime); }
+  .lp-row__body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .45s cubic-bezier(.2,.7,0,1); }
+  .lp-row[data-open="true"] .lp-row__body { grid-template-rows: 1fr; }
+  .lp-row__body > div { overflow: hidden; }
+  .lp-row__inner { display: grid; grid-template-columns: 1fr; gap: 18px; padding: 0 0 26px 48px; }
+  .lp-row__inner p { color: var(--ink-2); font-size: 15px; max-width: 46ch; }
+  .lp-row__agents { display: flex; flex-wrap: wrap; gap: 6px; }
+  .lp-chip { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; padding: 6px 10px; border: 1px solid var(--line-2); border-radius: 999px; color: var(--ink-2); }
+  .lp-row__list { list-style: none; display: grid; gap: 8px; font-size: 13.5px; color: var(--ink-2); }
+  .lp-row__list li { display: flex; gap: 10px; align-items: baseline; }
+  .lp-row__list li::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--lime); flex: 0 0 5px; position: relative; top: -2px; }
+  @media (min-width: 700px) { .lp-row__btn { grid-template-columns: 40px 1fr auto auto; } .lp-row__meta { display: block; } .lp-row__inner { grid-template-columns: 1.2fr 1fr; gap: 32px; padding-left: 54px; } }
 
-  /* como funciona (4 passos) */
-  .cl-steps { display:grid; grid-template-columns: 1fr; gap: 28px; }
-  @media (min-width: 560px) { .cl-steps { grid-template-columns: repeat(2, minmax(0,1fr)); } }
-  @media (min-width: 960px) { .cl-steps { grid-template-columns: repeat(4, minmax(0,1fr)); } }
-  .cl-step h3 { font-size: 19px; font-weight: 700; margin: 20px 0 10px; }
-  .cl-step p { font-size: 14px; color: var(--dim); line-height: 1.65; }
+  /* o mês se montando (pinado) */
+  .lp-month { position: relative; border-top: 1px solid var(--line); }
+  .lp-month__stage { min-height: 100svh; display: flex; align-items: safe center; padding: 84px 0 28px; }
+  .lp-month__head { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 24px; align-items: end; }
+  @media (min-width: 900px) { .lp-month__head { grid-template-columns: 1.1fr 1fr; gap: 48px; } }
+  .lp-month__head .lp-h2 { margin-top: 12px; }
+  .lp-month__grid { display: grid; grid-template-columns: 1fr; gap: 12px; border-top: 1px solid var(--line-2); padding-top: 18px; }
+  @media (min-width: 900px) { .lp-month__grid { grid-template-columns: minmax(0, 1.45fr) minmax(280px, 1fr); gap: 56px; } }
+  .lp-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+  .lp-cal__dow { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; color: var(--ink-3); padding: 0 0 10px 8px; }
+  .lp-cal__d { position: relative; aspect-ratio: 1 / .62; border-top: 1px solid var(--line); border-left: 1px solid var(--line); padding: 7px 8px; font-family: var(--mono); font-size: 11px; color: var(--ink-3); overflow: hidden; }
+  .lp-cal__d:nth-child(7n) { border-right: 1px solid var(--line); }
+  .lp-cal__d:nth-last-child(-n+7) { border-bottom: 1px solid var(--line); }
+  .lp-cal__d.is-off { color: transparent; }
+  .lp-cal__d.has { --v: clamp(0, calc((var(--sc-p, 0) - var(--em)) * 7), 1); }
+  .lp-cal__d.has::after { content: ""; position: absolute; inset: 0; background: rgba(185,255,75,calc(var(--v) * .08)); pointer-events: none; }
+  .lp-cal__chip { position: absolute; left: 6px; right: 6px; bottom: 6px; padding: 4px 7px; border-radius: 4px; font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: ${CANVAS}; background: var(--lime); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: var(--v, 0); transform: translateY(calc((1 - var(--v, 0)) * 8px)); z-index: 1; }
+  .lp-month__foot { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; padding-top: 14px; }
+  .lp-month__foot p { font-size: 13px; color: var(--ink-2); max-width: 40ch; }
+  .lp-count { font-family: var(--display); font-weight: 800; font-size: clamp(44px, 6vw, 88px); letter-spacing: -0.05em; line-height: .9; color: var(--lime); display: flex; align-items: baseline; gap: 10px; }
+  .lp-count small { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
+  .lp-queue { list-style: none; }
+  .lp-queue__head { display: flex; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid var(--line-2); }
+  .lp-q { display: grid; grid-template-columns: 44px 1fr; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); --v: clamp(0, calc((var(--sc-p, 0) - var(--em)) * 7), 1); opacity: var(--v); transform: translateX(calc((1 - var(--v)) * 14px)); }
+  .lp-q__d { font-family: var(--display); font-weight: 800; font-size: 20px; letter-spacing: -0.03em; line-height: 1; }
+  .lp-q__d small { display: block; font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin-top: 4px; }
+  .lp-q__t { font-weight: 700; font-size: 14px; }
+  .lp-q__s { font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); margin-top: 4px; }
+  @media (prefers-reduced-motion: reduce) { .lp-cal__d.has, .lp-q { --v: 1; transform: none; opacity: 1; } .lp-h1 .l, .lp-hero__row { animation: none; opacity: 1; } .lp-orbit__ring { animation: none; } }
+  .lp-month .lp-h2 { font-size: clamp(32px, 4.2vw, 60px); }
+  @media (max-height: 940px) and (min-width: 900px) { .lp-month__stage { padding-top: 76px; } .lp-month .lp-h2 { font-size: clamp(30px, 4.6vh, 56px); } .lp-cal__d { aspect-ratio: 1 / .52; } .lp-q { padding: 8px 0; } .lp-month__head { margin-bottom: 12px; } .lp-month__grid { padding-top: 12px; } }
+  @media (max-width: 899px) {
+    .lp-month__stage { padding: 72px 0 14px; }
+    .lp-month .lp-h2 { font-size: clamp(26px, 7.6vw, 36px); margin-top: 8px; }
+    .lp-month__head { gap: 6px; margin-bottom: 12px; }
+    .lp-month__head .lp-chapter__lede { font-size: 13px; margin-top: 0; }
+    .lp-month__grid { gap: 10px; padding-top: 12px; }
+    .lp-cal__dow { padding-bottom: 6px; font-size: 9px; }
+    .lp-cal__d { aspect-ratio: 1 / .52; font-size: 10px; padding: 4px 5px; }
+    .lp-cal__chip { font-size: 8.5px; padding: 2px 4px; left: 3px; right: 3px; bottom: 3px; letter-spacing: .04em; }
+    .lp-month__foot { padding-top: 8px; } .lp-month__foot p { display: none; } .lp-count { font-size: 34px; }
+    .lp-queue__head { padding-bottom: 6px; }
+    .lp-q { padding: 5px 0; gap: 8px; grid-template-columns: 38px 1fr; }
+    .lp-q__d { font-size: 14px; } .lp-q__d small { display: inline; margin-left: 3px; }
+    .lp-q__t { font-size: 12.5px; } .lp-q__s { display: none; }
+  }
+
+  /* serviços: índice */
+  .lp-services { list-style: none; display: grid; grid-template-columns: 1fr; border-top: 1px solid var(--line-2); }
+  .lp-service { position: relative; display: grid; grid-template-columns: 56px 1fr; gap: 12px; padding: 24px 0; border-bottom: 1px solid var(--line); transition: padding-left .35s cubic-bezier(.2,.7,0,1); }
+  .lp-service::before { content: ""; position: absolute; left: 0; top: -1px; height: 1px; width: 0; background: var(--lime); transition: width .5s cubic-bezier(.2,.7,0,1); }
+  .lp-service:hover::before { width: 100%; }
+  .lp-service:hover { padding-left: 8px; }
+  .lp-service__n { font-family: var(--display); font-weight: 800; font-size: 26px; letter-spacing: -0.04em; color: transparent; -webkit-text-stroke: 1px var(--ink-3); line-height: 1; }
+  .lp-service h3 { font-size: clamp(20px, 2.1vw, 28px); letter-spacing: -0.03em; }
+  .lp-service p { color: var(--ink-2); font-size: 14.5px; margin-top: 8px; max-width: 40ch; }
+  @media (min-width: 700px) { .lp-services { grid-template-columns: 1fr 1fr; column-gap: 48px; } }
+
+  /* soluções */
+  .lp-products { border-top: 1px solid var(--line-2); }
+  .lp-product { display: grid; grid-template-columns: 1fr; gap: 16px; padding: clamp(28px, 4vw, 44px) 0; border-bottom: 1px solid var(--line); }
+  @media (min-width: 900px) { .lp-product { grid-template-columns: 180px 1fr 1fr; gap: 40px; } }
+  .lp-product__tag { display: inline-flex; align-items: center; gap: 8px; }
+  .lp-product__tag i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .lp-product h3 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -0.04em; }
+  .lp-product__sub { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); margin-top: 10px; }
+  .lp-product p { color: var(--ink-2); font-size: 15px; max-width: 46ch; }
+  .lp-product__items { list-style: none; display: grid; gap: 8px; margin-top: 16px; font-size: 13.5px; }
+  .lp-product__items li { display: flex; gap: 10px; align-items: baseline; color: var(--ink-2); }
+  .lp-product__items li::before { content: ""; width: 14px; height: 1px; background: var(--ink-3); flex: 0 0 14px; position: relative; top: -4px; }
+  .lp-product .lp-link { margin-top: 20px; }
+
+  /* time: elenco */
+  .lp-roster { list-style: none; border-top: 1px solid var(--line-2); }
+  .lp-cast { border-bottom: 1px solid var(--line); }
+  .lp-cast__btn { width: 100%; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; padding: 16px 0; text-align: left; }
+  .lp-cast__name { font-family: var(--display); font-weight: 800; font-size: clamp(26px, 3.6vw, 46px); letter-spacing: -0.04em; line-height: 1; display: flex; align-items: center; gap: 14px; transition: color .25s; }
+  .lp-cast__name i { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 10px; transform: scale(.6); transition: transform .35s; }
+  .lp-cast__btn:hover .lp-cast__name i, .lp-cast[data-open="true"] .lp-cast__name i { transform: scale(1); }
+  .lp-cast__role { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); text-align: right; }
+  .lp-cast__body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .45s cubic-bezier(.2,.7,0,1); }
+  .lp-cast[data-open="true"] .lp-cast__body { grid-template-rows: 1fr; }
+  .lp-cast__body > div { overflow: hidden; }
+  .lp-cast__inner { display: grid; grid-template-columns: 1fr; gap: 14px; padding: 0 0 22px 24px; }
+  .lp-cast__inner p { color: var(--ink-2); font-size: 14.5px; max-width: 46ch; }
+  @media (min-width: 700px) { .lp-cast__inner { grid-template-columns: 1.3fr 1fr; gap: 32px; } }
+  .lp-roster__big { font-family: var(--display); font-weight: 800; font-size: clamp(96px, 20vw, 260px); letter-spacing: -0.06em; line-height: .8; color: transparent; -webkit-text-stroke: 1.5px var(--line-2); margin-top: 18px; }
+  @supports not (-webkit-text-stroke: 1px #000) { .lp-roster__big { color: var(--line-2); } }
 
   /* economia */
-  .cl-savings { display:grid; grid-template-columns: 1fr; gap: clamp(32px, 5vw, 72px); align-items:center; }
-  @media (min-width: 900px) { .cl-savings { grid-template-columns: minmax(0,1fr) minmax(0,1.15fr); } }
-  .cl-table { border-radius: 18px; border: 1px solid rgba(255,255,255,.08); overflow:hidden; }
-  .cl-table-row { display:flex; justify-content:space-between; align-items:center; gap: 12px; padding: 12px 18px; border-bottom: 1px solid rgba(255,255,255,.05); background: ${BLACK}; }
-  .cl-table-row:hover { background: rgba(185,255,75,.03); }
-  .cl-table-row > span:first-child { display:flex; align-items:center; gap: 8px; font-size: 13px; font-weight: 600; color: rgba(240,239,232,.6); min-width: 0; }
-  .cl-table-row > span:last-child { font-family: var(--font-mono); font-size: 11px; color: rgba(240,239,232,.35); white-space: nowrap; }
+  .lp-econ__big { font-size: clamp(34px, 4.4vw, 62px); margin-top: 18px; }
+  .lp-econ__big em { font-style: normal; color: var(--lime); }
+  .lp-table { list-style: none; border-top: 1px solid var(--line-2); }
+  .lp-table li { display: flex; justify-content: space-between; gap: 16px; padding: 13px 0; border-bottom: 1px solid var(--line); font-size: 14.5px; }
+  .lp-table li span:last-child { font-family: var(--mono); font-size: 12px; letter-spacing: .04em; color: var(--ink-2); white-space: nowrap; }
+  .lp-table li.is-total { padding: 18px 0; font-weight: 800; font-family: var(--display); font-size: 16px; border-bottom: 1px solid var(--lime); }
+  .lp-table li.is-total span:last-child { color: var(--lime); font-size: 13px; }
+  .lp-table__note { font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; color: var(--ink-3); margin-top: 12px; text-transform: uppercase; }
 
-  /* cta */
-  .cl-cta { background: var(--lime); border-radius: 26px; padding: clamp(32px, 5vw, 60px) clamp(22px, 4vw, 52px); display:flex; flex-direction:column; gap: 28px; position: relative; overflow:hidden; }
-  @media (min-width: 900px) { .cl-cta { flex-direction: row; align-items:center; justify-content:space-between; } }
-  .cl-cta h2 { font-size: clamp(28px, 4vw, 44px); font-weight: 800; color: ${BLACK}; }
-  .cl-cta-actions { display:flex; flex-direction:column; gap: 10px; flex-shrink: 0; }
-  .cl-cta-actions .cl-btn { white-space: normal; }
+  /* fecho */
+  .lp-close { background: var(--lime); color: ${CANVAS}; padding: clamp(64px, 11vw, 150px) 0; }
+  .lp-close .lp-mono { color: rgba(10,10,10,.55); }
+  .lp-close h2 { font-size: clamp(44px, 9.6vw, 148px); letter-spacing: -0.055em; line-height: .9; margin-top: 18px; max-width: 12ch; }
+  .lp-close__row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: clamp(28px, 4vw, 48px); padding-top: 24px; border-top: 1px solid rgba(10,10,10,.25); }
+  .lp-close .lp-btn { border-color: ${CANVAS}; color: ${CANVAS}; }
+  .lp-close .lp-btn--ink { background: ${CANVAS}; color: var(--lime); }
+  .lp-close .lp-btn:hover { border-color: ${CANVAS}; }
+  .lp-close__note { font-size: 14px; color: rgba(10,10,10,.7); max-width: 34ch; margin-left: auto; }
 
   /* rodapé */
-  .cl-footer { border-top: 1px solid rgba(255,255,255,.06); padding: 32px 0; }
-  .cl-footer-row { display:flex; flex-direction: column; align-items:center; text-align:center; gap: 18px; }
-  @media (min-width: 760px) { .cl-footer-row { flex-direction: row; justify-content: space-between; text-align:left; } }
-  .cl-social { width: 34px; height: 34px; border-radius: 50%; border: 1px solid rgba(255,255,255,.1); display:flex; align-items:center; justify-content:center; transition: border-color .18s; }
-  .cl-social:hover { border-color: var(--lime); }
-
-  /* animações */
-  @keyframes cl-in { from { opacity:0; transform: translateY(18px); } to { opacity:1; transform:none; } }
-  @keyframes cl-fade { from { opacity:0; } to { opacity:1; } }
-  @keyframes cl-tick { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-  @keyframes cl-bob { 0%,100% { transform: translate(-50%, 0); } 50% { transform: translate(-50%, 6px); } }
-  @keyframes cl-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(185,255,75,.5); } 50% { box-shadow: 0 0 0 6px rgba(185,255,75,0); } }
-  @keyframes cl-agent-in { from { opacity:.35; transform: translateY(8px); } to { opacity:1; transform:none; } }
-  .cl-a1 { animation: cl-in .65s ease both .05s } .cl-a2 { animation: cl-in .65s ease both .18s }
-  .cl-a3 { animation: cl-in .65s ease both .30s } .cl-a4 { animation: cl-in .65s ease both .44s }
-  .cl-dot { animation: cl-pulse 2.2s ease-in-out infinite; }
-  .cl-agent-in { animation: cl-agent-in .5s cubic-bezier(.22,.68,0,1) both; }
-  @media (prefers-reduced-motion: reduce) { .cl *, .cl *::before, .cl *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
+  .lp-footer { padding: 40px 0 calc(28px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); }
+  .lp-footer__in { display: flex; flex-direction: column; gap: 22px; }
+  .lp-footer__links { display: flex; flex-wrap: wrap; gap: 18px; }
+  .lp-footer__links a { transition: color .2s; } .lp-footer__links a:hover { color: var(--ink); }
+  .lp-footer__social { display: flex; gap: 8px; }
+  .lp-social { width: 40px; height: 40px; border: 1px solid var(--line-2); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: var(--ink-2); transition: border-color .2s, color .2s; }
+  .lp-social:hover { border-color: var(--ink); color: var(--ink); }
+  @media (min-width: 900px) { .lp-footer__in { flex-direction: row; align-items: center; justify-content: space-between; } }
 `;
 
-/* ─── Card do time no hero ────────────────────────────────────────────────── */
-function HeroAgentCard() {
-  const [active, setActive] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const [key, setKey] = useState(0);
-
-  useEffect(() => {
-    if (paused) return;
-    const t = setInterval(() => { setActive((p) => (p + 1) % TEAM.length); setKey((k) => k + 1); }, 4200);
-    return () => clearInterval(t);
-  }, [paused]);
-
-  const agent = TEAM[active];
+/* ─────────────────────────────────────────────────────────────────────────────
+   Órbita dos doze: anel que gira devagar, nó ativo em limão, nome no centro.
+   Sem foto e sem card: o time é a ilustração.
+   ───────────────────────────────────────────────────────────────────────── */
+function Orbit({ active }: { active: number }) {
+  const R = 210, C = 260;
   return (
-    <div className="cl-agent" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}
-      style={{ background: `${agent.color}08`, border: `1px solid ${agent.color}38`, boxShadow: `0 0 80px -20px ${agent.color}55, 0 0 0 1px ${agent.color}18` }}>
-      <div className="cl-glow" style={{ top: -80, right: -80, width: 300, height: 300, background: `radial-gradient(circle, ${agent.color}2A 0%, transparent 68%)` }} />
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, position: "relative" }}>
-        <span className="cl-mono" style={{ fontSize: 10, color: LIME }}>Time ativo agora</span>
-        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <i className="cl-dot" style={{ width: 7, height: 7, borderRadius: "50%", background: LIME, boxShadow: `0 0 10px ${LIME}` }} />
-          <span className="cl-mono" style={{ fontSize: 10, color: LIME, letterSpacing: 0, textTransform: "none" }}>{TEAM.length} online</span>
-        </span>
-      </div>
-      <div key={key} className="cl-agent-in" style={{ marginBottom: 18, position: "relative" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
-          <div style={{ width: 64, height: 64, borderRadius: 18, background: `${agent.color}1C`, border: `2px solid ${agent.color}60`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Syne, sans-serif", fontSize: 22, fontWeight: 800, color: agent.color, flexShrink: 0, boxShadow: `0 0 36px -6px ${agent.color}80` }}>{agent.i}</div>
-          <div style={{ minWidth: 0 }}>
-            <div style={{ fontFamily: "Syne, sans-serif", fontSize: 22, fontWeight: 800, letterSpacing: "-0.04em", lineHeight: 1.05, color: OFF }}>{agent.name}</div>
-            <div className="cl-mono" style={{ fontSize: 10, color: agent.color, marginTop: 5, opacity: .85, letterSpacing: ".06em" }}>{agent.role}</div>
-          </div>
-        </div>
-        <div style={{ background: "rgba(0,0,0,.4)", borderRadius: 14, padding: "14px 16px", border: `1px solid ${agent.color}18` }}>
-          <div className="cl-mono" style={{ fontSize: 9, color: MUTED, marginBottom: 10 }}>Executando agora</div>
-          <div className="cl-tasks">
-            {agent.tasks.map((task, j) => (
-              <div key={j} style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
-                <i style={{ width: 4, height: 4, borderRadius: "50%", background: j === 0 ? agent.color : "rgba(255,255,255,.15)", flexShrink: 0, boxShadow: j === 0 ? `0 0 6px ${agent.color}` : "none" }} />
-                <span style={{ fontSize: 12.5, color: j === 0 ? "rgba(240,239,232,.8)" : "rgba(240,239,232,.4)", lineHeight: 1.4, overflowWrap: "anywhere" }}>{task}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-      <div style={{ height: 1, background: `linear-gradient(to right, ${agent.color}25, rgba(255,255,255,.04), transparent)`, marginBottom: 16 }} />
-      <div className="cl-agent-grid">
-        {TEAM.map((t, i) => (
-          <button key={t.name} className="cl-agent-btn" title={t.name}
-            onClick={() => { setActive(i); setKey((k) => k + 1); setPaused(true); }}
-            style={{ background: i === active ? `${t.color}22` : "rgba(255,255,255,.04)", outline: i === active ? `1.5px solid ${t.color}70` : "1px solid rgba(255,255,255,.07)", boxShadow: i === active ? `0 0 18px -4px ${t.color}70` : "none" }}>
-            <span style={{ fontFamily: "Syne, sans-serif", fontSize: 12, fontWeight: 800, color: i === active ? t.color : MUTED }}>{t.i}</span>
-            <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 8, color: i === active ? t.color : "rgba(255,255,255,.22)", lineHeight: 1 }}>{t.name.slice(0, 3)}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-/* ─── Linha do tempo do processo ──────────────────────────────────────────── */
-function ProcessTimeline() {
-  const [activeStep, setActiveStep] = useState<number | null>(null);
-  const [hov, setHov] = useState<number | null>(null);
-
-  return (
-    <section id="processo" className="cl-section" style={{ borderBottom: "1px solid rgba(255,255,255,.06)", position: "relative", overflow: "hidden" }}>
-      <div className="cl-glow" style={{ top: "30%", left: "50%", transform: "translateX(-50%)", width: "min(1000px, 120vw)", height: 700, background: "radial-gradient(circle, rgba(185,255,75,.035) 0%, transparent 62%)" }} />
-      <div className="cl-wrap" style={{ position: "relative", maxWidth: 1120 }}>
-        <div className="cl-head" style={{ alignItems: "center", textAlign: "center" }}>
-          <span className="cl-eyebrow cl-mono">Do briefing à publicação</span>
-          <h2 className="cl-h2">Como a Calu trabalha<br /><span style={{ color: LIME }}>do início ao resultado.</span></h2>
-          <p className="cl-lede" style={{ margin: "12px auto 0" }}>Toque em cada etapa para ver o que acontece nos bastidores.</p>
-        </div>
-
-        {PROCESS.map((step, i) => {
-          const isActive = activeStep === i;
-          const isPassed = activeStep !== null && i <= activeStep;
-          const isLast = i === PROCESS.length - 1;
-          const isRight = i % 2 === 0;
-          const isHov = hov === i && !isActive;
-          const card = (
-            <div className="cl-tl-card" onClick={() => setActiveStep(isActive ? null : i)} onMouseEnter={() => setHov(i)} onMouseLeave={() => setHov(null)}
-              style={{
-                background: isActive ? `${step.color}09` : isHov ? `${step.color}06` : "rgba(255,255,255,.028)",
-                border: `1px solid ${isActive ? `${step.color}60` : isHov ? `${step.color}50` : "rgba(185,255,75,.14)"}`,
-                boxShadow: isActive ? `0 0 0 1px ${step.color}1A, 0 20px 64px -20px ${step.color}65` : isHov ? `0 12px 44px -16px ${step.color}55` : "inset 0 1px 0 rgba(255,255,255,.04)",
-                transform: isHov ? "translateY(-4px)" : "none",
-              }}>
-              <div className="cl-glow" style={{ top: -90, [isRight ? "left" : "right"]: -90, width: 280, height: 280, background: `radial-gradient(circle, ${step.color}${isActive ? "18" : isHov ? "12" : "07"} 0%, transparent 68%)` }} />
-              <div className="cl-tl-head">
-                <div style={{ minWidth: 0 }}>
-                  <div className="cl-mono" style={{ fontSize: 10, color: step.color, marginBottom: 8, opacity: .9 }}>{step.n} · {step.duration}</div>
-                  <h3 style={{ color: isActive ? OFF : "rgba(240,239,232,.85)" }}>{step.title}</h3>
-                </div>
-                <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-                  {step.agents.map((a) => (
-                    <div key={a.name} title={a.name} style={{ width: 38, height: 38, borderRadius: 12, background: `${a.color}15`, border: `1.5px solid ${a.color}55`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Syne, sans-serif", fontSize: 12, fontWeight: 800, color: a.color, boxShadow: isActive ? `0 0 20px -4px ${a.color}80` : "none", transition: "box-shadow .3s" }}>{a.i}</div>
-                  ))}
-                </div>
-              </div>
-              <p>{step.desc}</p>
-              {isActive && (
-                <div style={{ marginTop: 22, position: "relative" }}>
-                  <div style={{ height: 1, background: `linear-gradient(to right, ${step.color}35, transparent)`, marginBottom: 20 }} />
-                  <div className="cl-mono" style={{ fontSize: 10, color: step.color, marginBottom: 14 }}>Entregáveis</div>
-                  <div className="cl-tl-details">
-                    {step.details.map((d) => (
-                      <div key={d} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                        <i style={{ width: 6, height: 6, borderRadius: "50%", background: step.color, flexShrink: 0, marginTop: 8, boxShadow: `0 0 8px ${step.color}` }} />
-                        <span style={{ fontSize: 14.5, color: "rgba(240,239,232,.62)", lineHeight: 1.6 }}>{d}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <div style={{ display: "inline-flex", alignItems: "center", flexWrap: "wrap", gap: 10, padding: "12px 18px", borderRadius: 14, background: `${step.color}0E`, border: `1px solid ${step.color}38` }}>
-                    <i style={{ width: 7, height: 7, borderRadius: "50%", background: step.color, boxShadow: `0 0 10px ${step.color}` }} />
-                    <span className="cl-mono" style={{ fontSize: 10, color: step.color, letterSpacing: ".04em", textTransform: "none" }}>Output →</span>
-                    <span style={{ fontSize: 15, fontWeight: 700, color: OFF }}>{step.output}</span>
-                  </div>
-                </div>
-              )}
-            </div>
-          );
+    <svg className="lp-orbit" viewBox="0 0 520 520" aria-hidden="true">
+      <circle cx={C} cy={C} r={R} fill="none" stroke="rgba(242,241,234,.14)" strokeWidth="1" />
+      <circle cx={C} cy={C} r={R - 46} fill="none" stroke="rgba(242,241,234,.07)" strokeWidth="1" strokeDasharray="2 6" />
+      <g className="lp-orbit__ring">
+        {TEAM.map((t, i) => {
+          const a = (i / TEAM.length) * Math.PI * 2 - Math.PI / 2;
+          const x = C + Math.cos(a) * R, y = C + Math.sin(a) * R;
+          const on = i === active;
           return (
-            <div key={step.n} className="cl-tl-row">
-              <div className="cl-tl-left">{!isRight ? card : null}</div>
-              <div className="cl-tl-spine">
-                <div className="cl-tl-node" onClick={() => setActiveStep(isActive ? null : i)}
-                  style={{ background: isActive ? `${step.color}1C` : isPassed ? `${LIME}0D` : "rgba(255,255,255,.05)", border: `2px solid ${isActive ? step.color : isPassed ? `${LIME}95` : "rgba(255,255,255,.13)"}`, color: isActive ? step.color : isPassed ? LIME : MUTED, boxShadow: isActive ? `0 0 0 8px ${step.color}10, 0 0 48px -8px ${step.color}95` : isPassed ? `0 0 22px -5px ${LIME}60` : "none" }}>{step.n}</div>
-                {!isLast && (
-                  <div className="cl-tl-line">
-                    <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,.06)", borderRadius: 2 }} />
-                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: isPassed ? "100%" : "0%", background: `linear-gradient(to bottom, ${LIME}, ${LIME}45)`, borderRadius: 2, boxShadow: isPassed ? `0 0 12px ${LIME}80` : "none", transition: "height .6s ease" }} />
-                  </div>
-                )}
-              </div>
-              <div className="cl-tl-right">{isRight ? card : null}</div>
-            </div>
+            <g key={t.name}>
+              <circle className="lp-orbit__node" cx={x} cy={y} r={on ? 7 : 3.5} fill={on ? LIME : "rgba(242,241,234,.5)"} />
+              {on && <circle cx={x} cy={y} r={16} fill="none" stroke={LIME} strokeOpacity=".5" strokeWidth="1" />}
+            </g>
           );
         })}
-
-        <div style={{ textAlign: "center", marginTop: clamp(40) }}>
-          <div className="cl-pill-note">
-            <i className="cl-dot" style={{ width: 8, height: 8, borderRadius: "50%", background: LIME, boxShadow: `0 0 14px ${LIME}`, flexShrink: 0 }} />
-            <span>Cada agente trabalha em cima do que o anterior entregou, <strong style={{ color: LIME }}>como numa agência de verdade</strong>.</span>
-          </div>
-        </div>
-      </div>
-    </section>
+      </g>
+    </svg>
   );
 }
-const clamp = (px: number) => `clamp(${Math.round(px * 0.6)}px, 6vw, ${px * 2}px)`;
-
-/* ─── Carrossel do time ───────────────────────────────────────────────────── */
-function TeamCarousel() {
-  const trackRef = useRef<HTMLDivElement>(null);
-  const [active, setActive] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const [hov, setHov] = useState<number | null>(null);
-
-  /** Largura real do card + gap, muda com a viewport, então mede na hora. */
-  const passo = useCallback(() => {
-    const el = trackRef.current;
-    const card = el?.firstElementChild as HTMLElement | null;
-    if (!el || !card) return 356;
-    const gap = parseFloat(getComputedStyle(el).columnGap || getComputedStyle(el).gap || "16") || 16;
-    return card.getBoundingClientRect().width + gap;
-  }, []);
-
-  const scrollTo = useCallback((idx: number) => {
-    const el = trackRef.current; if (!el) return;
-    const clamped = Math.max(0, Math.min(idx, TEAM.length - 1));
-    setActive(clamped);
-    el.scrollTo({ left: clamped * passo(), behavior: "smooth" });
-  }, [passo]);
-
-  const onScroll = () => {
-    const el = trackRef.current; if (!el) return;
-    setActive(Math.round(el.scrollLeft / passo()));
-  };
-
-  useEffect(() => {
-    if (paused) return;
-    const timer = setInterval(() => {
-      setActive((prev) => {
-        const next = (prev + 1) % TEAM.length;
-        trackRef.current?.scrollTo({ left: next * passo(), behavior: "smooth" });
-        return next;
-      });
-    }, 3200);
-    return () => clearInterval(timer);
-  }, [paused, passo]);
-
-  return (
-    <section id="time" className="cl-section" style={{ overflow: "hidden", paddingLeft: 0, paddingRight: 0 }}>
-      <div className="cl-wrap cl-team-head">
-        <div>
-          <span className="cl-eyebrow cl-mono">Nosso time de IA</span>
-          <h2 className="cl-h2">{TEAM.length} especialistas.<br />1 investimento.</h2>
-        </div>
-        <div className="cl-team-ctl">
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "9px 16px", borderRadius: 100, border: "1px solid rgba(185,255,75,.2)", background: "rgba(185,255,75,.06)" }}>
-            <i className="cl-dot" style={{ width: 7, height: 7, borderRadius: "50%", background: LIME }} />
-            <span className="cl-mono" style={{ fontSize: 10, color: LIME, textTransform: "none", letterSpacing: 0 }}>Todos online agora</span>
-          </span>
-          <button className="cl-round" onClick={() => setPaused((p) => !p)} title={paused ? "Retomar" : "Pausar"} style={{ width: "auto", padding: "0 14px", borderRadius: 100, gap: 7 }}>
-            <span style={{ fontSize: 12 }}>{paused ? "▶" : "⏸"}</span>
-            <span className="cl-mono" style={{ fontSize: 10, textTransform: "none", letterSpacing: 0, color: paused ? LIME : MUTED }}>{paused ? "retomar" : "pausar"}</span>
-          </button>
-          <button className="cl-round" onClick={() => scrollTo(active - 1)} aria-label="Anterior">←</button>
-          <button className="cl-round" onClick={() => scrollTo(active + 1)} aria-label="Próximo">→</button>
-        </div>
-      </div>
-
-      <div ref={trackRef} onScroll={onScroll} className="cl-track">
-        {TEAM.map((t, idx) => {
-          const on = idx === active;
-          const lit = on || (hov === idx);
-          return (
-            <div key={t.name} className="cl-tcard" onMouseEnter={() => setHov(idx)} onMouseLeave={() => setHov(null)} onClick={() => setPaused((p) => !p)}
-              style={{
-                background: on ? `${t.color}0F` : lit ? `${t.color}08` : "rgba(255,255,255,.022)",
-                border: `1px solid ${on ? `${t.color}65` : lit ? `${t.color}45` : "rgba(255,255,255,.07)"}`,
-                boxShadow: on ? `0 0 0 1px ${t.color}1A, 0 24px 72px -24px ${t.color}70` : "inset 0 1px 0 rgba(255,255,255,.04)",
-                transform: on ? "translateY(-6px)" : lit ? "translateY(-3px)" : "none",
-              }}>
-              <div className="cl-glow" style={{ top: -80, right: -80, width: 260, height: 260, background: `radial-gradient(circle, ${t.color}${on ? "22" : lit ? "14" : "05"} 0%, transparent 68%)` }} />
-              <div style={{ width: 64, height: 64, borderRadius: 18, background: `${t.color}${on ? "28" : "18"}`, border: `2px solid ${on ? t.color : `${t.color}45`}`, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "Syne, sans-serif", fontSize: 22, fontWeight: 800, color: t.color, marginBottom: 22, boxShadow: on ? `0 0 32px -6px ${t.color}90` : "none", transition: "all .3s", position: "relative" }}>{t.i}</div>
-              <div className="cl-mono" style={{ fontSize: 9, color: t.color, marginBottom: 6, opacity: lit ? 1 : .55 }}>Agente especialista</div>
-              <h3 style={{ color: lit ? OFF : "rgba(240,239,232,.55)", transition: "color .3s" }}>{t.name}</h3>
-              <div className="cl-mono" style={{ fontSize: 10, color: lit ? t.color : MUTED, marginBottom: 18, textTransform: "none", letterSpacing: ".04em" }}>{t.role}</div>
-              <p style={{ color: lit ? "rgba(240,239,232,.7)" : "rgba(240,239,232,.32)" }}>{t.desc}</p>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 22 }}>
-                {t.tasks.map((task) => (
-                  <div key={task} style={{ display: "flex", alignItems: "center", gap: 9 }}>
-                    <i style={{ width: 5, height: 5, borderRadius: "50%", background: lit ? t.color : "rgba(255,255,255,.15)", flexShrink: 0 }} />
-                    <span style={{ fontSize: 13, fontWeight: 600, color: lit ? "rgba(240,239,232,.7)" : "rgba(240,239,232,.28)", transition: "color .3s" }}>{task}</span>
-                  </div>
-                ))}
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, paddingTop: 18, borderTop: `1px solid ${on ? `${t.color}25` : "rgba(255,255,255,.06)"}` }}>
-                <i style={{ width: 7, height: 7, borderRadius: "50%", background: LIME, boxShadow: on ? `0 0 10px ${LIME}` : "none" }} />
-                <span className="cl-mono" style={{ fontSize: 10, color: LIME, textTransform: "none", letterSpacing: 0 }}>trabalhando agora</span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <div className="cl-dots">
-        {TEAM.map((_, i) => (
-          <button key={i} onClick={() => scrollTo(i)} aria-label={`Ir para ${TEAM[i].name}`}
-            style={{ width: i === active ? 24 : 7, height: 7, borderRadius: 100, background: i === active ? LIME : "rgba(255,255,255,.2)", border: "none", cursor: "pointer", padding: 0, transition: "width .3s, background .3s" }} />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-/* ─── Página ──────────────────────────────────────────────────────────────── */
-const NAV = [["Serviços", "#servicos"], ["Processo", "#processo"], ["Soluções IA", "#solucoes"], ["Time", "#time"], ["Contato", "#contato"]] as const;
 
 type Motor = { mount: (el: Element) => unknown };
 
 export default function LandingPage() {
-  const [scrolled, setScrolled] = useState(false);
+  const [solid, setSolid] = useState(false);
   const [menu, setMenu] = useState(false);
+  const [ativo, setAtivo] = useState(0);
+  const [etapa, setEtapa] = useState<number | null>(0);
+  const [membro, setMembro] = useState<number | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const contadorRef = useRef<HTMLSpanElement>(null);
 
-  /* Motor da scroll-craft (public/scrollcraft, nunca editado): profundidade
-     do hero por planos em taxas diferentes, reveals e a seção pinada em que
-     o mês se monta. O contador lê --sc-p da seção sem passar por estado. */
+  useEffect(() => {
+    const onScroll = () => setSolid(window.scrollY > 24);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const t = setInterval(() => setAtivo((a) => (a + 1) % TEAM.length), 3600);
+    return () => clearInterval(t);
+  }, []);
+
+  useEffect(() => { document.body.style.overflow = menu ? "hidden" : ""; return () => { document.body.style.overflow = ""; }; }, [menu]);
+
+  /* Motor da scroll-craft: planos do hero, entradas por capítulo e o pin do
+     mês. O contador lê --sc-p da seção pinada sem passar por estado React. */
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
@@ -659,7 +434,7 @@ export default function LandingPage() {
     document.head.appendChild(link);
     const laco = () => {
       if (!vivo) return;
-      const sec = root.querySelector<HTMLElement>(".cl-live");
+      const sec = root.querySelector<HTMLElement>(".lp-month");
       if (sec && contadorRef.current) {
         const p = parseFloat(getComputedStyle(sec).getPropertyValue("--sc-p")) || 0;
         const reduz = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -690,299 +465,271 @@ export default function LandingPage() {
     };
   }, []);
 
-  useEffect(() => {
-    const fn = () => setScrolled(window.scrollY > 24);
-    fn();
-    window.addEventListener("scroll", fn, { passive: true });
-    return () => window.removeEventListener("scroll", fn);
-  }, []);
-  useEffect(() => {
-    document.body.style.overflow = menu ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
-  }, [menu]);
-
   return (
-    <div className="cl" ref={rootRef} style={{ background: BLACK, color: OFF, minHeight: "100vh", overflowX: "clip" }}>
+    <div className="lp" ref={rootRef}>
       <style>{CSS}</style>
-      <div className="cl-grain" />
+      <div className="lp-grain" aria-hidden="true" />
 
-      {/* NAV */}
-      <nav className={`cl-nav ${scrolled || menu ? "is-scrolled" : ""}`}>
-        <div className="cl-wrap cl-nav-in">
-          <a href="#" className="cl-brand" onClick={() => setMenu(false)}>
-            <img src={caluLogo} alt="Calu Agência" /> Calu Agência
-          </a>
-          <div className="cl-links">
-            {NAV.map(([l, h]) => <a key={l} href={h}>{l}</a>)}
-            <a href="/briefing" className="cl-btn cl-btn-ghost cl-btn-sm"><Zap size={12} /> Diagnóstico IA</a>
-            <a href={WA} target="_blank" rel="noreferrer" className="cl-btn cl-btn-lime cl-btn-sm">Começar agora</a>
+      {/* BARRA */}
+      <nav className={`lp-nav ${solid || menu ? "is-solid" : ""}`}>
+        <div className="lp-wrap lp-nav__in">
+          <a href="#" className="lp-brand" onClick={() => setMenu(false)}><img src={caluLogo} alt="" /> Calu Agência</a>
+          <div className="lp-nav__links">{NAV.map(([l, h]) => <a key={l} href={h}>{l}</a>)}</div>
+          <div className="lp-nav__cta">
+            <Link to="/entrar" className="lp-entrar">Entrar</Link>
+            <a href="/briefing" className="lp-btn lp-btn--lime lp-btn--sm">Diagnóstico gratuito <ArrowUpRight size={14} /></a>
           </div>
-          <button className="cl-burger" onClick={() => setMenu((m) => !m)} aria-label={menu ? "Fechar menu" : "Abrir menu"} aria-expanded={menu}>
+          <button className="lp-burger" onClick={() => setMenu((m) => !m)} aria-label={menu ? "Fechar menu" : "Abrir menu"} aria-expanded={menu}>
             {menu ? <X size={18} /> : <Menu size={18} />}
           </button>
         </div>
       </nav>
       {menu && (
-        <div className="cl-menu">
-          {NAV.map(([l, h]) => <a key={l} href={h} onClick={() => setMenu(false)}>{l}</a>)}
-          <div className="cl-menu-cta">
-            <a href="/briefing" className="cl-btn cl-btn-ghost" onClick={() => setMenu(false)}><Zap size={14} /> Diagnóstico gratuito com IA</a>
-            <a href={WA} target="_blank" rel="noreferrer" className="cl-btn cl-btn-lime"><MessageCircle size={14} /> Falar no WhatsApp</a>
+        <div className="lp-menu" role="dialog" aria-label="Menu">
+          {NAV.map(([l, h]) => <a key={l} href={h} className="lp-menu__l" onClick={() => setMenu(false)}>{l}</a>)}
+          <Link to="/entrar" className="lp-menu__l" onClick={() => setMenu(false)}>Entrar</Link>
+          <div className="lp-menu__cta">
+            <a href="/briefing" className="lp-btn lp-btn--lime" onClick={() => setMenu(false)}>Diagnóstico gratuito com IA <ArrowUpRight size={14} /></a>
+            <a href={WA} target="_blank" rel="noreferrer" className="lp-btn"><MessageCircle size={14} /> Falar no WhatsApp</a>
           </div>
         </div>
       )}
 
-      {/* HERO */}
-      <section className="cl-hero" data-sc-act="flow">
-        <div className="cl-plane cl-plane--far" data-sc-parallax="-1.3" aria-hidden="true" />
-        <div className="cl-plane cl-plane--grid" data-sc-parallax="-0.6" aria-hidden="true" />
-        <div className="cl-wrap cl-hero-grid">
-          <div style={{ minWidth: 0 }}>
-            <span className="cl-eyebrow cl-mono cl-a1">
-              <i className="cl-dot" style={{ width: 6, height: 6, borderRadius: "50%", background: LIME }} />
-              Publicidade · Tecnologia · IA
-            </span>
-            <h1 className="cl-h1 cl-a2">Criatividade<br />que vende.<br /><span style={{ color: LIME }}>IA que escala.</span></h1>
-            <p className="cl-a3">A Calu Agência une estratégia criativa de alta performance com tecnologia de IA proprietária, para sua marca crescer sem limite de equipe ou orçamento.</p>
-            <div className="cl-hero-actions cl-a4">
-              <a href={WA} target="_blank" rel="noreferrer" className="cl-btn cl-btn-lime"><MessageCircle size={15} /> Fale conosco</a>
-              <a href="#servicos" className="cl-btn cl-btn-ghost">Ver serviços <ArrowRight size={14} /></a>
+      {/* HERO: quatro planos, texto e órbita a 1x */}
+      <header className="lp-hero" data-sc-act="flow">
+        <div className="lp-plane lp-plane--far" data-sc-parallax="-1.3" aria-hidden="true" />
+        <div className="lp-plane lp-plane--rule" data-sc-parallax="-0.5" aria-hidden="true" />
+        <Orbit active={ativo} />
+        <div className="lp-wrap lp-hero__in">
+          <div className="lp-hero__eyebrow"><i /><span className="lp-mono">Agência de marketing com IA · Fortaleza, Brasil</span></div>
+          <h1 className="lp-h1">
+            <span className="l l1">Criatividade</span>
+            <span className="l l1">que vende.</span>
+            <span className="l l2 lp-outline">IA que escala.</span>
+          </h1>
+          <div className="lp-hero__row">
+            <p className="lp-hero__lede">Doze especialistas de IA fazem o trabalho de uma agência inteira, <b>do briefing à publicação</b>, com estratégia de verdade e um único investimento mensal.</p>
+            <div className="lp-hero__ctas">
+              <a href="/briefing" className="lp-btn lp-btn--lime">Começar com um diagnóstico <ArrowUpRight size={15} /></a>
+              <a href={WA} target="_blank" rel="noreferrer" className="lp-btn"><MessageCircle size={15} /> WhatsApp</a>
             </div>
-            <div className="cl-stats cl-a4">
-              {[[String(TEAM.length), "agentes no time"], ["48h", "da estratégia ao post"], ["24/7", "produção contínua"]].map(([v, l]) => (
-                <div key={l} className="cl-stat"><b>{v}</b><span>{l}</span></div>
-              ))}
-            </div>
+            <ul className="lp-hero__index lp-index" aria-label="Time">
+              {TEAM.map((t, i) => <li key={t.name} className={i === ativo ? "is-on" : ""}><b>{t.name}</b><span>{t.i}</span></li>)}
+            </ul>
           </div>
-          <div className="cl-a3 cl-hero-card"><HeroAgentCard /></div>
         </div>
-        <div className="cl-plane cl-plane--near" data-sc-parallax="0.9" aria-hidden="true" />
+        <div className="lp-plane lp-plane--near" data-sc-parallax="0.9" aria-hidden="true" />
+      </header>
+
+      {/* MANIFESTO */}
+      <section className="lp-manifesto">
+        <div className="lp-wrap" data-sc-in>
+          <p data-sc-reveal="up">Uma agência de publicidade não é um lugar. É um time que <em>pensa, produz, revisa e publica</em> todo dia, na ordem certa. A Calu é esse time, em IA, para o seu negócio.</p>
+          <div className="lp-manifesto__meta lp-mono">
+            <span><i />Estratégia antes da produção</span>
+            <span><i />Revisão antes da aprovação</span>
+            <span><i />Relatório toda semana</span>
+          </div>
+        </div>
       </section>
 
-      {/* TICKER */}
-      <div className="cl-ticker" aria-hidden>
-        <div className="cl-ticker-track">
-          {[...TICKER, ...TICKER, ...TICKER, ...TICKER].map((t, i) => <span key={i}>{t} <em style={{ opacity: .3, fontStyle: "normal" }}>·</em></span>)}
+      {/* 01 PROCESSO */}
+      <section id="processo" className="lp-chapter">
+        <div className="lp-wrap lp-chapter__grid">
+          <div className="lp-chapter__head" data-sc-in>
+            <div className="lp-chapter__n">01 · Processo</div>
+            <h2 className="lp-h2">Como um mês de marketing acontece.</h2>
+            <p className="lp-chapter__lede">Oito etapas, cada uma com dono. Cada agente trabalha em cima do que o anterior entregou, e nada vai para o cliente sem passar pela revisão.</p>
+          </div>
+          <div className="lp-rows" data-sc-in data-sc-stagger="50">
+            {PROCESS.map((s, i) => (
+              <div key={s.n} className="lp-row" data-open={etapa === i}>
+                <button className="lp-row__btn" onClick={() => setEtapa(etapa === i ? null : i)} aria-expanded={etapa === i}>
+                  <span className="lp-row__n">{s.n}</span>
+                  <span className="lp-row__t">{s.title}</span>
+                  <span className="lp-row__meta">{s.duration}</span>
+                  <span className="lp-row__plus"><Plus size={14} /></span>
+                </button>
+                <div className="lp-row__body"><div>
+                  <div className="lp-row__inner">
+                    <div>
+                      <p>{s.desc}</p>
+                      <div className="lp-row__agents" style={{ marginTop: 14 }}>{s.agents.map((a) => <span key={a} className="lp-chip">{a}</span>)}</div>
+                    </div>
+                    <ul className="lp-row__list">{s.details.map((d) => <li key={d}>{d}</li>)}</ul>
+                  </div>
+                </div></div>
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      </section>
 
-      <ProcessTimeline />
-
-      {/* O MÊS SE MONTANDO: a seção-assinatura. Cenário de demonstração rotulado. */}
-      <section className="cl-live" data-sc-act="pin" data-sc-span="3" aria-label="Demonstração: um mês de produção se montando">
-        <div data-sc-stage className="cl-live__stage">
-          <div className="cl-wrap">
-            <div className="cl-live__head">
-              <h2 className="cl-h2">Veja um mês inteiro{" "}<br /><span style={{ color: LIME }}>se montar.</span></h2>
-              <p className="cl-lede">Role devagar. O calendário enche, a fila de aprovação cresce e o contador sobe: é o que acontece na plataforma depois que o time recebe o briefing. Cenário de demonstração com cliente fictício.</p>
+      {/* O MÊS SE MONTANDO: seção pinada, cenário de demonstração rotulado */}
+      <section className="lp-month" data-sc-act="pin" data-sc-span="3" aria-label="Demonstração: um mês de produção se montando">
+        <div data-sc-stage className="lp-month__stage">
+          <div className="lp-wrap">
+            <div className="lp-month__head">
+              <div>
+                <div className="lp-chapter__n">Demonstração · cliente fictício</div>
+                <h2 className="lp-h2">Veja um mês inteiro{" "}<br /><em style={{ fontStyle: "normal", color: LIME }}>se montar.</em></h2>
+              </div>
+              <p className="lp-chapter__lede">Role devagar. O calendário enche, a fila de aprovação cresce e o contador sobe: é o que acontece na plataforma depois que o time recebe o briefing.</p>
             </div>
-            <div className="cl-live__grid">
-              <div className="cl-panel">
-                <div className="cl-panel__head"><span>Calendário editorial · setembro</span><span className="cl-mono" style={{ fontSize: 10, color: MUTED, textTransform: "none", letterSpacing: 0 }}>Clínica Vitta</span></div>
-                <div className="cl-cal">
-                  {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => <div key={i} className="cl-cal__dow">{d}</div>)}
+            <div className="lp-month__grid">
+              <div>
+                <div className="lp-cal">
+                  {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => <div key={i} className="lp-cal__dow">{d}</div>)}
                   {CALENDARIO.map((c, i) => (
-                    <div key={i} className={`cl-cal__d${c.dia === null ? " is-off" : ""}${c.i !== undefined ? " has" : ""}`} style={c.i !== undefined ? em(emDaPeca(c.i)) : undefined}>
-                      {c.dia ?? ""}
-                      {c.i !== undefined && <span className="cl-cal__chip">{PECAS[c.i].formato}</span>}
+                    <div key={i} className={`lp-cal__d${c.dia === null ? " is-off" : ""}${c.i !== undefined ? " has" : ""}`} style={c.i !== undefined ? em(emDaPeca(c.i)) : undefined}>
+                      {c.dia ?? "·"}
+                      {c.i !== undefined && <span className="lp-cal__chip">{PECAS[c.i].formato}</span>}
                     </div>
                   ))}
                 </div>
-                <div className="cl-live__foot">
+                <div className="lp-month__foot">
                   <p>Pedro calendarizou, Beatriz escreveu, Marcela desenhou em cima da copy. Cada peça entra na fila com data e hora.</p>
-                  <span className="cl-live__count"><span ref={contadorRef}>0</span><small>peças</small></span>
+                  <span className="lp-count"><span ref={contadorRef}>0</span><small>peças</small></span>
                 </div>
               </div>
-              <div className="cl-panel">
-                <div className="cl-panel__head"><span>Fila de aprovação</span><span className="cl-mono" style={{ fontSize: 10, color: LIME, textTransform: "none", letterSpacing: 0 }}>aguardando o cliente</span></div>
-                <div className="cl-queue">
+              <div>
+                <div className="lp-queue__head lp-mono"><span>Fila de aprovação</span><span style={{ color: LIME }}>Setembro</span></div>
+                <ul className="lp-queue">
                   {PECAS.map((pc, i) => (
-                    <div key={pc.id} className="cl-q" style={em(emDaPeca(i))}>
-                      <div className="cl-q__date">{String(pc.dia).padStart(2, "0")}<small>set</small></div>
-                      <div><div className="cl-q__title">{pc.tema}</div><div className="cl-q__sub">{pc.formato} · pilar {pc.pilar} · 12:00</div></div>
-                    </div>
+                    <li key={pc.id} className="lp-q" style={em(emDaPeca(i))}>
+                      <div className="lp-q__d">{String(pc.dia).padStart(2, "0")}<small>set</small></div>
+                      <div><div className="lp-q__t">{pc.tema}</div><div className="lp-q__s">{pc.formato} · pilar {pc.pilar} · 12:00</div></div>
+                    </li>
                   ))}
-                </div>
+                </ul>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      {/* MARKETING + IA */}
-      <section className="cl-section" style={{ borderBottom: "1px solid rgba(255,255,255,.06)" }}>
-        <div className="cl-wrap">
-          <div className="cl-head" style={{ alignItems: "center", textAlign: "center" }}>
-            <h2 className="cl-h2">Marketing executado<br /><span style={{ color: LIME }}>por inteligência artificial.</span></h2>
-            <p className="cl-lede" style={{ margin: "12px auto 0" }}>Cada post, anúncio, artigo e campanha passa por um time de agentes especializados, trabalhando em sequência, 24 horas por dia.</p>
+      {/* 02 SERVIÇOS */}
+      <section id="servicos" className="lp-chapter">
+        <div className="lp-wrap lp-chapter__grid">
+          <div className="lp-chapter__head" data-sc-in>
+            <div className="lp-chapter__n">02 · Serviços</div>
+            <h2 className="lp-h2">Tudo que a marca precisa, num só lugar.</h2>
+            <p className="lp-chapter__lede">Serviços integrados que trabalham juntos: a estratégia decide, a produção executa, o tráfego distribui e os dados corrigem o rumo.</p>
+            <a href={WA} target="_blank" rel="noreferrer" className="lp-link">Montar meu escopo <ArrowRight size={14} /></a>
           </div>
-          <div className="cl-flow">
-            {FLOW.map((s, i) => (
-              <div key={s.agent} className="cl-flow-card" style={{ border: `1px solid ${s.color}28` }}>
-                <div className="cl-mono" style={{ fontSize: 10, color: s.color, marginBottom: 12, letterSpacing: ".06em" }}>0{i + 1} · {s.agent}</div>
-                <div style={{ fontFamily: "Syne, sans-serif", fontSize: 16, fontWeight: 700, color: OFF, letterSpacing: "-0.02em", marginBottom: 8 }}>{s.role}</div>
-                <p style={{ fontSize: 13.5, color: DIM, lineHeight: 1.55 }}>{s.desc}</p>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 16 }}>
-                  <i style={{ width: 5, height: 5, borderRadius: "50%", background: s.color }} />
-                  <span className="cl-mono" style={{ fontSize: 9, color: s.color, textTransform: "none", letterSpacing: 0 }}>ativo agora</span>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="cl-results">
-            {[["Estratégia → publicação", "em até 48h", LIME], ["Ciclo de aprovação", "via portal do cliente", "#A78BFA"], ["Relatório de performance", "semanal, automático", "#34D399"]].map(([label, value, color]) => (
-              <div key={label} style={{ display: "flex", alignItems: "center", gap: 14, padding: "18px 22px", border: `1px solid ${color}22`, borderRadius: 14, background: `${color}06`, minWidth: 0 }}>
-                <i style={{ width: 8, height: 8, borderRadius: "50%", background: color, flexShrink: 0 }} />
-                <div style={{ minWidth: 0 }}>
-                  <div className="cl-mono" style={{ fontSize: 10, color, marginBottom: 4 }}>{label}</div>
-                  <div style={{ fontFamily: "Syne, sans-serif", fontSize: 16, fontWeight: 700, color: OFF, letterSpacing: "-0.02em" }}>{value}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* SERVIÇOS */}
-      <section id="servicos" className="cl-section">
-        <div className="cl-wrap">
-          <div className="cl-head is-split">
-            <div>
-              <span className="cl-eyebrow cl-mono">O que fazemos</span>
-              <h2 className="cl-h2">Tudo que sua marca<br />precisa, em um lugar.</h2>
-            </div>
-            <p className="cl-lede">Serviços integrados que trabalham juntos para crescer seu negócio.</p>
-          </div>
-          <div className="cl-services">
+          <ul className="lp-services" data-sc-in data-sc-stagger="50">
             {SERVICES.map((s) => (
-              <div key={s.n} className="cl-service">
-                <span className="cl-mono" style={{ fontSize: 11, color: LIME, letterSpacing: ".06em" }}>{s.n}</span>
-                <h3>{s.title}</h3>
-                <p>{s.desc}</p>
-              </div>
+              <li key={s.n} className="lp-service">
+                <span className="lp-service__n">{s.n}</span>
+                <div><h3>{s.title}</h3><p>{s.desc}</p></div>
+              </li>
             ))}
-          </div>
+          </ul>
         </div>
       </section>
 
-      {/* SOLUÇÕES */}
-      <section id="solucoes" className="cl-section" style={{ background: "#0C0C0C", borderTop: "1px solid rgba(255,255,255,.05)", borderBottom: "1px solid rgba(255,255,255,.05)" }}>
-        <div className="cl-wrap">
-          <div className="cl-head">
-            <div>
-              <span className="cl-eyebrow cl-mono">Soluções com IA</span>
-              <h2 className="cl-h2">Tecnologia que<br />trabalha por você.</h2>
-            </div>
-            <p className="cl-lede">Cada produto foi desenvolvido para um nicho específico, resolvendo problemas reais de segmentos que a tecnologia genérica não atende.</p>
+      {/* 03 SOLUÇÕES */}
+      <section id="solucoes" className="lp-chapter">
+        <div className="lp-wrap">
+          <div data-sc-in style={{ marginBottom: "clamp(28px, 4vw, 48px)", maxWidth: 720 }}>
+            <div className="lp-chapter__n">03 · Soluções com IA</div>
+            <h2 className="lp-h2">Tecnologia que trabalha por você.</h2>
+            <p className="lp-chapter__lede">Cada produto nasceu para um nicho específico, resolvendo problemas reais que a tecnologia genérica não atende.</p>
           </div>
-          <div className="cl-products">
+          <div className="lp-products" data-sc-in data-sc-stagger="70">
             {PRODUCTS.map((p) => (
-              <div key={p.name} className="cl-product" style={{ border: `1px solid ${p.color}22` }}>
-                <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: p.color }} />
-                <span className="cl-mono" style={{ fontSize: 9, fontWeight: 700, color: p.color, background: `${p.color}15`, border: `1px solid ${p.color}30`, padding: "4px 12px", borderRadius: 100, display: "inline-block", marginBottom: 20, alignSelf: "flex-start" }}>{p.tag}</span>
-                <h3>{p.name}</h3>
-                <div className="cl-mono" style={{ fontSize: 10, color: p.color, marginTop: 6, textTransform: "none", letterSpacing: ".04em" }}>{p.sub}</div>
-                <p>{p.desc}</p>
-                <ul>{p.items.map((it) => <li key={it}><i style={{ width: 5, height: 5, borderRadius: "50%", background: p.color, flexShrink: 0 }} />{it}</li>)}</ul>
-                <a href={WA} target="_blank" rel="noreferrer" className="cl-btn cl-btn-sm" style={{ alignSelf: "flex-start", color: p.color, background: `${p.color}10`, borderColor: `${p.color}30` }}>Saber mais <ArrowUpRight size={13} /></a>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      <TeamCarousel />
-
-      {/* COMO FUNCIONA */}
-      <section className="cl-section" style={{ borderTop: "1px solid rgba(255,255,255,.05)" }}>
-        <div className="cl-wrap">
-          <div className="cl-head">
-            <div>
-              <h2 className="cl-h2">Do briefing<br />aos resultados.</h2>
-            </div>
-          </div>
-          <div className="cl-steps">
-            {[["01", "Briefing", "Uma conversa sobre seu negócio, público, metas e tom de voz."], ["02", "Estratégia", "Em até 48h, plano editorial, campanhas e calendário prontos."], ["03", "Execução", "Conteúdo, design, ads e automações rodando em sequência."], ["04", "Resultados", "Relatórios semanais com métricas reais e ajustes contínuos."]].map(([n, t, d], i) => (
-              <div key={n} className="cl-step">
-                <div style={{ width: 52, height: 52, borderRadius: 14, background: i === 0 ? LIME : "rgba(185,255,75,.08)", border: `1px solid ${i === 0 ? "transparent" : "rgba(185,255,75,.22)"}`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <span className="cl-mono" style={{ fontSize: 12, fontWeight: 700, color: i === 0 ? BLACK : LIME, letterSpacing: 0 }}>{n}</span>
+              <article key={p.name} className="lp-product">
+                <div>
+                  <span className="lp-product__tag lp-mono"><i style={{ background: p.color }} />{p.tag}</span>
                 </div>
-                <h3>{t}</h3>
-                <p>{d}</p>
-              </div>
+                <div>
+                  <h3>{p.name}</h3>
+                  <div className="lp-product__sub">{p.sub}</div>
+                </div>
+                <div>
+                  <p>{p.desc}</p>
+                  <ul className="lp-product__items">{p.items.map((it) => <li key={it}>{it}</li>)}</ul>
+                  <a href={WA} target="_blank" rel="noreferrer" className="lp-link">Conhecer {p.name} <ArrowUpRight size={14} /></a>
+                </div>
+              </article>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ECONOMIA */}
-      <section className="cl-section" style={{ borderTop: "1px solid rgba(255,255,255,.05)" }}>
-        <div className="cl-wrap cl-savings">
-          <div>
-            <h2 className="cl-h2">Economize<br /><span style={{ color: LIME }}>R$ {fmt(39500)}+</span><br />por mês.</h2>
-            <p className="cl-lede">Uma equipe completa custa entre <strong style={{ color: OFF }}>R$ {fmt(39500)}</strong> e <strong style={{ color: OFF }}>R$ {fmt(79500)}</strong>/mês em salários, sem contar encargos e ferramentas.</p>
-            <a href={WA} target="_blank" rel="noreferrer" className="cl-btn cl-btn-lime" style={{ marginTop: 28 }}>Quero saber o valor <ArrowUpRight size={14} /></a>
+      {/* 04 TIME */}
+      <section id="time" className="lp-chapter">
+        <div className="lp-wrap lp-chapter__grid">
+          <div className="lp-chapter__head" data-sc-in>
+            <div className="lp-chapter__n">04 · Time</div>
+            <h2 className="lp-h2">Doze especialistas. Um investimento.</h2>
+            <p className="lp-chapter__lede">Cada agente tem papel, entregas e limites definidos. Toque num nome para ver o que ele faz pelo seu negócio.</p>
+            <div className="lp-roster__big" aria-hidden="true">{TEAM.length}</div>
           </div>
-          <div className="cl-table">
-            <div className="cl-table-row" style={{ background: "rgba(255,255,255,.02)" }}>
-              <span className="cl-mono" style={{ fontSize: 10, color: MUTED }}>Profissional</span>
-              <span className="cl-mono" style={{ fontSize: 10, color: MUTED }}>Salário / mês</span>
-            </div>
-            {SALARIES.map(([r, v]) => (
-              <div key={r} className="cl-table-row">
-                <span><Check size={12} color={LIME} strokeWidth={2.5} /> <span style={{ overflowWrap: "anywhere" }}>{r}</span></span>
-                <span>{v}</span>
-              </div>
+          <ul className="lp-roster" data-sc-in data-sc-stagger="40">
+            {TEAM.map((t, i) => (
+              <li key={t.name} className="lp-cast" data-open={membro === i}>
+                <button className="lp-cast__btn" onClick={() => setMembro(membro === i ? null : i)} aria-expanded={membro === i}>
+                  <span className="lp-cast__name"><i style={{ background: t.color }} />{t.name}</span>
+                  <span className="lp-cast__role">{t.role}</span>
+                </button>
+                <div className="lp-cast__body"><div>
+                  <div className="lp-cast__inner">
+                    <p>{t.desc}</p>
+                    <ul className="lp-row__list">{t.tasks.map((k) => <li key={k}>{k}</li>)}</ul>
+                  </div>
+                </div></div>
+              </li>
             ))}
-            <div className="cl-table-row" style={{ background: `${LIME}10`, borderTop: `1px solid ${LIME}20`, borderBottom: "none" }}>
-              <span style={{ fontWeight: 700, color: LIME }}>Total estimado</span>
-              <span style={{ color: LIME, fontWeight: 700 }}>R$ {fmt(39500)}+/mês</span>
-            </div>
+          </ul>
+        </div>
+      </section>
+
+      {/* 05 ECONOMIA */}
+      <section id="economia" className="lp-chapter">
+        <div className="lp-wrap lp-chapter__grid">
+          <div className="lp-chapter__head" data-sc-in>
+            <div className="lp-chapter__n">05 · Custo</div>
+            <h2 className="lp-h2 lp-econ__big">Um time completo custa <em>R$ 39.500+</em> por mês.</h2>
+            <p className="lp-chapter__lede">É a faixa de salários de mercado para montar essa equipe em casa, sem contar encargos, ferramentas e o tempo de coordenar todo mundo. A Calu entrega o mesmo escopo por uma fração.</p>
+            <a href={WA} target="_blank" rel="noreferrer" className="lp-link">Quero saber o valor <ArrowUpRight size={14} /></a>
+          </div>
+          <div data-sc-in>
+            <ul className="lp-table">
+              {SALARIES.map(([r, v]) => <li key={r}><span>{r}</span><span>{v}</span></li>)}
+              <li className="is-total"><span>Total estimado</span><span>R$ 39.500+ / mês</span></li>
+            </ul>
+            <div className="lp-table__note">Faixas de mercado, estimativa. Salários brutos, sem encargos.</div>
           </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section id="contato" className="cl-section" style={{ paddingTop: clamp(40), paddingBottom: clamp(40) }}>
-        <div className="cl-wrap">
-          <div className="cl-cta">
-            <div className="cl-glow" style={{ top: -120, right: -80, width: 320, height: 320, background: "radial-gradient(circle, rgba(8,8,8,.18) 0%, transparent 70%)" }} />
-            <div style={{ position: "relative" }}>
-              <div className="cl-mono" style={{ fontSize: 10, color: "rgba(8,8,8,.45)", marginBottom: 12 }}>Pronto para escalar?</div>
-              <h2>Seu time completo<br />começa hoje.</h2>
-            </div>
-            <div className="cl-cta-actions" style={{ position: "relative" }}>
-              <a href="/briefing" className="cl-btn" style={{ background: BLACK, color: LIME }}><Zap size={15} /> Diagnóstico gratuito com IA</a>
-              <a href={WA} target="_blank" rel="noreferrer" className="cl-btn" style={{ background: "rgba(8,8,8,.1)", color: BLACK, fontWeight: 600 }}><MessageCircle size={14} /> Falar no WhatsApp</a>
-            </div>
+      {/* FECHO */}
+      <section id="contato" className="lp-close">
+        <div className="lp-wrap" data-sc-in>
+          <div className="lp-mono">Pronto para escalar?</div>
+          <h2>Seu time completo começa hoje.</h2>
+          <div className="lp-close__row">
+            <a href="/briefing" className="lp-btn lp-btn--ink">Diagnóstico gratuito com IA <ArrowUpRight size={15} /></a>
+            <a href={WA} target="_blank" rel="noreferrer" className="lp-btn"><MessageCircle size={15} /> Falar no WhatsApp</a>
+            <p className="lp-close__note">O diagnóstico leva trinta minutos numa conversa com a Lia e vira o briefing do seu primeiro mês.</p>
           </div>
         </div>
       </section>
 
-      {/* FOOTER */}
-      <footer className="cl-footer">
-        <div className="cl-wrap cl-footer-row">
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <img src={caluLogo} alt="Calu Agência" style={{ width: 28, height: 28, borderRadius: 8, objectFit: "cover" }} />
-            <div>
-              <div style={{ fontFamily: "Syne, sans-serif", fontSize: 14, fontWeight: 700, letterSpacing: "-0.02em" }}>Calu Agência</div>
-              <div className="cl-mono" style={{ fontSize: 9, color: MUTED, letterSpacing: ".06em" }}>Publicidade · Tecnologia · IA · Fortaleza, CE</div>
-            </div>
+      <footer className="lp-footer">
+        <div className="lp-wrap lp-footer__in">
+          <a href="#" className="lp-brand"><img src={caluLogo} alt="" /> Calu Agência</a>
+          <div className="lp-footer__links lp-mono">
+            <Link to="/privacy">Privacidade</Link>
+            <Link to="/cookies">Cookies</Link>
+            <Link to="/entrar" style={{ color: LIME }}>Entrar</Link>
+            <span>© 2026 · Fortaleza, CE</span>
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6, alignItems: "center" }}>
-            <div style={{ display: "flex", gap: 16, flexWrap: "wrap", justifyContent: "center" }}>
-              <Link to="/privacy" className="cl-mono" style={{ fontSize: 10, color: DIM }}>Privacidade</Link>
-              <Link to="/cookies" className="cl-mono" style={{ fontSize: 10, color: DIM }}>Cookies</Link>
-              <Link to="/terms" className="cl-mono" style={{ fontSize: 10, color: DIM }}>Termos</Link>
-              <Link to="/entrar" className="cl-mono" style={{ fontSize: 10, color: LIME }}>Entrar</Link>
-            </div>
-            <div className="cl-mono" style={{ fontSize: 9, color: "rgba(240,239,232,.22)", letterSpacing: ".04em" }}>© {new Date().getFullYear()} Calu Agência</div>
-          </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            {[[Instagram, "Instagram"], [Linkedin, "LinkedIn"], [MessageCircle, "WhatsApp"]].map(([Icon, label]) => {
-              const I = Icon as typeof Instagram;
-              return <a key={label as string} href={label === "WhatsApp" ? WA : "#"} className="cl-social" aria-label={label as string}><I size={13} color={DIM} /></a>;
-            })}
+          <div className="lp-footer__social">
+            <a href="#" className="lp-social" aria-label="Instagram"><Instagram size={14} /></a>
+            <a href="#" className="lp-social" aria-label="LinkedIn"><Linkedin size={14} /></a>
+            <a href={WA} target="_blank" rel="noreferrer" className="lp-social" aria-label="WhatsApp"><MessageCircle size={14} /></a>
           </div>
         </div>
       </footer>
