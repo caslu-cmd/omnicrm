@@ -152,8 +152,8 @@ const CSS = `
   /* botões */
   .lp-btn { display: inline-flex; align-items: center; gap: 9px; height: 48px; padding: 0 20px; border-radius: 10px; font-weight: 600; font-size: 14px; border: 1px solid var(--line-2); color: var(--ink); background: transparent; transition: background .2s, color .2s, border-color .2s, transform .35s cubic-bezier(.2,.7,0,1); white-space: nowrap; }
   .lp .lp-btn:hover { background: rgba(233,237,242,.06); border-color: var(--line-2); color: var(--ink); }
-  .lp .lp-btn--ink { background: var(--lime); color: #0E1115; border-color: var(--lime); }
-  .lp-btn--ink:hover { background: #CBFF6E; border-color: #CBFF6E; color: #0E1115; }
+  .lp .lp-btn--ink { background: linear-gradient(180deg, #C7FF66, #A9F53C); color: #0E1115; border-color: transparent; box-shadow: 0 10px 30px -10px rgba(185,255,75,.55), 0 1px 0 rgba(255,255,255,.35) inset; }
+  .lp-btn--ink:hover { background: linear-gradient(180deg, #D4FF7E, #B6FF52); border-color: transparent; color: #0E1115; box-shadow: 0 14px 38px -10px rgba(185,255,75,.7), 0 1px 0 rgba(255,255,255,.4) inset; }
   .lp-btn--sm { height: 38px; padding: 0 15px; font-size: 13px; }
   .lp-btn svg { transition: transform .35s cubic-bezier(.2,.7,0,1); }
   .lp-btn:hover svg { transform: translate(2px, -2px); }
@@ -183,10 +183,16 @@ const CSS = `
 
   /* hero */
   .lp-hero { position: relative; padding: 104px 0 40px; overflow: hidden; }
-  .lp-hero::before { content: ""; position: absolute; inset: -20% -10% auto 20%; height: 70%; background: radial-gradient(46% 100% at 70% 0%, rgba(185,255,75,.10), transparent 70%); pointer-events: none; z-index: 0; }
+  .lp-hero::before { content: ""; position: absolute; inset: -35% -25% auto -25%; height: 130%; z-index: 0; pointer-events: none;
+    background:
+      radial-gradient(38% 52% at 72% 6%, rgba(185,255,75,.16), transparent 70%),
+      radial-gradient(42% 58% at 24% 26%, rgba(96,150,255,.09), transparent 72%),
+      radial-gradient(60% 70% at 50% -12%, rgba(233,237,242,.05), transparent 70%);
+    filter: blur(8px); transform-origin: center; animation: lp-aurora 20s ease-in-out infinite alternate; }
+  @keyframes lp-aurora { from { transform: translate3d(-1.5%, -1%, 0) scale(1); } to { transform: translate3d(2%, 1.5%, 0) scale(1.06); } }
   .lp-hero__grid { position: relative; z-index: 1; display: grid; grid-template-columns: 1fr; gap: 40px; align-items: center; }
   .lp-hero__copy { min-width: 0; }
-  .lp-hero__kicker { display: inline-flex; align-items: center; gap: 9px; margin-bottom: 22px; padding: 6px 12px 6px 10px; border: 1px solid var(--line-2); border-radius: 999px; background: rgba(233,237,242,.03); }
+  .lp-hero__kicker { display: inline-flex; align-items: center; gap: 9px; margin-bottom: 22px; padding: 6px 13px 6px 11px; border: 1px solid var(--line-2); border-radius: 999px; background: linear-gradient(180deg, rgba(233,237,242,.06), rgba(233,237,242,.02)); box-shadow: 0 1px 0 rgba(255,255,255,.05) inset, 0 10px 30px -20px rgba(0,0,0,.9); }
   .lp-hero__kicker i { display: block; width: 6px; height: 6px; border-radius: 50%; background: var(--lime); box-shadow: 0 0 0 0 rgba(185,255,75,.5); animation: lp-pulse 2.2s infinite; }
   .lp-h1 { font-size: clamp(32px, 4.6vw, 56px); line-height: 1.02; letter-spacing: -0.03em; max-width: 17ch; }
   .lp-h1 .l { display: block; overflow: hidden; padding-bottom: .08em; margin-bottom: -.08em; }
@@ -213,8 +219,21 @@ const CSS = `
   .lp-hero__go i { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line-2); display: inline-flex; align-items: center; justify-content: center; transition: background .25s, color .25s, border-color .25s; }
   .lp-hero__go:hover i { background: var(--lime); color: #0E1115; border-color: var(--lime); }
 
+  /* prova: marcas que confiam na Calu */
+  .lp-proof { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: rgba(233,237,242,.015); }
+  .lp-proof__in { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 28px; padding-top: 18px; padding-bottom: 18px; }
+  .lp-proof__list { list-style: none; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 30px; margin-left: auto; }
+  .lp-proof__list li { position: relative; font-family: var(--serif); font-weight: 700; font-size: clamp(15px, 1.4vw, 19px); letter-spacing: -0.01em; color: var(--ink-2); transition: color .25s; }
+  .lp-proof__list li + li::before { content: ""; position: absolute; left: -16px; top: 50%; width: 3px; height: 3px; border-radius: 50%; background: var(--line-2); transform: translateY(-50%); }
+  .lp-proof__list li:hover { color: var(--ink); }
+  @media (max-width: 640px) { .lp-proof__list { margin-left: 0; gap: 12px 22px; } .lp-proof__list li + li::before { left: -12px; } }
+
   /* painel de produto: sustenta a pauta ao vivo e o calendário */
-  .lp-sheet { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 1px 0 rgba(255,255,255,.04) inset, 0 26px 50px -32px rgba(0,0,0,.85); padding: clamp(16px, 2vw, 22px); }
+  .lp-sheet { position: relative; border-radius: 14px; padding: clamp(16px, 2vw, 22px);
+    background: linear-gradient(var(--panel), var(--panel)) padding-box,
+                linear-gradient(155deg, rgba(185,255,75,.30), rgba(233,237,242,.08) 26%, rgba(233,237,242,0) 55%) border-box;
+    border: 1px solid transparent;
+    box-shadow: 0 1px 0 rgba(255,255,255,.05) inset, 0 30px 60px -34px rgba(0,0,0,.9), 0 0 70px -34px rgba(185,255,75,.18); }
   .lp-sheet--tilt { transform: none; }
   .lp-sheet__head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--line-2); }
   .lp-sheet__title { font-family: var(--serif); font-weight: 700; font-size: 16px; letter-spacing: -0.01em; }
@@ -314,7 +333,7 @@ const CSS = `
   .lp-q__d small { display: block; font-family: var(--mono); font-size: 9px; color: var(--ink-3); margin-top: 3px; }
   .lp-q__t { font-weight: 600; font-size: 13.5px; }
   .lp-q__s { font-family: var(--mono); font-size: 10px; color: var(--ink-3); margin-top: 4px; }
-  @media (prefers-reduced-motion: reduce) { .lp-cal__d.has, .lp-q { --v: 1; } .lp-month__prog::before { transform: none; } .lp-h1 .w, .lp-hero__lede, .lp-hero__ctas, .lp-hero__sheet, .lp-hero__facts { animation: none; opacity: 1; transform: none; } .wd > span { transform: none; transition: none; } .lp-chapter__n::after { transform: none; } .lp-nav.is-hidden { transform: none; } .lp-live::before, .lp-hero__kicker i { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .lp-cal__d.has, .lp-q { --v: 1; } .lp-month__prog::before { transform: none; } .lp-h1 .w, .lp-hero__lede, .lp-hero__ctas, .lp-hero__sheet, .lp-hero__facts { animation: none; opacity: 1; transform: none; } .wd > span { transform: none; transition: none; } .lp-chapter__n::after { transform: none; } .lp-nav.is-hidden { transform: none; } .lp-live::before, .lp-hero__kicker i, .lp-hero::before { animation: none; } }
   @media (max-height: 940px) and (min-width: 900px) { .lp-month__stage { padding-top: 72px; } .lp-month .lp-h2 { font-size: clamp(22px, 3.4vh, 36px); } .lp-cal__d { aspect-ratio: 1 / .52; } .lp-q { padding: 7px 0; } .lp-month__head { margin-bottom: 12px; } }
   @media (max-width: 899px) {
     .lp-month__stage { padding: 68px 0 14px; }
@@ -357,7 +376,8 @@ const CSS = `
 
   /* time: os doze agentes, cada um com plaquinha de inicial */
   .lp-roster { list-style: none; border-top: 1px solid var(--line-2); }
-  .lp-cast { border-bottom: 1px solid var(--line); }
+  .lp-cast { border-bottom: 1px solid var(--line); transition: background .25s; }
+  .lp-cast:hover { background: linear-gradient(90deg, rgba(185,255,75,.055), transparent 42%); }
   .lp-cast__btn { width: 100%; display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 14px; padding: 11px 0; text-align: left; }
   .lp-cast__mono { width: 36px; height: 36px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; font-family: var(--serif); font-weight: 700; font-size: 14px; letter-spacing: -0.01em; background: var(--bg-2); color: var(--ink-2); border: 1px solid var(--line-2); transition: background .3s, color .3s, border-color .3s; }
   .lp-cast:nth-child(3n+1) .lp-cast__mono { background: rgba(185,255,75,.14); border-color: rgba(185,255,75,.4); color: var(--lime); }
@@ -587,6 +607,16 @@ export default function LandingPage() {
           </ul>
         </div>
       </header>
+
+      {/* PROVA: marcas que confiam na Calu */}
+      <section className="lp-proof" aria-label="Marcas que confiam na Calu">
+        <div className="lp-wrap lp-proof__in">
+          <span className="lp-cap">Marcas que confiam na Calu</span>
+          <ul className="lp-proof__list">
+            {["Grupo Licita", "Abcer", "GNX", "Forplace"].map((m) => <li key={m}>{m}</li>)}
+          </ul>
+        </div>
+      </section>
 
       {/* O MÊS SE MONTANDO: o trabalho, logo depois da hero. Demonstração rotulada. */}
       <section id="trabalho" className="lp-month" data-sc-act="pin" data-sc-span="2.6" aria-label="Demonstração: um mês de produção se montando">
