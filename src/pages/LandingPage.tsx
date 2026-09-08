@@ -1,25 +1,25 @@
 import caluLogo from "@/assets/calu-logo.png";
 import { useState, useEffect, useRef, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
-import { ArrowUpRight, ArrowRight, ArrowDown, MessageCircle, Instagram, Linkedin, Menu, X, Plus } from "lucide-react";
+import { ArrowUpRight, ArrowRight, ArrowDown, MessageCircle, Instagram, Linkedin, Menu, X, Plus, Check } from "lucide-react";
 
 /**
- * Landing page da Calu Agência. Direção: editorial noir.
+ * Landing page da Calu Agência. Direção: redação em papel.
  *
- * Uma revista de luxo impressa em preto, com um único acento (limão), uma
- * família de agência (Instrument Sans) para títulos e texto, Instrument Serif
- * itálico como acento, rótulos em mono.
- * A página argumenta por capítulos numerados separados por linhas finas,
- * não por cards. O scroll dirige três coisas: a profundidade do hero (planos
- * em taxas diferentes), as entradas de cada capítulo e a única seção pinada,
- * em que um mês de produção se monta na frente do visitante.
+ * Uma agência é uma redação: pauta do dia, calendário na parede, lista de
+ * aprovação, marca-texto em cima do que importa. A página é feita desses
+ * objetos, impressos em papel claro com tinta preta e um único acento (o
+ * limão da marca, usado como marca-texto e como carimbo). Serif editorial
+ * nos títulos, sans no texto, mono só em datas e horas. Nenhum brilho,
+ * nenhum vidro, nenhum gradiente: o que se move é o marca-texto passando, a
+ * pauta sendo riscada e o mês se montando.
  *
  * O motor da scroll-craft mora em /public/scrollcraft e nunca é editado.
  */
 
-const LIME  = "#B9FF4B"; /* limão da tela; o do logo é #99EB41 */
-const INK   = "#F2F1EA";
-const CANVAS = "#0A0A0A";
+const LIME  = "#B9FF4B";
+const INK   = "#111310";
+const PAPER = "#F4F2EC";
 const WA    = "https://wa.me/5585986408404";
 
 const SERVICES = [
@@ -32,47 +32,44 @@ const SERVICES = [
 ];
 
 const PRODUCTS = [
-  {
-    tag: "CRM", name: "OmniCRM", sub: "Para agências e negócios locais", color: LIME,
+  { tag: "CRM", name: "OmniCRM", sub: "Para agências e negócios locais",
     desc: "Todos os canais do seu cliente em um lugar: WhatsApp, Instagram, e-mail, site. Pipeline visual para fechar mais negócios com menos esforço.",
-    items: ["Inbox unificado", "Pipeline de vendas", "Automações de follow-up", "Relatórios em tempo real"],
-  },
-  {
-    tag: "Saúde", name: "Posture.AI", sub: "Para fisioterapeutas, personal trainers e estúdios", color: "#A78BFA",
+    items: ["Inbox unificado", "Pipeline de vendas", "Automações de follow-up", "Relatórios em tempo real"] },
+  { tag: "Saúde", name: "Posture.AI", sub: "Para fisioterapeutas, personal trainers e estúdios",
     desc: "Tire uma foto e receba análise postural completa em segundos. IA treinada com 50 mil avaliações que identifica desalinhamentos, gera relatórios em PDF e acompanha a evolução de cada aluno.",
-    items: ["Análise postural com IA", "Gestão completa de alunos", "Relatórios PDF profissionais", "Ficha de anamnese digital"],
-  },
-  {
-    tag: "RH", name: "RH Inteligente", sub: "Para empresas em crescimento com time em expansão", color: "#34D399",
+    items: ["Análise postural com IA", "Gestão completa de alunos", "Relatórios PDF profissionais", "Ficha de anamnese digital"] },
+  { tag: "RH", name: "RH Inteligente", sub: "Para empresas em crescimento com time em expansão",
     desc: "Do recrutamento ao onboarding, a IA assume o operacional para seu RH focar no que mais importa: as pessoas.",
-    items: ["Triagem automática de currículos", "Onboarding digital", "Avaliações de desempenho", "People analytics"],
-  },
+    items: ["Triagem automática de currículos", "Onboarding digital", "Avaliações de desempenho", "People analytics"] },
 ];
 
 const TEAM = [
-  { i: "Ai", name: "Aira",     role: "Orquestradora Geral",        color: LIME,      desc: "Coordena todo o time em tempo real, define prioridades e garante que cada entrega saia no prazo e com qualidade.", tasks: ["Orquestração do time", "Controle de prazos", "Briefing automatizado", "Relatório executivo"] },
-  { i: "Q",  name: "Queila",   role: "Estrategista de Marca",      color: "#FBBF24", desc: "Define o posicionamento, a pauta editorial e a direção criativa. Cria o mapa de conteúdo mensal e garante consistência em todos os canais.", tasks: ["Pauta editorial mensal", "Posicionamento de marca", "Análise de concorrência", "Direção criativa"] },
-  { i: "B",  name: "Beatriz",  role: "Copywriter & Redatora",      color: "#A78BFA", desc: "Escreve cada legenda, artigo, e-mail e anúncio com foco em conversão. Copy com personalidade, clareza e intenção.", tasks: ["Legendas e posts", "Artigos e blog", "Roteiros de vídeo", "Copy de anúncios"] },
-  { i: "M",  name: "Marcela",  role: "Designer Visual",            color: "#D946EF", desc: "Cria todos os visuais da marca: posts, stories, banners, apresentações e peças de campanha, dentro do manual de identidade.", tasks: ["Posts e stories", "Banners e anúncios", "Apresentações", "Identidade visual"] },
-  { i: "R",  name: "Rafaela",  role: "Gestora de Tráfego Pago",    color: "#F97316", desc: "Gerencia campanhas no Meta Ads e Google Ads com foco em ROAS alto e CPA que faz sentido. Testa, otimiza e escala todos os dias.", tasks: ["Meta Ads (FB/IG)", "Google Ads", "Remarketing", "Otimização de verba"] },
-  { i: "Ma", name: "Marina",   role: "Social Media Manager",       color: "#60A5FA", desc: "Agenda, publica e monitora todo o conteúdo orgânico. Responde comentários, monitora menções e mantém a marca presente.", tasks: ["Agendamento de posts", "Engajamento", "Monitoramento", "Relatório semanal"] },
-  { i: "P",  name: "Pedro",    role: "Calendário Editorial",       color: "#2DD4BF", desc: "Planeja o calendário editorial, semanas, meses e campanhas sazonais. Cada post no lugar certo, na hora certa.", tasks: ["Calendário mensal", "Pilares de conteúdo", "Datas estratégicas", "Cronograma de campanhas"] },
-  { i: "L",  name: "Lucas",    role: "Analista de Dados",          color: "#34D399", desc: "Transforma números em decisões. Monitora tráfego, engajamento e vendas, e entrega relatórios com ações recomendadas.", tasks: ["Dashboards de resultado", "Google Analytics", "Relatórios semanais", "Insights estratégicos"] },
-  { i: "E",  name: "Eduardo",  role: "Agente de Vendas & CRM",     color: "#F59E0B", desc: "Qualifica leads via WhatsApp, alimenta o CRM e garante que nenhum contato seja perdido, do primeiro oi ao fechamento.", tasks: ["Qualificação de leads", "Follow-up automatizado", "Gestão do CRM", "Relatório de pipeline"] },
-  { i: "T",  name: "Teo",      role: "Web Designer & SEO",         color: "#06B6D4", desc: "Mantém o site atualizado, publica no blog e otimiza cada página para os buscadores.", tasks: ["Atualização de site", "SEO on-page", "Blog e artigos", "Landing pages"] },
-  { i: "V",  name: "Vitória",  role: "Revisora de Conteúdo",       color: "#EC4899", desc: "Revisa e corrige todo o conteúdo antes de publicar: gramática, tom de voz, consistência de marca.", tasks: ["Revisão gramatical", "Tom de voz", "Checagem de fatos", "Aprovação final"] },
-  { i: "Be", name: "Ben",      role: "Especialista em Tendências", color: LIME,      desc: "Pesquisa o Google Trends Brasil em tempo real e entrega tendências, queries em crescimento e ideias de conteúdo antes de qualquer produção.", tasks: ["Google Trends em tempo real", "Queries em crescimento", "Ideias de conteúdo", "Hashtags estratégicas"] },
+  { i: "Ai", name: "Aira",    role: "Orquestradora Geral",        desc: "Coordena todo o time em tempo real, define prioridades e garante que cada entrega saia no prazo e com qualidade.", tasks: ["Orquestração do time", "Controle de prazos", "Briefing automatizado", "Relatório executivo"] },
+  { i: "Q",  name: "Queila",  role: "Estrategista de Marca",      desc: "Define o posicionamento, a pauta editorial e a direção criativa. Cria o mapa de conteúdo mensal e garante consistência em todos os canais.", tasks: ["Pauta editorial mensal", "Posicionamento de marca", "Análise de concorrência", "Direção criativa"] },
+  { i: "B",  name: "Beatriz", role: "Copywriter & Redatora",      desc: "Escreve cada legenda, artigo, e-mail e anúncio com foco em conversão. Copy com personalidade, clareza e intenção.", tasks: ["Legendas e posts", "Artigos e blog", "Roteiros de vídeo", "Copy de anúncios"] },
+  { i: "M",  name: "Marcela", role: "Designer Visual",            desc: "Cria todos os visuais da marca: posts, stories, banners, apresentações e peças de campanha, dentro do manual de identidade.", tasks: ["Posts e stories", "Banners e anúncios", "Apresentações", "Identidade visual"] },
+  { i: "R",  name: "Rafaela", role: "Gestora de Tráfego Pago",    desc: "Gerencia campanhas no Meta Ads e Google Ads com foco em ROAS alto e CPA que faz sentido. Testa, otimiza e escala todos os dias.", tasks: ["Meta Ads (FB/IG)", "Google Ads", "Remarketing", "Otimização de verba"] },
+  { i: "Ma", name: "Marina",  role: "Social Media Manager",       desc: "Agenda, publica e monitora todo o conteúdo orgânico. Responde comentários, monitora menções e mantém a marca presente.", tasks: ["Agendamento de posts", "Engajamento", "Monitoramento", "Relatório semanal"] },
+  { i: "P",  name: "Pedro",   role: "Calendário Editorial",       desc: "Planeja o calendário editorial, semanas, meses e campanhas sazonais. Cada post no lugar certo, na hora certa.", tasks: ["Calendário mensal", "Pilares de conteúdo", "Datas estratégicas", "Cronograma de campanhas"] },
+  { i: "L",  name: "Lucas",   role: "Analista de Dados",          desc: "Transforma números em decisões. Monitora tráfego, engajamento e vendas, e entrega relatórios com ações recomendadas.", tasks: ["Dashboards de resultado", "Google Analytics", "Relatórios semanais", "Insights estratégicos"] },
+  { i: "E",  name: "Eduardo", role: "Agente de Vendas & CRM",     desc: "Qualifica leads via WhatsApp, alimenta o CRM e garante que nenhum contato seja perdido, do primeiro oi ao fechamento.", tasks: ["Qualificação de leads", "Follow-up automatizado", "Gestão do CRM", "Relatório de pipeline"] },
+  { i: "T",  name: "Teo",     role: "Web Designer & SEO",         desc: "Mantém o site atualizado, publica no blog e otimiza cada página para os buscadores.", tasks: ["Atualização de site", "SEO on-page", "Blog e artigos", "Landing pages"] },
+  { i: "V",  name: "Vitória", role: "Revisora de Conteúdo",       desc: "Revisa e corrige todo o conteúdo antes de publicar: gramática, tom de voz, consistência de marca.", tasks: ["Revisão gramatical", "Tom de voz", "Checagem de fatos", "Aprovação final"] },
+  { i: "Be", name: "Ben",     role: "Especialista em Tendências", desc: "Pesquisa o Google Trends Brasil em tempo real e entrega tendências, queries em crescimento e ideias de conteúdo antes de qualquer produção.", tasks: ["Google Trends em tempo real", "Queries em crescimento", "Ideias de conteúdo", "Hashtags estratégicas"] },
 ];
 
+/* Horários da pauta do dia (demonstração): a ordem em que o turno acontece. */
+const TURNO = ["08:00", "08:30", "09:15", "10:00", "10:40", "11:30", "13:00", "14:00", "15:00", "16:00", "17:00", "18:00"];
+
 const PROCESS = [
-  { n: "01", title: "Briefing",     duration: "30 min",   agents: ["Lia"],                        desc: "Lia coleta o briefing numa conversa natural, analisa a concorrência e entrega um diagnóstico de marketing personalizado.", details: ["Formulário inteligente de onboarding", "Análise automática da concorrência", "Mapa de oportunidades da marca", "Briefing consolidado para o time"] },
-  { n: "02", title: "Estratégia",   duration: "2h",       agents: ["Ben", "Queila", "Pedro"],     desc: "Ben pesquisa o Google Trends Brasil. Queila define posicionamento e direção criativa. Pedro monta o calendário editorial do mês.", details: ["Tendências reais do Google Trends", "Pauta editorial de 30 dias", "Posicionamento e tom de voz", "Calendário de campanhas"] },
-  { n: "03", title: "Produção",     duration: "48h",      agents: ["Beatriz", "Marcela", "Bobby"], desc: "Beatriz escreve a copy, Marcela cria os visuais e Bobby edita os vídeos, cada um em cima do trabalho do outro.", details: ["Copy para posts, reels e anúncios", "Peças visuais e templates", "Vídeos editados e formatados", "Assets prontos para revisão"] },
-  { n: "04", title: "Revisão",      duration: "4h",       agents: ["Vitória"],                    desc: "Vitória revisa todo o conteúdo antes de qualquer aprovação: gramática, tom de voz, consistência de marca e checagem de fatos.", details: ["Revisão ortográfica e gramatical", "Checagem de tom de voz", "Consistência com o manual da marca", "Aprovação final para o cliente"] },
-  { n: "05", title: "Aprovação",    duration: "24h",      agents: ["Aira"],                       desc: "Você aprova tudo num portal exclusivo: vê as peças, sugere ajustes e aprova com um clique. Aira gerencia o fluxo.", details: ["Portal de aprovação do cliente", "Comentários em cada peça", "Histórico de revisões", "Aprovação com um clique"] },
-  { n: "06", title: "Publicação",   duration: "contínuo", agents: ["Marina", "Teo"],              desc: "Marina publica nos horários de maior engajamento e monitora comentários. Teo mantém site e blog atualizados.", details: ["Agendamento otimizado", "Publicação em todas as plataformas", "Monitoramento de comentários", "Blog e site atualizados"] },
-  { n: "07", title: "Tráfego",      duration: "24/7",     agents: ["Rafaela", "Eduardo"],         desc: "Rafaela ativa e otimiza campanhas no Meta e no Google. Eduardo qualifica os leads que chegam pelo WhatsApp.", details: ["Meta Ads e Google Ads ativos", "Remarketing configurado", "Qualificação de leads no CRM", "Otimização diária de verbas"] },
-  { n: "08", title: "Relatório",    duration: "semanal",  agents: ["Lucas", "Aira"],              desc: "Lucas entrega o relatório semanal com métricas reais. Aira consolida e recomenda o próximo ciclo.", details: ["Dashboard de performance", "Relatório semanal", "Análise de ROI por canal", "Recomendações para o próximo mês"] },
+  { n: "01", title: "Briefing",   duration: "30 min",   agents: ["Lia"],                         desc: "Lia coleta o briefing numa conversa natural, analisa a concorrência e entrega um diagnóstico de marketing personalizado.", details: ["Formulário inteligente de onboarding", "Análise automática da concorrência", "Mapa de oportunidades da marca", "Briefing consolidado para o time"] },
+  { n: "02", title: "Estratégia", duration: "2h",       agents: ["Ben", "Queila", "Pedro"],      desc: "Ben pesquisa o Google Trends Brasil. Queila define posicionamento e direção criativa. Pedro monta o calendário editorial do mês.", details: ["Tendências reais do Google Trends", "Pauta editorial de 30 dias", "Posicionamento e tom de voz", "Calendário de campanhas"] },
+  { n: "03", title: "Produção",   duration: "48h",      agents: ["Beatriz", "Marcela", "Bobby"], desc: "Beatriz escreve a copy, Marcela cria os visuais e Bobby edita os vídeos, cada um em cima do trabalho do outro.", details: ["Copy para posts, reels e anúncios", "Peças visuais e templates", "Vídeos editados e formatados", "Assets prontos para revisão"] },
+  { n: "04", title: "Revisão",    duration: "4h",       agents: ["Vitória"],                     desc: "Vitória revisa todo o conteúdo antes de qualquer aprovação: gramática, tom de voz, consistência de marca e checagem de fatos.", details: ["Revisão ortográfica e gramatical", "Checagem de tom de voz", "Consistência com o manual da marca", "Aprovação final para o cliente"] },
+  { n: "05", title: "Aprovação",  duration: "24h",      agents: ["Aira"],                        desc: "Você aprova tudo num portal exclusivo: vê as peças, sugere ajustes e aprova com um clique. Aira gerencia o fluxo.", details: ["Portal de aprovação do cliente", "Comentários em cada peça", "Histórico de revisões", "Aprovação com um clique"] },
+  { n: "06", title: "Publicação", duration: "contínuo", agents: ["Marina", "Teo"],               desc: "Marina publica nos horários de maior engajamento e monitora comentários. Teo mantém site e blog atualizados.", details: ["Agendamento otimizado", "Publicação em todas as plataformas", "Monitoramento de comentários", "Blog e site atualizados"] },
+  { n: "07", title: "Tráfego",    duration: "24/7",     agents: ["Rafaela", "Eduardo"],          desc: "Rafaela ativa e otimiza campanhas no Meta e no Google. Eduardo qualifica os leads que chegam pelo WhatsApp.", details: ["Meta Ads e Google Ads ativos", "Remarketing configurado", "Qualificação de leads no CRM", "Otimização diária de verbas"] },
+  { n: "08", title: "Relatório",  duration: "semanal",  agents: ["Lucas", "Aira"],               desc: "Lucas entrega o relatório semanal com métricas reais. Aira consolida e recomenda o próximo ciclo.", details: ["Dashboard de performance", "Relatório semanal", "Análise de ROI por canal", "Recomendações para o próximo mês"] },
 ];
 
 /* Cenário de demonstração da seção pinada: cliente fictício. */
@@ -119,465 +116,324 @@ const PERGUNTAS: Array<[string, string]> = [
 ];
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   CSS. Mobile-first, sem !important. Tokens no topo; tudo que é layout mora
-   aqui, inline só entra cor dinâmica por agente.
+   CSS. Mobile-first, sem !important. Tokens no topo.
    ───────────────────────────────────────────────────────────────────────── */
 const CSS = `
-  .lp { --lime:${LIME}; --ink:${INK}; --canvas:${CANVAS};
-        --ink-2: rgba(242,241,234,.62); --ink-3: rgba(242,241,234,.38);
-        --line: rgba(242,241,234,.12); --line-2: rgba(242,241,234,.22);
-        --pad: clamp(20px, 5vw, 72px); --w: 1360px;
-        --display: 'Instrument Sans', 'Manrope', system-ui, sans-serif;
-        --body: 'Instrument Sans', 'Manrope', system-ui, sans-serif;
-        --serif: 'Instrument Serif', 'Times New Roman', serif;
+  .lp { --lime:${LIME}; --ink:${INK}; --paper:${PAPER}; --white:#FFFFFF;
+        --ink-2: rgba(17,19,16,.66); --ink-3: rgba(17,19,16,.44);
+        --line: rgba(17,19,16,.14); --line-2: rgba(17,19,16,.3);
+        --pad: clamp(20px, 5vw, 72px); --w: 1320px;
+        --serif: 'Instrument Serif', 'Times New Roman', Georgia, serif;
+        --sans: 'Instrument Sans', 'Manrope', system-ui, sans-serif;
         --mono: 'DM Mono', ui-monospace, monospace;
-        font-family: var(--body); color: var(--ink); background: var(--canvas);
-        -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
-  html:has(.lp), body:has(.lp) { overflow-x: clip; scroll-behavior: auto; background: ${CANVAS}; }
+        font-family: var(--sans); color: var(--ink); background: var(--paper);
+        -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; font-feature-settings: "kern", "liga", "onum"; }
+  html:has(.lp), body:has(.lp) { overflow-x: clip; scroll-behavior: auto; background: ${PAPER}; }
   body:has(.lp) .fixed.inset-x-0.bottom-0 { z-index: 60; }
+  .lp { position: relative; }
+  .lp > *:not(.lp-grain) { position: relative; z-index: 1; }
   .lp *, .lp *::before, .lp *::after { box-sizing: border-box; margin: 0; padding: 0; }
   .lp a { color: inherit; text-decoration: none; }
   .lp button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
-  .lp h1, .lp h2, .lp h3 { font-family: var(--display); font-weight: 700; letter-spacing: -0.035em; line-height: .98; overflow-wrap: normal; }
-  .lp-serif, .lp h1 em, .lp h2 em, .lp h3 em { font-family: var(--serif); font-style: italic; font-weight: 400; letter-spacing: -0.015em; }
-  .lp h2 em { color: var(--lime); }
+  .lp h1, .lp h2, .lp h3 { font-family: var(--serif); font-weight: 400; letter-spacing: -0.02em; line-height: 1; overflow-wrap: normal; }
+  .lp h1 em, .lp h2 em, .lp h3 em { font-style: italic; }
   .lp p { line-height: 1.6; }
-  .lp ::selection { background: var(--lime); color: ${CANVAS}; }
-  .lp-mono { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
+  .lp ::selection { background: var(--lime); color: var(--ink); }
+  .lp-mono { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; color: var(--ink-3); }
+  .lp-cap { font-family: var(--sans); font-size: 11.5px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-3); }
   .lp-wrap { max-width: var(--w); margin: 0 auto; padding-left: var(--pad); padding-right: var(--pad); }
-  .lp-outline { color: transparent; -webkit-text-stroke: 1.5px var(--lime); }
-  @supports not (-webkit-text-stroke: 1px #000) { .lp-outline { color: var(--lime); } }
-  .lp-grain { position: fixed; inset: 0; pointer-events: none; z-index: 1; opacity: .05; mix-blend-mode: overlay;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+  /* fibra do papel: ruído fino, só sobre o fundo */
+  .lp-grain { position: absolute; inset: 0; pointer-events: none; z-index: 0; opacity: .045;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
 
-  /* botões */
-  .lp-btn { display: inline-flex; align-items: center; gap: 10px; height: 52px; padding: 0 26px; border-radius: 999px; font-weight: 700; font-size: 14px; border: 1px solid var(--line-2); transition: transform .35s cubic-bezier(.2,.7,0,1), background .25s, color .25s, border-color .25s; white-space: nowrap; }
-  .lp-btn:hover { transform: translateY(-2px); border-color: var(--ink); }
+  /* marca-texto: um gesto de mão sobre a palavra que importa */
+  .lp mark { background: none; color: inherit; background-image: linear-gradient(var(--lime), var(--lime)); background-repeat: no-repeat; background-size: 0% 82%; background-position: 0 62%; padding: 0 .06em; margin: 0 -.06em; transition: background-size 1.1s cubic-bezier(.2,.7,0,1) .25s; box-decoration-break: clone; -webkit-box-decoration-break: clone; }
+  .sc-in mark, .lp-marca-ja mark { background-size: 100% 82%; }
+
+  /* botões: retângulos de tinta, sem pílula, sem brilho */
+  .lp-btn { display: inline-flex; align-items: center; gap: 10px; height: 52px; padding: 0 22px; border-radius: 6px; font-weight: 600; font-size: 14.5px; border: 1px solid var(--ink); color: var(--ink); background: transparent; transition: background .25s, color .25s, transform .35s cubic-bezier(.2,.7,0,1); white-space: nowrap; }
+  .lp .lp-btn:hover { background: var(--ink); color: var(--paper); }
+  .lp .lp-btn--ink { background: var(--ink); color: var(--paper); }
+  .lp-btn--ink:hover { background: #2A2E28; }
+  .lp-btn--sm { height: 40px; padding: 0 16px; font-size: 13px; }
   .lp-btn svg { transition: transform .35s cubic-bezier(.2,.7,0,1); }
   .lp-btn:hover svg { transform: translate(2px, -2px); }
-  .lp-btn--lime:hover { box-shadow: 0 16px 36px -14px rgba(185,255,75,.55); }
-  .lp-btn--lime { background: var(--lime); color: ${CANVAS}; border-color: var(--lime); }
-  .lp-btn--lime:hover { background: #ceff70; border-color: #ceff70; }
-  .lp-btn--ink { background: var(--ink); color: ${CANVAS}; border-color: var(--ink); }
-  .lp-btn--sm { height: 40px; padding: 0 18px; font-size: 13px; }
-  .lp-link { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; border-bottom: 1px solid var(--line-2); padding-bottom: 4px; transition: border-color .25s, gap .25s; }
-  .lp-link:hover { border-color: var(--lime); gap: 12px; }
+  .lp-link { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 14.5px; border-bottom: 1px solid var(--ink); padding-bottom: 3px; transition: gap .25s, border-color .25s; }
+  .lp-link:hover { gap: 12px; }
 
   /* barra */
-  .lp-nav { position: fixed; inset: 0 0 auto 0; z-index: 200; height: 68px; display: flex; align-items: center; border-bottom: 1px solid transparent; transition: background .35s, border-color .35s, transform .5s cubic-bezier(.2,.7,0,1); }
+  .lp > .lp-nav { position: fixed; inset: 0 0 auto 0; z-index: 200; height: 68px; display: flex; align-items: center; border-bottom: 1px solid transparent; transition: background .35s, border-color .35s, transform .5s cubic-bezier(.2,.7,0,1); }
+  .lp-nav.is-solid { background: rgba(244,242,236,.94); border-color: var(--line); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
   .lp-nav.is-hidden { transform: translateY(-100%); }
-  .lp-nav.is-solid { background: rgba(10,10,10,.92); border-color: var(--line); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
   .lp-nav__in { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-  .lp-brand { display: inline-flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 700; font-size: 16px; letter-spacing: -0.02em; }
-  .lp-brand img { width: 30px; height: 30px; border-radius: 8px; }
+  .lp-brand { display: inline-flex; align-items: center; gap: 10px; font-family: var(--serif); font-size: 20px; letter-spacing: -0.01em; }
+  .lp-brand img { width: 28px; height: 28px; border-radius: 7px; }
   .lp-nav__links { display: none; }
   .lp-nav__cta { display: none; }
-  .lp-burger { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line-2); border-radius: 999px; }
+  .lp-burger { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line-2); border-radius: 6px; }
   @media (min-width: 900px) {
-    .lp-nav__links { display: flex; gap: 32px; font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
-    .lp-nav__links a { transition: color .2s; } .lp-nav__links a:hover { color: var(--ink); }
+    .lp-nav__links { display: flex; gap: 28px; font-size: 14px; font-weight: 500; color: var(--ink-2); }
+    .lp-nav__links a { border-bottom: 1px solid transparent; transition: color .2s, border-color .2s; } .lp-nav__links a:hover { color: var(--ink); border-color: var(--ink); }
     .lp-nav__cta { display: flex; align-items: center; gap: 22px; }
-    .lp-nav__cta .lp-entrar { font-size: 13.5px; font-weight: 600; color: var(--ink-2); }
+    .lp-nav__cta .lp-entrar { font-size: 14px; font-weight: 500; color: var(--ink-2); }
     .lp-burger { display: none; }
   }
-  .lp-menu { position: fixed; inset: 0; z-index: 190; background: var(--canvas); display: flex; flex-direction: column; justify-content: center; padding: 96px var(--pad) 40px; gap: 6px; }
-  .lp-menu a.lp-menu__l { font-family: var(--display); font-weight: 700; font-size: clamp(34px, 9vw, 56px); letter-spacing: -0.04em; line-height: 1.05; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .lp > .lp-menu { position: fixed; inset: 0; z-index: 190; background: var(--paper); display: flex; flex-direction: column; justify-content: center; padding: 96px var(--pad) 40px; gap: 4px; }
+  .lp-menu a.lp-menu__l { font-family: var(--serif); font-size: clamp(36px, 9vw, 56px); letter-spacing: -0.02em; line-height: 1.1; padding: 10px 0; border-bottom: 1px solid var(--line); }
   .lp-menu__cta { display: flex; flex-direction: column; gap: 10px; margin-top: 28px; }
 
-  /* hero: título à esquerda, card do time à direita, aurora atrás */
-  .lp-hero { position: relative; min-height: 100svh; display: flex; flex-direction: column; justify-content: center; padding: 96px 0 40px; overflow: hidden; isolation: isolate; }
-  .lp-plane { position: absolute; inset: -14% 0; pointer-events: none; will-change: transform; }
-  .lp-plane--far { z-index: 0; overflow: hidden; }
-  .lp-hero__bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: .9; filter: saturate(1.05); -webkit-mask-image: radial-gradient(120% 90% at 58% 50%, #000 40%, transparent 100%); mask-image: radial-gradient(120% 90% at 58% 50%, #000 40%, transparent 100%); }
-  .lp-hero::after { content: ""; position: absolute; inset: auto 0 0 0; height: 30%; background: linear-gradient(to bottom, transparent, var(--canvas)); z-index: 1; pointer-events: none; }
-  .lp-plane--rule { z-index: 0; background-image: linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: calc(100% / 6) 100%; -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent); mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent); opacity: .6; }
-  .lp-plane--near { z-index: 6; background: radial-gradient(40% 22% at 58% 112%, rgba(185,255,75,.12), transparent 70%); }
-  .lp-hero__floor { position: absolute; z-index: 1; left: 50%; bottom: 8%; width: min(90vw, 900px); height: 26vh; transform: translateX(-30%); background: radial-gradient(50% 60% at 50% 100%, rgba(185,255,75,.14), transparent 70%); pointer-events: none; }
-  .lp-hero__grid { position: relative; z-index: 3; display: grid; grid-template-columns: 1fr; gap: 32px; align-items: center; width: 100%; min-width: 0; }
+  /* hero: título à esquerda, a pauta do dia à direita */
+  .lp-hero { position: relative; padding: 108px 0 36px; overflow: hidden; }
+  .lp-hero__grid { display: grid; grid-template-columns: 1fr; gap: 40px; align-items: center; }
   .lp-hero__copy { min-width: 0; }
-  .lp-hero__eyebrow { display: inline-flex; align-items: center; gap: 12px; margin-bottom: clamp(18px, 3vh, 28px); }
-  .lp-hero__eyebrow i { display: block; width: 36px; height: 1px; background: var(--lime); transform: scaleX(0); transform-origin: left; animation: lp-draw .9s cubic-bezier(.2,.7,0,1) .1s forwards; }
-  @keyframes lp-draw { to { transform: none; } }
-  .lp-h1 { font-size: clamp(44px, 11.2vw, 96px); line-height: .94; letter-spacing: -0.04em; max-width: 100%; }
-  .lp-h1 .l { display: block; overflow: hidden; padding-bottom: .08em; margin-bottom: -.08em; }
-  .lp-h1 .w { display: block; transform: translateY(112%); animation: lp-line 1.1s cubic-bezier(.2,.7,0,1) forwards; }
-  .lp-h1 .l:nth-child(1) .w { animation-delay: .08s; }
-  .lp-h1 .l:nth-child(2) .w { animation-delay: .2s; }
-  .lp-h1 .l:nth-child(3) .w { animation-delay: .32s; }
-  .lp-h1 .l2 .w { font-family: var(--serif); font-style: italic; font-weight: 400; letter-spacing: -0.02em; font-size: 1.06em; line-height: .88; }
-  .lp-h1 .l3 { color: var(--lime); }
+  .lp-hero__kicker { display: flex; align-items: center; gap: 12px; margin-bottom: clamp(20px, 3vh, 30px); }
+  .lp-hero__kicker i { display: block; width: 28px; height: 1px; background: var(--ink); }
+  .lp-h1 { font-size: clamp(46px, 11.6vw, 112px); line-height: .96; letter-spacing: -0.025em; max-width: 100%; }
+  .lp-h1 .l { display: block; overflow: hidden; padding-bottom: .1em; margin-bottom: -.1em; }
+  .lp-h1 .w { display: block; transform: translateY(110%); animation: lp-line 1.1s cubic-bezier(.2,.7,0,1) forwards; }
+  .lp-h1 .l:nth-child(1) .w { animation-delay: .06s; }
+  .lp-h1 .l:nth-child(2) .w { animation-delay: .18s; }
   @keyframes lp-line { to { transform: none; } }
-  @keyframes lp-rise { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
-  .lp-hero__lede { font-size: clamp(15px, 1.15vw, 17.5px); line-height: 1.55; color: var(--ink-2); max-width: 48ch; margin-top: clamp(18px, 3vh, 26px); opacity: 0; animation: lp-rise 1s cubic-bezier(.2,.7,0,1) .7s forwards; }
+  @keyframes lp-rise { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+  .lp-hero__lede { font-size: clamp(16px, 1.25vw, 19px); line-height: 1.55; color: var(--ink-2); max-width: 46ch; margin-top: clamp(20px, 3vh, 28px); opacity: 0; animation: lp-rise 1s cubic-bezier(.2,.7,0,1) .6s forwards; }
   .lp-hero__lede b { color: var(--ink); font-weight: 600; }
-  .lp-hero__ctas { display: flex; flex-wrap: wrap; gap: 10px; margin-top: clamp(20px, 3vh, 28px); opacity: 0; animation: lp-rise 1s cubic-bezier(.2,.7,0,1) .9s forwards; }
-  .lp-hero__card { min-width: 0; max-width: 560px; width: 100%; opacity: 0; animation: lp-rise 1.1s cubic-bezier(.2,.7,0,1) .5s forwards; }
+  .lp-hero__ctas { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 22px; margin-top: clamp(22px, 3vh, 30px); opacity: 0; animation: lp-rise 1s cubic-bezier(.2,.7,0,1) .8s forwards; }
+  .lp-hero__sheet { min-width: 0; width: 100%; max-width: 520px; opacity: 0; animation: lp-rise 1.1s cubic-bezier(.2,.7,0,1) .45s forwards; }
   @media (min-width: 900px) {
-    .lp-hero { padding: 120px 0 160px; }
-    .lp-hero__grid { grid-template-columns: minmax(0, 1.15fr) minmax(360px, .85fr); gap: clamp(32px, 5vw, 72px); }
-    .lp-h1 { font-size: clamp(60px, 6.6vw, 100px); }
-    .lp-hero__card { justify-self: end; }
+    .lp-hero { padding: 132px 0 40px; min-height: 100svh; display: flex; flex-direction: column; justify-content: center; }
+    .lp-hero__grid { grid-template-columns: minmax(0, 1.2fr) minmax(380px, .8fr); gap: clamp(40px, 6vw, 96px); }
+    .lp-h1 { font-size: clamp(64px, 7.4vw, 118px); }
+    .lp-hero__sheet { justify-self: end; }
   }
+  .lp-hero__facts { list-style: none; display: flex; flex-wrap: wrap; gap: 18px clamp(28px, 5vw, 72px); margin-top: clamp(40px, 7vh, 72px); padding-top: 22px; border-top: 1px solid var(--ink); opacity: 0; animation: lp-rise 1s cubic-bezier(.2,.7,0,1) 1s forwards; }
+  .lp-hero__facts li { display: flex; align-items: baseline; gap: 10px; }
+  .lp-hero__facts b { font-family: var(--serif); font-weight: 400; font-size: clamp(28px, 2.6vw, 40px); letter-spacing: -0.02em; line-height: 1; }
+  .lp-hero__facts span { font-size: 13px; color: var(--ink-2); }
+  .lp-hero__facts .lp-hero__go { margin-left: auto; display: inline-flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; }
+  .lp-hero__go i { width: 36px; height: 36px; border-radius: 50%; border: 1px solid var(--ink); display: inline-flex; align-items: center; justify-content: center; transition: background .25s, color .25s; }
+  .lp-hero__go:hover i { background: var(--ink); color: var(--paper); }
 
-  /* card do time: quem está executando agora, e os doze */
-  .lp-agent { border-radius: 24px; padding: clamp(18px, 2.4vw, 26px); position: relative; overflow: hidden; background: rgba(10,10,10,.55); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); transition: border-color .6s, box-shadow .6s; }
-  .lp-glow { position: absolute; border-radius: 50%; pointer-events: none; filter: blur(60px); }
-  .lp-agent__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; position: relative; }
-  .lp-dot { animation: lp-pulse 2.2s ease-in-out infinite; }
-  @keyframes lp-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .55; transform: scale(.8); } }
-  @keyframes lp-agent-in { from { opacity: .35; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-  .lp-agent-in { animation: lp-agent-in .5s cubic-bezier(.22,.68,0,1) both; }
-  .lp-agent__who { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
-  .lp-agent__avatar { width: 60px; height: 60px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-family: var(--display); font-size: 21px; font-weight: 700; flex-shrink: 0; }
-  .lp-agent__name { font-family: var(--display); font-size: 22px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.05; }
-  .lp-agent__role { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; margin-top: 5px; opacity: .9; }
-  .lp-agent__now { background: rgba(0,0,0,.42); border-radius: 14px; padding: 13px 15px; }
-  .lp-tasks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
-  .lp-tasks div { display: flex; align-items: center; gap: 8px; min-width: 0; }
-  .lp-tasks span { font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }
-  .lp-agent__sep { height: 1px; margin: 16px 0; }
-  .lp-agent-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
-  @media (min-width: 420px) { .lp-agent-grid { gap: 8px; } }
-  .lp-agent-btn { height: 44px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; transition: transform .2s; min-width: 0; }
-  .lp-agent-btn:hover { transform: scale(1.08); }
-  .lp-agent-btn b { font-family: var(--display); font-size: 12px; font-weight: 700; }
-  .lp-agent-btn small { font-family: var(--mono); font-size: 8px; line-height: 1; }
-
-  /* barra inferior do hero: fatos reais, atalho e redes */
-  .lp-hero__bar { position: relative; z-index: 5; margin-top: 36px; padding-top: 18px; padding-bottom: 0; display: flex; flex-direction: column; gap: 16px; opacity: 0; animation: lp-rise 1s cubic-bezier(.2,.7,0,1) 1.1s forwards; }
-  .lp-hero__bar::before { content: ""; position: absolute; left: var(--pad); right: var(--pad); top: 0; height: 1px; background: var(--line-2); }
-  .lp-hero__facts { list-style: none; display: flex; gap: clamp(22px, 4vw, 56px); }
-  .lp-hero__facts li { display: flex; flex-direction: column; gap: 4px; }
-  .lp-hero__facts b { font-family: var(--display); font-weight: 600; font-size: clamp(20px, 2vw, 28px); letter-spacing: -0.02em; line-height: 1; }
-  .lp-hero__facts span { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
-  .lp-hero__side { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
-  .lp-hero__play { display: inline-flex; align-items: center; gap: 12px; font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); }
-  .lp-hero__play i { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line-2); display: inline-flex; align-items: center; justify-content: center; transition: background .25s, color .25s, border-color .25s; }
-  .lp-hero__play:hover i { background: var(--lime); color: ${CANVAS}; border-color: var(--lime); }
-  .lp-hero__social { display: flex; gap: 8px; }
-  @media (min-width: 900px) {
-    .lp-hero__bar { position: absolute; left: 0; right: 0; bottom: 0; margin-top: 0; flex-direction: row; align-items: center; justify-content: space-between; padding-top: 22px; padding-bottom: 26px; }
-    .lp-hero__side { gap: 36px; }
-  }
-  @media (max-width: 899px) { .lp-hero__social { display: none; } }
+  /* folha de papel: o objeto físico que sustenta a pauta e o calendário */
+  .lp-sheet { position: relative; background: var(--white); border: 1px solid var(--line); box-shadow: 0 1px 0 rgba(17,19,16,.06), 0 24px 48px -28px rgba(17,19,16,.35); padding: clamp(18px, 2.2vw, 26px); }
+  .lp-sheet--tilt { transform: rotate(-1.2deg); }
+  @media (min-width: 900px) { .lp-sheet--tilt { transform: rotate(-1.6deg); } }
+  .lp-sheet__head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding-bottom: 12px; border-bottom: 1px solid var(--ink); }
+  .lp-sheet__title { font-family: var(--serif); font-size: 22px; letter-spacing: -0.01em; }
+  .lp-sheet__meta { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); text-align: right; line-height: 1.5; }
+  .lp-pauta { list-style: none; margin-top: 6px; }
+  .lp-pauta li { display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line); font-size: 13px; position: relative; }
+  .lp-pauta li:last-child { border-bottom: 0; }
+  .lp-pauta time { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); }
+  .lp-pauta .t { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: color .4s; }
+  .lp-pauta .t b { font-weight: 600; }
+  .lp-pauta .t span { color: var(--ink-2); }
+  .lp-pauta .t mark { transition: background-size .55s cubic-bezier(.2,.7,0,1); }
+  .lp-pauta .q { width: 16px; height: 16px; border: 1px solid var(--line-2); border-radius: 3px; display: inline-flex; align-items: center; justify-content: center; color: var(--ink); transition: background .3s, border-color .3s; }
+  .lp-pauta li.is-done .q { background: var(--ink); border-color: var(--ink); color: var(--paper); }
+  .lp-pauta li.is-done .t { color: var(--ink-3); text-decoration: line-through; text-decoration-color: var(--ink-3); text-decoration-thickness: 1px; }
+  .lp-pauta li.is-now .t mark { background-size: 100% 82%; }
+  .lp-pauta li.is-now::before { content: ""; position: absolute; left: -10px; top: 50%; width: 4px; height: 4px; border-radius: 50%; background: var(--ink); transform: translateY(-50%); }
+  .lp-sheet__foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--line); font-size: 12px; color: var(--ink-2); }
+  .lp-carimbo { position: absolute; right: 14px; bottom: 44px; font-family: var(--sans); font-weight: 700; font-size: 10.5px; letter-spacing: .16em; text-transform: uppercase; color: var(--ink); border: 1.5px solid var(--ink); border-radius: 4px; padding: 6px 9px; transform: rotate(-8deg); opacity: .8; mix-blend-mode: multiply; background: var(--lime); }
 
   /* manifesto */
-  .lp-manifesto { padding: clamp(56px, 10vw, 120px) 0; border-top: 1px solid var(--line); }
-  .lp-manifesto p { font-family: var(--display); font-weight: 600; font-size: clamp(24px, 4.2vw, 56px); letter-spacing: -0.03em; line-height: 1.12; max-width: 22ch; }
-  .wd { display: inline-block; overflow: hidden; vertical-align: bottom; padding-bottom: .1em; margin-bottom: -.1em; }
-  .wd > span { display: inline-block; transform: translateY(108%); transition: transform 1s cubic-bezier(.2,.7,0,1); transition-delay: calc(var(--i) * 24ms); }
+  .lp-manifesto { padding: clamp(64px, 10vw, 128px) 0; border-top: 1px solid var(--ink); }
+  .lp-manifesto p { font-family: var(--serif); font-size: clamp(28px, 4.6vw, 62px); letter-spacing: -0.02em; line-height: 1.1; max-width: 24ch; }
+  .wd { display: inline-block; overflow: hidden; vertical-align: bottom; padding-bottom: .12em; margin-bottom: -.12em; }
+  .wd > span { display: inline-block; transform: translateY(108%); transition: transform 1s cubic-bezier(.2,.7,0,1); transition-delay: calc(var(--i) * 22ms); }
   .sc-in .wd > span { transform: none; }
-  .wd.is-em { color: var(--lime); font-family: var(--serif); font-style: italic; font-weight: 400; letter-spacing: -0.01em; font-size: 1.06em; }
-  .lp-manifesto__meta { display: flex; gap: 28px; flex-wrap: wrap; margin-top: 28px; }
-  .lp-manifesto__meta span { display: inline-flex; align-items: center; gap: 10px; }
-  .lp-manifesto__meta i { width: 6px; height: 6px; border-radius: 50%; background: var(--lime); display: inline-block; }
+  .wd.is-em { font-style: italic; }
+  .lp-manifesto__meta { display: flex; gap: 12px 28px; flex-wrap: wrap; margin-top: 30px; }
+  .lp-manifesto__meta span { display: inline-flex; align-items: center; gap: 10px; font-size: 13.5px; color: var(--ink-2); }
+  .lp-manifesto__meta i { width: 14px; height: 1px; background: var(--ink); display: inline-block; }
 
   /* capítulos */
-  .lp-chapter { border-top: 1px solid var(--line); padding: clamp(56px, 9vw, 120px) 0; }
+  .lp-chapter { border-top: 1px solid var(--line-2); padding: clamp(56px, 9vw, 120px) 0; }
   .lp-chapter__grid { display: grid; grid-template-columns: 1fr; gap: 28px; }
-  @media (min-width: 900px) { .lp-chapter__grid { grid-template-columns: minmax(0, 5.5fr) minmax(0, 6.5fr); gap: 64px; } .lp-chapter__head { position: sticky; top: 100px; align-self: start; } }
-  .lp-chapter__n { font-family: var(--mono); font-size: 12px; letter-spacing: .14em; color: var(--lime); display: flex; align-items: center; gap: 12px; }
-  .lp-chapter__n::after { content: ""; flex: 0 0 40px; height: 1px; background: var(--lime); transform: scaleX(0); transform-origin: left; transition: transform .9s cubic-bezier(.2,.7,0,1) .25s; }
+  @media (min-width: 900px) { .lp-chapter__grid { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 72px; } .lp-chapter__head { position: sticky; top: 100px; align-self: start; } }
+  .lp-chapter__n { display: flex; align-items: center; gap: 12px; }
+  .lp-chapter__n::after { content: ""; flex: 0 0 40px; height: 1px; background: var(--ink); transform: scaleX(0); transform-origin: left; transition: transform .9s cubic-bezier(.2,.7,0,1) .25s; }
   .sc-in .lp-chapter__n::after { transform: none; }
-  .lp-h2 { font-size: clamp(34px, 4.3vw, 64px); margin-top: 18px; }
+  .lp-h2 { font-size: clamp(36px, 4.6vw, 68px); margin-top: 18px; line-height: 1.02; }
   .lp-chapter__lede { font-size: clamp(15px, 1.2vw, 18px); color: var(--ink-2); margin-top: 22px; max-width: 44ch; }
   .lp-chapter__lede + .lp-link { margin-top: 22px; }
 
-  /* processo: linhas expansíveis */
-  .lp-rows { border-top: 1px solid var(--line-2); }
+  /* linhas expansíveis (processo e perguntas) */
+  .lp-rows { border-top: 1px solid var(--ink); }
   .lp-row { border-bottom: 1px solid var(--line); }
-  .lp-row__btn { width: 100%; display: grid; grid-template-columns: 34px 1fr auto; align-items: baseline; gap: 14px; padding: 20px 0; text-align: left; transition: padding .3s; }
-  .lp-row__btn:hover .lp-row__t { color: var(--lime); transform: translateX(6px); }
-  .lp-row__t { transition: color .25s, transform .45s cubic-bezier(.2,.7,0,1); }
-  .lp-row__n { font-family: var(--mono); font-size: 12px; color: var(--ink-3); letter-spacing: .1em; }
-  .lp-row__t { font-family: var(--display); font-weight: 700; font-size: clamp(22px, 2.6vw, 34px); letter-spacing: -0.035em; transition: color .25s; }
-  .lp-row__meta { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); display: none; }
-  .lp-row__plus { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line-2); border-radius: 50%; transition: transform .35s cubic-bezier(.2,.7,0,1), background .25s, color .25s; align-self: center; }
-  .lp-row[data-open="true"] .lp-row__plus { transform: rotate(45deg); background: var(--lime); color: ${CANVAS}; border-color: var(--lime); }
+  .lp-row__btn { width: 100%; display: grid; grid-template-columns: 34px 1fr auto; align-items: baseline; gap: 14px; padding: 18px 0; text-align: left; }
+  .lp-row__n { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
+  .lp-row__t { font-family: var(--serif); font-size: clamp(24px, 2.6vw, 36px); letter-spacing: -0.02em; transition: transform .45s cubic-bezier(.2,.7,0,1); }
+  .lp-row__btn:hover .lp-row__t { transform: translateX(6px); }
+  .lp-row__t--q { font-size: clamp(20px, 2vw, 28px); }
+  .lp-row__meta { font-family: var(--mono); font-size: 11px; color: var(--ink-3); display: none; }
+  .lp-row__plus { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--ink); border-radius: 50%; transition: transform .35s cubic-bezier(.2,.7,0,1), background .25s, color .25s; align-self: center; }
+  .lp-row[data-open="true"] .lp-row__plus { transform: rotate(45deg); background: var(--ink); color: var(--paper); }
   .lp-row__body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .45s cubic-bezier(.2,.7,0,1); }
   .lp-row[data-open="true"] .lp-row__body { grid-template-rows: 1fr; }
   .lp-row__body > div { overflow: hidden; }
   .lp-row__inner { display: grid; grid-template-columns: 1fr; gap: 18px; padding: 0 0 26px 48px; }
+  .lp-row__inner--q { grid-template-columns: 1fr; }
   .lp-row__inner p { color: var(--ink-2); font-size: 15px; max-width: 46ch; }
   .lp-row__agents { display: flex; flex-wrap: wrap; gap: 6px; }
-  .lp-chip { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; padding: 6px 10px; border: 1px solid var(--line-2); border-radius: 999px; color: var(--ink-2); }
-  .lp-row__list { list-style: none; display: grid; gap: 8px; font-size: 13.5px; color: var(--ink-2); }
+  .lp-chip { font-size: 12px; font-weight: 600; padding: 5px 9px; border: 1px solid var(--line-2); border-radius: 4px; color: var(--ink-2); }
+  .lp-row__list { list-style: none; display: grid; gap: 8px; font-size: 14px; color: var(--ink-2); }
   .lp-row__list li { display: flex; gap: 10px; align-items: baseline; }
-  .lp-row__list li::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--lime); flex: 0 0 5px; position: relative; top: -2px; }
-  @media (min-width: 700px) { .lp-row__btn { grid-template-columns: 40px 1fr auto auto; } .lp-row__meta { display: block; } .lp-row__inner { grid-template-columns: 1.2fr 1fr; gap: 32px; padding-left: 54px; } }
+  .lp-row__list li::before { content: ""; width: 12px; height: 1px; background: var(--ink); flex: 0 0 12px; position: relative; top: -4px; }
+  @media (min-width: 700px) { .lp-row__btn { grid-template-columns: 40px 1fr auto auto; } .lp-row__btn:has(.lp-row__t--q) { grid-template-columns: 40px 1fr auto; } .lp-row__meta { display: block; } .lp-row__inner { grid-template-columns: 1.2fr 1fr; gap: 32px; padding-left: 54px; } .lp-row__inner--q { grid-template-columns: 1fr; } }
 
-  .lp-row__t--q { font-size: clamp(19px, 2vw, 26px); font-weight: 600; }
-  .lp-row__inner--q { grid-template-columns: 1fr; }
-  @media (min-width: 700px) { .lp-row__btn:has(.lp-row__t--q) { grid-template-columns: 40px 1fr auto; } }
-
-  /* o mês se montando (pinado) */
-  .lp-month { position: relative; border-top: 1px solid var(--line); }
+  /* o mês se montando (pinado): calendário de parede e lista de aprovação */
+  .lp-month { position: relative; border-top: 1px solid var(--ink); }
   .lp-month__stage { min-height: 100svh; display: flex; align-items: safe center; padding: 84px 0 28px; }
-  .lp-month__head { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 24px; align-items: end; }
+  .lp-month__head { display: grid; grid-template-columns: 1fr; gap: 12px; margin-bottom: 22px; align-items: end; }
   @media (min-width: 900px) { .lp-month__head { grid-template-columns: 1.1fr 1fr; gap: 48px; } }
-  .lp-month__head .lp-h2 { margin-top: 12px; }
-  .lp-month__grid { display: grid; grid-template-columns: 1fr; gap: 12px; border-top: 1px solid var(--line-2); padding-top: 18px; }
-  .lp-month__prog { position: relative; height: 2px; background: var(--line); margin-bottom: 18px; overflow: hidden; }
-  .lp-month__prog::before { content: ""; position: absolute; inset: 0; background: var(--lime); transform-origin: left; transform: scaleX(var(--sc-p, 0)); }
-  .lp-month__prog b { position: absolute; top: 8px; left: 0; font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
+  .lp-month .lp-h2 { font-size: clamp(34px, 4.4vw, 64px); margin-top: 12px; }
+  .lp-month__prog { position: relative; height: 1px; background: var(--line); margin-bottom: 20px; }
+  .lp-month__prog::before { content: ""; position: absolute; inset: 0; background: var(--ink); transform-origin: left; transform: scaleX(var(--sc-p, 0)); }
+  .lp-month__prog b { position: absolute; top: 8px; left: 0; font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); font-weight: 400; }
   .lp-month__prog b:last-child { left: auto; right: 0; }
-  @media (prefers-reduced-motion: reduce) { .lp-month__prog::before { transform: none; } }
-  @media (min-width: 900px) { .lp-month__grid { grid-template-columns: minmax(0, 1.45fr) minmax(280px, 1fr); gap: 56px; } }
-  .lp-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
-  .lp-cal__dow { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; color: var(--ink-3); padding: 0 0 10px 8px; }
-  .lp-cal__d { position: relative; aspect-ratio: 1 / .62; border-top: 1px solid var(--line); border-left: 1px solid var(--line); padding: 7px 8px; font-family: var(--mono); font-size: 11px; color: var(--ink-3); overflow: hidden; }
+  .lp-month__grid { display: grid; grid-template-columns: 1fr; gap: 14px; }
+  @media (min-width: 900px) { .lp-month__grid { grid-template-columns: minmax(0, 1.45fr) minmax(280px, 1fr); gap: 40px; align-items: start; } }
+  .lp-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); margin-top: 10px; }
+  .lp-cal__dow { font-family: var(--mono); font-size: 10px; color: var(--ink-3); padding: 0 0 8px 6px; }
+  .lp-cal__d { position: relative; aspect-ratio: 1 / .62; border-top: 1px solid var(--line); border-left: 1px solid var(--line); padding: 6px 7px; font-family: var(--mono); font-size: 11px; color: var(--ink-3); overflow: hidden; }
   .lp-cal__d:nth-child(7n) { border-right: 1px solid var(--line); }
   .lp-cal__d:nth-last-child(-n+7) { border-bottom: 1px solid var(--line); }
-  .lp-cal__d.is-off { color: transparent; }
-  .lp-cal__d.has { --v: clamp(0, calc((var(--sc-p, 0) - var(--em)) * 7), 1); }
-  .lp-cal__d.has::after { content: ""; position: absolute; inset: 0; background: rgba(185,255,75,calc(var(--v) * .08)); pointer-events: none; }
-  .lp-cal__chip { position: absolute; left: 6px; right: 6px; bottom: 6px; padding: 4px 7px; border-radius: 4px; font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: ${CANVAS}; background: var(--lime); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: var(--v, 0); transform: translateY(calc((1 - var(--v, 0)) * 8px)); z-index: 1; }
+  .lp-cal__d.is-off { color: transparent; background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(17,19,16,.04) 6px 7px); }
+  .lp-cal__d.has { --v: clamp(0, calc((var(--sc-p, 0) - var(--em)) * 7), 1); color: var(--ink); }
+  .lp-cal__chip { position: absolute; left: 5px; right: 5px; bottom: 5px; padding: 3px 6px; font-family: var(--sans); font-size: 11px; font-weight: 600; color: var(--ink); background: var(--lime); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transform-origin: left; transform: scaleX(var(--v, 0)); z-index: 1; }
   .lp-month__foot { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; padding-top: 14px; }
   .lp-month__foot p { font-size: 13px; color: var(--ink-2); max-width: 40ch; }
-  .lp-count { font-family: var(--display); font-weight: 700; font-size: clamp(44px, 6vw, 88px); letter-spacing: -0.05em; line-height: .9; color: var(--lime); display: flex; align-items: baseline; gap: 10px; }
-  .lp-count small { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
+  .lp-count { font-family: var(--serif); font-size: clamp(48px, 6vw, 92px); letter-spacing: -0.03em; line-height: .9; display: flex; align-items: baseline; gap: 10px; }
+  .lp-count small { font-family: var(--sans); font-size: 12px; color: var(--ink-3); }
   .lp-queue { list-style: none; }
-  .lp-queue__head { display: flex; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid var(--line-2); }
-  .lp-q { display: grid; grid-template-columns: 44px 1fr; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); --v: clamp(0, calc((var(--sc-p, 0) - var(--em)) * 7), 1); opacity: var(--v); transform: translateX(calc((1 - var(--v)) * 14px)); }
-  .lp-q__d { font-family: var(--display); font-weight: 700; font-size: 20px; letter-spacing: -0.03em; line-height: 1; }
-  .lp-q__d small { display: block; font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin-top: 4px; }
-  .lp-q__t { font-weight: 700; font-size: 14px; }
-  .lp-q__s { font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); margin-top: 4px; }
-  @media (prefers-reduced-motion: reduce) { .lp-cal__d.has, .lp-q { --v: 1; transform: none; opacity: 1; } .lp-h1 .w, .lp-hero__lede, .lp-hero__ctas, .lp-hero__card, .lp-hero__bar, .lp-hero__eyebrow i { animation: none; opacity: 1; transform: none; } .lp-agent-in { animation: none; } .wd > span { transform: none; transition: none; } .lp-chapter__n::after { transform: none; } .lp-nav.is-hidden { transform: none; } }
-  .lp-month .lp-h2 { font-size: clamp(32px, 4.2vw, 60px); }
-  @media (max-height: 940px) and (min-width: 900px) { .lp-month__stage { padding-top: 76px; } .lp-month .lp-h2 { font-size: clamp(30px, 4.6vh, 56px); } .lp-cal__d { aspect-ratio: 1 / .52; } .lp-q { padding: 8px 0; } .lp-month__head { margin-bottom: 12px; } .lp-month__grid { padding-top: 12px; } }
+  .lp-q { display: grid; grid-template-columns: 18px 44px 1fr; gap: 12px; align-items: start; padding: 11px 0; border-bottom: 1px solid var(--line); --v: clamp(0, calc((var(--sc-p, 0) - var(--em)) * 7), 1); opacity: calc(.25 + var(--v) * .75); }
+  .lp-q .q { width: 16px; height: 16px; border: 1px solid var(--line-2); border-radius: 3px; margin-top: 3px; display: inline-flex; align-items: center; justify-content: center; color: var(--paper); background: rgba(17,19,16,var(--v)); border-color: rgba(17,19,16,calc(.3 + var(--v) * .7)); }
+  .lp-q .q svg { opacity: var(--v); }
+  .lp-q__d { font-family: var(--serif); font-size: 22px; line-height: 1; }
+  .lp-q__d small { display: block; font-family: var(--mono); font-size: 9.5px; color: var(--ink-3); margin-top: 3px; }
+  .lp-q__t { font-weight: 600; font-size: 14px; }
+  .lp-q__s { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); margin-top: 4px; }
+  @media (prefers-reduced-motion: reduce) { .lp-cal__d.has, .lp-q { --v: 1; } .lp-month__prog::before { transform: none; } .lp-h1 .w, .lp-hero__lede, .lp-hero__ctas, .lp-hero__sheet, .lp-hero__facts { animation: none; opacity: 1; transform: none; } .wd > span { transform: none; transition: none; } .lp-chapter__n::after { transform: none; } .lp-nav.is-hidden { transform: none; } .lp mark { background-size: 100% 82%; transition: none; } }
+  @media (max-height: 940px) and (min-width: 900px) { .lp-month__stage { padding-top: 76px; } .lp-month .lp-h2 { font-size: clamp(30px, 4.6vh, 56px); } .lp-cal__d { aspect-ratio: 1 / .52; } .lp-q { padding: 8px 0; } .lp-month__head { margin-bottom: 12px; } }
   @media (max-width: 899px) {
     .lp-month__stage { padding: 72px 0 14px; }
-    .lp-month .lp-h2 { font-size: clamp(26px, 7.6vw, 36px); margin-top: 8px; }
+    .lp-month .lp-h2 { font-size: clamp(28px, 7.6vw, 38px); margin-top: 8px; }
     .lp-month__head { gap: 6px; margin-bottom: 12px; }
     .lp-month__head .lp-chapter__lede { font-size: 13px; margin-top: 0; }
-    .lp-month__grid { gap: 10px; padding-top: 12px; }
+    .lp-month__grid { gap: 10px; }
+    .lp-sheet { padding: 12px; }
     .lp-cal__dow { padding-bottom: 6px; font-size: 9px; }
-    .lp-cal__d { aspect-ratio: 1 / .52; font-size: 10px; padding: 4px 5px; }
-    .lp-cal__chip { font-size: 8.5px; padding: 2px 4px; left: 3px; right: 3px; bottom: 3px; letter-spacing: .04em; }
-    .lp-month__foot { padding-top: 8px; } .lp-month__foot p { display: none; } .lp-count { font-size: 34px; }
-    .lp-queue__head { padding-bottom: 6px; }
-    .lp-q { padding: 5px 0; gap: 8px; grid-template-columns: 38px 1fr; }
-    .lp-q__d { font-size: 14px; } .lp-q__d small { display: inline; margin-left: 3px; }
+    .lp-cal__d { aspect-ratio: 1 / .5; font-size: 10px; padding: 4px 5px; }
+    .lp-cal__chip { font-size: 9px; padding: 2px 4px; left: 3px; right: 3px; bottom: 3px; }
+    .lp-month__foot { padding-top: 8px; } .lp-month__foot p { display: none; } .lp-count { font-size: 36px; }
+    .lp-q { padding: 5px 0; gap: 8px; grid-template-columns: 16px 38px 1fr; }
+    .lp-q__d { font-size: 16px; } .lp-q__d small { display: inline; margin-left: 3px; }
     .lp-q__t { font-size: 12.5px; } .lp-q__s { display: none; }
   }
 
   /* serviços: índice */
-  .lp-services { list-style: none; display: grid; grid-template-columns: 1fr; border-top: 1px solid var(--line-2); }
+  .lp-services { list-style: none; display: grid; grid-template-columns: 1fr; border-top: 1px solid var(--ink); }
   .lp-service { position: relative; display: grid; grid-template-columns: 56px 1fr; gap: 12px; padding: 24px 0; border-bottom: 1px solid var(--line); transition: padding-left .35s cubic-bezier(.2,.7,0,1); }
-  .lp-service::before { content: ""; position: absolute; left: 0; top: -1px; height: 1px; width: 0; background: var(--lime); transition: width .5s cubic-bezier(.2,.7,0,1); }
+  .lp-service::before { content: ""; position: absolute; left: 0; top: -1px; height: 1px; width: 0; background: var(--ink); transition: width .5s cubic-bezier(.2,.7,0,1); }
   .lp-service:hover::before { width: 100%; }
   .lp-service:hover { padding-left: 8px; }
-  .lp-service__n { font-family: var(--display); font-weight: 700; font-size: 26px; letter-spacing: -0.04em; color: transparent; -webkit-text-stroke: 1px var(--ink-3); line-height: 1; }
-  .lp-service h3 { font-size: clamp(20px, 2.1vw, 28px); letter-spacing: -0.03em; }
+  .lp-service__n { font-family: var(--serif); font-size: 26px; color: var(--ink-3); line-height: 1; }
+  .lp-service h3 { font-size: clamp(22px, 2.2vw, 30px); }
   .lp-service p { color: var(--ink-2); font-size: 14.5px; margin-top: 8px; max-width: 40ch; }
   @media (min-width: 700px) { .lp-services { grid-template-columns: 1fr 1fr; column-gap: 48px; } }
 
   /* soluções */
-  .lp-products { border-top: 1px solid var(--line-2); }
+  .lp-products { border-top: 1px solid var(--ink); }
   .lp-product { display: grid; grid-template-columns: 1fr; gap: 16px; padding: clamp(28px, 4vw, 44px) 0; border-bottom: 1px solid var(--line); }
   @media (min-width: 900px) { .lp-product { grid-template-columns: 180px 1fr 1fr; gap: 40px; } }
-  .lp-product__tag { display: inline-flex; align-items: center; gap: 8px; }
-  .lp-product__tag i { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
-  .lp-product h3 { font-size: clamp(32px, 4vw, 56px); letter-spacing: -0.04em; }
-  .lp-product__sub { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); margin-top: 10px; }
+  .lp-product h3 { font-size: clamp(36px, 4.2vw, 60px); }
+  .lp-product__sub { font-size: 13px; color: var(--ink-3); margin-top: 8px; }
   .lp-product p { color: var(--ink-2); font-size: 15px; max-width: 46ch; }
-  .lp-product__items { list-style: none; display: grid; gap: 8px; margin-top: 16px; font-size: 13.5px; }
+  .lp-product__items { list-style: none; display: grid; gap: 8px; margin-top: 16px; font-size: 14px; }
   .lp-product__items li { display: flex; gap: 10px; align-items: baseline; color: var(--ink-2); }
-  .lp-product__items li::before { content: ""; width: 14px; height: 1px; background: var(--ink-3); flex: 0 0 14px; position: relative; top: -4px; }
+  .lp-product__items li::before { content: ""; width: 12px; height: 1px; background: var(--ink); flex: 0 0 12px; position: relative; top: -4px; }
   .lp-product .lp-link { margin-top: 20px; }
 
-  /* time: elenco */
-  .lp-roster { list-style: none; border-top: 1px solid var(--line-2); }
+  /* time: expediente, como a lista de uma redação */
+  .lp-roster { list-style: none; border-top: 1px solid var(--ink); }
   .lp-cast { border-bottom: 1px solid var(--line); }
-  .lp-cast__btn { width: 100%; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; padding: 16px 0; text-align: left; }
-  .lp-cast__name { font-family: var(--display); font-weight: 700; font-size: clamp(26px, 3.6vw, 46px); letter-spacing: -0.04em; line-height: 1; display: flex; align-items: center; gap: 14px; transition: color .25s; }
-  .lp-cast__name i { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 10px; transform: scale(.6); transition: transform .35s; }
-  .lp-cast__btn:hover .lp-cast__name i, .lp-cast[data-open="true"] .lp-cast__name i { transform: scale(1); }
-  .lp-cast__name { transition: color .25s, transform .45s cubic-bezier(.2,.7,0,1); }
+  .lp-cast__btn { width: 100%; display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 12px; padding: 14px 0; text-align: left; }
+  .lp-cast__name { font-family: var(--serif); font-size: clamp(28px, 3.6vw, 48px); letter-spacing: -0.02em; line-height: 1; transition: transform .45s cubic-bezier(.2,.7,0,1); }
   .lp-cast__btn:hover .lp-cast__name { transform: translateX(6px); }
-  .lp-cast__role { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); text-align: right; }
+  .lp-cast__role { font-size: 13px; color: var(--ink-2); text-align: right; }
   .lp-cast__body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .45s cubic-bezier(.2,.7,0,1); }
   .lp-cast[data-open="true"] .lp-cast__body { grid-template-rows: 1fr; }
   .lp-cast__body > div { overflow: hidden; }
-  .lp-cast__inner { display: grid; grid-template-columns: 1fr; gap: 14px; padding: 0 0 22px 24px; }
+  .lp-cast__inner { display: grid; grid-template-columns: 1fr; gap: 14px; padding: 0 0 22px 0; }
   .lp-cast__inner p { color: var(--ink-2); font-size: 14.5px; max-width: 46ch; }
   @media (min-width: 700px) { .lp-cast__inner { grid-template-columns: 1.3fr 1fr; gap: 32px; } }
-  .lp-roster__big { font-family: var(--display); font-weight: 700; font-size: clamp(96px, 20vw, 260px); letter-spacing: -0.06em; line-height: .8; color: transparent; -webkit-text-stroke: 1.5px var(--line-2); margin-top: 18px; }
-  @supports not (-webkit-text-stroke: 1px #000) { .lp-roster__big { color: var(--line-2); } }
+  .lp-roster__big { font-family: var(--serif); font-size: clamp(120px, 22vw, 300px); letter-spacing: -0.05em; line-height: .8; color: var(--ink); opacity: .08; margin-top: 18px; }
 
-  /* economia */
-  .lp-econ__big { font-size: clamp(34px, 4.4vw, 62px); margin-top: 18px; }
-  .lp-econ__big em { font-size: 1.04em; }
-  .lp-table { list-style: none; border-top: 1px solid var(--line-2); }
+  /* custo */
+  .lp-table { list-style: none; border-top: 1px solid var(--ink); }
   .lp-table li { display: flex; justify-content: space-between; gap: 16px; padding: 13px 0; border-bottom: 1px solid var(--line); font-size: 14.5px; }
-  .lp-table li span:last-child { font-family: var(--mono); font-size: 12px; letter-spacing: .04em; color: var(--ink-2); white-space: nowrap; }
-  .lp-table li.is-total { padding: 18px 0; font-weight: 700; font-family: var(--display); font-size: 16px; border-bottom: 1px solid var(--lime); }
-  .lp-table li.is-total span:last-child { color: var(--lime); font-size: 13px; }
-  .lp-table__note { font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; color: var(--ink-3); margin-top: 12px; text-transform: uppercase; }
+  .lp-table li span:last-child { font-family: var(--mono); font-size: 12px; color: var(--ink-2); white-space: nowrap; }
+  .lp-table li.is-total { padding: 18px 0; font-family: var(--serif); font-size: 20px; border-bottom: 1px solid var(--ink); }
+  .lp-table li.is-total span:last-child { font-family: var(--serif); font-size: 20px; color: var(--ink); }
+  .lp-table__note { font-size: 12px; color: var(--ink-3); margin-top: 12px; }
 
-  /* fecho */
-  .lp-close { background: var(--lime); color: ${CANVAS}; padding: clamp(64px, 11vw, 150px) 0; }
-  .lp-close .lp-mono { color: rgba(10,10,10,.55); }
-  .lp-close h2 em { color: inherit; }
-  .lp-close h2 { font-size: clamp(44px, 9.6vw, 148px); letter-spacing: -0.055em; line-height: .9; margin-top: 18px; max-width: 12ch; }
-  .lp-close__row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: clamp(28px, 4vw, 48px); padding-top: 24px; border-top: 1px solid rgba(10,10,10,.25); }
-  .lp-close .lp-btn { border-color: ${CANVAS}; color: ${CANVAS}; }
-  .lp-close .lp-btn--ink { background: ${CANVAS}; color: var(--lime); }
-  .lp-close .lp-btn:hover { border-color: ${CANVAS}; }
-  .lp-close__note { font-size: 14px; color: rgba(10,10,10,.7); max-width: 34ch; margin-left: auto; }
+  /* fecho: tinta cheia */
+  .lp-close { background: var(--ink); color: var(--paper); padding: clamp(64px, 11vw, 150px) 0; }
+  .lp-close .lp-cap { color: rgba(244,242,236,.55); }
+  .lp-close h2 { font-size: clamp(48px, 9.6vw, 150px); letter-spacing: -0.03em; line-height: .95; margin-top: 18px; max-width: 12ch; }
+  .lp-close mark { color: var(--ink); }
+  .lp-close__row { display: flex; flex-wrap: wrap; gap: 14px 22px; align-items: center; margin-top: clamp(28px, 4vw, 48px); padding-top: 24px; border-top: 1px solid rgba(244,242,236,.25); }
+  .lp-close .lp-btn { border-color: var(--paper); color: var(--paper); }
+  .lp .lp-close .lp-btn:hover { background: var(--paper); color: var(--ink); }
+  .lp .lp-close .lp-btn--ink { background: var(--lime); color: var(--ink); border-color: var(--lime); }
+  .lp .lp-close .lp-btn--ink:hover { background: var(--paper); color: var(--ink); }
+  .lp-close__note { font-size: 14px; color: rgba(244,242,236,.7); max-width: 36ch; margin-left: auto; }
 
-  /* rodapé */
-  .lp-footer { padding: 40px 0 calc(28px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line); }
-  .lp-footer__in { display: flex; flex-direction: column; gap: 22px; }
-  .lp-footer__links { display: flex; flex-wrap: wrap; gap: 18px; }
-  .lp-footer__links a { transition: color .2s; } .lp-footer__links a:hover { color: var(--ink); }
+  /* rodapé com colofão */
+  .lp-footer { padding: 40px 0 calc(28px + env(safe-area-inset-bottom)); border-top: 1px solid var(--line-2); }
+  .lp-footer__in { display: grid; grid-template-columns: 1fr; gap: 22px; }
+  .lp-footer__links { display: flex; flex-wrap: wrap; gap: 18px; font-size: 13px; color: var(--ink-2); }
+  .lp-footer__links a:hover { color: var(--ink); }
   .lp-footer__social { display: flex; gap: 8px; }
   .lp-social { width: 40px; height: 40px; border: 1px solid var(--line-2); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; color: var(--ink-2); transition: border-color .2s, color .2s; }
   .lp-social:hover { border-color: var(--ink); color: var(--ink); }
-  @media (min-width: 900px) { .lp-footer__in { flex-direction: row; align-items: center; justify-content: space-between; } }
+  .lp-colofao { font-size: 12.5px; color: var(--ink-3); line-height: 1.6; max-width: 52ch; }
+  .lp-colofao em { font-family: var(--serif); font-style: italic; font-size: 1.1em; color: var(--ink-2); }
+  @media (min-width: 900px) { .lp-footer__in { grid-template-columns: auto 1fr auto; align-items: center; gap: 40px; } .lp-colofao { justify-self: center; text-align: center; } }
 `;
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Fundo vivo do hero: uma aurora em canvas. Cinco luzes grandes e macias
-   (limão, limão escuro, violeta) deslizam em trajetórias senoidais, somadas
-   em modo "lighter", desenhadas em baixa resolução e ampliadas pelo CSS.
-   Segue o mouse de leve, pausa fora da tela e vira um quadro parado sob
-   prefers-reduced-motion.
+   Pauta do dia: uma folha com o turno inteiro, na ordem em que acontece. As
+   linhas vão sendo riscadas conforme o dia passa; a linha atual recebe o
+   marca-texto. Cenário de demonstração: horários ilustrativos.
    ───────────────────────────────────────────────────────────────────────── */
-type Luz = { cor: [number, number, number]; a: number; r: number; cx: number; cy: number; ax: number; ay: number; fx: number; fy: number; px: number; py: number };
-const LUZES: Luz[] = [
-  { cor: [185, 255, 75],  a: .42, r: .46, cx: .74, cy: .34, ax: .10, ay: .08, fx: .11, fy: .09, px: 0,   py: 1.2 },
-  { cor: [185, 255, 75],  a: .22, r: .38, cx: .30, cy: .78, ax: .12, ay: .07, fx: .07, fy: .13, px: 2.1, py: .4 },
-  { cor: [90, 140, 40],   a: .30, r: .52, cx: .52, cy: .52, ax: .16, ay: .10, fx: .05, fy: .08, px: 4.0, py: 2.6 },
-  { cor: [140, 120, 255], a: .16, r: .40, cx: .12, cy: .22, ax: .08, ay: .10, fx: .09, fy: .06, px: 1.0, py: 3.3 },
-  { cor: [185, 255, 75],  a: .14, r: .30, cx: .90, cy: .86, ax: .06, ay: .06, fx: .13, fy: .11, px: 5.2, py: .9 },
-];
-
-function FundoVivo() {
-  const ref = useRef<HTMLCanvasElement>(null);
+function PautaDoDia() {
+  const [agora, setAgora] = useState(2);
+  const [parado, setParado] = useState(false);
   useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    const reduz = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    let vivo = true, visivel = true, raf = 0, w = 0, h = 0;
-    const alvo = { x: 0, y: 0 }, mouse = { x: 0, y: 0 };
-    const medir = () => {
-      const r = canvas.getBoundingClientRect();
-      const esc = 0.22;
-      w = Math.max(160, Math.round(r.width * esc));
-      h = Math.max(120, Math.round(r.height * esc));
-      canvas.width = w; canvas.height = h;
-    };
-    const quadro = (t: number) => {
-      ctx.clearRect(0, 0, w, h);
-      ctx.globalCompositeOperation = "lighter";
-      mouse.x += (alvo.x - mouse.x) * .04; mouse.y += (alvo.y - mouse.y) * .04;
-      const m = Math.min(w, h);
-      for (const L of LUZES) {
-        const x = (L.cx + L.ax * Math.sin(t * L.fx + L.px)) * w + mouse.x * w * .06;
-        const y = (L.cy + L.ay * Math.cos(t * L.fy + L.py)) * h + mouse.y * h * .06;
-        const r = L.r * m * (1 + .08 * Math.sin(t * .17 + L.px));
-        const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-        const [cr, cg, cb] = L.cor;
-        g.addColorStop(0, `rgba(${cr},${cg},${cb},${L.a})`);
-        g.addColorStop(.45, `rgba(${cr},${cg},${cb},${L.a * .35})`);
-        g.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
-        ctx.fillStyle = g;
-        ctx.fillRect(x - r, y - r, r * 2, r * 2);
-      }
-      ctx.globalCompositeOperation = "source-over";
-    };
-    const laco = (ms: number) => {
-      if (!vivo) return;
-      if (visivel && !document.hidden) quadro(ms / 1000);
-      raf = requestAnimationFrame(laco);
-    };
-    medir();
-    if (reduz) { quadro(3.2); }
-    else { raf = requestAnimationFrame(laco); }
-    const onMove = (e: PointerEvent) => {
-      const r = canvas.getBoundingClientRect();
-      alvo.x = ((e.clientX - r.left) / r.width - .5) * 2;
-      alvo.y = ((e.clientY - r.top) / r.height - .5) * 2;
-    };
-    const onLeave = () => { alvo.x = 0; alvo.y = 0; };
-    const io = "IntersectionObserver" in window ? new IntersectionObserver((es) => { visivel = es.some((e) => e.isIntersecting); }) : null;
-    io?.observe(canvas);
-    const ro = "ResizeObserver" in window ? new ResizeObserver(() => { medir(); if (reduz) quadro(3.2); }) : null;
-    ro?.observe(canvas);
-    window.addEventListener("pointermove", onMove, { passive: true });
-    document.addEventListener("pointerleave", onLeave);
-    return () => {
-      vivo = false; cancelAnimationFrame(raf);
-      io?.disconnect(); ro?.disconnect();
-      window.removeEventListener("pointermove", onMove);
-      document.removeEventListener("pointerleave", onLeave);
-    };
-  }, []);
-  return <canvas ref={ref} className="lp-hero__bg" aria-hidden="true" />;
-}
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   Card do time no hero: quem está executando agora, o que está fazendo, e os
-   doze para tocar. Troca sozinho a cada 4,2s; para no hover ou ao tocar.
-   ───────────────────────────────────────────────────────────────────────── */
-function HeroAgentCard() {
-  const [active, setActive] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const [key, setKey] = useState(0);
-
-  useEffect(() => {
-    if (paused) return;
-    const t = setInterval(() => { setActive((p) => (p + 1) % TEAM.length); setKey((k) => k + 1); }, 4200);
+    if (parado || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const t = setInterval(() => setAgora((a) => (a + 1) % TEAM.length), 3400);
     return () => clearInterval(t);
-  }, [paused]);
-
-  const agent = TEAM[active];
+  }, [parado]);
+  const hoje = new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" });
   return (
-    <div className="lp-agent" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}
-      style={{ border: `1px solid ${agent.color}40`, boxShadow: `0 0 90px -24px ${agent.color}66, 0 0 0 1px ${agent.color}18` }}>
-      <div className="lp-glow" style={{ top: -80, right: -80, width: 300, height: 300, background: `radial-gradient(circle, ${agent.color}2A 0%, transparent 68%)` }} />
-      <div className="lp-agent__head">
-        <span className="lp-mono" style={{ fontSize: 10, color: LIME }}>Time ativo agora</span>
-        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <i className="lp-dot" style={{ width: 7, height: 7, borderRadius: "50%", background: LIME, boxShadow: `0 0 10px ${LIME}`, display: "inline-block" }} />
-          <span className="lp-mono" style={{ fontSize: 10, color: LIME, letterSpacing: 0, textTransform: "none" }}>{TEAM.length} online</span>
-        </span>
+    <div className="lp-sheet lp-sheet--tilt lp-marca-ja" onMouseEnter={() => setParado(true)} onMouseLeave={() => setParado(false)} aria-label="Pauta do dia, demonstração">
+      <div className="lp-sheet__head">
+        <div className="lp-sheet__title">Pauta do dia</div>
+        <div className="lp-sheet__meta">{hoje}<br />Calu Agência · Fortaleza</div>
       </div>
-      <div key={key} className="lp-agent-in" style={{ position: "relative" }}>
-        <div className="lp-agent__who">
-          <div className="lp-agent__avatar" style={{ background: `${agent.color}1C`, border: `2px solid ${agent.color}60`, color: agent.color, boxShadow: `0 0 36px -6px ${agent.color}80` }}>{agent.i}</div>
-          <div style={{ minWidth: 0 }}>
-            <div className="lp-agent__name">{agent.name}</div>
-            <div className="lp-agent__role" style={{ color: agent.color }}>{agent.role}</div>
-          </div>
-        </div>
-        <div className="lp-agent__now" style={{ border: `1px solid ${agent.color}18` }}>
-          <div className="lp-mono" style={{ fontSize: 9, marginBottom: 10 }}>Executando agora</div>
-          <div className="lp-tasks">
-            {agent.tasks.map((task, j) => (
-              <div key={j}>
-                <i style={{ width: 4, height: 4, borderRadius: "50%", background: j === 0 ? agent.color : "rgba(255,255,255,.15)", flexShrink: 0, boxShadow: j === 0 ? `0 0 6px ${agent.color}` : "none", display: "inline-block" }} />
-                <span style={{ color: j === 0 ? "rgba(242,241,234,.85)" : "rgba(242,241,234,.42)" }}>{task}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-      <div className="lp-agent__sep" style={{ background: `linear-gradient(to right, ${agent.color}25, rgba(255,255,255,.04), transparent)` }} />
-      <div className="lp-agent-grid">
+      <ul className="lp-pauta">
         {TEAM.map((t, i) => (
-          <button key={t.name} className="lp-agent-btn" title={t.name} aria-label={t.name}
-            onClick={() => { setActive(i); setKey((k) => k + 1); setPaused(true); }}
-            style={{ background: i === active ? `${t.color}22` : "rgba(255,255,255,.04)", outline: i === active ? `1.5px solid ${t.color}70` : "1px solid rgba(255,255,255,.07)", boxShadow: i === active ? `0 0 18px -4px ${t.color}70` : "none" }}>
-            <b style={{ color: i === active ? t.color : "var(--ink-3)" }}>{t.i}</b>
-            <small style={{ color: i === active ? t.color : "rgba(255,255,255,.22)" }}>{t.name.slice(0, 3)}</small>
-          </button>
+          <li key={t.name} className={i < agora ? "is-done" : i === agora ? "is-now" : ""} onClick={() => { setAgora(i); setParado(true); }}>
+            <time>{TURNO[i]}</time>
+            <span className="t"><b>{t.name}</b> <span>{i === agora ? <mark>{t.tasks[0].toLowerCase()}</mark> : t.tasks[0].toLowerCase()}</span></span>
+            <span className="q">{i < agora && <Check size={11} strokeWidth={3} />}</span>
+          </li>
         ))}
-      </div>
+      </ul>
+      <div className="lp-sheet__foot"><span>{agora} de {TEAM.length} entregues no turno</span><span className="lp-mono">demonstração</span></div>
+      <div className="lp-carimbo" aria-hidden="true">Em produção</div>
     </div>
   );
 }
@@ -624,8 +480,8 @@ export default function LandingPage() {
 
   useEffect(() => { document.body.style.overflow = menu ? "hidden" : ""; return () => { document.body.style.overflow = ""; }; }, [menu]);
 
-  /* Motor da scroll-craft: planos do hero, entradas por capítulo e o pin do
-     mês. O contador lê --sc-p da seção pinada sem passar por estado React. */
+  /* Motor da scroll-craft: entradas por capítulo e o pin do mês. O contador e
+     o estado visível do palco (para o harness) são lidos de --sc-p. */
   useEffect(() => {
     const root = rootRef.current;
     if (!root) return;
@@ -642,8 +498,6 @@ export default function LandingPage() {
         const reduz = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         const n = reduz ? PECAS.length : PECAS.filter((_, i) => p - emDaPeca(i) > 0.02).length;
         if (contadorRef.current.textContent !== String(n)) contadorRef.current.textContent = String(n);
-        /* Estado visível do palco para o harness da scroll-craft: quantas peças
-           já pintaram e em que décimo está a linha de progresso. */
         const palco = sec.querySelector<HTMLElement>("[data-sc-stage]");
         const estado = `pecas:${n};linha:${Math.round(p * 10)}`;
         if (palco && palco.dataset.scVerifyState !== estado) palco.dataset.scVerifyState = estado;
@@ -684,7 +538,7 @@ export default function LandingPage() {
           <div className="lp-nav__links">{NAV.map(([l, h]) => <a key={l} href={h}>{l}</a>)}</div>
           <div className="lp-nav__cta">
             <Link to="/entrar" className="lp-entrar">Entrar</Link>
-            <a href="/briefing" className="lp-btn lp-btn--sm">Diagnóstico gratuito <ArrowUpRight size={14} /></a>
+            <a href="/briefing" className="lp-btn lp-btn--ink lp-btn--sm">Diagnóstico gratuito <ArrowUpRight size={14} /></a>
           </div>
           <button className="lp-burger" onClick={() => setMenu((m) => !m)} aria-label={menu ? "Fechar menu" : "Abrir menu"} aria-expanded={menu}>
             {menu ? <X size={18} /> : <Menu size={18} />}
@@ -696,65 +550,54 @@ export default function LandingPage() {
           {NAV.map(([l, h]) => <a key={l} href={h} className="lp-menu__l" onClick={() => setMenu(false)}>{l}</a>)}
           <Link to="/entrar" className="lp-menu__l" onClick={() => setMenu(false)}>Entrar</Link>
           <div className="lp-menu__cta">
-            <a href="/briefing" className="lp-btn lp-btn--lime" onClick={() => setMenu(false)}>Diagnóstico gratuito com IA <ArrowUpRight size={14} /></a>
+            <a href="/briefing" className="lp-btn lp-btn--ink" onClick={() => setMenu(false)}>Diagnóstico gratuito com IA <ArrowUpRight size={14} /></a>
             <a href={WA} target="_blank" rel="noreferrer" className="lp-btn"><MessageCircle size={14} /> Falar no WhatsApp</a>
           </div>
         </div>
       )}
 
-      {/* HERO: título à esquerda, o time trabalhando à direita, aurora atrás */}
+      {/* HERO: título à esquerda, a pauta do dia à direita */}
       <header className="lp-hero" data-sc-act="flow">
-        <div className="lp-plane lp-plane--far" data-sc-parallax="-0.9" aria-hidden="true"><FundoVivo /></div>
-        <div className="lp-plane lp-plane--rule" data-sc-parallax="-0.5" aria-hidden="true" />
-        <div className="lp-hero__floor" aria-hidden="true" />
-        <div className="lp-wrap lp-hero__grid">
-          <div className="lp-hero__copy">
-            <div className="lp-hero__eyebrow"><i /><span className="lp-mono">Agência de marketing com IA · Fortaleza</span></div>
-            <h1 className="lp-h1">
-              <span className="l"><span className="w">Criatividade</span></span>
-              <span className="l l2"><span className="w">que vende.</span></span>
-              <span className="l"><span className="w l3">IA que escala.</span></span>
-            </h1>
-            <p className="lp-hero__lede">Somos uma agência de marketing em IA: doze especialistas fazem o marketing do seu negócio, <b>do briefing ao post publicado</b>, por um único investimento mensal. Você aprova, o time executa.</p>
-            <div className="lp-hero__ctas">
-              <a href="/briefing" className="lp-btn lp-btn--lime">Fazer o diagnóstico gratuito <ArrowUpRight size={15} /></a>
-              <a href={WA} target="_blank" rel="noreferrer" className="lp-btn"><MessageCircle size={15} /> Vamos conversar</a>
+        <div className="lp-wrap">
+          <div className="lp-hero__grid">
+            <div className="lp-hero__copy lp-marca-ja">
+              <div className="lp-hero__kicker"><i /><span className="lp-cap">Agência de marketing com IA · Fortaleza</span></div>
+              <h1 className="lp-h1">
+                <span className="l"><span className="w">Criatividade <mark>que vende.</mark></span></span>
+                <span className="l"><span className="w"><em>IA que escala.</em></span></span>
+              </h1>
+              <p className="lp-hero__lede">Somos uma agência de marketing em IA: doze especialistas fazem o marketing do seu negócio, <b>do briefing ao post publicado</b>, por um único investimento mensal. Você aprova, o time executa.</p>
+              <div className="lp-hero__ctas">
+                <a href="/briefing" className="lp-btn lp-btn--ink">Fazer o diagnóstico gratuito <ArrowUpRight size={15} /></a>
+                <a href={WA} target="_blank" rel="noreferrer" className="lp-link">ou fale com a gente no WhatsApp <ArrowRight size={14} /></a>
+              </div>
             </div>
+            <div className="lp-hero__sheet"><PautaDoDia /></div>
           </div>
-          <div className="lp-hero__card"><HeroAgentCard /></div>
-        </div>
-        <div className="lp-wrap lp-hero__bar">
           <ul className="lp-hero__facts" aria-label="Em números">
-            <li><b>{String(TEAM.length).padStart(2, "0")}</b><span>agentes de IA</span></li>
-            <li><b>{String(PROCESS.length).padStart(2, "0")}</b><span>etapas por mês</span></li>
-            <li><b>01</b><span>investimento mensal</span></li>
+            <li><b>{TEAM.length}</b><span>agentes de IA</span></li>
+            <li><b>{PROCESS.length}</b><span>etapas por mês</span></li>
+            <li><b>1</b><span>investimento mensal</span></li>
+            <li className="lp-hero__go-li" style={{ marginLeft: "auto" }}><a href="#trabalho" className="lp-hero__go"><i><ArrowDown size={14} /></i> Ver o time trabalhar</a></li>
           </ul>
-          <div className="lp-hero__side">
-            <a href="#trabalho" className="lp-hero__play"><i><ArrowDown size={15} /></i> Ver o time trabalhar</a>
-            <div className="lp-hero__social">
-              <a href="#" className="lp-social" aria-label="Instagram"><Instagram size={14} /></a>
-              <a href="#" className="lp-social" aria-label="LinkedIn"><Linkedin size={14} /></a>
-              <a href={WA} target="_blank" rel="noreferrer" className="lp-social" aria-label="WhatsApp"><MessageCircle size={14} /></a>
-            </div>
-          </div>
         </div>
-        <div className="lp-plane lp-plane--near" data-sc-parallax="0.9" aria-hidden="true" />
       </header>
 
-      {/* O MÊS SE MONTANDO: seção pinada, cenário de demonstração rotulado */}
+      {/* O MÊS SE MONTANDO: o trabalho, logo depois da hero. Demonstração rotulada. */}
       <section id="trabalho" className="lp-month" data-sc-act="pin" data-sc-span="2.6" aria-label="Demonstração: um mês de produção se montando">
         <div data-sc-stage className="lp-month__stage">
           <div className="lp-wrap">
             <div className="lp-month__head">
               <div>
-                <div className="lp-chapter__n">O trabalho · demonstração com cliente fictício</div>
+                <div className="lp-chapter__n lp-cap">O trabalho · demonstração com cliente fictício</div>
                 <h2 className="lp-h2">Veja um mês inteiro{" "}<br /><em>se montar.</em></h2>
               </div>
-              <p className="lp-chapter__lede">Role devagar. É o que acontece na plataforma depois que o time recebe o seu briefing: o calendário enche, a fila de aprovação cresce, o contador sobe. Cenário de demonstração com cliente fictício.</p>
+              <p className="lp-chapter__lede">Role devagar. É o que acontece na plataforma depois que o time recebe o seu briefing: o calendário enche, a lista de aprovação vai sendo marcada, o contador sobe.</p>
             </div>
             <div className="lp-month__prog" aria-hidden="true"><b>briefing</b><b>mês publicado</b></div>
             <div className="lp-month__grid">
-              <div>
+              <div className="lp-sheet">
+                <div className="lp-sheet__head"><div className="lp-sheet__title">Calendário editorial</div><div className="lp-sheet__meta">setembro de 2026<br />Clínica Vitta</div></div>
                 <div className="lp-cal">
                   {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => <div key={i} className="lp-cal__dow">{d}</div>)}
                   {CALENDARIO.map((c, i) => (
@@ -765,15 +608,16 @@ export default function LandingPage() {
                   ))}
                 </div>
                 <div className="lp-month__foot">
-                  <p>Pedro calendarizou, Beatriz escreveu, Marcela desenhou em cima da copy. Cada peça entra na fila com data e hora.</p>
+                  <p>Pedro calendarizou, Beatriz escreveu, Marcela desenhou em cima da copy. Cada peça entra na lista com data e hora.</p>
                   <span className="lp-count"><span ref={contadorRef}>0</span><small>peças</small></span>
                 </div>
               </div>
-              <div>
-                <div className="lp-queue__head lp-mono"><span>Fila de aprovação</span><span style={{ color: LIME }}>Setembro</span></div>
+              <div className="lp-sheet">
+                <div className="lp-sheet__head"><div className="lp-sheet__title">Lista de aprovação</div><div className="lp-sheet__meta">aguardando você</div></div>
                 <ul className="lp-queue">
                   {PECAS.map((pc, i) => (
                     <li key={pc.id} className="lp-q" style={em(emDaPeca(i))}>
+                      <span className="q"><Check size={11} strokeWidth={3} /></span>
                       <div className="lp-q__d">{String(pc.dia).padStart(2, "0")}<small>set</small></div>
                       <div><div className="lp-q__t">{pc.tema}</div><div className="lp-q__s">{pc.formato} · pilar {pc.pilar} · 12:00</div></div>
                     </li>
@@ -789,7 +633,7 @@ export default function LandingPage() {
       <section className="lp-manifesto">
         <div className="lp-wrap" data-sc-in>
           <p><Palavras partes={[{ t: "Montar um time de marketing custa caro e demora. Fazer sozinho não escala. A Calu é uma agência inteira em IA:" }, { t: "pensa, produz, revisa e publica", em: true }, { t: "todo dia, na ordem certa. Você só aprova." }]} /></p>
-          <div className="lp-manifesto__meta lp-mono">
+          <div className="lp-manifesto__meta">
             <span><i />Estratégia antes de produzir</span>
             <span><i />Revisão antes de você ver</span>
             <span><i />Relatório toda semana</span>
@@ -801,7 +645,7 @@ export default function LandingPage() {
       <section id="processo" className="lp-chapter">
         <div className="lp-wrap lp-chapter__grid">
           <div className="lp-chapter__head" data-sc-in>
-            <div className="lp-chapter__n">01 · Processo</div>
+            <div className="lp-chapter__n lp-cap">01 · Processo</div>
             <h2 className="lp-h2">Como um mês de marketing <em>acontece.</em></h2>
             <p className="lp-chapter__lede">Oito etapas, cada uma com dono. Cada agente trabalha em cima do que o anterior entregou, e nada vai para o ar sem passar pela revisão e pela sua aprovação.</p>
           </div>
@@ -833,7 +677,7 @@ export default function LandingPage() {
       <section id="servicos" className="lp-chapter">
         <div className="lp-wrap lp-chapter__grid">
           <div className="lp-chapter__head" data-sc-in>
-            <div className="lp-chapter__n">02 · Serviços</div>
+            <div className="lp-chapter__n lp-cap">02 · Serviços</div>
             <h2 className="lp-h2">Tudo que a marca precisa, <em>num só lugar.</em></h2>
             <p className="lp-chapter__lede">A estratégia decide, a produção executa, o tráfego distribui e os dados corrigem o rumo. Tudo no mesmo time, no mesmo mês.</p>
             <a href={WA} target="_blank" rel="noreferrer" className="lp-link">Conversar sobre o meu escopo <ArrowRight size={14} /></a>
@@ -853,16 +697,14 @@ export default function LandingPage() {
       <section id="solucoes" className="lp-chapter">
         <div className="lp-wrap">
           <div data-sc-in style={{ marginBottom: "clamp(28px, 4vw, 48px)", maxWidth: 720 }}>
-            <div className="lp-chapter__n">03 · Soluções com IA</div>
+            <div className="lp-chapter__n lp-cap">03 · Soluções com IA</div>
             <h2 className="lp-h2">Tecnologia que <em>trabalha por você.</em></h2>
             <p className="lp-chapter__lede">Além da agência, três produtos próprios, cada um feito para um nicho que a tecnologia genérica não atende.</p>
           </div>
           <div className="lp-products" data-sc-in data-sc-stagger="70">
             {PRODUCTS.map((p) => (
               <article key={p.name} className="lp-product">
-                <div>
-                  <span className="lp-product__tag lp-mono"><i style={{ background: p.color }} />{p.tag}</span>
-                </div>
+                <div><span className="lp-cap">{p.tag}</span></div>
                 <div>
                   <h3>{p.name}</h3>
                   <div className="lp-product__sub">{p.sub}</div>
@@ -882,7 +724,7 @@ export default function LandingPage() {
       <section id="time" className="lp-chapter">
         <div className="lp-wrap lp-chapter__grid">
           <div className="lp-chapter__head" data-sc-in>
-            <div className="lp-chapter__n">04 · Time</div>
+            <div className="lp-chapter__n lp-cap">04 · Expediente</div>
             <h2 className="lp-h2">Doze especialistas. <em>Um investimento.</em></h2>
             <p className="lp-chapter__lede">Cada agente tem papel, entregas e limites definidos. Toque num nome para ver o que ele faz pelo seu negócio.</p>
             <div className="lp-roster__big" aria-hidden="true">{TEAM.length}</div>
@@ -891,7 +733,7 @@ export default function LandingPage() {
             {TEAM.map((t, i) => (
               <li key={t.name} className="lp-cast" data-open={membro === i}>
                 <button className="lp-cast__btn" onClick={() => setMembro(membro === i ? null : i)} aria-expanded={membro === i}>
-                  <span className="lp-cast__name"><i style={{ background: t.color }} />{t.name}</span>
+                  <span className="lp-cast__name">{t.name}</span>
                   <span className="lp-cast__role">{t.role}</span>
                 </button>
                 <div className="lp-cast__body"><div>
@@ -906,12 +748,12 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 05 ECONOMIA */}
+      {/* 05 CUSTO */}
       <section id="economia" className="lp-chapter">
         <div className="lp-wrap lp-chapter__grid">
           <div className="lp-chapter__head" data-sc-in>
-            <div className="lp-chapter__n">05 · Custo</div>
-            <h2 className="lp-h2 lp-econ__big">Um time completo custa <em>R$ 39.500+</em> por mês.</h2>
+            <div className="lp-chapter__n lp-cap">05 · Custo</div>
+            <h2 className="lp-h2">Um time completo custa <mark>R$ 39.500+</mark> por mês.</h2>
             <p className="lp-chapter__lede">É a faixa de salários de mercado para montar essa equipe em casa, antes de encargos, ferramentas e o tempo de coordenar todo mundo. A Calu entrega o mesmo escopo por uma fração, num único investimento mensal.</p>
             <a href={WA} target="_blank" rel="noreferrer" className="lp-link">Quero saber o valor <ArrowUpRight size={14} /></a>
           </div>
@@ -929,7 +771,7 @@ export default function LandingPage() {
       <section id="perguntas" className="lp-chapter">
         <div className="lp-wrap lp-chapter__grid">
           <div className="lp-chapter__head" data-sc-in>
-            <div className="lp-chapter__n">06 · Perguntas</div>
+            <div className="lp-chapter__n lp-cap">06 · Perguntas</div>
             <h2 className="lp-h2">O que todo mundo pergunta <em>antes de começar.</em></h2>
             <p className="lp-chapter__lede">Respostas curtas. Se a sua não estiver aqui, é só chamar no WhatsApp.</p>
           </div>
@@ -953,8 +795,8 @@ export default function LandingPage() {
       {/* FECHO */}
       <section id="contato" className="lp-close">
         <div className="lp-wrap" data-sc-in>
-          <div className="lp-mono">Pronto para escalar?</div>
-          <h2>Seu time completo <em>começa hoje.</em></h2>
+          <div className="lp-cap">Pronto para escalar?</div>
+          <h2>Seu time completo <mark>começa hoje.</mark></h2>
           <div className="lp-close__row">
             <a href="/briefing" className="lp-btn lp-btn--ink">Diagnóstico gratuito com IA <ArrowUpRight size={15} /></a>
             <a href={WA} target="_blank" rel="noreferrer" className="lp-btn"><MessageCircle size={15} /> Falar no WhatsApp</a>
@@ -966,16 +808,18 @@ export default function LandingPage() {
       <footer className="lp-footer">
         <div className="lp-wrap lp-footer__in">
           <a href="#" className="lp-brand"><img src={caluLogo} alt="" /> Calu Agência</a>
-          <div className="lp-footer__links lp-mono">
-            <Link to="/privacy">Privacidade</Link>
-            <Link to="/cookies">Cookies</Link>
-            <Link to="/entrar" style={{ color: LIME }}>Entrar</Link>
-            <span>© 2026 · Fortaleza, CE</span>
-          </div>
-          <div className="lp-footer__social">
-            <a href="#" className="lp-social" aria-label="Instagram"><Instagram size={14} /></a>
-            <a href="#" className="lp-social" aria-label="LinkedIn"><Linkedin size={14} /></a>
-            <a href={WA} target="_blank" rel="noreferrer" className="lp-social" aria-label="WhatsApp"><MessageCircle size={14} /></a>
+          <p className="lp-colofao"><em>Colofão.</em> Composto em Instrument Serif e Instrument Sans. Feito em Fortaleza, Ceará, por gente e por doze agentes de IA. © 2026 Calu Agência.</p>
+          <div style={{ display: "grid", gap: 14, justifyItems: "end" }}>
+            <div className="lp-footer__links">
+              <Link to="/privacy">Privacidade</Link>
+              <Link to="/cookies">Cookies</Link>
+              <Link to="/entrar" style={{ color: INK, fontWeight: 600 }}>Entrar</Link>
+            </div>
+            <div className="lp-footer__social">
+              <a href="#" className="lp-social" aria-label="Instagram"><Instagram size={14} /></a>
+              <a href="#" className="lp-social" aria-label="LinkedIn"><Linkedin size={14} /></a>
+              <a href={WA} target="_blank" rel="noreferrer" className="lp-social" aria-label="WhatsApp"><MessageCircle size={14} /></a>
+            </div>
           </div>
         </div>
       </footer>
