@@ -17,7 +17,7 @@ import { ArrowUpRight, ArrowRight, ArrowDown, MessageCircle, Instagram, Linkedin
  * O motor da scroll-craft mora em /public/scrollcraft e nunca é editado.
  */
 
-const LIME  = "#B9FF4B";
+const LIME  = "#99EB41"; /* lido dos pixels do logo */
 const INK   = "#F2F1EA";
 const CANVAS = "#0A0A0A";
 const WA    = "https://wa.me/5585986408404";
@@ -111,6 +111,13 @@ const SALARIES: Array<[string, string]> = [
 
 const NAV: Array<[string, string]> = [["Processo", "#processo"], ["Serviços", "#servicos"], ["Soluções", "#solucoes"], ["Time", "#time"]];
 
+const PERGUNTAS: Array<[string, string]> = [
+  ["A IA publica sem eu ver?", "Não. Cada peça passa pela Vitória (revisão) e depois entra na sua fila de aprovação. Só vai para o ar o que você aprovou."],
+  ["Preciso entender de IA?", "Não. Você conversa com a Lia como conversaria com uma agência: conta o negócio, o objetivo do mês e o que não pode faltar. O resto é com o time."],
+  ["E se eu não gostar de uma peça?", "Você devolve com um comentário e ela volta para a produção. O histórico de versões fica na plataforma."],
+  ["O que entra no diagnóstico gratuito?", "Uma conversa de trinta minutos com a Lia, a leitura do seu posicionamento e da concorrência, e um briefing pronto para o primeiro mês. Sem compromisso."],
+];
+
 /* ─────────────────────────────────────────────────────────────────────────────
    CSS. Mobile-first, sem !important. Tokens no topo; tudo que é layout mora
    aqui, inline só entra cor dinâmica por agente.
@@ -148,9 +155,9 @@ const CSS = `
   .lp-btn:hover { transform: translateY(-2px); border-color: var(--ink); }
   .lp-btn svg { transition: transform .35s cubic-bezier(.2,.7,0,1); }
   .lp-btn:hover svg { transform: translate(2px, -2px); }
-  .lp-btn--lime:hover { box-shadow: 0 16px 36px -14px rgba(185,255,75,.55); }
+  .lp-btn--lime:hover { box-shadow: 0 16px 36px -14px rgba(153,235,65,.55); }
   .lp-btn--lime { background: var(--lime); color: ${CANVAS}; border-color: var(--lime); }
-  .lp-btn--lime:hover { background: #ceff70; border-color: #ceff70; }
+  .lp-btn--lime:hover { background: #B4F56B; border-color: #B4F56B; }
   .lp-btn--ink { background: var(--ink); color: ${CANVAS}; border-color: var(--ink); }
   .lp-btn--sm { height: 40px; padding: 0 18px; font-size: 13px; }
   .lp-link { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; border-bottom: 1px solid var(--line-2); padding-bottom: 4px; transition: border-color .25s, gap .25s; }
@@ -185,12 +192,12 @@ const CSS = `
   .lp-hero__bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: .9; filter: saturate(1.05); -webkit-mask-image: radial-gradient(120% 90% at 58% 50%, #000 40%, transparent 100%); mask-image: radial-gradient(120% 90% at 58% 50%, #000 40%, transparent 100%); }
   .lp-hero::after { content: ""; position: absolute; inset: auto 0 0 0; height: 30%; background: linear-gradient(to bottom, transparent, var(--canvas)); z-index: 1; pointer-events: none; }
   .lp-plane--rule { z-index: 0; background-image: linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: calc(100% / 6) 100%; -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent); mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent); opacity: .6; }
-  .lp-plane--near { z-index: 6; background: radial-gradient(40% 22% at 58% 112%, rgba(185,255,75,.12), transparent 70%); }
+  .lp-plane--near { z-index: 6; background: radial-gradient(40% 22% at 58% 112%, rgba(153,235,65,.12), transparent 70%); }
   .lp-hero__in { position: relative; z-index: auto; min-width: 0; max-width: 100%; width: 100%; text-align: center; }
   .lp-h1 { position: relative; z-index: 3; }
   .lp-hero__meta { position: relative; z-index: 5; }
   .lp-h1 { font-size: clamp(30px, 9vw, 118px); font-weight: 500; letter-spacing: .14em; text-transform: uppercase; line-height: 1; padding-left: .14em; white-space: nowrap; }
-  .lp-h1 .ch { display: inline-block; opacity: 0; transform: translateY(.35em); animation: lp-ch 1s cubic-bezier(.2,.7,0,1) forwards; animation-delay: calc(.15s + var(--i) * 45ms); text-shadow: 0 0 40px rgba(185,255,75,.18); }
+  .lp-h1 .ch { display: inline-block; opacity: 0; transform: translateY(.35em); animation: lp-ch 1s cubic-bezier(.2,.7,0,1) forwards; animation-delay: calc(.15s + var(--i) * 45ms); text-shadow: 0 0 40px rgba(153,235,65,.18); }
   @keyframes lp-ch { to { opacity: 1; transform: none; } }
   .lp-h1__sub { display: block; margin-top: clamp(14px, 2.4vh, 26px); font-family: var(--display); font-weight: 500; font-size: clamp(19px, 2.3vw, 32px); letter-spacing: -0.01em; text-transform: none; color: var(--ink-2); white-space: normal; padding-left: 0; opacity: 0; animation: lp-rise 1s cubic-bezier(.2,.7,0,1) .9s forwards; }
   .lp-h1__sub em { font-family: var(--serif); font-style: italic; font-weight: 400; color: var(--ink); font-size: 1.1em; }
@@ -222,7 +229,7 @@ const CSS = `
   .lp-anel__glow { filter: blur(14px); opacity: .55; }
   .lp-anel__glow2 { filter: blur(40px); opacity: .35; }
   .lp-anel__node { transition: r .4s, fill .4s; }
-  .lp-hero__floor { position: absolute; z-index: 1; left: 50%; bottom: 8%; width: min(90vw, 900px); height: 26vh; transform: translateX(-42%); background: radial-gradient(50% 60% at 50% 100%, rgba(185,255,75,.16), transparent 70%); pointer-events: none; }
+  .lp-hero__floor { position: absolute; z-index: 1; left: 50%; bottom: 8%; width: min(90vw, 900px); height: 26vh; transform: translateX(-42%); background: radial-gradient(50% 60% at 50% 100%, rgba(153,235,65,.16), transparent 70%); pointer-events: none; }
 
   /* barra inferior do hero: fatos reais, atalho e redes */
   .lp-hero__bar { position: absolute; z-index: 5; left: 0; right: 0; bottom: 0; padding-top: 18px; padding-bottom: calc(18px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 16px; opacity: 0; animation: lp-rise 1s cubic-bezier(.2,.7,0,1) 1.3s forwards; }
@@ -288,6 +295,10 @@ const CSS = `
   .lp-row__list li::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--lime); flex: 0 0 5px; position: relative; top: -2px; }
   @media (min-width: 700px) { .lp-row__btn { grid-template-columns: 40px 1fr auto auto; } .lp-row__meta { display: block; } .lp-row__inner { grid-template-columns: 1.2fr 1fr; gap: 32px; padding-left: 54px; } }
 
+  .lp-row__t--q { font-size: clamp(19px, 2vw, 26px); font-weight: 600; }
+  .lp-row__inner--q { grid-template-columns: 1fr; }
+  @media (min-width: 700px) { .lp-row__btn:has(.lp-row__t--q) { grid-template-columns: 40px 1fr auto; } }
+
   /* o mês se montando (pinado) */
   .lp-month { position: relative; border-top: 1px solid var(--line); }
   .lp-month__stage { min-height: 100svh; display: flex; align-items: safe center; padding: 84px 0 28px; }
@@ -295,6 +306,11 @@ const CSS = `
   @media (min-width: 900px) { .lp-month__head { grid-template-columns: 1.1fr 1fr; gap: 48px; } }
   .lp-month__head .lp-h2 { margin-top: 12px; }
   .lp-month__grid { display: grid; grid-template-columns: 1fr; gap: 12px; border-top: 1px solid var(--line-2); padding-top: 18px; }
+  .lp-month__prog { position: relative; height: 2px; background: var(--line); margin-bottom: 18px; overflow: hidden; }
+  .lp-month__prog::before { content: ""; position: absolute; inset: 0; background: var(--lime); transform-origin: left; transform: scaleX(var(--sc-p, 0)); }
+  .lp-month__prog b { position: absolute; top: 8px; left: 0; font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
+  .lp-month__prog b:last-child { left: auto; right: 0; }
+  @media (prefers-reduced-motion: reduce) { .lp-month__prog::before { transform: none; } }
   @media (min-width: 900px) { .lp-month__grid { grid-template-columns: minmax(0, 1.45fr) minmax(280px, 1fr); gap: 56px; } }
   .lp-cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
   .lp-cal__dow { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; color: var(--ink-3); padding: 0 0 10px 8px; }
@@ -303,7 +319,7 @@ const CSS = `
   .lp-cal__d:nth-last-child(-n+7) { border-bottom: 1px solid var(--line); }
   .lp-cal__d.is-off { color: transparent; }
   .lp-cal__d.has { --v: clamp(0, calc((var(--sc-p, 0) - var(--em)) * 7), 1); }
-  .lp-cal__d.has::after { content: ""; position: absolute; inset: 0; background: rgba(185,255,75,calc(var(--v) * .08)); pointer-events: none; }
+  .lp-cal__d.has::after { content: ""; position: absolute; inset: 0; background: rgba(153,235,65,calc(var(--v) * .08)); pointer-events: none; }
   .lp-cal__chip { position: absolute; left: 6px; right: 6px; bottom: 6px; padding: 4px 7px; border-radius: 4px; font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: ${CANVAS}; background: var(--lime); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: var(--v, 0); transform: translateY(calc((1 - var(--v, 0)) * 8px)); z-index: 1; }
   .lp-month__foot { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; padding-top: 14px; }
   .lp-month__foot p { font-size: 13px; color: var(--ink-2); max-width: 40ch; }
@@ -420,11 +436,11 @@ const CSS = `
    ───────────────────────────────────────────────────────────────────────── */
 type Luz = { cor: [number, number, number]; a: number; r: number; cx: number; cy: number; ax: number; ay: number; fx: number; fy: number; px: number; py: number };
 const LUZES: Luz[] = [
-  { cor: [185, 255, 75],  a: .42, r: .46, cx: .74, cy: .34, ax: .10, ay: .08, fx: .11, fy: .09, px: 0,   py: 1.2 },
-  { cor: [185, 255, 75],  a: .22, r: .38, cx: .30, cy: .78, ax: .12, ay: .07, fx: .07, fy: .13, px: 2.1, py: .4 },
+  { cor: [153, 235, 65],  a: .42, r: .46, cx: .74, cy: .34, ax: .10, ay: .08, fx: .11, fy: .09, px: 0,   py: 1.2 },
+  { cor: [153, 235, 65],  a: .22, r: .38, cx: .30, cy: .78, ax: .12, ay: .07, fx: .07, fy: .13, px: 2.1, py: .4 },
   { cor: [90, 140, 40],   a: .30, r: .52, cx: .52, cy: .52, ax: .16, ay: .10, fx: .05, fy: .08, px: 4.0, py: 2.6 },
-  { cor: [140, 120, 255], a: .16, r: .40, cx: .12, cy: .22, ax: .08, ay: .10, fx: .09, fy: .06, px: 1.0, py: 3.3 },
-  { cor: [185, 255, 75],  a: .14, r: .30, cx: .90, cy: .86, ax: .06, ay: .06, fx: .13, fy: .11, px: 5.2, py: .9 },
+  { cor: [60, 110, 30],   a: .22, r: .44, cx: .12, cy: .22, ax: .08, ay: .10, fx: .09, fy: .06, px: 1.0, py: 3.3 },
+  { cor: [153, 235, 65],  a: .14, r: .30, cx: .90, cy: .86, ax: .06, ay: .06, fx: .13, fy: .11, px: 5.2, py: .9 },
 ];
 
 function FundoVivo() {
@@ -509,9 +525,9 @@ function Anel({ active, camada }: { active: number; camada: "tras" | "frente" })
       <svg viewBox="0 0 800 800">
         <defs>
           <linearGradient id={`lp-anel-g-${camada}`} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#F4FFD6" />
+            <stop offset="0" stopColor="#EEFFD0" />
             <stop offset=".45" stopColor={LIME} />
-            <stop offset="1" stopColor="#5E8F1F" />
+            <stop offset="1" stopColor="#4E7F1C" />
           </linearGradient>
         </defs>
         <g transform={`rotate(${TILT} ${C} ${C})`}>
@@ -526,7 +542,7 @@ function Anel({ active, camada }: { active: number; camada: "tras" | "frente" })
             const on = k === active;
             return (
               <g key={t.name}>
-                <circle className="lp-anel__node" cx={x} cy={y} r={on ? 7 : 3.5} fill={on ? "#F4FFD6" : "rgba(242,241,234,.55)"} />
+                <circle className="lp-anel__node" cx={x} cy={y} r={on ? 7 : 3.5} fill={on ? "#EEFFD0" : "rgba(242,241,234,.55)"} />
                 {on && <circle cx={x} cy={y} r={18} fill="none" stroke={LIME} strokeOpacity=".6" strokeWidth="1.2" />}
               </g>
             );
@@ -562,6 +578,7 @@ export default function LandingPage() {
   const [ativo, setAtivo] = useState(0);
   const [etapa, setEtapa] = useState<number | null>(0);
   const [membro, setMembro] = useState<number | null>(null);
+  const [pergunta, setPergunta] = useState<number | null>(0);
   const rootRef = useRef<HTMLDivElement>(null);
   const contadorRef = useRef<HTMLSpanElement>(null);
 
@@ -603,6 +620,11 @@ export default function LandingPage() {
         const reduz = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
         const n = reduz ? PECAS.length : PECAS.filter((_, i) => p - emDaPeca(i) > 0.02).length;
         if (contadorRef.current.textContent !== String(n)) contadorRef.current.textContent = String(n);
+        /* Estado visível do palco para o harness da scroll-craft: quantas peças
+           já pintaram e em que décimo está a linha de progresso. */
+        const palco = sec.querySelector<HTMLElement>("[data-sc-stage]");
+        const estado = `pecas:${n};linha:${Math.round(p * 10)}`;
+        if (palco && palco.dataset.scVerifyState !== estado) palco.dataset.scVerifyState = estado;
       }
       raf = requestAnimationFrame(laco);
     };
@@ -670,10 +692,10 @@ export default function LandingPage() {
             <span className="lp-h1__sub" aria-hidden="true"><em>que vende.</em> <b>IA que escala.</b></span>
           </h1>
           <div className="lp-hero__meta">
-            <div className="lp-hero__eyebrow"><i /><span className="lp-mono">Agência de marketing com IA · Fortaleza, Brasil</span></div>
+            <div className="lp-hero__eyebrow"><i /><span className="lp-mono">Agência de marketing com IA · você aprova, o time executa</span></div>
             <div className="lp-hero__ctas">
-              <a href="/briefing" className="lp-btn lp-btn--lime">Começar com um diagnóstico <ArrowUpRight size={15} /></a>
-              <a href={WA} target="_blank" rel="noreferrer" className="lp-btn"><MessageCircle size={15} /> WhatsApp</a>
+              <a href="/briefing" className="lp-btn lp-btn--lime">Fazer o diagnóstico gratuito <ArrowUpRight size={15} /></a>
+              <a href={WA} target="_blank" rel="noreferrer" className="lp-btn"><MessageCircle size={15} /> Falar com a gente</a>
             </div>
           </div>
         </div>
@@ -682,7 +704,7 @@ export default function LandingPage() {
           <ul className="lp-hero__facts" aria-label="Em números">
             <li><b>{String(TEAM.length).padStart(2, "0")}</b><span>agentes de IA</span></li>
             <li><b>{String(PROCESS.length).padStart(2, "0")}</b><span>etapas por mês</span></li>
-            <li><b>01</b><span>investimento</span></li>
+            <li><b>01</b><span>investimento mensal</span></li>
           </ul>
           <div className="lp-hero__side">
             <a href="#processo" className="lp-hero__play"><i><ArrowDown size={15} /></i> Ver o processo</a>
@@ -699,10 +721,10 @@ export default function LandingPage() {
       {/* MANIFESTO */}
       <section className="lp-manifesto">
         <div className="lp-wrap" data-sc-in>
-          <p><Palavras partes={[{ t: "Uma agência de publicidade não é um lugar. É um time que" }, { t: "pensa, produz, revisa e publica", em: true }, { t: "todo dia, na ordem certa. A Calu é esse time, em IA, para o seu negócio." }]} /></p>
+          <p><Palavras partes={[{ t: "Montar um time de marketing custa caro e demora. Fazer sozinho não escala. A Calu é uma agência inteira em IA:" }, { t: "pensa, produz, revisa e publica", em: true }, { t: "todo dia, na ordem certa. Você só aprova." }]} /></p>
           <div className="lp-manifesto__meta lp-mono">
-            <span><i />Estratégia antes da produção</span>
-            <span><i />Revisão antes da aprovação</span>
+            <span><i />Estratégia antes de produzir</span>
+            <span><i />Revisão antes de você ver</span>
             <span><i />Relatório toda semana</span>
           </div>
         </div>
@@ -714,7 +736,7 @@ export default function LandingPage() {
           <div className="lp-chapter__head" data-sc-in>
             <div className="lp-chapter__n">01 · Processo</div>
             <h2 className="lp-h2">Como um mês de marketing <em>acontece.</em></h2>
-            <p className="lp-chapter__lede">Oito etapas, cada uma com dono. Cada agente trabalha em cima do que o anterior entregou, e nada vai para o cliente sem passar pela revisão.</p>
+            <p className="lp-chapter__lede">Oito etapas, cada uma com dono. Cada agente trabalha em cima do que o anterior entregou, e nada vai para o ar sem passar pela revisão e pela sua aprovação.</p>
           </div>
           <div className="lp-rows" data-sc-in data-sc-stagger="50">
             {PROCESS.map((s, i) => (
@@ -741,7 +763,7 @@ export default function LandingPage() {
       </section>
 
       {/* O MÊS SE MONTANDO: seção pinada, cenário de demonstração rotulado */}
-      <section className="lp-month" data-sc-act="pin" data-sc-span="3" aria-label="Demonstração: um mês de produção se montando">
+      <section className="lp-month" data-sc-act="pin" data-sc-span="2.6" aria-label="Demonstração: um mês de produção se montando">
         <div data-sc-stage className="lp-month__stage">
           <div className="lp-wrap">
             <div className="lp-month__head">
@@ -749,8 +771,9 @@ export default function LandingPage() {
                 <div className="lp-chapter__n">Demonstração · cliente fictício</div>
                 <h2 className="lp-h2">Veja um mês inteiro{" "}<br /><em>se montar.</em></h2>
               </div>
-              <p className="lp-chapter__lede">Role devagar. O calendário enche, a fila de aprovação cresce e o contador sobe: é o que acontece na plataforma depois que o time recebe o briefing.</p>
+              <p className="lp-chapter__lede">Role devagar. É o que acontece na plataforma depois que o time recebe o seu briefing: o calendário enche, a fila de aprovação cresce, o contador sobe. Cenário de demonstração com cliente fictício.</p>
             </div>
+            <div className="lp-month__prog" aria-hidden="true"><b>briefing</b><b>mês publicado</b></div>
             <div className="lp-month__grid">
               <div>
                 <div className="lp-cal">
@@ -789,8 +812,8 @@ export default function LandingPage() {
           <div className="lp-chapter__head" data-sc-in>
             <div className="lp-chapter__n">02 · Serviços</div>
             <h2 className="lp-h2">Tudo que a marca precisa, <em>num só lugar.</em></h2>
-            <p className="lp-chapter__lede">Serviços integrados que trabalham juntos: a estratégia decide, a produção executa, o tráfego distribui e os dados corrigem o rumo.</p>
-            <a href={WA} target="_blank" rel="noreferrer" className="lp-link">Montar meu escopo <ArrowRight size={14} /></a>
+            <p className="lp-chapter__lede">A estratégia decide, a produção executa, o tráfego distribui e os dados corrigem o rumo. Tudo no mesmo time, no mesmo mês.</p>
+            <a href={WA} target="_blank" rel="noreferrer" className="lp-link">Conversar sobre o meu escopo <ArrowRight size={14} /></a>
           </div>
           <ul className="lp-services" data-sc-in data-sc-stagger="50">
             {SERVICES.map((s) => (
@@ -809,7 +832,7 @@ export default function LandingPage() {
           <div data-sc-in style={{ marginBottom: "clamp(28px, 4vw, 48px)", maxWidth: 720 }}>
             <div className="lp-chapter__n">03 · Soluções com IA</div>
             <h2 className="lp-h2">Tecnologia que <em>trabalha por você.</em></h2>
-            <p className="lp-chapter__lede">Cada produto nasceu para um nicho específico, resolvendo problemas reais que a tecnologia genérica não atende.</p>
+            <p className="lp-chapter__lede">Além da agência, três produtos próprios, cada um feito para um nicho que a tecnologia genérica não atende.</p>
           </div>
           <div className="lp-products" data-sc-in data-sc-stagger="70">
             {PRODUCTS.map((p) => (
@@ -866,7 +889,7 @@ export default function LandingPage() {
           <div className="lp-chapter__head" data-sc-in>
             <div className="lp-chapter__n">05 · Custo</div>
             <h2 className="lp-h2 lp-econ__big">Um time completo custa <em>R$ 39.500+</em> por mês.</h2>
-            <p className="lp-chapter__lede">É a faixa de salários de mercado para montar essa equipe em casa, sem contar encargos, ferramentas e o tempo de coordenar todo mundo. A Calu entrega o mesmo escopo por uma fração.</p>
+            <p className="lp-chapter__lede">É a faixa de salários de mercado para montar essa equipe em casa, antes de encargos, ferramentas e o tempo de coordenar todo mundo. A Calu entrega o mesmo escopo por uma fração, num único investimento mensal.</p>
             <a href={WA} target="_blank" rel="noreferrer" className="lp-link">Quero saber o valor <ArrowUpRight size={14} /></a>
           </div>
           <div data-sc-in>
@@ -879,6 +902,31 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* 06 PERGUNTAS */}
+      <section id="perguntas" className="lp-chapter">
+        <div className="lp-wrap lp-chapter__grid">
+          <div className="lp-chapter__head" data-sc-in>
+            <div className="lp-chapter__n">06 · Perguntas</div>
+            <h2 className="lp-h2">O que todo mundo pergunta <em>antes de começar.</em></h2>
+            <p className="lp-chapter__lede">Respostas curtas. Se a sua não estiver aqui, é só chamar no WhatsApp.</p>
+          </div>
+          <div className="lp-rows" data-sc-in data-sc-stagger="50">
+            {PERGUNTAS.map(([q, r], i) => (
+              <div key={q} className="lp-row" data-open={pergunta === i}>
+                <button className="lp-row__btn" onClick={() => setPergunta(pergunta === i ? null : i)} aria-expanded={pergunta === i}>
+                  <span className="lp-row__n">{String(i + 1).padStart(2, "0")}</span>
+                  <span className="lp-row__t lp-row__t--q">{q}</span>
+                  <span className="lp-row__plus"><Plus size={14} /></span>
+                </button>
+                <div className="lp-row__body"><div>
+                  <div className="lp-row__inner lp-row__inner--q"><p>{r}</p></div>
+                </div></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* FECHO */}
       <section id="contato" className="lp-close">
         <div className="lp-wrap" data-sc-in>
@@ -887,7 +935,7 @@ export default function LandingPage() {
           <div className="lp-close__row">
             <a href="/briefing" className="lp-btn lp-btn--ink">Diagnóstico gratuito com IA <ArrowUpRight size={15} /></a>
             <a href={WA} target="_blank" rel="noreferrer" className="lp-btn"><MessageCircle size={15} /> Falar no WhatsApp</a>
-            <p className="lp-close__note">O diagnóstico leva trinta minutos numa conversa com a Lia e vira o briefing do seu primeiro mês.</p>
+            <p className="lp-close__note">O diagnóstico é gratuito, leva trinta minutos numa conversa com a Lia e vira o briefing do seu primeiro mês.</p>
           </div>
         </div>
       </section>
