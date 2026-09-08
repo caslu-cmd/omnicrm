@@ -109,7 +109,7 @@ const SALARIES: Array<[string, string]> = [
   ["Revisora de Conteúdo",        "R$ 2.500 a 4.000"],
 ];
 
-const NAV: Array<[string, string]> = [["Processo", "#processo"], ["Serviços", "#servicos"], ["Soluções", "#solucoes"], ["Time", "#time"]];
+const NAV: Array<[string, string]> = [["Trabalho", "#trabalho"], ["Processo", "#processo"], ["Serviços", "#servicos"], ["Soluções", "#solucoes"], ["Time", "#time"]];
 
 const PERGUNTAS: Array<[string, string]> = [
   ["A IA publica sem eu ver?", "Não. Cada peça passa pela Vitória (revisão) e depois entra na sua fila de aprovação. Só vai para o ar o que você aprovou."],
@@ -184,60 +184,71 @@ const CSS = `
   .lp-menu a.lp-menu__l { font-family: var(--display); font-weight: 700; font-size: clamp(34px, 9vw, 56px); letter-spacing: -0.04em; line-height: 1.05; padding: 8px 0; border-bottom: 1px solid var(--line); }
   .lp-menu__cta { display: flex; flex-direction: column; gap: 10px; margin-top: 28px; }
 
-  /* hero: referência NUORBIT. Palavra única espaçada atravessando um anel de
-     luz; o anel tem metade atrás e metade na frente das letras. */
-  .lp-hero { position: relative; min-height: 100svh; display: flex; flex-direction: column; justify-content: center; padding: 96px 0 150px; overflow: hidden; isolation: isolate; }
+  /* hero: título à esquerda, card do time à direita, aurora atrás */
+  .lp-hero { position: relative; min-height: 100svh; display: flex; flex-direction: column; justify-content: center; padding: 96px 0 40px; overflow: hidden; isolation: isolate; }
   .lp-plane { position: absolute; inset: -14% 0; pointer-events: none; will-change: transform; }
   .lp-plane--far { z-index: 0; overflow: hidden; }
   .lp-hero__bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: .9; filter: saturate(1.05); -webkit-mask-image: radial-gradient(120% 90% at 58% 50%, #000 40%, transparent 100%); mask-image: radial-gradient(120% 90% at 58% 50%, #000 40%, transparent 100%); }
   .lp-hero::after { content: ""; position: absolute; inset: auto 0 0 0; height: 30%; background: linear-gradient(to bottom, transparent, var(--canvas)); z-index: 1; pointer-events: none; }
   .lp-plane--rule { z-index: 0; background-image: linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: calc(100% / 6) 100%; -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent); mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent); opacity: .6; }
   .lp-plane--near { z-index: 6; background: radial-gradient(40% 22% at 58% 112%, rgba(185,255,75,.12), transparent 70%); }
-  .lp-hero__in { position: relative; z-index: auto; min-width: 0; max-width: 100%; width: 100%; text-align: center; }
-  .lp-h1 { position: relative; z-index: 3; }
-  .lp-hero__meta { position: relative; z-index: 5; }
-  .lp-h1 { font-size: clamp(30px, 9vw, 118px); font-weight: 500; letter-spacing: .14em; text-transform: uppercase; line-height: 1; padding-left: .14em; white-space: nowrap; }
-  .lp-h1 .ch { display: inline-block; opacity: 0; transform: translateY(.35em); animation: lp-ch 1s cubic-bezier(.2,.7,0,1) forwards; animation-delay: calc(.15s + var(--i) * 45ms); text-shadow: 0 0 40px rgba(185,255,75,.18); }
-  @keyframes lp-ch { to { opacity: 1; transform: none; } }
-  .lp-h1__sub { display: block; margin-top: clamp(14px, 2.4vh, 26px); font-family: var(--display); font-weight: 500; font-size: clamp(19px, 2.3vw, 32px); letter-spacing: -0.01em; text-transform: none; color: var(--ink-2); white-space: normal; padding-left: 0; opacity: 0; animation: lp-rise 1s cubic-bezier(.2,.7,0,1) .9s forwards; }
-  .lp-h1__sub em { font-family: var(--serif); font-style: italic; font-weight: 400; color: var(--ink); font-size: 1.1em; }
-  .lp-h1__sub b { font-weight: 500; color: var(--lime); }
-  .lp-hero__meta { display: flex; flex-direction: column; align-items: center; gap: 18px; margin-top: clamp(28px, 5vh, 52px); opacity: 0; animation: lp-rise 1s cubic-bezier(.2,.7,0,1) 1.1s forwards; }
-  .lp-hero__eyebrow { display: inline-flex; align-items: center; gap: 12px; }
-  .lp-hero__eyebrow i { display: block; width: 36px; height: 1px; background: var(--lime); transform: scaleX(0); transform-origin: left; animation: lp-draw .9s cubic-bezier(.2,.7,0,1) 1.2s forwards; }
+  .lp-hero__floor { position: absolute; z-index: 1; left: 50%; bottom: 8%; width: min(90vw, 900px); height: 26vh; transform: translateX(-30%); background: radial-gradient(50% 60% at 50% 100%, rgba(185,255,75,.14), transparent 70%); pointer-events: none; }
+  .lp-hero__grid { position: relative; z-index: 3; display: grid; grid-template-columns: 1fr; gap: 32px; align-items: center; width: 100%; min-width: 0; }
+  .lp-hero__copy { min-width: 0; }
+  .lp-hero__eyebrow { display: inline-flex; align-items: center; gap: 12px; margin-bottom: clamp(18px, 3vh, 28px); }
+  .lp-hero__eyebrow i { display: block; width: 36px; height: 1px; background: var(--lime); transform: scaleX(0); transform-origin: left; animation: lp-draw .9s cubic-bezier(.2,.7,0,1) .1s forwards; }
   @keyframes lp-draw { to { transform: none; } }
+  .lp-h1 { font-size: clamp(44px, 11.2vw, 96px); line-height: .94; letter-spacing: -0.04em; max-width: 100%; }
+  .lp-h1 .l { display: block; overflow: hidden; padding-bottom: .08em; margin-bottom: -.08em; }
+  .lp-h1 .w { display: block; transform: translateY(112%); animation: lp-line 1.1s cubic-bezier(.2,.7,0,1) forwards; }
+  .lp-h1 .l:nth-child(1) .w { animation-delay: .08s; }
+  .lp-h1 .l:nth-child(2) .w { animation-delay: .2s; }
+  .lp-h1 .l:nth-child(3) .w { animation-delay: .32s; }
+  .lp-h1 .l2 .w { font-family: var(--serif); font-style: italic; font-weight: 400; letter-spacing: -0.02em; font-size: 1.06em; line-height: .88; }
+  .lp-h1 .l3 { color: var(--lime); }
+  @keyframes lp-line { to { transform: none; } }
   @keyframes lp-rise { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
-  .lp-hero__ctas { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+  .lp-hero__lede { font-size: clamp(15px, 1.15vw, 17.5px); line-height: 1.55; color: var(--ink-2); max-width: 48ch; margin-top: clamp(18px, 3vh, 26px); opacity: 0; animation: lp-rise 1s cubic-bezier(.2,.7,0,1) .7s forwards; }
+  .lp-hero__lede b { color: var(--ink); font-weight: 600; }
+  .lp-hero__ctas { display: flex; flex-wrap: wrap; gap: 10px; margin-top: clamp(20px, 3vh, 28px); opacity: 0; animation: lp-rise 1s cubic-bezier(.2,.7,0,1) .9s forwards; }
+  .lp-hero__card { min-width: 0; max-width: 560px; width: 100%; opacity: 0; animation: lp-rise 1.1s cubic-bezier(.2,.7,0,1) .5s forwards; }
   @media (min-width: 900px) {
     .lp-hero { padding: 120px 0 160px; }
-    .lp-h1 { font-size: clamp(60px, 8.1vw, 122px); letter-spacing: .24em; padding-left: .24em; }
-    .lp-hero__in { text-align: left; }
-    .lp-h1 { text-align: center; }
-    .lp-h1__sub { text-align: center; }
-    .lp-hero__meta { flex-direction: row; justify-content: space-between; align-items: center; }
-    .lp-hero__ctas { justify-content: flex-start; }
+    .lp-hero__grid { grid-template-columns: minmax(0, 1.15fr) minmax(360px, .85fr); gap: clamp(32px, 5vw, 72px); }
+    .lp-h1 { font-size: clamp(60px, 6.6vw, 100px); }
+    .lp-hero__card { justify-self: end; }
   }
 
-  /* anel de luz */
-  .lp-anel { position: absolute; left: 50%; top: 50%; width: min(86vw, 74svh, 720px); aspect-ratio: 1; transform: translate(-46%, -56%); pointer-events: none; opacity: 0; animation: lp-anel-in 1.8s cubic-bezier(.2,.7,0,1) .2s forwards; }
-  @media (min-width: 900px) { .lp-anel { transform: translate(-42%, -55%); width: min(52vw, 78svh, 760px); } }
-  .lp-anel--tras { z-index: 2; }
-  .lp-anel--frente { z-index: 4; }
-  @keyframes lp-anel-in { from { opacity: 0; transform: translate(-46%, -56%) scale(.92); } to { opacity: 1; } }
-  @media (min-width: 900px) { @keyframes lp-anel-in { from { opacity: 0; transform: translate(-42%, -55%) scale(.92); } to { opacity: 1; } } }
-  .lp-anel svg { width: 100%; height: 100%; overflow: visible; display: block; }
-  .lp-anel__glow { filter: blur(14px); opacity: .55; }
-  .lp-anel__glow2 { filter: blur(40px); opacity: .35; }
-  .lp-anel__node { transition: r .4s, fill .4s; }
-  .lp-hero__floor { position: absolute; z-index: 1; left: 50%; bottom: 8%; width: min(90vw, 900px); height: 26vh; transform: translateX(-42%); background: radial-gradient(50% 60% at 50% 100%, rgba(185,255,75,.16), transparent 70%); pointer-events: none; }
+  /* card do time: quem está executando agora, e os doze */
+  .lp-agent { border-radius: 24px; padding: clamp(18px, 2.4vw, 26px); position: relative; overflow: hidden; background: rgba(10,10,10,.55); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); transition: border-color .6s, box-shadow .6s; }
+  .lp-glow { position: absolute; border-radius: 50%; pointer-events: none; filter: blur(60px); }
+  .lp-agent__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; position: relative; }
+  .lp-dot { animation: lp-pulse 2.2s ease-in-out infinite; }
+  @keyframes lp-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .55; transform: scale(.8); } }
+  @keyframes lp-agent-in { from { opacity: .35; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .lp-agent-in { animation: lp-agent-in .5s cubic-bezier(.22,.68,0,1) both; }
+  .lp-agent__who { display: flex; align-items: center; gap: 14px; margin-bottom: 14px; }
+  .lp-agent__avatar { width: 60px; height: 60px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-family: var(--display); font-size: 21px; font-weight: 700; flex-shrink: 0; }
+  .lp-agent__name { font-family: var(--display); font-size: 22px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.05; }
+  .lp-agent__role { font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; margin-top: 5px; opacity: .9; }
+  .lp-agent__now { background: rgba(0,0,0,.42); border-radius: 14px; padding: 13px 15px; }
+  .lp-tasks { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+  .lp-tasks div { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .lp-tasks span { font-size: 12.5px; line-height: 1.4; overflow-wrap: anywhere; }
+  .lp-agent__sep { height: 1px; margin: 16px 0; }
+  .lp-agent-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+  @media (min-width: 420px) { .lp-agent-grid { gap: 8px; } }
+  .lp-agent-btn { height: 44px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; transition: transform .2s; min-width: 0; }
+  .lp-agent-btn:hover { transform: scale(1.08); }
+  .lp-agent-btn b { font-family: var(--display); font-size: 12px; font-weight: 700; }
+  .lp-agent-btn small { font-family: var(--mono); font-size: 8px; line-height: 1; }
 
   /* barra inferior do hero: fatos reais, atalho e redes */
-  .lp-hero__bar { position: absolute; z-index: 5; left: 0; right: 0; bottom: 0; padding-top: 18px; padding-bottom: calc(18px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 16px; opacity: 0; animation: lp-rise 1s cubic-bezier(.2,.7,0,1) 1.3s forwards; }
+  .lp-hero__bar { position: relative; z-index: 5; margin-top: 36px; padding-top: 18px; padding-bottom: 0; display: flex; flex-direction: column; gap: 16px; opacity: 0; animation: lp-rise 1s cubic-bezier(.2,.7,0,1) 1.1s forwards; }
   .lp-hero__bar::before { content: ""; position: absolute; left: var(--pad); right: var(--pad); top: 0; height: 1px; background: var(--line-2); }
   .lp-hero__facts { list-style: none; display: flex; gap: clamp(22px, 4vw, 56px); }
   .lp-hero__facts li { display: flex; flex-direction: column; gap: 4px; }
   .lp-hero__facts b { font-family: var(--display); font-weight: 600; font-size: clamp(20px, 2vw, 28px); letter-spacing: -0.02em; line-height: 1; }
-  .lp-hero__facts b small { font-size: .6em; color: var(--lime); margin-left: 2px; }
   .lp-hero__facts span { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
   .lp-hero__side { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
   .lp-hero__play { display: inline-flex; align-items: center; gap: 12px; font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); }
@@ -245,7 +256,7 @@ const CSS = `
   .lp-hero__play:hover i { background: var(--lime); color: ${CANVAS}; border-color: var(--lime); }
   .lp-hero__social { display: flex; gap: 8px; }
   @media (min-width: 900px) {
-    .lp-hero__bar { flex-direction: row; align-items: center; justify-content: space-between; padding-top: 22px; padding-bottom: 26px; }
+    .lp-hero__bar { position: absolute; left: 0; right: 0; bottom: 0; margin-top: 0; flex-direction: row; align-items: center; justify-content: space-between; padding-top: 22px; padding-bottom: 26px; }
     .lp-hero__side { gap: 36px; }
   }
   @media (max-width: 899px) { .lp-hero__social { display: none; } }
@@ -332,7 +343,7 @@ const CSS = `
   .lp-q__d small { display: block; font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin-top: 4px; }
   .lp-q__t { font-weight: 700; font-size: 14px; }
   .lp-q__s { font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); margin-top: 4px; }
-  @media (prefers-reduced-motion: reduce) { .lp-cal__d.has, .lp-q { --v: 1; transform: none; opacity: 1; } .lp-h1 .ch, .lp-h1__sub, .lp-hero__meta, .lp-hero__bar, .lp-hero__eyebrow i, .lp-anel { animation: none; opacity: 1; transform: none; } .lp-anel { transform: translate(-46%, -56%); } .wd > span { transform: none; transition: none; } .lp-chapter__n::after { transform: none; } .lp-nav.is-hidden { transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .lp-cal__d.has, .lp-q { --v: 1; transform: none; opacity: 1; } .lp-h1 .w, .lp-hero__lede, .lp-hero__ctas, .lp-hero__card, .lp-hero__bar, .lp-hero__eyebrow i { animation: none; opacity: 1; transform: none; } .lp-agent-in { animation: none; } .wd > span { transform: none; transition: none; } .lp-chapter__n::after { transform: none; } .lp-nav.is-hidden { transform: none; } }
   .lp-month .lp-h2 { font-size: clamp(32px, 4.2vw, 60px); }
   @media (max-height: 940px) and (min-width: 900px) { .lp-month__stage { padding-top: 76px; } .lp-month .lp-h2 { font-size: clamp(30px, 4.6vh, 56px); } .lp-cal__d { aspect-ratio: 1 / .52; } .lp-q { padding: 8px 0; } .lp-month__head { margin-bottom: 12px; } .lp-month__grid { padding-top: 12px; } }
   @media (max-width: 899px) {
@@ -510,45 +521,63 @@ function FundoVivo() {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Anel de luz: uma elipse inclinada, com brilho, dividida em duas camadas.
-   A metade de cima fica atrás das letras e a de baixo na frente, então a
-   palavra atravessa o anel. Os doze nós do time andam sobre ele, o ativo
-   aceso em limão.
+   Card do time no hero: quem está executando agora, o que está fazendo, e os
+   doze para tocar. Troca sozinho a cada 4,2s; para no hover ou ao tocar.
    ───────────────────────────────────────────────────────────────────────── */
-function Anel({ active, camada }: { active: number; camada: "tras" | "frente" }) {
-  const C = 400, RX = 330, RY = 352, TILT = -12;
-  const arco = camada === "tras"
-    ? `M ${C - RX} ${C} A ${RX} ${RY} 0 0 1 ${C + RX} ${C}`
-    : `M ${C + RX} ${C} A ${RX} ${RY} 0 0 1 ${C - RX} ${C}`;
+function HeroAgentCard() {
+  const [active, setActive] = useState(0);
+  const [paused, setPaused] = useState(false);
+  const [key, setKey] = useState(0);
+
+  useEffect(() => {
+    if (paused) return;
+    const t = setInterval(() => { setActive((p) => (p + 1) % TEAM.length); setKey((k) => k + 1); }, 4200);
+    return () => clearInterval(t);
+  }, [paused]);
+
+  const agent = TEAM[active];
   return (
-    <div className={`lp-anel lp-anel--${camada}`} aria-hidden="true">
-      <svg viewBox="0 0 800 800">
-        <defs>
-          <linearGradient id={`lp-anel-g-${camada}`} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#F4FFD6" />
-            <stop offset=".45" stopColor={LIME} />
-            <stop offset="1" stopColor="#5E8F1F" />
-          </linearGradient>
-        </defs>
-        <g transform={`rotate(${TILT} ${C} ${C})`}>
-          {camada === "tras" && <ellipse className="lp-anel__glow2" cx={C} cy={C} rx={RX} ry={RY} fill="none" stroke={LIME} strokeWidth="60" />}
-          <path className="lp-anel__glow" d={arco} fill="none" stroke={LIME} strokeWidth="22" strokeLinecap="round" />
-          <path d={arco} fill="none" stroke={`url(#lp-anel-g-${camada})`} strokeWidth="5" strokeLinecap="round" />
-          {TEAM.map((t, k) => {
-            const a = (k / TEAM.length) * Math.PI * 2 - Math.PI / 2;
-            const x = C + Math.cos(a) * RX, y = C + Math.sin(a) * RY;
-            const naFrente = Math.sin(a) > 0;
-            if ((camada === "frente") !== naFrente) return null;
-            const on = k === active;
-            return (
-              <g key={t.name}>
-                <circle className="lp-anel__node" cx={x} cy={y} r={on ? 7 : 3.5} fill={on ? "#F4FFD6" : "rgba(242,241,234,.55)"} />
-                {on && <circle cx={x} cy={y} r={18} fill="none" stroke={LIME} strokeOpacity=".6" strokeWidth="1.2" />}
-              </g>
-            );
-          })}
-        </g>
-      </svg>
+    <div className="lp-agent" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}
+      style={{ border: `1px solid ${agent.color}40`, boxShadow: `0 0 90px -24px ${agent.color}66, 0 0 0 1px ${agent.color}18` }}>
+      <div className="lp-glow" style={{ top: -80, right: -80, width: 300, height: 300, background: `radial-gradient(circle, ${agent.color}2A 0%, transparent 68%)` }} />
+      <div className="lp-agent__head">
+        <span className="lp-mono" style={{ fontSize: 10, color: LIME }}>Time ativo agora</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <i className="lp-dot" style={{ width: 7, height: 7, borderRadius: "50%", background: LIME, boxShadow: `0 0 10px ${LIME}`, display: "inline-block" }} />
+          <span className="lp-mono" style={{ fontSize: 10, color: LIME, letterSpacing: 0, textTransform: "none" }}>{TEAM.length} online</span>
+        </span>
+      </div>
+      <div key={key} className="lp-agent-in" style={{ position: "relative" }}>
+        <div className="lp-agent__who">
+          <div className="lp-agent__avatar" style={{ background: `${agent.color}1C`, border: `2px solid ${agent.color}60`, color: agent.color, boxShadow: `0 0 36px -6px ${agent.color}80` }}>{agent.i}</div>
+          <div style={{ minWidth: 0 }}>
+            <div className="lp-agent__name">{agent.name}</div>
+            <div className="lp-agent__role" style={{ color: agent.color }}>{agent.role}</div>
+          </div>
+        </div>
+        <div className="lp-agent__now" style={{ border: `1px solid ${agent.color}18` }}>
+          <div className="lp-mono" style={{ fontSize: 9, marginBottom: 10 }}>Executando agora</div>
+          <div className="lp-tasks">
+            {agent.tasks.map((task, j) => (
+              <div key={j}>
+                <i style={{ width: 4, height: 4, borderRadius: "50%", background: j === 0 ? agent.color : "rgba(255,255,255,.15)", flexShrink: 0, boxShadow: j === 0 ? `0 0 6px ${agent.color}` : "none", display: "inline-block" }} />
+                <span style={{ color: j === 0 ? "rgba(242,241,234,.85)" : "rgba(242,241,234,.42)" }}>{task}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <div className="lp-agent__sep" style={{ background: `linear-gradient(to right, ${agent.color}25, rgba(255,255,255,.04), transparent)` }} />
+      <div className="lp-agent-grid">
+        {TEAM.map((t, i) => (
+          <button key={t.name} className="lp-agent-btn" title={t.name} aria-label={t.name}
+            onClick={() => { setActive(i); setKey((k) => k + 1); setPaused(true); }}
+            style={{ background: i === active ? `${t.color}22` : "rgba(255,255,255,.04)", outline: i === active ? `1.5px solid ${t.color}70` : "1px solid rgba(255,255,255,.07)", boxShadow: i === active ? `0 0 18px -4px ${t.color}70` : "none" }}>
+            <b style={{ color: i === active ? t.color : "var(--ink-3)" }}>{t.i}</b>
+            <small style={{ color: i === active ? t.color : "rgba(255,255,255,.22)" }}>{t.name.slice(0, 3)}</small>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -575,7 +604,6 @@ export default function LandingPage() {
   const [oculta, setOculta] = useState(false);
   const [menu, setMenu] = useState(false);
   const ultimoY = useRef(0);
-  const [ativo, setAtivo] = useState(0);
   const [etapa, setEtapa] = useState<number | null>(0);
   const [membro, setMembro] = useState<number | null>(null);
   const [pergunta, setPergunta] = useState<number | null>(0);
@@ -592,12 +620,6 @@ export default function LandingPage() {
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const t = setInterval(() => setAtivo((a) => (a + 1) % TEAM.length), 3600);
-    return () => clearInterval(t);
   }, []);
 
   useEffect(() => { document.body.style.overflow = menu ? "hidden" : ""; return () => { document.body.style.overflow = ""; }; }, [menu]);
@@ -680,26 +702,27 @@ export default function LandingPage() {
         </div>
       )}
 
-      {/* HERO: palavra atravessando o anel de luz, sobre a aurora */}
+      {/* HERO: título à esquerda, o time trabalhando à direita, aurora atrás */}
       <header className="lp-hero" data-sc-act="flow">
         <div className="lp-plane lp-plane--far" data-sc-parallax="-0.9" aria-hidden="true"><FundoVivo /></div>
         <div className="lp-plane lp-plane--rule" data-sc-parallax="-0.5" aria-hidden="true" />
         <div className="lp-hero__floor" aria-hidden="true" />
-        <Anel active={ativo} camada="tras" />
-        <div className="lp-wrap lp-hero__in">
-          <h1 className="lp-h1" aria-label="Criatividade que vende. IA que escala.">
-            <span aria-hidden="true">{"CRIATIVIDADE".split("").map((c, k) => <span key={k} className="ch" style={{ "--i": k } as CSSProperties}>{c}</span>)}</span>
-            <span className="lp-h1__sub" aria-hidden="true"><em>que vende.</em> <b>IA que escala.</b></span>
-          </h1>
-          <div className="lp-hero__meta">
-            <div className="lp-hero__eyebrow"><i /><span className="lp-mono">Agência de marketing com IA · você aprova, o time executa</span></div>
+        <div className="lp-wrap lp-hero__grid">
+          <div className="lp-hero__copy">
+            <div className="lp-hero__eyebrow"><i /><span className="lp-mono">Agência de marketing com IA · Fortaleza</span></div>
+            <h1 className="lp-h1">
+              <span className="l"><span className="w">Criatividade</span></span>
+              <span className="l l2"><span className="w">que vende.</span></span>
+              <span className="l"><span className="w l3">IA que escala.</span></span>
+            </h1>
+            <p className="lp-hero__lede">Somos uma agência de marketing em IA: doze especialistas fazem o marketing do seu negócio, <b>do briefing ao post publicado</b>, por um único investimento mensal. Você aprova, o time executa.</p>
             <div className="lp-hero__ctas">
               <a href="/briefing" className="lp-btn lp-btn--lime">Fazer o diagnóstico gratuito <ArrowUpRight size={15} /></a>
-              <a href={WA} target="_blank" rel="noreferrer" className="lp-btn"><MessageCircle size={15} /> Falar com a gente</a>
+              <a href={WA} target="_blank" rel="noreferrer" className="lp-btn"><MessageCircle size={15} /> Vamos conversar</a>
             </div>
           </div>
+          <div className="lp-hero__card"><HeroAgentCard /></div>
         </div>
-        <Anel active={ativo} camada="frente" />
         <div className="lp-wrap lp-hero__bar">
           <ul className="lp-hero__facts" aria-label="Em números">
             <li><b>{String(TEAM.length).padStart(2, "0")}</b><span>agentes de IA</span></li>
@@ -707,7 +730,7 @@ export default function LandingPage() {
             <li><b>01</b><span>investimento mensal</span></li>
           </ul>
           <div className="lp-hero__side">
-            <a href="#processo" className="lp-hero__play"><i><ArrowDown size={15} /></i> Ver o processo</a>
+            <a href="#trabalho" className="lp-hero__play"><i><ArrowDown size={15} /></i> Ver o time trabalhar</a>
             <div className="lp-hero__social">
               <a href="#" className="lp-social" aria-label="Instagram"><Instagram size={14} /></a>
               <a href="#" className="lp-social" aria-label="LinkedIn"><Linkedin size={14} /></a>
@@ -717,6 +740,50 @@ export default function LandingPage() {
         </div>
         <div className="lp-plane lp-plane--near" data-sc-parallax="0.9" aria-hidden="true" />
       </header>
+
+      {/* O MÊS SE MONTANDO: seção pinada, cenário de demonstração rotulado */}
+      <section id="trabalho" className="lp-month" data-sc-act="pin" data-sc-span="2.6" aria-label="Demonstração: um mês de produção se montando">
+        <div data-sc-stage className="lp-month__stage">
+          <div className="lp-wrap">
+            <div className="lp-month__head">
+              <div>
+                <div className="lp-chapter__n">O trabalho · demonstração com cliente fictício</div>
+                <h2 className="lp-h2">Veja um mês inteiro{" "}<br /><em>se montar.</em></h2>
+              </div>
+              <p className="lp-chapter__lede">Role devagar. É o que acontece na plataforma depois que o time recebe o seu briefing: o calendário enche, a fila de aprovação cresce, o contador sobe. Cenário de demonstração com cliente fictício.</p>
+            </div>
+            <div className="lp-month__prog" aria-hidden="true"><b>briefing</b><b>mês publicado</b></div>
+            <div className="lp-month__grid">
+              <div>
+                <div className="lp-cal">
+                  {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => <div key={i} className="lp-cal__dow">{d}</div>)}
+                  {CALENDARIO.map((c, i) => (
+                    <div key={i} className={`lp-cal__d${c.dia === null ? " is-off" : ""}${c.i !== undefined ? " has" : ""}`} style={c.i !== undefined ? em(emDaPeca(c.i)) : undefined}>
+                      {c.dia ?? "·"}
+                      {c.i !== undefined && <span className="lp-cal__chip">{PECAS[c.i].formato}</span>}
+                    </div>
+                  ))}
+                </div>
+                <div className="lp-month__foot">
+                  <p>Pedro calendarizou, Beatriz escreveu, Marcela desenhou em cima da copy. Cada peça entra na fila com data e hora.</p>
+                  <span className="lp-count"><span ref={contadorRef}>0</span><small>peças</small></span>
+                </div>
+              </div>
+              <div>
+                <div className="lp-queue__head lp-mono"><span>Fila de aprovação</span><span style={{ color: LIME }}>Setembro</span></div>
+                <ul className="lp-queue">
+                  {PECAS.map((pc, i) => (
+                    <li key={pc.id} className="lp-q" style={em(emDaPeca(i))}>
+                      <div className="lp-q__d">{String(pc.dia).padStart(2, "0")}<small>set</small></div>
+                      <div><div className="lp-q__t">{pc.tema}</div><div className="lp-q__s">{pc.formato} · pilar {pc.pilar} · 12:00</div></div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* MANIFESTO */}
       <section className="lp-manifesto">
@@ -758,50 +825,6 @@ export default function LandingPage() {
                 </div></div>
               </div>
             ))}
-          </div>
-        </div>
-      </section>
-
-      {/* O MÊS SE MONTANDO: seção pinada, cenário de demonstração rotulado */}
-      <section className="lp-month" data-sc-act="pin" data-sc-span="2.6" aria-label="Demonstração: um mês de produção se montando">
-        <div data-sc-stage className="lp-month__stage">
-          <div className="lp-wrap">
-            <div className="lp-month__head">
-              <div>
-                <div className="lp-chapter__n">Demonstração · cliente fictício</div>
-                <h2 className="lp-h2">Veja um mês inteiro{" "}<br /><em>se montar.</em></h2>
-              </div>
-              <p className="lp-chapter__lede">Role devagar. É o que acontece na plataforma depois que o time recebe o seu briefing: o calendário enche, a fila de aprovação cresce, o contador sobe. Cenário de demonstração com cliente fictício.</p>
-            </div>
-            <div className="lp-month__prog" aria-hidden="true"><b>briefing</b><b>mês publicado</b></div>
-            <div className="lp-month__grid">
-              <div>
-                <div className="lp-cal">
-                  {["D", "S", "T", "Q", "Q", "S", "S"].map((d, i) => <div key={i} className="lp-cal__dow">{d}</div>)}
-                  {CALENDARIO.map((c, i) => (
-                    <div key={i} className={`lp-cal__d${c.dia === null ? " is-off" : ""}${c.i !== undefined ? " has" : ""}`} style={c.i !== undefined ? em(emDaPeca(c.i)) : undefined}>
-                      {c.dia ?? "·"}
-                      {c.i !== undefined && <span className="lp-cal__chip">{PECAS[c.i].formato}</span>}
-                    </div>
-                  ))}
-                </div>
-                <div className="lp-month__foot">
-                  <p>Pedro calendarizou, Beatriz escreveu, Marcela desenhou em cima da copy. Cada peça entra na fila com data e hora.</p>
-                  <span className="lp-count"><span ref={contadorRef}>0</span><small>peças</small></span>
-                </div>
-              </div>
-              <div>
-                <div className="lp-queue__head lp-mono"><span>Fila de aprovação</span><span style={{ color: LIME }}>Setembro</span></div>
-                <ul className="lp-queue">
-                  {PECAS.map((pc, i) => (
-                    <li key={pc.id} className="lp-q" style={em(emDaPeca(i))}>
-                      <div className="lp-q__d">{String(pc.dia).padStart(2, "0")}<small>set</small></div>
-                      <div><div className="lp-q__t">{pc.tema}</div><div className="lp-q__s">{pc.formato} · pilar {pc.pilar} · 12:00</div></div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </div>
           </div>
         </div>
       </section>
