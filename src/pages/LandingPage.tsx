@@ -7,7 +7,8 @@ import { ArrowUpRight, ArrowRight, MessageCircle, Instagram, Linkedin, Menu, X, 
  * Landing page da Calu Agência. Direção: editorial noir.
  *
  * Uma revista de luxo impressa em preto, com um único acento (limão), uma
- * família para títulos (Syne) e uma para texto (Manrope), rótulos em mono.
+ * família de agência (Instrument Sans) para títulos e texto, Instrument Serif
+ * itálico como acento, rótulos em mono.
  * A página argumenta por capítulos numerados separados por linhas finas,
  * não por cards. O scroll dirige três coisas: a profundidade do hero (planos
  * em taxas diferentes), as entradas de cada capítulo e a única seção pinada,
@@ -119,8 +120,9 @@ const CSS = `
         --ink-2: rgba(242,241,234,.62); --ink-3: rgba(242,241,234,.38);
         --line: rgba(242,241,234,.12); --line-2: rgba(242,241,234,.22);
         --pad: clamp(20px, 5vw, 72px); --w: 1360px;
-        --display: 'Syne', 'Manrope', sans-serif;
-        --body: 'Manrope', 'Inter', system-ui, sans-serif;
+        --display: 'Instrument Sans', 'Manrope', system-ui, sans-serif;
+        --body: 'Instrument Sans', 'Manrope', system-ui, sans-serif;
+        --serif: 'Instrument Serif', 'Times New Roman', serif;
         --mono: 'DM Mono', ui-monospace, monospace;
         font-family: var(--body); color: var(--ink); background: var(--canvas);
         -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
@@ -129,7 +131,9 @@ const CSS = `
   .lp *, .lp *::before, .lp *::after { box-sizing: border-box; margin: 0; padding: 0; }
   .lp a { color: inherit; text-decoration: none; }
   .lp button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
-  .lp h1, .lp h2, .lp h3 { font-family: var(--display); font-weight: 800; letter-spacing: -0.045em; line-height: .96; overflow-wrap: normal; }
+  .lp h1, .lp h2, .lp h3 { font-family: var(--display); font-weight: 700; letter-spacing: -0.035em; line-height: .98; overflow-wrap: normal; }
+  .lp-serif, .lp h1 em, .lp h2 em, .lp h3 em { font-family: var(--serif); font-style: italic; font-weight: 400; letter-spacing: -0.015em; }
+  .lp h2 em { color: var(--lime); }
   .lp p { line-height: 1.6; }
   .lp ::selection { background: var(--lime); color: ${CANVAS}; }
   .lp-mono { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
@@ -142,6 +146,9 @@ const CSS = `
   /* botões */
   .lp-btn { display: inline-flex; align-items: center; gap: 10px; height: 52px; padding: 0 26px; border-radius: 999px; font-weight: 700; font-size: 14px; border: 1px solid var(--line-2); transition: transform .35s cubic-bezier(.2,.7,0,1), background .25s, color .25s, border-color .25s; white-space: nowrap; }
   .lp-btn:hover { transform: translateY(-2px); border-color: var(--ink); }
+  .lp-btn svg { transition: transform .35s cubic-bezier(.2,.7,0,1); }
+  .lp-btn:hover svg { transform: translate(2px, -2px); }
+  .lp-btn--lime:hover { box-shadow: 0 16px 36px -14px rgba(185,255,75,.55); }
   .lp-btn--lime { background: var(--lime); color: ${CANVAS}; border-color: var(--lime); }
   .lp-btn--lime:hover { background: #ceff70; border-color: #ceff70; }
   .lp-btn--ink { background: var(--ink); color: ${CANVAS}; border-color: var(--ink); }
@@ -150,10 +157,11 @@ const CSS = `
   .lp-link:hover { border-color: var(--lime); gap: 12px; }
 
   /* barra */
-  .lp-nav { position: fixed; inset: 0 0 auto 0; z-index: 200; height: 68px; display: flex; align-items: center; border-bottom: 1px solid transparent; transition: background .35s, border-color .35s; }
+  .lp-nav { position: fixed; inset: 0 0 auto 0; z-index: 200; height: 68px; display: flex; align-items: center; border-bottom: 1px solid transparent; transition: background .35s, border-color .35s, transform .5s cubic-bezier(.2,.7,0,1); }
+  .lp-nav.is-hidden { transform: translateY(-100%); }
   .lp-nav.is-solid { background: rgba(10,10,10,.92); border-color: var(--line); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); }
   .lp-nav__in { width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
-  .lp-brand { display: inline-flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 800; font-size: 16px; letter-spacing: -0.02em; }
+  .lp-brand { display: inline-flex; align-items: center; gap: 10px; font-family: var(--display); font-weight: 700; font-size: 16px; letter-spacing: -0.02em; }
   .lp-brand img { width: 30px; height: 30px; border-radius: 8px; }
   .lp-nav__links { display: none; }
   .lp-nav__cta { display: none; }
@@ -166,7 +174,7 @@ const CSS = `
     .lp-burger { display: none; }
   }
   .lp-menu { position: fixed; inset: 0; z-index: 190; background: var(--canvas); display: flex; flex-direction: column; justify-content: center; padding: 96px var(--pad) 40px; gap: 6px; }
-  .lp-menu a.lp-menu__l { font-family: var(--display); font-weight: 800; font-size: clamp(34px, 9vw, 56px); letter-spacing: -0.04em; line-height: 1.05; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .lp-menu a.lp-menu__l { font-family: var(--display); font-weight: 700; font-size: clamp(34px, 9vw, 56px); letter-spacing: -0.04em; line-height: 1.05; padding: 8px 0; border-bottom: 1px solid var(--line); }
   .lp-menu__cta { display: flex; flex-direction: column; gap: 10px; margin-top: 28px; }
 
   /* hero */
@@ -178,12 +186,20 @@ const CSS = `
   .lp-hero__in { position: relative; z-index: 2; }
   .lp-hero__eyebrow { display: flex; align-items: center; gap: 14px; margin-bottom: clamp(28px, 5vh, 56px); }
   .lp-hero__eyebrow i { display: block; width: 44px; height: 1px; background: var(--lime); }
-  .lp-h1 { font-size: clamp(34px, 9.4vw, 150px); line-height: .92; letter-spacing: -0.05em; max-width: 100%; }
+  .lp-h1 { font-size: clamp(38px, 11vw, 156px); line-height: .94; letter-spacing: -0.045em; max-width: 100%; }
   .lp-hero__in { min-width: 0; max-width: 100%; }
   @media (max-width: 899px) { .lp-outline { -webkit-text-stroke-width: 1px; } }
-  .lp-h1 .l { display: block; }
-  .lp-h1 .l1 { opacity: 0; animation: lp-rise .9s cubic-bezier(.2,.7,0,1) .1s forwards; }
-  .lp-h1 .l2 { opacity: 0; animation: lp-rise .9s cubic-bezier(.2,.7,0,1) .28s forwards; }
+  .lp-h1 .l { display: block; overflow: hidden; padding-bottom: .08em; margin-bottom: -.08em; }
+  .lp-h1 .w { display: block; transform: translateY(112%); animation: lp-line 1.1s cubic-bezier(.2,.7,0,1) forwards; }
+  .lp-h1 .l:nth-child(1) .w { animation-delay: .08s; }
+  .lp-h1 .l:nth-child(2) .w { animation-delay: .2s; }
+  .lp-h1 .l:nth-child(3) .w { animation-delay: .32s; }
+  .lp-h1 .l2 .w { font-family: var(--serif); font-style: italic; font-weight: 400; letter-spacing: -0.02em; font-size: 1.06em; line-height: .88; }
+  @keyframes lp-line { to { transform: none; } }
+  .lp-hero__eyebrow i { transform: scaleX(0); transform-origin: left; animation: lp-draw .9s cubic-bezier(.2,.7,0,1) .15s forwards; }
+  @keyframes lp-draw { to { transform: none; } }
+  .lp-orbit { opacity: 0; animation: lp-orbit-in 1.6s cubic-bezier(.2,.7,0,1) .3s forwards; }
+  @keyframes lp-orbit-in { from { opacity: 0; transform: scale(.94); } to { opacity: var(--o, .75); transform: none; } }
   .lp-hero__row { display: grid; grid-template-columns: 1fr; gap: 24px; margin-top: clamp(28px, 4vh, 48px); padding-top: 22px; border-top: 1px solid var(--line-2); opacity: 0; animation: lp-rise .9s cubic-bezier(.2,.7,0,1) .5s forwards; }
   .lp-hero__lede { font-size: clamp(16px, 1.25vw, 19px); color: var(--ink-2); max-width: 46ch; }
   .lp-hero__lede b { color: var(--ink); font-weight: 600; }
@@ -191,16 +207,16 @@ const CSS = `
   .lp-hero__row .lp-hero__index { display: none; }
   @media (min-width: 900px) {
     .lp-hero { padding: 140px 0 44px; }
-    .lp-h1 { font-size: clamp(80px, 8.8vw, 140px); }
+    .lp-h1 { font-size: clamp(88px, 10.2vw, 156px); }
     .lp-hero__row { grid-template-columns: 1.2fr 1fr .9fr; gap: 40px; align-items: start; }
     .lp-hero__row .lp-hero__index { display: grid; justify-self: end; }
   }
-  .lp-orbit { position: absolute; z-index: 1; right: -22vw; top: 4vh; width: min(84vw, 560px); aspect-ratio: 1; pointer-events: none; opacity: .75; }
-  @media (min-width: 900px) { .lp-orbit { right: -6vw; top: 2vh; width: min(52vw, 760px); opacity: .85; } }
+  .lp-orbit { position: absolute; z-index: 1; right: -22vw; top: 4vh; width: min(84vw, 560px); aspect-ratio: 1; pointer-events: none; --o: .75; }
+  @media (min-width: 900px) { .lp-orbit { right: -6vw; top: 2vh; width: min(52vw, 760px); --o: .85; } }
   .lp-orbit__ring { animation: lp-spin 80s linear infinite; transform-origin: 50% 50%; }
   .lp-orbit__node { transition: r .4s, fill .4s; }
   .lp-orbit__label { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; fill: rgba(242,241,234,.42); }
-  .lp-orbit__center { font-family: var(--display); font-weight: 800; letter-spacing: -0.03em; fill: var(--ink); }
+  .lp-orbit__center { font-family: var(--display); font-weight: 700; letter-spacing: -0.03em; fill: var(--ink); }
   .lp-orbit__role { font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; fill: var(--lime); }
   .lp-index { list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 22px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
   .lp-index li { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; border-bottom: 1px solid var(--line); }
@@ -211,8 +227,11 @@ const CSS = `
 
   /* manifesto */
   .lp-manifesto { padding: clamp(56px, 10vw, 120px) 0; border-top: 1px solid var(--line); }
-  .lp-manifesto p { font-family: var(--display); font-weight: 700; font-size: clamp(24px, 4.2vw, 56px); letter-spacing: -0.035em; line-height: 1.12; max-width: 22ch; }
-  .lp-manifesto p em { font-style: normal; color: var(--lime); }
+  .lp-manifesto p { font-family: var(--display); font-weight: 600; font-size: clamp(24px, 4.2vw, 56px); letter-spacing: -0.03em; line-height: 1.12; max-width: 22ch; }
+  .wd { display: inline-block; overflow: hidden; vertical-align: bottom; padding-bottom: .1em; margin-bottom: -.1em; }
+  .wd > span { display: inline-block; transform: translateY(108%); transition: transform 1s cubic-bezier(.2,.7,0,1); transition-delay: calc(var(--i) * 24ms); }
+  .sc-in .wd > span { transform: none; }
+  .wd.is-em { color: var(--lime); font-family: var(--serif); font-style: italic; font-weight: 400; letter-spacing: -0.01em; font-size: 1.06em; }
   .lp-manifesto__meta { display: flex; gap: 28px; flex-wrap: wrap; margin-top: 28px; }
   .lp-manifesto__meta span { display: inline-flex; align-items: center; gap: 10px; }
   .lp-manifesto__meta i { width: 6px; height: 6px; border-radius: 50%; background: var(--lime); display: inline-block; }
@@ -222,8 +241,9 @@ const CSS = `
   .lp-chapter__grid { display: grid; grid-template-columns: 1fr; gap: 28px; }
   @media (min-width: 900px) { .lp-chapter__grid { grid-template-columns: minmax(0, 5.5fr) minmax(0, 6.5fr); gap: 64px; } .lp-chapter__head { position: sticky; top: 100px; align-self: start; } }
   .lp-chapter__n { font-family: var(--mono); font-size: 12px; letter-spacing: .14em; color: var(--lime); display: flex; align-items: center; gap: 12px; }
-  .lp-chapter__n::after { content: ""; flex: 0 0 40px; height: 1px; background: var(--line-2); }
-  .lp-h2 { font-size: clamp(32px, 3.9vw, 58px); margin-top: 18px; }
+  .lp-chapter__n::after { content: ""; flex: 0 0 40px; height: 1px; background: var(--lime); transform: scaleX(0); transform-origin: left; transition: transform .9s cubic-bezier(.2,.7,0,1) .25s; }
+  .sc-in .lp-chapter__n::after { transform: none; }
+  .lp-h2 { font-size: clamp(34px, 4.3vw, 64px); margin-top: 18px; }
   .lp-chapter__lede { font-size: clamp(15px, 1.2vw, 18px); color: var(--ink-2); margin-top: 22px; max-width: 44ch; }
   .lp-chapter__lede + .lp-link { margin-top: 22px; }
 
@@ -231,9 +251,10 @@ const CSS = `
   .lp-rows { border-top: 1px solid var(--line-2); }
   .lp-row { border-bottom: 1px solid var(--line); }
   .lp-row__btn { width: 100%; display: grid; grid-template-columns: 34px 1fr auto; align-items: baseline; gap: 14px; padding: 20px 0; text-align: left; transition: padding .3s; }
-  .lp-row__btn:hover .lp-row__t { color: var(--lime); }
+  .lp-row__btn:hover .lp-row__t { color: var(--lime); transform: translateX(6px); }
+  .lp-row__t { transition: color .25s, transform .45s cubic-bezier(.2,.7,0,1); }
   .lp-row__n { font-family: var(--mono); font-size: 12px; color: var(--ink-3); letter-spacing: .1em; }
-  .lp-row__t { font-family: var(--display); font-weight: 800; font-size: clamp(22px, 2.6vw, 34px); letter-spacing: -0.035em; transition: color .25s; }
+  .lp-row__t { font-family: var(--display); font-weight: 700; font-size: clamp(22px, 2.6vw, 34px); letter-spacing: -0.035em; transition: color .25s; }
   .lp-row__meta { font-family: var(--mono); font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); display: none; }
   .lp-row__plus { width: 30px; height: 30px; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--line-2); border-radius: 50%; transition: transform .35s cubic-bezier(.2,.7,0,1), background .25s, color .25s; align-self: center; }
   .lp-row[data-open="true"] .lp-row__plus { transform: rotate(45deg); background: var(--lime); color: ${CANVAS}; border-color: var(--lime); }
@@ -268,16 +289,16 @@ const CSS = `
   .lp-cal__chip { position: absolute; left: 6px; right: 6px; bottom: 6px; padding: 4px 7px; border-radius: 4px; font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: ${CANVAS}; background: var(--lime); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: var(--v, 0); transform: translateY(calc((1 - var(--v, 0)) * 8px)); z-index: 1; }
   .lp-month__foot { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; padding-top: 14px; }
   .lp-month__foot p { font-size: 13px; color: var(--ink-2); max-width: 40ch; }
-  .lp-count { font-family: var(--display); font-weight: 800; font-size: clamp(44px, 6vw, 88px); letter-spacing: -0.05em; line-height: .9; color: var(--lime); display: flex; align-items: baseline; gap: 10px; }
+  .lp-count { font-family: var(--display); font-weight: 700; font-size: clamp(44px, 6vw, 88px); letter-spacing: -0.05em; line-height: .9; color: var(--lime); display: flex; align-items: baseline; gap: 10px; }
   .lp-count small { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
   .lp-queue { list-style: none; }
   .lp-queue__head { display: flex; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid var(--line-2); }
   .lp-q { display: grid; grid-template-columns: 44px 1fr; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--line); --v: clamp(0, calc((var(--sc-p, 0) - var(--em)) * 7), 1); opacity: var(--v); transform: translateX(calc((1 - var(--v)) * 14px)); }
-  .lp-q__d { font-family: var(--display); font-weight: 800; font-size: 20px; letter-spacing: -0.03em; line-height: 1; }
+  .lp-q__d { font-family: var(--display); font-weight: 700; font-size: 20px; letter-spacing: -0.03em; line-height: 1; }
   .lp-q__d small { display: block; font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin-top: 4px; }
   .lp-q__t { font-weight: 700; font-size: 14px; }
   .lp-q__s { font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); margin-top: 4px; }
-  @media (prefers-reduced-motion: reduce) { .lp-cal__d.has, .lp-q { --v: 1; transform: none; opacity: 1; } .lp-h1 .l, .lp-hero__row { animation: none; opacity: 1; } .lp-orbit__ring { animation: none; } }
+  @media (prefers-reduced-motion: reduce) { .lp-cal__d.has, .lp-q { --v: 1; transform: none; opacity: 1; } .lp-h1 .w, .lp-hero__row, .lp-hero__eyebrow i, .lp-orbit { animation: none; opacity: 1; transform: none; } .lp-orbit__ring { animation: none; } .wd > span { transform: none; transition: none; } .lp-chapter__n::after { transform: none; } .lp-nav.is-hidden { transform: none; } }
   .lp-month .lp-h2 { font-size: clamp(32px, 4.2vw, 60px); }
   @media (max-height: 940px) and (min-width: 900px) { .lp-month__stage { padding-top: 76px; } .lp-month .lp-h2 { font-size: clamp(30px, 4.6vh, 56px); } .lp-cal__d { aspect-ratio: 1 / .52; } .lp-q { padding: 8px 0; } .lp-month__head { margin-bottom: 12px; } .lp-month__grid { padding-top: 12px; } }
   @media (max-width: 899px) {
@@ -302,7 +323,7 @@ const CSS = `
   .lp-service::before { content: ""; position: absolute; left: 0; top: -1px; height: 1px; width: 0; background: var(--lime); transition: width .5s cubic-bezier(.2,.7,0,1); }
   .lp-service:hover::before { width: 100%; }
   .lp-service:hover { padding-left: 8px; }
-  .lp-service__n { font-family: var(--display); font-weight: 800; font-size: 26px; letter-spacing: -0.04em; color: transparent; -webkit-text-stroke: 1px var(--ink-3); line-height: 1; }
+  .lp-service__n { font-family: var(--display); font-weight: 700; font-size: 26px; letter-spacing: -0.04em; color: transparent; -webkit-text-stroke: 1px var(--ink-3); line-height: 1; }
   .lp-service h3 { font-size: clamp(20px, 2.1vw, 28px); letter-spacing: -0.03em; }
   .lp-service p { color: var(--ink-2); font-size: 14.5px; margin-top: 8px; max-width: 40ch; }
   @media (min-width: 700px) { .lp-services { grid-template-columns: 1fr 1fr; column-gap: 48px; } }
@@ -325,9 +346,11 @@ const CSS = `
   .lp-roster { list-style: none; border-top: 1px solid var(--line-2); }
   .lp-cast { border-bottom: 1px solid var(--line); }
   .lp-cast__btn { width: 100%; display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 12px; padding: 16px 0; text-align: left; }
-  .lp-cast__name { font-family: var(--display); font-weight: 800; font-size: clamp(26px, 3.6vw, 46px); letter-spacing: -0.04em; line-height: 1; display: flex; align-items: center; gap: 14px; transition: color .25s; }
+  .lp-cast__name { font-family: var(--display); font-weight: 700; font-size: clamp(26px, 3.6vw, 46px); letter-spacing: -0.04em; line-height: 1; display: flex; align-items: center; gap: 14px; transition: color .25s; }
   .lp-cast__name i { width: 10px; height: 10px; border-radius: 50%; flex: 0 0 10px; transform: scale(.6); transition: transform .35s; }
   .lp-cast__btn:hover .lp-cast__name i, .lp-cast[data-open="true"] .lp-cast__name i { transform: scale(1); }
+  .lp-cast__name { transition: color .25s, transform .45s cubic-bezier(.2,.7,0,1); }
+  .lp-cast__btn:hover .lp-cast__name { transform: translateX(6px); }
   .lp-cast__role { font-family: var(--mono); font-size: 10.5px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); text-align: right; }
   .lp-cast__body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .45s cubic-bezier(.2,.7,0,1); }
   .lp-cast[data-open="true"] .lp-cast__body { grid-template-rows: 1fr; }
@@ -335,22 +358,23 @@ const CSS = `
   .lp-cast__inner { display: grid; grid-template-columns: 1fr; gap: 14px; padding: 0 0 22px 24px; }
   .lp-cast__inner p { color: var(--ink-2); font-size: 14.5px; max-width: 46ch; }
   @media (min-width: 700px) { .lp-cast__inner { grid-template-columns: 1.3fr 1fr; gap: 32px; } }
-  .lp-roster__big { font-family: var(--display); font-weight: 800; font-size: clamp(96px, 20vw, 260px); letter-spacing: -0.06em; line-height: .8; color: transparent; -webkit-text-stroke: 1.5px var(--line-2); margin-top: 18px; }
+  .lp-roster__big { font-family: var(--display); font-weight: 700; font-size: clamp(96px, 20vw, 260px); letter-spacing: -0.06em; line-height: .8; color: transparent; -webkit-text-stroke: 1.5px var(--line-2); margin-top: 18px; }
   @supports not (-webkit-text-stroke: 1px #000) { .lp-roster__big { color: var(--line-2); } }
 
   /* economia */
   .lp-econ__big { font-size: clamp(34px, 4.4vw, 62px); margin-top: 18px; }
-  .lp-econ__big em { font-style: normal; color: var(--lime); }
+  .lp-econ__big em { font-size: 1.04em; }
   .lp-table { list-style: none; border-top: 1px solid var(--line-2); }
   .lp-table li { display: flex; justify-content: space-between; gap: 16px; padding: 13px 0; border-bottom: 1px solid var(--line); font-size: 14.5px; }
   .lp-table li span:last-child { font-family: var(--mono); font-size: 12px; letter-spacing: .04em; color: var(--ink-2); white-space: nowrap; }
-  .lp-table li.is-total { padding: 18px 0; font-weight: 800; font-family: var(--display); font-size: 16px; border-bottom: 1px solid var(--lime); }
+  .lp-table li.is-total { padding: 18px 0; font-weight: 700; font-family: var(--display); font-size: 16px; border-bottom: 1px solid var(--lime); }
   .lp-table li.is-total span:last-child { color: var(--lime); font-size: 13px; }
   .lp-table__note { font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; color: var(--ink-3); margin-top: 12px; text-transform: uppercase; }
 
   /* fecho */
   .lp-close { background: var(--lime); color: ${CANVAS}; padding: clamp(64px, 11vw, 150px) 0; }
   .lp-close .lp-mono { color: rgba(10,10,10,.55); }
+  .lp-close h2 em { color: inherit; }
   .lp-close h2 { font-size: clamp(44px, 9.6vw, 148px); letter-spacing: -0.055em; line-height: .9; margin-top: 18px; max-width: 12ch; }
   .lp-close__row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: clamp(28px, 4vw, 48px); padding-top: 24px; border-top: 1px solid rgba(10,10,10,.25); }
   .lp-close .lp-btn { border-color: ${CANVAS}; color: ${CANVAS}; }
@@ -396,11 +420,28 @@ function Orbit({ active }: { active: number }) {
   );
 }
 
+/* Quebra um parágrafo em palavras mascaradas que sobem em cascata quando o
+   bloco entra (o motor marca o pai com .sc-in). */
+function Palavras({ partes }: { partes: Array<{ t: string; em?: boolean }> }) {
+  let i = 0;
+  return (
+    <>
+      {partes.map((pt, k) => pt.t.split(" ").filter(Boolean).map((w, j) => (
+        <span key={`${k}-${j}`}>
+          <span className={`wd${pt.em ? " is-em" : ""}`} style={{ "--i": i++ } as CSSProperties}><span>{w}</span></span>{" "}
+        </span>
+      )))}
+    </>
+  );
+}
+
 type Motor = { mount: (el: Element) => unknown };
 
 export default function LandingPage() {
   const [solid, setSolid] = useState(false);
+  const [oculta, setOculta] = useState(false);
   const [menu, setMenu] = useState(false);
+  const ultimoY = useRef(0);
   const [ativo, setAtivo] = useState(0);
   const [etapa, setEtapa] = useState<number | null>(0);
   const [membro, setMembro] = useState<number | null>(null);
@@ -408,7 +449,12 @@ export default function LandingPage() {
   const contadorRef = useRef<HTMLSpanElement>(null);
 
   useEffect(() => {
-    const onScroll = () => setSolid(window.scrollY > 24);
+    const onScroll = () => {
+      const y = window.scrollY;
+      setSolid(y > 24);
+      setOculta(y > 260 && y > ultimoY.current + 4);
+      ultimoY.current = y;
+    };
     onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
@@ -471,7 +517,7 @@ export default function LandingPage() {
       <div className="lp-grain" aria-hidden="true" />
 
       {/* BARRA */}
-      <nav className={`lp-nav ${solid || menu ? "is-solid" : ""}`}>
+      <nav className={`lp-nav ${solid || menu ? "is-solid" : ""} ${oculta && !menu ? "is-hidden" : ""}`}>
         <div className="lp-wrap lp-nav__in">
           <a href="#" className="lp-brand" onClick={() => setMenu(false)}><img src={caluLogo} alt="" /> Calu Agência</a>
           <div className="lp-nav__links">{NAV.map(([l, h]) => <a key={l} href={h}>{l}</a>)}</div>
@@ -503,9 +549,9 @@ export default function LandingPage() {
         <div className="lp-wrap lp-hero__in">
           <div className="lp-hero__eyebrow"><i /><span className="lp-mono">Agência de marketing com IA · Fortaleza, Brasil</span></div>
           <h1 className="lp-h1">
-            <span className="l l1">Criatividade</span>
-            <span className="l l1">que vende.</span>
-            <span className="l l2 lp-outline">IA que escala.</span>
+            <span className="l"><span className="w">Criatividade</span></span>
+            <span className="l l2"><span className="w">que vende.</span></span>
+            <span className="l"><span className="w lp-outline">IA que escala.</span></span>
           </h1>
           <div className="lp-hero__row">
             <p className="lp-hero__lede">Doze especialistas de IA fazem o trabalho de uma agência inteira, <b>do briefing à publicação</b>, com estratégia de verdade e um único investimento mensal.</p>
@@ -524,7 +570,7 @@ export default function LandingPage() {
       {/* MANIFESTO */}
       <section className="lp-manifesto">
         <div className="lp-wrap" data-sc-in>
-          <p data-sc-reveal="up">Uma agência de publicidade não é um lugar. É um time que <em>pensa, produz, revisa e publica</em> todo dia, na ordem certa. A Calu é esse time, em IA, para o seu negócio.</p>
+          <p><Palavras partes={[{ t: "Uma agência de publicidade não é um lugar. É um time que" }, { t: "pensa, produz, revisa e publica", em: true }, { t: "todo dia, na ordem certa. A Calu é esse time, em IA, para o seu negócio." }]} /></p>
           <div className="lp-manifesto__meta lp-mono">
             <span><i />Estratégia antes da produção</span>
             <span><i />Revisão antes da aprovação</span>
@@ -538,7 +584,7 @@ export default function LandingPage() {
         <div className="lp-wrap lp-chapter__grid">
           <div className="lp-chapter__head" data-sc-in>
             <div className="lp-chapter__n">01 · Processo</div>
-            <h2 className="lp-h2">Como um mês de marketing acontece.</h2>
+            <h2 className="lp-h2">Como um mês de marketing <em>acontece.</em></h2>
             <p className="lp-chapter__lede">Oito etapas, cada uma com dono. Cada agente trabalha em cima do que o anterior entregou, e nada vai para o cliente sem passar pela revisão.</p>
           </div>
           <div className="lp-rows" data-sc-in data-sc-stagger="50">
@@ -572,7 +618,7 @@ export default function LandingPage() {
             <div className="lp-month__head">
               <div>
                 <div className="lp-chapter__n">Demonstração · cliente fictício</div>
-                <h2 className="lp-h2">Veja um mês inteiro{" "}<br /><em style={{ fontStyle: "normal", color: LIME }}>se montar.</em></h2>
+                <h2 className="lp-h2">Veja um mês inteiro{" "}<br /><em>se montar.</em></h2>
               </div>
               <p className="lp-chapter__lede">Role devagar. O calendário enche, a fila de aprovação cresce e o contador sobe: é o que acontece na plataforma depois que o time recebe o briefing.</p>
             </div>
@@ -613,7 +659,7 @@ export default function LandingPage() {
         <div className="lp-wrap lp-chapter__grid">
           <div className="lp-chapter__head" data-sc-in>
             <div className="lp-chapter__n">02 · Serviços</div>
-            <h2 className="lp-h2">Tudo que a marca precisa, num só lugar.</h2>
+            <h2 className="lp-h2">Tudo que a marca precisa, <em>num só lugar.</em></h2>
             <p className="lp-chapter__lede">Serviços integrados que trabalham juntos: a estratégia decide, a produção executa, o tráfego distribui e os dados corrigem o rumo.</p>
             <a href={WA} target="_blank" rel="noreferrer" className="lp-link">Montar meu escopo <ArrowRight size={14} /></a>
           </div>
@@ -633,7 +679,7 @@ export default function LandingPage() {
         <div className="lp-wrap">
           <div data-sc-in style={{ marginBottom: "clamp(28px, 4vw, 48px)", maxWidth: 720 }}>
             <div className="lp-chapter__n">03 · Soluções com IA</div>
-            <h2 className="lp-h2">Tecnologia que trabalha por você.</h2>
+            <h2 className="lp-h2">Tecnologia que <em>trabalha por você.</em></h2>
             <p className="lp-chapter__lede">Cada produto nasceu para um nicho específico, resolvendo problemas reais que a tecnologia genérica não atende.</p>
           </div>
           <div className="lp-products" data-sc-in data-sc-stagger="70">
@@ -662,7 +708,7 @@ export default function LandingPage() {
         <div className="lp-wrap lp-chapter__grid">
           <div className="lp-chapter__head" data-sc-in>
             <div className="lp-chapter__n">04 · Time</div>
-            <h2 className="lp-h2">Doze especialistas. Um investimento.</h2>
+            <h2 className="lp-h2">Doze especialistas. <em>Um investimento.</em></h2>
             <p className="lp-chapter__lede">Cada agente tem papel, entregas e limites definidos. Toque num nome para ver o que ele faz pelo seu negócio.</p>
             <div className="lp-roster__big" aria-hidden="true">{TEAM.length}</div>
           </div>
@@ -708,7 +754,7 @@ export default function LandingPage() {
       <section id="contato" className="lp-close">
         <div className="lp-wrap" data-sc-in>
           <div className="lp-mono">Pronto para escalar?</div>
-          <h2>Seu time completo começa hoje.</h2>
+          <h2>Seu time completo <em>começa hoje.</em></h2>
           <div className="lp-close__row">
             <a href="/briefing" className="lp-btn lp-btn--ink">Diagnóstico gratuito com IA <ArrowUpRight size={15} /></a>
             <a href={WA} target="_blank" rel="noreferrer" className="lp-btn"><MessageCircle size={15} /> Falar no WhatsApp</a>
