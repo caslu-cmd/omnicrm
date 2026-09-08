@@ -1,7 +1,7 @@
 import caluLogo from "@/assets/calu-logo.png";
 import { useState, useEffect, useRef, type CSSProperties } from "react";
 import { Link } from "react-router-dom";
-import { ArrowUpRight, ArrowRight, MessageCircle, Instagram, Linkedin, Menu, X, Plus } from "lucide-react";
+import { ArrowUpRight, ArrowRight, ArrowDown, MessageCircle, Instagram, Linkedin, Menu, X, Plus } from "lucide-react";
 
 /**
  * Landing page da Calu Agência. Direção: editorial noir.
@@ -177,55 +177,71 @@ const CSS = `
   .lp-menu a.lp-menu__l { font-family: var(--display); font-weight: 700; font-size: clamp(34px, 9vw, 56px); letter-spacing: -0.04em; line-height: 1.05; padding: 8px 0; border-bottom: 1px solid var(--line); }
   .lp-menu__cta { display: flex; flex-direction: column; gap: 10px; margin-top: 28px; }
 
-  /* hero */
-  .lp-hero { position: relative; min-height: 100svh; display: flex; flex-direction: column; justify-content: flex-end; padding: 120px 0 34px; overflow: hidden; isolation: isolate; }
+  /* hero: referência NUORBIT. Palavra única espaçada atravessando um anel de
+     luz; o anel tem metade atrás e metade na frente das letras. */
+  .lp-hero { position: relative; min-height: 100svh; display: flex; flex-direction: column; justify-content: center; padding: 96px 0 150px; overflow: hidden; isolation: isolate; }
   .lp-plane { position: absolute; inset: -14% 0; pointer-events: none; will-change: transform; }
   .lp-plane--far { z-index: 0; overflow: hidden; }
-  .lp-hero__bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: .9; filter: saturate(1.05); -webkit-mask-image: radial-gradient(120% 90% at 60% 45%, #000 40%, transparent 100%); mask-image: radial-gradient(120% 90% at 60% 45%, #000 40%, transparent 100%); }
-  .lp-hero::after { content: ""; position: absolute; inset: auto 0 0 0; height: 34%; background: linear-gradient(to bottom, transparent, var(--canvas)); z-index: 1; pointer-events: none; }
-  .lp-plane--rule { z-index: 0; background-image: linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: calc(100% / 6) 100%; -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent); mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent); opacity: .7; }
-  .lp-plane--near { z-index: 3; background: radial-gradient(40% 22% at 72% 108%, rgba(185,255,75,.14), transparent 70%); }
-  .lp-hero__in { position: relative; z-index: 2; }
-  .lp-hero__eyebrow { display: flex; align-items: center; gap: 14px; margin-bottom: clamp(28px, 5vh, 56px); }
-  .lp-hero__eyebrow i { display: block; width: 44px; height: 1px; background: var(--lime); }
-  .lp-h1 { font-size: clamp(38px, 11vw, 156px); line-height: .94; letter-spacing: -0.045em; max-width: 100%; }
-  .lp-hero__in { min-width: 0; max-width: 100%; }
-  @media (max-width: 899px) { .lp-outline { -webkit-text-stroke-width: 1px; } }
-  .lp-h1 .l { display: block; overflow: hidden; padding-bottom: .08em; margin-bottom: -.08em; }
-  .lp-h1 .w { display: block; transform: translateY(112%); animation: lp-line 1.1s cubic-bezier(.2,.7,0,1) forwards; }
-  .lp-h1 .l:nth-child(1) .w { animation-delay: .08s; }
-  .lp-h1 .l:nth-child(2) .w { animation-delay: .2s; }
-  .lp-h1 .l:nth-child(3) .w { animation-delay: .32s; }
-  .lp-h1 .l2 .w { font-family: var(--serif); font-style: italic; font-weight: 400; letter-spacing: -0.02em; font-size: 1.06em; line-height: .88; }
-  @keyframes lp-line { to { transform: none; } }
-  .lp-hero__eyebrow i { transform: scaleX(0); transform-origin: left; animation: lp-draw .9s cubic-bezier(.2,.7,0,1) .15s forwards; }
+  .lp-hero__bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: .9; filter: saturate(1.05); -webkit-mask-image: radial-gradient(120% 90% at 58% 50%, #000 40%, transparent 100%); mask-image: radial-gradient(120% 90% at 58% 50%, #000 40%, transparent 100%); }
+  .lp-hero::after { content: ""; position: absolute; inset: auto 0 0 0; height: 30%; background: linear-gradient(to bottom, transparent, var(--canvas)); z-index: 1; pointer-events: none; }
+  .lp-plane--rule { z-index: 0; background-image: linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: calc(100% / 6) 100%; -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent); mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent); opacity: .6; }
+  .lp-plane--near { z-index: 6; background: radial-gradient(40% 22% at 58% 112%, rgba(185,255,75,.12), transparent 70%); }
+  .lp-hero__in { position: relative; z-index: auto; min-width: 0; max-width: 100%; width: 100%; text-align: center; }
+  .lp-h1 { position: relative; z-index: 3; }
+  .lp-hero__meta { position: relative; z-index: 5; }
+  .lp-h1 { font-size: clamp(30px, 9vw, 118px); font-weight: 500; letter-spacing: .14em; text-transform: uppercase; line-height: 1; padding-left: .14em; white-space: nowrap; }
+  .lp-h1 .ch { display: inline-block; opacity: 0; transform: translateY(.35em); animation: lp-ch 1s cubic-bezier(.2,.7,0,1) forwards; animation-delay: calc(.15s + var(--i) * 45ms); text-shadow: 0 0 40px rgba(185,255,75,.18); }
+  @keyframes lp-ch { to { opacity: 1; transform: none; } }
+  .lp-h1__sub { display: block; margin-top: clamp(14px, 2.4vh, 26px); font-family: var(--display); font-weight: 500; font-size: clamp(19px, 2.3vw, 32px); letter-spacing: -0.01em; text-transform: none; color: var(--ink-2); white-space: normal; padding-left: 0; opacity: 0; animation: lp-rise 1s cubic-bezier(.2,.7,0,1) .9s forwards; }
+  .lp-h1__sub em { font-family: var(--serif); font-style: italic; font-weight: 400; color: var(--ink); font-size: 1.1em; }
+  .lp-h1__sub b { font-weight: 500; color: var(--lime); }
+  .lp-hero__meta { display: flex; flex-direction: column; align-items: center; gap: 18px; margin-top: clamp(28px, 5vh, 52px); opacity: 0; animation: lp-rise 1s cubic-bezier(.2,.7,0,1) 1.1s forwards; }
+  .lp-hero__eyebrow { display: inline-flex; align-items: center; gap: 12px; }
+  .lp-hero__eyebrow i { display: block; width: 36px; height: 1px; background: var(--lime); transform: scaleX(0); transform-origin: left; animation: lp-draw .9s cubic-bezier(.2,.7,0,1) 1.2s forwards; }
   @keyframes lp-draw { to { transform: none; } }
-  .lp-orbit { opacity: 0; animation: lp-orbit-in 1.6s cubic-bezier(.2,.7,0,1) .3s forwards; }
-  @keyframes lp-orbit-in { from { opacity: 0; transform: scale(.94); } to { opacity: var(--o, .75); transform: none; } }
-  .lp-hero__row { display: grid; grid-template-columns: 1fr; gap: 24px; margin-top: clamp(28px, 4vh, 48px); padding-top: 22px; border-top: 1px solid var(--line-2); opacity: 0; animation: lp-rise .9s cubic-bezier(.2,.7,0,1) .5s forwards; }
-  .lp-hero__lede { font-size: clamp(16px, 1.25vw, 19px); color: var(--ink-2); max-width: 46ch; }
-  .lp-hero__lede b { color: var(--ink); font-weight: 600; }
-  .lp-hero__ctas { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-  .lp-hero__row .lp-hero__index { display: none; }
+  @keyframes lp-rise { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+  .lp-hero__ctas { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
   @media (min-width: 900px) {
-    .lp-hero { padding: 140px 0 44px; }
-    .lp-h1 { font-size: clamp(88px, 10.2vw, 156px); }
-    .lp-hero__row { grid-template-columns: 1.2fr 1fr .9fr; gap: 40px; align-items: start; }
-    .lp-hero__row .lp-hero__index { display: grid; justify-self: end; }
+    .lp-hero { padding: 120px 0 160px; }
+    .lp-h1 { font-size: clamp(60px, 8.1vw, 122px); letter-spacing: .24em; padding-left: .24em; }
+    .lp-hero__in { text-align: left; }
+    .lp-h1 { text-align: center; }
+    .lp-h1__sub { text-align: center; }
+    .lp-hero__meta { flex-direction: row; justify-content: space-between; align-items: center; }
+    .lp-hero__ctas { justify-content: flex-start; }
   }
-  .lp-orbit { position: absolute; z-index: 1; right: -22vw; top: 4vh; width: min(84vw, 560px); aspect-ratio: 1; pointer-events: none; --o: .75; }
-  @media (min-width: 900px) { .lp-orbit { right: -6vw; top: 2vh; width: min(52vw, 760px); --o: .85; } }
-  .lp-orbit__ring { animation: lp-spin 80s linear infinite; transform-origin: 50% 50%; }
-  .lp-orbit__node { transition: r .4s, fill .4s; }
-  .lp-orbit__label { font-family: var(--mono); font-size: 10px; letter-spacing: .14em; text-transform: uppercase; fill: rgba(242,241,234,.42); }
-  .lp-orbit__center { font-family: var(--display); font-weight: 700; letter-spacing: -0.03em; fill: var(--ink); }
-  .lp-orbit__role { font-family: var(--mono); font-size: 10.5px; letter-spacing: .14em; text-transform: uppercase; fill: var(--lime); }
-  .lp-index { list-style: none; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 22px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-3); }
-  .lp-index li { display: flex; justify-content: space-between; gap: 12px; padding: 3px 0; border-bottom: 1px solid var(--line); }
-  .lp-index li b { color: var(--ink-2); font-weight: 500; }
-  .lp-index li.is-on b { color: var(--lime); }
-  @keyframes lp-rise { from { opacity: 0; transform: translateY(26px); } to { opacity: 1; transform: none; } }
-  @keyframes lp-spin { to { transform: rotate(360deg); } }
+
+  /* anel de luz */
+  .lp-anel { position: absolute; left: 50%; top: 50%; width: min(86vw, 74svh, 720px); aspect-ratio: 1; transform: translate(-46%, -56%); pointer-events: none; opacity: 0; animation: lp-anel-in 1.8s cubic-bezier(.2,.7,0,1) .2s forwards; }
+  @media (min-width: 900px) { .lp-anel { transform: translate(-42%, -55%); width: min(52vw, 78svh, 760px); } }
+  .lp-anel--tras { z-index: 2; }
+  .lp-anel--frente { z-index: 4; }
+  @keyframes lp-anel-in { from { opacity: 0; transform: translate(-46%, -56%) scale(.92); } to { opacity: 1; } }
+  @media (min-width: 900px) { @keyframes lp-anel-in { from { opacity: 0; transform: translate(-42%, -55%) scale(.92); } to { opacity: 1; } } }
+  .lp-anel svg { width: 100%; height: 100%; overflow: visible; display: block; }
+  .lp-anel__glow { filter: blur(14px); opacity: .55; }
+  .lp-anel__glow2 { filter: blur(40px); opacity: .35; }
+  .lp-anel__node { transition: r .4s, fill .4s; }
+  .lp-hero__floor { position: absolute; z-index: 1; left: 50%; bottom: 8%; width: min(90vw, 900px); height: 26vh; transform: translateX(-42%); background: radial-gradient(50% 60% at 50% 100%, rgba(185,255,75,.16), transparent 70%); pointer-events: none; }
+
+  /* barra inferior do hero: fatos reais, atalho e redes */
+  .lp-hero__bar { position: absolute; z-index: 5; left: 0; right: 0; bottom: 0; padding-top: 18px; padding-bottom: calc(18px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 16px; opacity: 0; animation: lp-rise 1s cubic-bezier(.2,.7,0,1) 1.3s forwards; }
+  .lp-hero__bar::before { content: ""; position: absolute; left: var(--pad); right: var(--pad); top: 0; height: 1px; background: var(--line-2); }
+  .lp-hero__facts { list-style: none; display: flex; gap: clamp(22px, 4vw, 56px); }
+  .lp-hero__facts li { display: flex; flex-direction: column; gap: 4px; }
+  .lp-hero__facts b { font-family: var(--display); font-weight: 600; font-size: clamp(20px, 2vw, 28px); letter-spacing: -0.02em; line-height: 1; }
+  .lp-hero__facts b small { font-size: .6em; color: var(--lime); margin-left: 2px; }
+  .lp-hero__facts span { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); }
+  .lp-hero__side { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+  .lp-hero__play { display: inline-flex; align-items: center; gap: 12px; font-family: var(--mono); font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-2); }
+  .lp-hero__play i { width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line-2); display: inline-flex; align-items: center; justify-content: center; transition: background .25s, color .25s, border-color .25s; }
+  .lp-hero__play:hover i { background: var(--lime); color: ${CANVAS}; border-color: var(--lime); }
+  .lp-hero__social { display: flex; gap: 8px; }
+  @media (min-width: 900px) {
+    .lp-hero__bar { flex-direction: row; align-items: center; justify-content: space-between; padding-top: 22px; padding-bottom: 26px; }
+    .lp-hero__side { gap: 36px; }
+  }
+  @media (max-width: 899px) { .lp-hero__social { display: none; } }
 
   /* manifesto */
   .lp-manifesto { padding: clamp(56px, 10vw, 120px) 0; border-top: 1px solid var(--line); }
@@ -300,7 +316,7 @@ const CSS = `
   .lp-q__d small { display: block; font-family: var(--mono); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-3); margin-top: 4px; }
   .lp-q__t { font-weight: 700; font-size: 14px; }
   .lp-q__s { font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); margin-top: 4px; }
-  @media (prefers-reduced-motion: reduce) { .lp-cal__d.has, .lp-q { --v: 1; transform: none; opacity: 1; } .lp-h1 .w, .lp-hero__row, .lp-hero__eyebrow i, .lp-orbit { animation: none; opacity: 1; transform: none; } .lp-orbit__ring { animation: none; } .wd > span { transform: none; transition: none; } .lp-chapter__n::after { transform: none; } .lp-nav.is-hidden { transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .lp-cal__d.has, .lp-q { --v: 1; transform: none; opacity: 1; } .lp-h1 .ch, .lp-h1__sub, .lp-hero__meta, .lp-hero__bar, .lp-hero__eyebrow i, .lp-anel { animation: none; opacity: 1; transform: none; } .lp-anel { transform: translate(-46%, -56%); } .wd > span { transform: none; transition: none; } .lp-chapter__n::after { transform: none; } .lp-nav.is-hidden { transform: none; } }
   .lp-month .lp-h2 { font-size: clamp(32px, 4.2vw, 60px); }
   @media (max-height: 940px) and (min-width: 900px) { .lp-month__stage { padding-top: 76px; } .lp-month .lp-h2 { font-size: clamp(30px, 4.6vh, 56px); } .lp-cal__d { aspect-ratio: 1 / .52; } .lp-q { padding: 8px 0; } .lp-month__head { margin-bottom: 12px; } .lp-month__grid { padding-top: 12px; } }
   @media (max-width: 899px) {
@@ -478,29 +494,46 @@ function FundoVivo() {
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
-   Órbita dos doze: anel que gira devagar, nó ativo em limão, nome no centro.
-   Sem foto e sem card: o time é a ilustração.
+   Anel de luz: uma elipse inclinada, com brilho, dividida em duas camadas.
+   A metade de cima fica atrás das letras e a de baixo na frente, então a
+   palavra atravessa o anel. Os doze nós do time andam sobre ele, o ativo
+   aceso em limão.
    ───────────────────────────────────────────────────────────────────────── */
-function Orbit({ active }: { active: number }) {
-  const R = 210, C = 260;
+function Anel({ active, camada }: { active: number; camada: "tras" | "frente" }) {
+  const C = 400, RX = 330, RY = 352, TILT = -12;
+  const arco = camada === "tras"
+    ? `M ${C - RX} ${C} A ${RX} ${RY} 0 0 1 ${C + RX} ${C}`
+    : `M ${C + RX} ${C} A ${RX} ${RY} 0 0 1 ${C - RX} ${C}`;
   return (
-    <svg className="lp-orbit" viewBox="0 0 520 520" aria-hidden="true">
-      <circle cx={C} cy={C} r={R} fill="none" stroke="rgba(242,241,234,.14)" strokeWidth="1" />
-      <circle cx={C} cy={C} r={R - 46} fill="none" stroke="rgba(242,241,234,.07)" strokeWidth="1" strokeDasharray="2 6" />
-      <g className="lp-orbit__ring">
-        {TEAM.map((t, i) => {
-          const a = (i / TEAM.length) * Math.PI * 2 - Math.PI / 2;
-          const x = C + Math.cos(a) * R, y = C + Math.sin(a) * R;
-          const on = i === active;
-          return (
-            <g key={t.name}>
-              <circle className="lp-orbit__node" cx={x} cy={y} r={on ? 7 : 3.5} fill={on ? LIME : "rgba(242,241,234,.5)"} />
-              {on && <circle cx={x} cy={y} r={16} fill="none" stroke={LIME} strokeOpacity=".5" strokeWidth="1" />}
-            </g>
-          );
-        })}
-      </g>
-    </svg>
+    <div className={`lp-anel lp-anel--${camada}`} aria-hidden="true">
+      <svg viewBox="0 0 800 800">
+        <defs>
+          <linearGradient id={`lp-anel-g-${camada}`} x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stopColor="#F4FFD6" />
+            <stop offset=".45" stopColor={LIME} />
+            <stop offset="1" stopColor="#5E8F1F" />
+          </linearGradient>
+        </defs>
+        <g transform={`rotate(${TILT} ${C} ${C})`}>
+          {camada === "tras" && <ellipse className="lp-anel__glow2" cx={C} cy={C} rx={RX} ry={RY} fill="none" stroke={LIME} strokeWidth="60" />}
+          <path className="lp-anel__glow" d={arco} fill="none" stroke={LIME} strokeWidth="22" strokeLinecap="round" />
+          <path d={arco} fill="none" stroke={`url(#lp-anel-g-${camada})`} strokeWidth="5" strokeLinecap="round" />
+          {TEAM.map((t, k) => {
+            const a = (k / TEAM.length) * Math.PI * 2 - Math.PI / 2;
+            const x = C + Math.cos(a) * RX, y = C + Math.sin(a) * RY;
+            const naFrente = Math.sin(a) > 0;
+            if ((camada === "frente") !== naFrente) return null;
+            const on = k === active;
+            return (
+              <g key={t.name}>
+                <circle className="lp-anel__node" cx={x} cy={y} r={on ? 7 : 3.5} fill={on ? "#F4FFD6" : "rgba(242,241,234,.55)"} />
+                {on && <circle cx={x} cy={y} r={18} fill="none" stroke={LIME} strokeOpacity=".6" strokeWidth="1.2" />}
+              </g>
+            );
+          })}
+        </g>
+      </svg>
+    </div>
   );
 }
 
@@ -607,7 +640,7 @@ export default function LandingPage() {
           <div className="lp-nav__links">{NAV.map(([l, h]) => <a key={l} href={h}>{l}</a>)}</div>
           <div className="lp-nav__cta">
             <Link to="/entrar" className="lp-entrar">Entrar</Link>
-            <a href="/briefing" className="lp-btn lp-btn--lime lp-btn--sm">Diagnóstico gratuito <ArrowUpRight size={14} /></a>
+            <a href="/briefing" className="lp-btn lp-btn--sm">Diagnóstico gratuito <ArrowUpRight size={14} /></a>
           </div>
           <button className="lp-burger" onClick={() => setMenu((m) => !m)} aria-label={menu ? "Fechar menu" : "Abrir menu"} aria-expanded={menu}>
             {menu ? <X size={18} /> : <Menu size={18} />}
@@ -625,27 +658,39 @@ export default function LandingPage() {
         </div>
       )}
 
-      {/* HERO: quatro planos, texto e órbita a 1x */}
+      {/* HERO: palavra atravessando o anel de luz, sobre a aurora */}
       <header className="lp-hero" data-sc-act="flow">
         <div className="lp-plane lp-plane--far" data-sc-parallax="-0.9" aria-hidden="true"><FundoVivo /></div>
         <div className="lp-plane lp-plane--rule" data-sc-parallax="-0.5" aria-hidden="true" />
-        <Orbit active={ativo} />
+        <div className="lp-hero__floor" aria-hidden="true" />
+        <Anel active={ativo} camada="tras" />
         <div className="lp-wrap lp-hero__in">
-          <div className="lp-hero__eyebrow"><i /><span className="lp-mono">Agência de marketing com IA · Fortaleza, Brasil</span></div>
-          <h1 className="lp-h1">
-            <span className="l"><span className="w">Criatividade</span></span>
-            <span className="l l2"><span className="w">que vende.</span></span>
-            <span className="l"><span className="w lp-outline">IA que escala.</span></span>
+          <h1 className="lp-h1" aria-label="Criatividade que vende. IA que escala.">
+            <span aria-hidden="true">{"CRIATIVIDADE".split("").map((c, k) => <span key={k} className="ch" style={{ "--i": k } as CSSProperties}>{c}</span>)}</span>
+            <span className="lp-h1__sub" aria-hidden="true"><em>que vende.</em> <b>IA que escala.</b></span>
           </h1>
-          <div className="lp-hero__row">
-            <p className="lp-hero__lede">Doze especialistas de IA fazem o trabalho de uma agência inteira, <b>do briefing à publicação</b>, com estratégia de verdade e um único investimento mensal.</p>
+          <div className="lp-hero__meta">
+            <div className="lp-hero__eyebrow"><i /><span className="lp-mono">Agência de marketing com IA · Fortaleza, Brasil</span></div>
             <div className="lp-hero__ctas">
               <a href="/briefing" className="lp-btn lp-btn--lime">Começar com um diagnóstico <ArrowUpRight size={15} /></a>
               <a href={WA} target="_blank" rel="noreferrer" className="lp-btn"><MessageCircle size={15} /> WhatsApp</a>
             </div>
-            <ul className="lp-hero__index lp-index" aria-label="Time">
-              {TEAM.map((t, i) => <li key={t.name} className={i === ativo ? "is-on" : ""}><b>{t.name}</b><span>{t.i}</span></li>)}
-            </ul>
+          </div>
+        </div>
+        <Anel active={ativo} camada="frente" />
+        <div className="lp-wrap lp-hero__bar">
+          <ul className="lp-hero__facts" aria-label="Em números">
+            <li><b>{String(TEAM.length).padStart(2, "0")}</b><span>agentes de IA</span></li>
+            <li><b>{String(PROCESS.length).padStart(2, "0")}</b><span>etapas por mês</span></li>
+            <li><b>01</b><span>investimento</span></li>
+          </ul>
+          <div className="lp-hero__side">
+            <a href="#processo" className="lp-hero__play"><i><ArrowDown size={15} /></i> Ver o processo</a>
+            <div className="lp-hero__social">
+              <a href="#" className="lp-social" aria-label="Instagram"><Instagram size={14} /></a>
+              <a href="#" className="lp-social" aria-label="LinkedIn"><Linkedin size={14} /></a>
+              <a href={WA} target="_blank" rel="noreferrer" className="lp-social" aria-label="WhatsApp"><MessageCircle size={14} /></a>
+            </div>
           </div>
         </div>
         <div className="lp-plane lp-plane--near" data-sc-parallax="0.9" aria-hidden="true" />
