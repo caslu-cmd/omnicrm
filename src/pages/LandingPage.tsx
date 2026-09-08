@@ -17,7 +17,7 @@ import { ArrowUpRight, ArrowRight, ArrowDown, MessageCircle, Instagram, Linkedin
  * O motor da scroll-craft mora em /public/scrollcraft e nunca é editado.
  */
 
-const LIME  = "#99EB41"; /* lido dos pixels do logo */
+const LIME  = "#B9FF4B"; /* limão da tela; o do logo é #99EB41 */
 const INK   = "#F2F1EA";
 const CANVAS = "#0A0A0A";
 const WA    = "https://wa.me/5585986408404";
@@ -155,9 +155,9 @@ const CSS = `
   .lp-btn:hover { transform: translateY(-2px); border-color: var(--ink); }
   .lp-btn svg { transition: transform .35s cubic-bezier(.2,.7,0,1); }
   .lp-btn:hover svg { transform: translate(2px, -2px); }
-  .lp-btn--lime:hover { box-shadow: 0 16px 36px -14px rgba(153,235,65,.55); }
+  .lp-btn--lime:hover { box-shadow: 0 16px 36px -14px rgba(185,255,75,.55); }
   .lp-btn--lime { background: var(--lime); color: ${CANVAS}; border-color: var(--lime); }
-  .lp-btn--lime:hover { background: #B4F56B; border-color: #B4F56B; }
+  .lp-btn--lime:hover { background: #ceff70; border-color: #ceff70; }
   .lp-btn--ink { background: var(--ink); color: ${CANVAS}; border-color: var(--ink); }
   .lp-btn--sm { height: 40px; padding: 0 18px; font-size: 13px; }
   .lp-link { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; border-bottom: 1px solid var(--line-2); padding-bottom: 4px; transition: border-color .25s, gap .25s; }
@@ -192,12 +192,12 @@ const CSS = `
   .lp-hero__bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: .9; filter: saturate(1.05); -webkit-mask-image: radial-gradient(120% 90% at 58% 50%, #000 40%, transparent 100%); mask-image: radial-gradient(120% 90% at 58% 50%, #000 40%, transparent 100%); }
   .lp-hero::after { content: ""; position: absolute; inset: auto 0 0 0; height: 30%; background: linear-gradient(to bottom, transparent, var(--canvas)); z-index: 1; pointer-events: none; }
   .lp-plane--rule { z-index: 0; background-image: linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: calc(100% / 6) 100%; -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent); mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent); opacity: .6; }
-  .lp-plane--near { z-index: 6; background: radial-gradient(40% 22% at 58% 112%, rgba(153,235,65,.12), transparent 70%); }
+  .lp-plane--near { z-index: 6; background: radial-gradient(40% 22% at 58% 112%, rgba(185,255,75,.12), transparent 70%); }
   .lp-hero__in { position: relative; z-index: auto; min-width: 0; max-width: 100%; width: 100%; text-align: center; }
   .lp-h1 { position: relative; z-index: 3; }
   .lp-hero__meta { position: relative; z-index: 5; }
   .lp-h1 { font-size: clamp(30px, 9vw, 118px); font-weight: 500; letter-spacing: .14em; text-transform: uppercase; line-height: 1; padding-left: .14em; white-space: nowrap; }
-  .lp-h1 .ch { display: inline-block; opacity: 0; transform: translateY(.35em); animation: lp-ch 1s cubic-bezier(.2,.7,0,1) forwards; animation-delay: calc(.15s + var(--i) * 45ms); text-shadow: 0 0 40px rgba(153,235,65,.18); }
+  .lp-h1 .ch { display: inline-block; opacity: 0; transform: translateY(.35em); animation: lp-ch 1s cubic-bezier(.2,.7,0,1) forwards; animation-delay: calc(.15s + var(--i) * 45ms); text-shadow: 0 0 40px rgba(185,255,75,.18); }
   @keyframes lp-ch { to { opacity: 1; transform: none; } }
   .lp-h1__sub { display: block; margin-top: clamp(14px, 2.4vh, 26px); font-family: var(--display); font-weight: 500; font-size: clamp(19px, 2.3vw, 32px); letter-spacing: -0.01em; text-transform: none; color: var(--ink-2); white-space: normal; padding-left: 0; opacity: 0; animation: lp-rise 1s cubic-bezier(.2,.7,0,1) .9s forwards; }
   .lp-h1__sub em { font-family: var(--serif); font-style: italic; font-weight: 400; color: var(--ink); font-size: 1.1em; }
@@ -229,7 +229,7 @@ const CSS = `
   .lp-anel__glow { filter: blur(14px); opacity: .55; }
   .lp-anel__glow2 { filter: blur(40px); opacity: .35; }
   .lp-anel__node { transition: r .4s, fill .4s; }
-  .lp-hero__floor { position: absolute; z-index: 1; left: 50%; bottom: 8%; width: min(90vw, 900px); height: 26vh; transform: translateX(-42%); background: radial-gradient(50% 60% at 50% 100%, rgba(153,235,65,.16), transparent 70%); pointer-events: none; }
+  .lp-hero__floor { position: absolute; z-index: 1; left: 50%; bottom: 8%; width: min(90vw, 900px); height: 26vh; transform: translateX(-42%); background: radial-gradient(50% 60% at 50% 100%, rgba(185,255,75,.16), transparent 70%); pointer-events: none; }
 
   /* barra inferior do hero: fatos reais, atalho e redes */
   .lp-hero__bar { position: absolute; z-index: 5; left: 0; right: 0; bottom: 0; padding-top: 18px; padding-bottom: calc(18px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; gap: 16px; opacity: 0; animation: lp-rise 1s cubic-bezier(.2,.7,0,1) 1.3s forwards; }
@@ -319,7 +319,7 @@ const CSS = `
   .lp-cal__d:nth-last-child(-n+7) { border-bottom: 1px solid var(--line); }
   .lp-cal__d.is-off { color: transparent; }
   .lp-cal__d.has { --v: clamp(0, calc((var(--sc-p, 0) - var(--em)) * 7), 1); }
-  .lp-cal__d.has::after { content: ""; position: absolute; inset: 0; background: rgba(153,235,65,calc(var(--v) * .08)); pointer-events: none; }
+  .lp-cal__d.has::after { content: ""; position: absolute; inset: 0; background: rgba(185,255,75,calc(var(--v) * .08)); pointer-events: none; }
   .lp-cal__chip { position: absolute; left: 6px; right: 6px; bottom: 6px; padding: 4px 7px; border-radius: 4px; font-family: var(--mono); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: ${CANVAS}; background: var(--lime); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; opacity: var(--v, 0); transform: translateY(calc((1 - var(--v, 0)) * 8px)); z-index: 1; }
   .lp-month__foot { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; padding-top: 14px; }
   .lp-month__foot p { font-size: 13px; color: var(--ink-2); max-width: 40ch; }
@@ -436,11 +436,11 @@ const CSS = `
    ───────────────────────────────────────────────────────────────────────── */
 type Luz = { cor: [number, number, number]; a: number; r: number; cx: number; cy: number; ax: number; ay: number; fx: number; fy: number; px: number; py: number };
 const LUZES: Luz[] = [
-  { cor: [153, 235, 65],  a: .42, r: .46, cx: .74, cy: .34, ax: .10, ay: .08, fx: .11, fy: .09, px: 0,   py: 1.2 },
-  { cor: [153, 235, 65],  a: .22, r: .38, cx: .30, cy: .78, ax: .12, ay: .07, fx: .07, fy: .13, px: 2.1, py: .4 },
+  { cor: [185, 255, 75],  a: .42, r: .46, cx: .74, cy: .34, ax: .10, ay: .08, fx: .11, fy: .09, px: 0,   py: 1.2 },
+  { cor: [185, 255, 75],  a: .22, r: .38, cx: .30, cy: .78, ax: .12, ay: .07, fx: .07, fy: .13, px: 2.1, py: .4 },
   { cor: [90, 140, 40],   a: .30, r: .52, cx: .52, cy: .52, ax: .16, ay: .10, fx: .05, fy: .08, px: 4.0, py: 2.6 },
-  { cor: [60, 110, 30],   a: .22, r: .44, cx: .12, cy: .22, ax: .08, ay: .10, fx: .09, fy: .06, px: 1.0, py: 3.3 },
-  { cor: [153, 235, 65],  a: .14, r: .30, cx: .90, cy: .86, ax: .06, ay: .06, fx: .13, fy: .11, px: 5.2, py: .9 },
+  { cor: [140, 120, 255], a: .16, r: .40, cx: .12, cy: .22, ax: .08, ay: .10, fx: .09, fy: .06, px: 1.0, py: 3.3 },
+  { cor: [185, 255, 75],  a: .14, r: .30, cx: .90, cy: .86, ax: .06, ay: .06, fx: .13, fy: .11, px: 5.2, py: .9 },
 ];
 
 function FundoVivo() {
@@ -525,9 +525,9 @@ function Anel({ active, camada }: { active: number; camada: "tras" | "frente" })
       <svg viewBox="0 0 800 800">
         <defs>
           <linearGradient id={`lp-anel-g-${camada}`} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stopColor="#EEFFD0" />
+            <stop offset="0" stopColor="#F4FFD6" />
             <stop offset=".45" stopColor={LIME} />
-            <stop offset="1" stopColor="#4E7F1C" />
+            <stop offset="1" stopColor="#5E8F1F" />
           </linearGradient>
         </defs>
         <g transform={`rotate(${TILT} ${C} ${C})`}>
@@ -542,7 +542,7 @@ function Anel({ active, camada }: { active: number; camada: "tras" | "frente" })
             const on = k === active;
             return (
               <g key={t.name}>
-                <circle className="lp-anel__node" cx={x} cy={y} r={on ? 7 : 3.5} fill={on ? "#EEFFD0" : "rgba(242,241,234,.55)"} />
+                <circle className="lp-anel__node" cx={x} cy={y} r={on ? 7 : 3.5} fill={on ? "#F4FFD6" : "rgba(242,241,234,.55)"} />
                 {on && <circle cx={x} cy={y} r={18} fill="none" stroke={LIME} strokeOpacity=".6" strokeWidth="1.2" />}
               </g>
             );
