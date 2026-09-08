@@ -180,7 +180,9 @@ const CSS = `
   /* hero */
   .lp-hero { position: relative; min-height: 100svh; display: flex; flex-direction: column; justify-content: flex-end; padding: 120px 0 34px; overflow: hidden; isolation: isolate; }
   .lp-plane { position: absolute; inset: -14% 0; pointer-events: none; will-change: transform; }
-  .lp-plane--far { z-index: 0; background: radial-gradient(48% 42% at 76% 30%, rgba(185,255,75,.14), transparent 62%), radial-gradient(34% 34% at 6% 96%, rgba(185,255,75,.05), transparent 66%); }
+  .lp-plane--far { z-index: 0; overflow: hidden; }
+  .lp-hero__bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; opacity: .9; filter: saturate(1.05); -webkit-mask-image: radial-gradient(120% 90% at 60% 45%, #000 40%, transparent 100%); mask-image: radial-gradient(120% 90% at 60% 45%, #000 40%, transparent 100%); }
+  .lp-hero::after { content: ""; position: absolute; inset: auto 0 0 0; height: 34%; background: linear-gradient(to bottom, transparent, var(--canvas)); z-index: 1; pointer-events: none; }
   .lp-plane--rule { z-index: 0; background-image: linear-gradient(90deg, var(--line) 1px, transparent 1px); background-size: calc(100% / 6) 100%; -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent); mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 70%, transparent); opacity: .7; }
   .lp-plane--near { z-index: 3; background: radial-gradient(40% 22% at 72% 108%, rgba(185,255,75,.14), transparent 70%); }
   .lp-hero__in { position: relative; z-index: 2; }
@@ -394,6 +396,88 @@ const CSS = `
 `;
 
 /* ─────────────────────────────────────────────────────────────────────────────
+   Fundo vivo do hero: uma aurora em canvas. Cinco luzes grandes e macias
+   (limão, limão escuro, violeta) deslizam em trajetórias senoidais, somadas
+   em modo "lighter", desenhadas em baixa resolução e ampliadas pelo CSS.
+   Segue o mouse de leve, pausa fora da tela e vira um quadro parado sob
+   prefers-reduced-motion.
+   ───────────────────────────────────────────────────────────────────────── */
+type Luz = { cor: [number, number, number]; a: number; r: number; cx: number; cy: number; ax: number; ay: number; fx: number; fy: number; px: number; py: number };
+const LUZES: Luz[] = [
+  { cor: [185, 255, 75],  a: .42, r: .46, cx: .74, cy: .34, ax: .10, ay: .08, fx: .11, fy: .09, px: 0,   py: 1.2 },
+  { cor: [185, 255, 75],  a: .22, r: .38, cx: .30, cy: .78, ax: .12, ay: .07, fx: .07, fy: .13, px: 2.1, py: .4 },
+  { cor: [90, 140, 40],   a: .30, r: .52, cx: .52, cy: .52, ax: .16, ay: .10, fx: .05, fy: .08, px: 4.0, py: 2.6 },
+  { cor: [140, 120, 255], a: .16, r: .40, cx: .12, cy: .22, ax: .08, ay: .10, fx: .09, fy: .06, px: 1.0, py: 3.3 },
+  { cor: [185, 255, 75],  a: .14, r: .30, cx: .90, cy: .86, ax: .06, ay: .06, fx: .13, fy: .11, px: 5.2, py: .9 },
+];
+
+function FundoVivo() {
+  const ref = useRef<HTMLCanvasElement>(null);
+  useEffect(() => {
+    const canvas = ref.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const reduz = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let vivo = true, visivel = true, raf = 0, w = 0, h = 0;
+    const alvo = { x: 0, y: 0 }, mouse = { x: 0, y: 0 };
+    const medir = () => {
+      const r = canvas.getBoundingClientRect();
+      const esc = 0.22;
+      w = Math.max(160, Math.round(r.width * esc));
+      h = Math.max(120, Math.round(r.height * esc));
+      canvas.width = w; canvas.height = h;
+    };
+    const quadro = (t: number) => {
+      ctx.clearRect(0, 0, w, h);
+      ctx.globalCompositeOperation = "lighter";
+      mouse.x += (alvo.x - mouse.x) * .04; mouse.y += (alvo.y - mouse.y) * .04;
+      const m = Math.min(w, h);
+      for (const L of LUZES) {
+        const x = (L.cx + L.ax * Math.sin(t * L.fx + L.px)) * w + mouse.x * w * .06;
+        const y = (L.cy + L.ay * Math.cos(t * L.fy + L.py)) * h + mouse.y * h * .06;
+        const r = L.r * m * (1 + .08 * Math.sin(t * .17 + L.px));
+        const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+        const [cr, cg, cb] = L.cor;
+        g.addColorStop(0, `rgba(${cr},${cg},${cb},${L.a})`);
+        g.addColorStop(.45, `rgba(${cr},${cg},${cb},${L.a * .35})`);
+        g.addColorStop(1, `rgba(${cr},${cg},${cb},0)`);
+        ctx.fillStyle = g;
+        ctx.fillRect(x - r, y - r, r * 2, r * 2);
+      }
+      ctx.globalCompositeOperation = "source-over";
+    };
+    const laco = (ms: number) => {
+      if (!vivo) return;
+      if (visivel && !document.hidden) quadro(ms / 1000);
+      raf = requestAnimationFrame(laco);
+    };
+    medir();
+    if (reduz) { quadro(3.2); }
+    else { raf = requestAnimationFrame(laco); }
+    const onMove = (e: PointerEvent) => {
+      const r = canvas.getBoundingClientRect();
+      alvo.x = ((e.clientX - r.left) / r.width - .5) * 2;
+      alvo.y = ((e.clientY - r.top) / r.height - .5) * 2;
+    };
+    const onLeave = () => { alvo.x = 0; alvo.y = 0; };
+    const io = "IntersectionObserver" in window ? new IntersectionObserver((es) => { visivel = es.some((e) => e.isIntersecting); }) : null;
+    io?.observe(canvas);
+    const ro = "ResizeObserver" in window ? new ResizeObserver(() => { medir(); if (reduz) quadro(3.2); }) : null;
+    ro?.observe(canvas);
+    window.addEventListener("pointermove", onMove, { passive: true });
+    document.addEventListener("pointerleave", onLeave);
+    return () => {
+      vivo = false; cancelAnimationFrame(raf);
+      io?.disconnect(); ro?.disconnect();
+      window.removeEventListener("pointermove", onMove);
+      document.removeEventListener("pointerleave", onLeave);
+    };
+  }, []);
+  return <canvas ref={ref} className="lp-hero__bg" aria-hidden="true" />;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
    Órbita dos doze: anel que gira devagar, nó ativo em limão, nome no centro.
    Sem foto e sem card: o time é a ilustração.
    ───────────────────────────────────────────────────────────────────────── */
@@ -543,7 +627,7 @@ export default function LandingPage() {
 
       {/* HERO: quatro planos, texto e órbita a 1x */}
       <header className="lp-hero" data-sc-act="flow">
-        <div className="lp-plane lp-plane--far" data-sc-parallax="-1.3" aria-hidden="true" />
+        <div className="lp-plane lp-plane--far" data-sc-parallax="-0.9" aria-hidden="true"><FundoVivo /></div>
         <div className="lp-plane lp-plane--rule" data-sc-parallax="-0.5" aria-hidden="true" />
         <Orbit active={ativo} />
         <div className="lp-wrap lp-hero__in">
