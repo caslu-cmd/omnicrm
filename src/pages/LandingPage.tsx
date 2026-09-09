@@ -128,7 +128,7 @@ const CSS = `
         --ink-2: rgba(233,237,242,.60); --ink-3: rgba(233,237,242,.40);
         --line: rgba(233,237,242,.10); --line-2: rgba(233,237,242,.18);
         --pad: clamp(22px, 4.5vw, 112px); --w: 100%;
-        --serif: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+        --serif: 'JetBrains Mono', ui-monospace, 'Space Grotesk', monospace;
         --sans: 'Inter', system-ui, sans-serif;
         --mono: 'JetBrains Mono', ui-monospace, monospace;
         font-family: var(--sans); color: var(--ink); background: var(--bg);
