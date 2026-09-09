@@ -92,6 +92,10 @@ const CALENDARIO: Array<{ dia: number | null; i?: number }> = (() => {
 })();
 const emDaPeca = (i: number) => 0.1 + i * 0.13;
 const em = (v: number) => ({ "--em": v } as CSSProperties);
+/* Cor por pilar de conteúdo: o calendário e a fila de aprovação ficam color-coded. */
+const PILAR_COR: Record<string, string> = { "educação": "var(--cyan)", "bastidor": "var(--violet)", "prova": "var(--coral)" };
+const emA = (v: number, a: string) => ({ "--em": v, "--a": a } as CSSProperties);
+const chipA = (a: string) => ({ "--a": a } as CSSProperties);
 
 /* Faixas salariais de mercado (estimativa), usadas na comparação de custo. */
 const SALARIES: Array<[string, string]> = [
@@ -119,7 +123,8 @@ const PERGUNTAS: Array<[string, string]> = [
    CSS. Mobile-first, sem !important. Tokens no topo.
    ───────────────────────────────────────────────────────────────────────── */
 const CSS = `
-  .lp { --lime:${LIME}; --ink:${INK}; --bg:${BG}; --bg-2:#14181D; --panel:#171C22;
+  .lp { --lime:${LIME}; --cyan:#4FE3C1; --violet:#A78BFA; --blue:#5B9DFF; --coral:#FFB067; --pink:#FF7EA6;
+        --ink:${INK}; --bg:${BG}; --bg-2:#14181D; --panel:#171C22;
         --ink-2: rgba(233,237,242,.60); --ink-3: rgba(233,237,242,.40);
         --line: rgba(233,237,242,.10); --line-2: rgba(233,237,242,.18);
         --pad: clamp(20px, 5vw, 72px); --w: 1280px;
@@ -185,9 +190,10 @@ const CSS = `
   .lp-hero { position: relative; padding: 104px 0 40px; overflow: hidden; }
   .lp-hero::before { content: ""; position: absolute; inset: -35% -25% auto -25%; height: 130%; z-index: 0; pointer-events: none;
     background:
-      radial-gradient(38% 52% at 72% 6%, rgba(185,255,75,.16), transparent 70%),
-      radial-gradient(42% 58% at 24% 26%, rgba(96,150,255,.09), transparent 72%),
-      radial-gradient(60% 70% at 50% -12%, rgba(233,237,242,.05), transparent 70%);
+      radial-gradient(36% 50% at 74% 4%, rgba(185,255,75,.16), transparent 70%),
+      radial-gradient(40% 55% at 20% 22%, rgba(167,139,250,.14), transparent 72%),
+      radial-gradient(46% 58% at 52% 42%, rgba(79,227,193,.10), transparent 72%),
+      radial-gradient(60% 70% at 50% -12%, rgba(233,237,242,.04), transparent 70%);
     filter: blur(8px); transform-origin: center; animation: lp-aurora 20s ease-in-out infinite alternate; }
   @keyframes lp-aurora { from { transform: translate3d(-1.5%, -1%, 0) scale(1); } to { transform: translate3d(2%, 1.5%, 0) scale(1.06); } }
   .lp-hero__grid { position: relative; z-index: 1; display: grid; grid-template-columns: 1fr; gap: 40px; align-items: center; }
@@ -214,6 +220,9 @@ const CSS = `
   .lp-hero__facts { position: relative; z-index: 1; list-style: none; display: flex; flex-wrap: wrap; gap: 16px clamp(24px, 4vw, 56px); margin-top: clamp(36px, 6vh, 64px); padding-top: 20px; border-top: 1px solid var(--line); opacity: 0; animation: lp-rise 1s cubic-bezier(.2,.7,0,1) .9s forwards; }
   .lp-hero__facts li { display: flex; align-items: baseline; gap: 9px; }
   .lp-hero__facts b { font-family: var(--serif); font-weight: 700; font-size: clamp(22px, 2vw, 30px); letter-spacing: -0.02em; line-height: 1; }
+  .lp-hero__facts li:nth-child(1) b { color: var(--lime); }
+  .lp-hero__facts li:nth-child(2) b { color: var(--cyan); }
+  .lp-hero__facts li:nth-child(3) b { color: var(--violet); }
   .lp-hero__facts span { font-size: 12.5px; color: var(--ink-2); }
   .lp-hero__facts .lp-hero__go { margin-left: auto; display: inline-flex; align-items: center; gap: 10px; font-size: 12.5px; font-weight: 600; }
   .lp-hero__go i { width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--line-2); display: inline-flex; align-items: center; justify-content: center; transition: background .25s, color .25s, border-color .25s; }
@@ -320,14 +329,14 @@ const CSS = `
   .lp-cal__d:nth-last-child(-n+7) { border-bottom: 1px solid var(--line); }
   .lp-cal__d.is-off { color: transparent; background: repeating-linear-gradient(135deg, transparent 0 6px, rgba(233,237,242,.03) 6px 7px); }
   .lp-cal__d.has { --v: clamp(0, calc((var(--sc-p, 0) - var(--em)) * 7), 1); color: var(--ink); }
-  .lp-cal__chip { position: absolute; left: 5px; right: 5px; bottom: 5px; padding: 3px 6px; font-family: var(--mono); font-size: 9.5px; font-weight: 500; color: #0E1115; background: var(--lime); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transform-origin: left; transform: scaleX(var(--v, 0)); z-index: 1; border-radius: 5px; }
+  .lp-cal__chip { position: absolute; left: 5px; right: 5px; bottom: 5px; padding: 3px 6px; font-family: var(--mono); font-size: 9.5px; font-weight: 500; color: #0E1115; background: var(--a, var(--lime)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transform-origin: left; transform: scaleX(var(--v, 0)); z-index: 1; border-radius: 5px; }
   .lp-month__foot { display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; padding-top: 14px; }
   .lp-month__foot p { font-size: 12.5px; color: var(--ink-2); max-width: 40ch; }
   .lp-count { font-family: var(--serif); font-weight: 700; font-size: clamp(36px, 4vw, 60px); letter-spacing: -0.03em; line-height: .9; display: flex; align-items: baseline; gap: 9px; }
   .lp-count small { font-family: var(--sans); font-weight: 500; font-size: 12px; color: var(--ink-3); }
   .lp-queue { list-style: none; }
   .lp-q { display: grid; grid-template-columns: 18px 42px 1fr; gap: 12px; align-items: start; padding: 10px 0; border-bottom: 1px solid var(--line); --v: clamp(0, calc((var(--sc-p, 0) - var(--em)) * 7), 1); opacity: calc(.3 + var(--v) * .7); }
-  .lp-q .q { width: 15px; height: 15px; border: 1px solid var(--line-2); border-radius: 4px; margin-top: 3px; display: inline-flex; align-items: center; justify-content: center; color: #0E1115; background: rgba(185,255,75,var(--v)); border-color: rgba(233,237,242,calc(.18 + var(--v) * .5)); }
+  .lp-q .q { width: 15px; height: 15px; border: 1px solid var(--line-2); border-radius: 4px; margin-top: 3px; display: inline-flex; align-items: center; justify-content: center; color: #0E1115; background: rgba(185,255,75,var(--v)); background: color-mix(in oklab, var(--a, var(--lime)) calc(var(--v) * 100%), transparent); border-color: rgba(233,237,242,calc(.18 + var(--v) * .5)); }
   .lp-q .q svg { opacity: var(--v); }
   .lp-q__d { font-family: var(--serif); font-weight: 700; font-size: 20px; line-height: 1; }
   .lp-q__d small { display: block; font-family: var(--mono); font-size: 9px; color: var(--ink-3); margin-top: 3px; }
@@ -364,26 +373,35 @@ const CSS = `
 
   /* soluções */
   .lp-products { border-top: 1px solid var(--line-2); }
-  .lp-product { display: grid; grid-template-columns: 1fr; gap: 14px; padding: clamp(24px, 3vw, 40px) 0; border-bottom: 1px solid var(--line); }
+  .lp-product { --a: var(--lime); display: grid; grid-template-columns: 1fr; gap: 14px; padding: clamp(24px, 3vw, 40px) 0; border-bottom: 1px solid var(--line); }
+  .lp-product:nth-child(2) { --a: var(--cyan); }
+  .lp-product:nth-child(3) { --a: var(--violet); }
   @media (min-width: 900px) { .lp-product { grid-template-columns: 160px 1fr 1fr; gap: 36px; } }
   .lp-product h3 { font-size: clamp(24px, 2.4vw, 34px); }
+  .lp-product .lp-cap { display: inline-flex; align-items: center; gap: 7px; color: var(--a); }
+  .lp-product .lp-cap::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--a); }
   .lp-product__sub { font-size: 12.5px; color: var(--ink-3); margin-top: 8px; }
   .lp-product p { color: var(--ink-2); font-size: 14.5px; max-width: 48ch; }
   .lp-product__items { list-style: none; display: grid; gap: 8px; margin-top: 16px; font-size: 13.5px; }
   .lp-product__items li { display: flex; gap: 10px; align-items: baseline; color: var(--ink-2); }
-  .lp-product__items li::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--lime); flex: 0 0 5px; position: relative; top: -3px; }
+  .lp-product__items li::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--a); flex: 0 0 5px; position: relative; top: -3px; }
+  .lp-product .lp-link:hover { color: var(--a); border-color: var(--a); }
   .lp-product .lp-link { margin-top: 18px; }
 
   /* time: os doze agentes, cada um com plaquinha de inicial */
   .lp-roster { list-style: none; border-top: 1px solid var(--line-2); }
-  .lp-cast { border-bottom: 1px solid var(--line); transition: background .25s; }
-  .lp-cast:hover { background: linear-gradient(90deg, rgba(185,255,75,.055), transparent 42%); }
+  .lp-cast { --a: var(--lime); border-bottom: 1px solid var(--line); transition: background .25s; }
+  .lp-cast:nth-child(6n+2) { --a: var(--cyan); }
+  .lp-cast:nth-child(6n+3) { --a: var(--violet); }
+  .lp-cast:nth-child(6n+4) { --a: var(--blue); }
+  .lp-cast:nth-child(6n+5) { --a: var(--coral); }
+  .lp-cast:nth-child(6n+6) { --a: var(--pink); }
+  .lp-cast:hover { background: linear-gradient(90deg, color-mix(in oklab, var(--a) 10%, transparent), transparent 44%); }
   .lp-cast__btn { width: 100%; display: grid; grid-template-columns: 40px 1fr auto; align-items: center; gap: 14px; padding: 11px 0; text-align: left; }
-  .lp-cast__mono { width: 36px; height: 36px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; font-family: var(--serif); font-weight: 700; font-size: 14px; letter-spacing: -0.01em; background: var(--bg-2); color: var(--ink-2); border: 1px solid var(--line-2); transition: background .3s, color .3s, border-color .3s; }
-  .lp-cast:nth-child(3n+1) .lp-cast__mono { background: rgba(185,255,75,.14); border-color: rgba(185,255,75,.4); color: var(--lime); }
-  .lp-cast[data-open="true"] .lp-cast__mono { background: var(--lime); color: #0E1115; border-color: var(--lime); }
+  .lp-cast__mono { width: 36px; height: 36px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; font-family: var(--serif); font-weight: 700; font-size: 14px; letter-spacing: -0.01em; background: var(--bg-2); background: color-mix(in oklab, var(--a) 15%, var(--bg-2)); color: var(--a); border: 1px solid color-mix(in oklab, var(--a) 42%, transparent); transition: background .3s, color .3s, border-color .3s; }
+  .lp-cast[data-open="true"] .lp-cast__mono { background: var(--a); color: #0E1115; border-color: var(--a); }
   .lp-cast__name { font-family: var(--serif); font-weight: 700; font-size: clamp(19px, 2vw, 26px); letter-spacing: -0.02em; line-height: 1; transition: transform .45s cubic-bezier(.2,.7,0,1), color .3s; }
-  .lp-cast__btn:hover .lp-cast__name { transform: translateX(5px); color: var(--lime); }
+  .lp-cast__btn:hover .lp-cast__name { transform: translateX(5px); color: var(--a); }
   .lp-cast__role { font-family: var(--mono); font-size: 10.5px; letter-spacing: .02em; color: var(--ink-2); text-align: right; }
   .lp-cast__body { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .45s cubic-bezier(.2,.7,0,1); }
   .lp-cast[data-open="true"] .lp-cast__body { grid-template-rows: 1fr; }
@@ -638,7 +656,7 @@ export default function LandingPage() {
                   {CALENDARIO.map((c, i) => (
                     <div key={i} className={`lp-cal__d${c.dia === null ? " is-off" : ""}${c.i !== undefined ? " has" : ""}`} style={c.i !== undefined ? em(emDaPeca(c.i)) : undefined}>
                       {c.dia ?? "·"}
-                      {c.i !== undefined && <span className="lp-cal__chip">{PECAS[c.i].formato}</span>}
+                      {c.i !== undefined && <span className="lp-cal__chip" style={chipA(PILAR_COR[PECAS[c.i].pilar])}>{PECAS[c.i].formato}</span>}
                     </div>
                   ))}
                 </div>
@@ -651,7 +669,7 @@ export default function LandingPage() {
                 <div className="lp-sheet__head"><div className="lp-sheet__title">Lista de aprovação</div><div className="lp-sheet__meta">aguardando você</div></div>
                 <ul className="lp-queue">
                   {PECAS.map((pc, i) => (
-                    <li key={pc.id} className="lp-q" style={em(emDaPeca(i))}>
+                    <li key={pc.id} className="lp-q" style={emA(emDaPeca(i), PILAR_COR[pc.pilar])}>
                       <span className="q"><Check size={11} strokeWidth={3} /></span>
                       <div className="lp-q__d">{String(pc.dia).padStart(2, "0")}<small>set</small></div>
                       <div><div className="lp-q__t">{pc.tema}</div><div className="lp-q__s">{pc.formato} · pilar {pc.pilar} · 12:00</div></div>
