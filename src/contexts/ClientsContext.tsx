@@ -8,6 +8,7 @@ type ClientEdit = {
   status?: "Ativo" | "Onboarding" | "Em pausa";
   revenue?: string;
   nextAction?: string;
+  agentActive?: boolean;
   portalPin?: string;
   followers?: { instagram?: string; facebook?: string };
   siteUrl?: string;
