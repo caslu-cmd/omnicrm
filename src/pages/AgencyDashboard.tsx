@@ -25,14 +25,6 @@ const AGENTES = [
     skills: ["NFS-e", "Tributos", "Obrigações"],
   },
   {
-    nome: "Ben",
-    descricao: "Especialista em Tendências",
-    emoji: <TrendingUp className="w-5 h-5" />,
-    cor: "#B9FF4B",
-    rota: "/ben",
-    skills: ["Google Trends", "Ideias", "Hashtags"],
-  },
-  {
     nome: "Bobby",
     descricao: "Editor de Vídeo IA",
     emoji: <Clapperboard className="w-5 h-5" />,
