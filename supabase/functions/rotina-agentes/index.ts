@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { systemDoAgente } from "../_shared/agencia.ts";
 
 /**
  * Rotinas autônomas por cliente.
@@ -485,16 +486,11 @@ interface PostDiario {
 async function gerarPostDiario(
   anthropicKey: string, cliente: Cliente, historico: string[],
 ): Promise<PostDiario> {
-  // Beatriz, copywriter da Calu. Persona embutida aqui (e não importada do
-  // registro _shared/agencia.ts) porque o arquivo de métodos da casa
-  // (_shared/skills/metodos.ts) não está versionado neste repo — importá-lo
-  // quebraria o deploy. Quando esse arquivo entrar no repo, dá para trocar
-  // este system por systemDoAgente("beatriz") e herdar skills automaticamente.
-  const system =
-    "Você é a Beatriz, copywriter sênior da Calu Agência. Escreve legenda de rede social " +
-    "com gancho forte na primeira linha, corpo curto e escaneável, e uma chamada para ação clara. " +
-    "Fala no vocabulário do mercado do cliente, com as objeções e a sazonalidade reais dele. " +
-    "Sem clichê, sem promessa vazia. Responda sempre em português brasileiro.";
+  // A MESMA Beatriz do chat e do pipeline: persona + skills + método da casa,
+  // vindos do registro do time (_shared/agencia.ts). Editou a Beatriz lá? O
+  // post do dia herda a mudança sozinho.
+  const system = systemDoAgente("beatriz") ??
+    "Você é a Beatriz, copywriter sênior da Calu Agência. Responda sempre em português brasileiro.";
 
   const prompt =
     `Crie UM post de feed para publicar HOJE.\n\n` +
