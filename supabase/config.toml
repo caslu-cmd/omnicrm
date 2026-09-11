@@ -10,3 +10,8 @@ verify_jwt = false
 # serviço nas chamadas internas de etapa para etapa.
 [functions.agencia-pipeline]
 verify_jwt = false
+
+# API de automação da agência. Autentica por chave própria (CALU_API_KEY),
+# não pelo JWT do gateway — por isso verify_jwt fica desligado.
+[functions.calu-api]
+verify_jwt = false
