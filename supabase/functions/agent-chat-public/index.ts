@@ -13,9 +13,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
  *  - a sessão é CONFERIDA aqui (a tela já pedia login, mas o portão era só
  *    visual: com o token na mão qualquer um gastava a conta da Carol);
  *  - teto de mensagens por pessoa por link;
- *  - agente que tem função própria (o Fisco tem a dele, com a persona contábil
- *    e o conhecimento de Fortaleza) é CHAMADO, em vez de recriado a partir de
- *    uma cópia do prompt que envelhece sozinha.
+ *  - agente que tenha função própria é CHAMADO (a função de verdade), em vez de
+ *    recriado a partir de uma cópia do prompt que envelhece sozinha.
  */
 
 const cors = {
@@ -36,27 +35,14 @@ interface Msg {
 }
 
 /**
- * Agentes com edge function própria: o link usa o agente de verdade.
- * O `contexto` vem do `context_note` do link — é assim que um link do Fisco
- * criado para uma empresa de contabilidade já chega no perfil certo, sem quem
- * abriu ter que dizer quem é.
+ * Agentes com edge function própria: o link chamaria o agente de verdade em vez
+ * de recriar o prompt. Vazio hoje — todo link cai no chat genérico com a
+ * persona salva no próprio link (`system_prompt`).
  */
 const FUNCAO_PROPRIA: Record<
   string,
   (msgs: Msg[], contexto: string) => Record<string, unknown>
-> = {
-  fisco: (msgs, contexto) => ({
-    mensagem: msgs[msgs.length - 1]?.content ?? "",
-    historico: msgs.slice(0, -1),
-    perfil: /contabil/i.test(contexto)
-      ? "contabilidade"
-      : /empresa|cnpj|pj/i.test(contexto)
-      ? "empresa"
-      : /pessoa|física|fisica|pf/i.test(contexto)
-      ? "pessoa"
-      : "geral",
-  }),
-};
+> = {};
 
 /** Teto de mensagens por pessoa por link (a coluna conta pergunta + resposta). */
 const TETO_TROCAS = 200;

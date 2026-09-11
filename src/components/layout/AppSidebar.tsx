@@ -7,7 +7,7 @@ import {
   HelpCircle, Shield, ChevronLeft, ChevronRight, Phone,
   Palette, Bell, Crown, ArrowLeftRight, Star,
   ArrowLeft, Megaphone, BarChart2, ExternalLink,
-  Bot, Activity, Link2, ListTodo, Share2, Clapperboard, Mic, CalendarDays, Webhook, Layout, TrendingUp, FileBarChart, BookOpen,
+  Bot, Activity, Link2, ListTodo, Share2, Clapperboard, Mic, CalendarDays, Webhook, Layout, TrendingUp, BookOpen,
   ChevronDown, Code2, Filter, FileText, FormInput, Images, FolderKanban
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -69,7 +69,6 @@ const crmGroups: { titulo: string; itens: { to: string; icon: any; label: string
     titulo: "Agentes de IA",
     itens: [
       { to: "/ben", icon: TrendingUp, label: "Tendências — Ben" },
-      { to: "/fisco", icon: FileBarChart, label: "Contabilidade — Fisco" },
       { to: "/notebook", icon: BookOpen, label: "Notebook IA" },
     ],
   },

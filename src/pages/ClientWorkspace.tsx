@@ -1522,11 +1522,10 @@ export default function ClientWorkspace() {
    * trabalhar pra Calu Agência e se adaptarem ao nicho do cliente quando eu
    * marcar ativo".
    *
-   * Antes daqui saíam exceções chumbadas no código: Lia escondida sempre, Rico
-   * e Ana só no GNX, Apolo só no Grupo Licita. Isso amarrava um agente a um
-   * cliente, quando o que muda por cliente é o NICHO em que ele fala (ver
-   * `contextoDoCliente`), não a competência. Quem não serve para a conta, a
-   * Carol desmarca em "Escolher agentes".
+   * Antes daqui saíam exceções chumbadas no código, amarrando um agente a um
+   * cliente específico. O que muda por cliente é o NICHO em que o agente fala
+   * (ver `contextoDoCliente`), não a competência. Quem não serve para a conta,
+   * a Carol desmarca em "Escolher agentes".
    */
   const defaultAgentIds = useMemo(() => MARKETING_TEAM.map(a => a.id), []);
 
@@ -9292,7 +9291,7 @@ Regras:
                                 }}>
                                 {isViewing ? "▲ Fechar" : "Ver"}
                               </button>
-                              {agent.id !== "rico" && (
+                              {(
                                 <button
                                   onClick={() => {
                                     setSelectedAgentId(isSelected ? null : agent.id);
@@ -9315,22 +9314,6 @@ Regras:
                                   className="px-2.5 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1 whitespace-nowrap"
                                   style={{ background: `${agent.color}12`, color: agent.color, border: `1px solid ${agent.color}25` }}>
                                   🖥️ Criar LP
-                                </button>
-                              )}
-                              {agent.id === "rico" && (
-                                <button
-                                  onClick={() => window.open('/conta-report', '_blank')}
-                                  className="px-2.5 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1 whitespace-nowrap"
-                                  style={{ background: `${agent.color}18`, color: agent.color, border: `1px solid ${agent.color}40` }}>
-                                  💰 Abrir
-                                </button>
-                              )}
-                              {agent.id === "ana" && (
-                                <button
-                                  onClick={() => window.open('/triagem-sefaz', '_blank')}
-                                  className="px-2.5 py-1 rounded-lg text-[10px] font-semibold flex items-center gap-1 whitespace-nowrap"
-                                  style={{ background: `${agent.color}18`, color: agent.color, border: `1px solid ${agent.color}40` }}>
-                                  ⚖️ Ver Leads
                                 </button>
                               )}
                               {agent.id === "apolo" && (

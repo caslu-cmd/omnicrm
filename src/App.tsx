@@ -47,8 +47,6 @@ const VideoEditorPage = lazy(() => import("@/pages/VideoEditorPage"));
 const TomasPage = lazy(() => import("@/pages/TomasPage"));
 const TeoPage = lazy(() => import("@/pages/TeoPage"));
 const BenPage = lazy(() => import("@/pages/BenPage"));
-const ContaReportPage = lazy(() => import("@/pages/ContaReportPage"));
-const ContaColaboradorPage = lazy(() => import("@/pages/ContaColaboradorPage"));
 const SuperDiagnostico = lazy(() => import("@/pages/SuperDiagnostico"));
 const InvitePage = lazy(() => import("@/pages/InvitePage"));
 const TeamPortalPage = lazy(() => import("@/pages/TeamPortalPage"));
@@ -58,8 +56,6 @@ const GroupsPage = lazy(() => import("@/pages/GroupsPage"));
 const NotebookPage = lazy(() => import("@/pages/NotebookPage"));
 const ApostilaPage = lazy(() => import("@/pages/ApostilaPage"));
 const WordPressPage = lazy(() => import("@/pages/WordPressPage"));
-const FiscoPage = lazy(() => import("@/pages/FiscoPage"));
-const FiscoCompartilhado = lazy(() => import("@/pages/FiscoCompartilhado"));
 const AttendancePage = lazy(() => import("@/pages/AttendancePage"));
 const PagesPage = lazy(() => import("@/pages/PagesPage"));
 const PropostaPage = lazy(() => import("@/pages/PropostaPage"));
@@ -69,8 +65,6 @@ const SharedOrchestrationPage = lazy(() => import("@/pages/SharedOrchestrationPa
 const FormsPage = lazy(() => import("@/pages/FormsPage"));
 const SharedAgentPage = lazy(() => import("@/pages/SharedAgentPage"));
 const SharedAgentChatPage = lazy(() => import("@/pages/SharedAgentChatPage"));
-const TriagemSefazPage = lazy(() => import("@/pages/TriagemSefazPage"));
-const RicoGuidePage = lazy(() => import("@/pages/RicoGuidePage"));
 
 const CookiesPage = lazy(() => import("@/pages/CookiesPage"));
 
@@ -131,7 +125,6 @@ const ProtectedRoutes = () => {
           <Route path="/agency/clients/:id" element={<ClientWorkspace />} />
           <Route path="/video-editor" element={<VideoEditorPage />} />
           <Route path="/ben" element={<BenPage />} />
-          <Route path="/fisco" element={<FiscoPage />} />
           <Route path="/notebook" element={<NotebookPage />} />
           <Route path="/apostila" element={<ApostilaPage />} />
           <Route path="/wordpress" element={<WordPressPage />} />
@@ -206,9 +199,6 @@ const AppRoutes = () => (
     {/* Public interactive agent chat — no auth required */}
     <Route path="/conversar/:token" element={<SharedAgentChatPage />} />
 
-    {/* Fisco compartilhado — só a tela do agente, com senha e sem a barra da agência */}
-    <Route path="/fisco/:token" element={<FiscoCompartilhado />} />
-
     {/* Convite para membros do time do cliente */}
     <Route path="/invite/:token" element={<InvitePage />} />
 
@@ -226,10 +216,6 @@ const AppRoutes = () => (
     <Route path="/terms" element={<TermsPage />} />
 
     {/* Telas exclusivas sem sidebar — exigem sessão */}
-    <Route path="/conta-report" element={<FullScreen page={<ContaReportPage />} />} />
-    <Route path="/rico-guide" element={<RicoGuidePage />} />
-    <Route path="/triagem-sefaz" element={<FullScreen page={<TriagemSefazPage />} />} />
-    <Route path="/conta-colaborador" element={<FullScreen page={<ContaColaboradorPage />} />} />
     <Route path="/tomas" element={<FullScreen page={<TomasPage />} />} />
     <Route path="/teo" element={<FullScreen page={<TeoPage />} />} />
 
