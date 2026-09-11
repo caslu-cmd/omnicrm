@@ -297,6 +297,7 @@ const ROTINAS: { id: string; label: string; desc: string }[] = [
   { id: "pauta", label: "Pautas da semana", desc: "8 ideias novas para o nicho, sem repetir o que já foi publicado" },
   { id: "carrossel", label: "Carrossel pronto para revisão", desc: "Escolhe o tema, escreve os 7 slides e a legenda, e deixa na biblioteca" },
   { id: "calendario", label: "Calendário da semana", desc: "Pedro planeja os 7 próximos dias e deixa na fila de aprovação — você libera o que vai para o cliente" },
+  { id: "post_diario", label: "Post do dia", desc: "Beatriz escreve a legenda e gera a arte todo dia e deixa o post como rascunho — você toca \"Publicar agora\" para aprovar. Precisa de Instagram/Facebook conectado" },
   { id: "relatorio", label: "Relatório do período", desc: "Seguidores, o que saiu e o que está na fila — só número real" },
 ];
 
