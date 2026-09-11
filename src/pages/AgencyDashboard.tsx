@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import {
   Users, Megaphone, Calendar, TrendingUp,
   ArrowRight, MessageSquare, Plus, Zap, X, Trash2, AlertTriangle, ExternalLink,
-  Receipt, Clapperboard, BookOpen, Globe, FileText
+  Clapperboard, BookOpen, Globe, FileText
 } from "lucide-react";
 import { useClients } from "@/contexts/ClientsContext";
 import { useAuth } from "@/hooks/useAuth";
@@ -16,14 +16,6 @@ import { activateAgentsForAllClients, DEFAULT_ROUTINES } from "@/lib/activateAge
 const LIME = "#B9FF4B";
 
 const AGENTES = [
-  {
-    nome: "Fisco",
-    descricao: "Consultor Contábil IA",
-    emoji: <Receipt className="w-5 h-5" />,
-    cor: "#F59E0B",
-    rota: "/fisco",
-    skills: ["NFS-e", "Tributos", "Obrigações"],
-  },
   {
     nome: "Bobby",
     descricao: "Editor de Vídeo IA",

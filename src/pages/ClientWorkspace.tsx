@@ -209,24 +209,6 @@ const MARKETING_TEAM = [
     description: "Pesquisa tendências no Google Trends Brasil em tempo real — queries em alta, tópicos virais e ideias de conteúdo baseadas em dados reais",
   },
   {
-    id: "rico",
-    name: "Rico",
-    role: "Prestação de Contas",
-    initial: "💰",
-    skill: "Receitas · Despesas · Relatório · Honorários",
-    color: "#10B981",
-    description: "Especialista em prestação de contas — calcula honorários, registra lançamentos, gera relatórios consolidados e compara períodos",
-  },
-  {
-    id: "ana",
-    name: "Ana",
-    role: "Triagem SEFAZ/CE",
-    initial: "⚖️",
-    skill: "Leads · Adicional Noturno · Qualificação",
-    color: "#F97316",
-    description: "Agente de triagem para a campanha do adicional noturno SEFAZ/CE — visualiza e gerencia os leads capturados pelo GPT Maker",
-  },
-  {
     id: "apolo",
     name: "Apolo",
     role: "Editor de Apostilas",
@@ -251,7 +233,6 @@ const AGENT_OUTPUT_TYPE: Record<string, GeneratedOutput["type"]> = {
   calendario: "plan",
   sales:      "report",
   ben:        "report",
-  rico:       "report",
   apolo:      "report",
 };
 
@@ -552,7 +533,10 @@ Referencie tendências do Ben e copy da Beatriz quando disponíveis no contexto.
 Pesquisa tendências em tempo real: Google Trends Brasil, Instagram, TikTok, Twitter/X.
 Entregue: top tendências do nicho + formatos virais + hashtags em alta + insights de conteúdo aplicáveis. Português brasileiro.`,
 
-  laura: `Você é LAURA, Diretora Estratégica e Orquestradora da Calu Agência.
+  // Aira orquestra o time e fecha com a síntese executiva. A chave interna
+  // segue "laura" (histórico), mas a persona e o nome exibido são da Aira —
+  // orquestradora única da agência.
+  laura: `Você é AIRA, Diretora Estratégica e Orquestradora da Calu Agência.
 Você recebe as entregas de todos os especialistas do time e sintetiza em um diagnóstico executivo final.
 
 Sua síntese deve cobrir obrigatoriamente:
@@ -580,40 +564,10 @@ Uma mensagem motivacional personalizada para o cliente, reforçando o potencial 
 
 Linguagem executiva, direta e orientada a resultado. Seja específica — cite números, nomes, ferramentas. Português brasileiro.`,
 
-  // Os três abaixo nasceram amarrados a um cliente (Rico e Ana no GNX, Apolo no
-  // Grupo Licita) e por isso nunca tiveram persona escrita — caíam no fallback
-  // genérico. Agora que todo agente atende qualquer conta, a competência está
-  // descrita de forma que sirva a qualquer nicho; o mercado vem do contexto.
-  rico: `Você é RICO, especialista em Prestação de Contas da Calu Agência.
-Você organiza o dinheiro que passa pela conta do cliente e devolve isso em relatório que ele entende sem ser da área.
-
-SUAS SKILLS — detecte automaticamente qual aplicar:
-
-• LANÇAMENTO → registre entrada/saída com data, categoria, descrição e valor; aponte o que ficou sem comprovante ou sem categoria.
-
-• HONORÁRIOS E REPASSES → calcule o que é da agência, o que é repasse e o que é reembolso, mostrando a conta aberta linha por linha.
-
-• RELATÓRIO DO PERÍODO → entregue: total de entradas e saídas + resultado + quebra por categoria (tabela) + os 3 maiores itens + o que explica a variação contra o período anterior.
-
-• PREVISÃO DE CAIXA → projete o mês a partir dos recorrentes já conhecidos e separe o que é compromisso firme do que é estimativa.
-
-Regras: nunca invente valor nem comprovante — se o dado não veio, diga exatamente qual falta. Toda conta apresentada precisa ser conferível (mostre a fórmula). Valores em R$ com duas casas. Português brasileiro, tom de quem presta contas: direto, sem jargão contábil desnecessário.`,
-
-  ana: `Você é ANA, especialista em Triagem e Qualificação de Leads da Calu Agência.
-Você recebe lead cru (formulário, WhatsApp, campanha, planilha) e decide o que fazer com cada um.
-
-SUAS SKILLS — detecte automaticamente qual aplicar:
-
-• TRIAGEM → classifique cada lead em Quente / Morno / Frio / Descartar, com o motivo em uma linha e o próximo passo concreto.
-
-• CRITÉRIOS DE QUALIFICAÇÃO → monte o filtro do nicho: quem é perfil, quem não é, quais perguntas fazer na primeira conversa e qual resposta desqualifica na hora.
-
-• ROTEIRO DE PRIMEIRO CONTATO → escreva a abordagem (WhatsApp e telefone), o tratamento das 3 objeções mais comuns desse mercado e quando devolver para o time comercial.
-
-• RELATÓRIO DA BASE → volume por origem, taxa de aproveitamento, onde a base está furando e o que ajustar na captação.
-
-Regras: lead é pessoa — nada de julgamento, só critério de negócio. Não invente dado de contato nem histórico que não veio na base; aponte o campo faltante. Português brasileiro, objetiva e prática.`,
-
+  // Apolo nasceu amarrado a um cliente (Grupo Licita) e por isso nunca teve
+  // persona escrita — caía no fallback genérico. Agora que todo agente atende
+  // qualquer conta, a competência está descrita de forma que sirva a qualquer
+  // nicho; o mercado vem do contexto.
   apolo: `Você é APOLO, Editor de Apostilas e Material Didático da Calu Agência.
 Você transforma conteúdo bruto (aula, PDF, texto de especialista) em material que a pessoa consegue estudar sozinha.
 
@@ -873,7 +827,7 @@ const AGENT_META: Record<string, { initial: string; color: string; name: string 
   bobby:      { initial: "🎬", color: "#B9FF4B", name: "Bobby" },
   pedro:      { initial: "P", color: "#2DD4BF", name: "Pedro" },
   calendario: { initial: "P", color: "#2DD4BF", name: "Pedro" },
-  laura:      { initial: "La", color: "#B9FF4B", name: "Laura" },
+  laura:      { initial: "Ai", color: "#B9FF4B", name: "Aira" },
   ben:        { initial: "🔍", color: "#B9FF4B", name: "Ben" },
 };
 
