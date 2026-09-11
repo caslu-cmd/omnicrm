@@ -65,6 +65,7 @@ const SharedOrchestrationPage = lazy(() => import("@/pages/SharedOrchestrationPa
 const FormsPage = lazy(() => import("@/pages/FormsPage"));
 const SharedAgentPage = lazy(() => import("@/pages/SharedAgentPage"));
 const SharedAgentChatPage = lazy(() => import("@/pages/SharedAgentChatPage"));
+const DescontinuadoPage = lazy(() => import("@/pages/DescontinuadoPage"));
 
 const CookiesPage = lazy(() => import("@/pages/CookiesPage"));
 
@@ -198,6 +199,14 @@ const AppRoutes = () => (
     <Route path="/agente/:token" element={<SharedAgentPage />} />
     {/* Public interactive agent chat — no auth required */}
     <Route path="/conversar/:token" element={<SharedAgentChatPage />} />
+
+    {/* Ferramentas descontinuadas (Fisco, Rico, Ana) — aviso amigável no lugar de 404 */}
+    <Route path="/fisco" element={<DescontinuadoPage />} />
+    <Route path="/fisco/:token" element={<DescontinuadoPage />} />
+    <Route path="/conta-report" element={<DescontinuadoPage />} />
+    <Route path="/conta-colaborador" element={<DescontinuadoPage />} />
+    <Route path="/rico-guide" element={<DescontinuadoPage />} />
+    <Route path="/triagem-sefaz" element={<DescontinuadoPage />} />
 
     {/* Convite para membros do time do cliente */}
     <Route path="/invite/:token" element={<InvitePage />} />
