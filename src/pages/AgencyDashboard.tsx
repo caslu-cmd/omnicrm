@@ -10,6 +10,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import AgencyAlerts from "@/components/AgencyAlerts";
+import SuperAdminSidebar from "@/components/SuperAdminSidebar";
 import { activateAgentsForAllClients, DEFAULT_ROUTINES } from "@/lib/activateAgents";
 
 const LIME = "#B9FF4B";
@@ -256,6 +257,10 @@ export default function AgencyDashboard() {
         <AgencyAlerts />
 
 
+        {/* ── Clientes (principal) + Painel do Super Admin (lateral) ── */}
+        <div className="lg:flex lg:gap-8 lg:items-start">
+          <div className="flex-1 min-w-0">
+
         {/* ── Section header ── */}
         <div className="flex items-center justify-between flex-wrap gap-4 mb-6">
           <div className="flex items-center gap-4">
@@ -435,6 +440,14 @@ export default function AgencyDashboard() {
             </div>
           </motion.div>
         </div>
+          </div>{/* fim coluna principal (clientes) */}
+
+          <aside className="lg:w-[340px] lg:flex-shrink-0 mt-10 lg:mt-0">
+            <div className="lg:sticky lg:top-6">
+              <SuperAdminSidebar />
+            </div>
+          </aside>
+        </div>{/* fim layout de duas colunas */}
       </div>
 
       {/* ── Modal Confirmar Exclusão ── */}
