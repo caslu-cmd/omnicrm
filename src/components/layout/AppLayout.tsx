@@ -29,9 +29,11 @@ export const AppLayout = () => {
     setMobileSidebarOpen(false);
   }, [location.pathname, location.search]);
 
-  // Dentro do CRM de um cliente → mostra a coluna de conversas depois do sidebar
+  // Dentro do CRM de um cliente → mostra a coluna de conversas depois do sidebar,
+  // mas SÓ na aba CRM/Inbox (tab=crm). Nas outras abas ela some e libera a largura.
   const clientMatch = location.pathname.match(/^\/agency\/clients\/([^/]+)/);
-  const workspaceClientId = clientMatch?.[1] ?? null;
+  const activeTab = new URLSearchParams(location.search).get("tab") ?? "";
+  const workspaceClientId = clientMatch && activeTab === "crm" ? clientMatch[1] : null;
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
