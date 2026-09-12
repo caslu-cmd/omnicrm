@@ -8,7 +8,7 @@ import {
   Palette, Bell, Crown, ArrowLeftRight, Star,
   ArrowLeft, Megaphone, BarChart2, ExternalLink,
   Bot, Activity, Link2, ListTodo, Share2, Clapperboard, Mic, CalendarDays, Webhook, Layout, TrendingUp, FileBarChart, BookOpen,
-  ChevronDown, Code2, Filter, FileText, FormInput, Images, FolderKanban
+  ChevronDown, Code2, Filter, FileText, FormInput, Images, FolderKanban, UserCheck, Rocket
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
@@ -397,72 +397,125 @@ export const AppSidebar = ({ collapsed, onToggle, hideToggle }: AppSidebarProps)
   };
 
   // ── AGENCY HOME SIDEBAR ─────────────────────────────────────
-  const renderAgencySidebar = () => (
-    <AnimatePresence mode="wait">
-      <motion.div
-        key="agency-sidebar"
-        initial={{ opacity: 0, x: -8 }}
-        animate={{ opacity: 1, x: 0 }}
-        exit={{ opacity: 0, x: -8 }}
-        transition={{ duration: 0.22 }}
-        className="flex flex-col h-full"
-      >
-        <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
-          <NavLink
-            to="/agency"
-            className={cn(
-              "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors relative",
-              "bg-sidebar-accent text-sidebar-accent-foreground"
-            )}
-          >
-            <motion.div
-              layoutId="sidebar-indicator"
-              className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-sidebar-primary"
-            />
-            <Star className="h-5 w-5 shrink-0 text-sidebar-primary" />
-            {!collapsed && <span>Painel da Agência</span>}
-          </NavLink>
+  // No lugar de repetir a lista de clientes (que já é o corpo da página
+  // /agency), o menu lateral aqui mostra o pulso do negócio para o super
+  // admin: quantos clientes ativos, agentes de IA no ar, receita mensal e
+  // campanhas rodando — os mesmos números que o painel calcula.
+  const renderAgencySidebar = () => {
+    const totalClients = CLIENTS.length;
+    const activeClients = CLIENTS.filter((c) => c.status === "Ativo").length;
+    const onboardingClients = CLIENTS.filter((c) => c.status === "Onboarding").length;
+    const agentsOnline = CLIENTS.filter((c) => c.agentActive).length;
+    const totalCampaigns = CLIENTS.reduce((s, c) => s + (c.campaigns || 0), 0);
+    const totalRevenue = CLIENTS.reduce(
+      (s, c) => s + (parseInt(String(c.revenue).replace(/\D/g, ""), 10) || 0),
+      0,
+    );
+    const revenueLabel =
+      totalRevenue >= 1000 ? `R$ ${(totalRevenue / 1000).toFixed(1)}k` : `R$ ${totalRevenue}`;
 
-          {!collapsed && (
-            <div className="pt-4 pb-1 px-3">
-              <p className="text-[10px] uppercase tracking-widest font-semibold text-sidebar-muted">
-                Clientes
-              </p>
-            </div>
-          )}
+    const stats: { icon: any; value: string | number; label: string; accent?: boolean; live?: boolean }[] = [
+      { icon: TrendingUp, value: revenueLabel, label: "Receita/mês", accent: true },
+      { icon: UserCheck, value: `${activeClients}/${totalClients}`, label: "Ativos" },
+      { icon: Bot, value: agentsOnline, label: "Agentes no ar", live: agentsOnline > 0 },
+      { icon: Megaphone, value: totalCampaigns, label: "Campanhas" },
+    ];
 
-          {CLIENTS.map((c) => (
+    return (
+      <AnimatePresence mode="wait">
+        <motion.div
+          key="agency-sidebar"
+          initial={{ opacity: 0, x: -8 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -8 }}
+          transition={{ duration: 0.22 }}
+          className="flex flex-col h-full"
+        >
+          <nav className="flex-1 overflow-y-auto scrollbar-thin py-3 px-2 space-y-0.5">
             <NavLink
-              key={c.id}
-              to={`/agency/clients/${c.id}`}
-              className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+              to="/agency"
+              className={cn(
+                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors relative",
+                "bg-sidebar-accent text-sidebar-accent-foreground"
+              )}
             >
-              <div
-                className="w-6 h-6 rounded-md flex items-center justify-center text-[10px] font-bold flex-shrink-0"
-                style={{ background: `${c.color}22`, color: c.color }}
-              >
-                {c.initials}
-              </div>
-              {!collapsed && (
-                <span className="truncate text-xs">{c.name}</span>
-              )}
-              {!collapsed && c.agentActive && (
-                <span className="ml-auto relative flex h-1.5 w-1.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                  <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
-                </span>
-              )}
+              <motion.div
+                layoutId="sidebar-indicator"
+                className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 rounded-r-full bg-sidebar-primary"
+              />
+              <Star className="h-5 w-5 shrink-0 text-sidebar-primary" />
+              {!collapsed && <span>Painel da Agência</span>}
             </NavLink>
-          ))}
-        </nav>
 
-        <div className="border-t border-sidebar-border py-3 px-2 space-y-0.5">
-          {renderNavItem({ to: "/settings", icon: Settings, label: "Configurações" }, 0)}
-          {renderNavItem({ to: "/help", icon: HelpCircle, label: "Ajuda" }, 1)}
-        </div>
-      </motion.div>
-    </AnimatePresence>
-  );
+            {!collapsed && (
+              <>
+                <div className="pt-4 pb-2 px-3">
+                  <p className="text-[10px] uppercase tracking-widest font-semibold text-sidebar-muted">
+                    Visão Geral
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 gap-2 px-1">
+                  {stats.map((s) => (
+                    <div
+                      key={s.label}
+                      className="rounded-xl border border-sidebar-border bg-sidebar-accent/40 px-3 py-2.5"
+                    >
+                      <div className="flex items-center gap-1.5 mb-1.5">
+                        <s.icon
+                          className={cn("h-3.5 w-3.5 shrink-0", s.accent ? "text-sidebar-primary" : "text-sidebar-muted")}
+                        />
+                        {s.live && (
+                          <span className="relative flex h-1.5 w-1.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-400" />
+                          </span>
+                        )}
+                      </div>
+                      <div
+                        className={cn("text-base font-semibold leading-none tabular-nums", s.accent ? "text-sidebar-primary" : "text-sidebar-accent-foreground")}
+                      >
+                        {s.value}
+                      </div>
+                      <div className="text-[10px] text-sidebar-muted mt-1 truncate">{s.label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {onboardingClients > 0 && (
+                  <div className="mx-1 mt-2 flex items-center gap-2 rounded-lg border border-sidebar-border bg-sidebar-accent/25 px-3 py-2">
+                    <Rocket className="h-3.5 w-3.5 shrink-0 text-sidebar-muted" />
+                    <span className="text-[11px] text-sidebar-foreground">
+                      <span className="font-semibold text-sidebar-accent-foreground">{onboardingClients}</span>{" "}
+                      em onboarding
+                    </span>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Recolhido: só os números, empilhados e centralizados. */}
+            {collapsed && (
+              <div className="pt-3 space-y-1">
+                {stats.map((s) => (
+                  <div key={s.label} className="flex flex-col items-center gap-0.5 py-1.5" title={s.label}>
+                    <s.icon className={cn("h-4 w-4", s.accent ? "text-sidebar-primary" : "text-sidebar-muted")} />
+                    <span className={cn("text-[11px] font-semibold tabular-nums", s.accent ? "text-sidebar-primary" : "text-sidebar-accent-foreground")}>
+                      {s.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </nav>
+
+          <div className="border-t border-sidebar-border py-3 px-2 space-y-0.5">
+            {renderNavItem({ to: "/settings", icon: Settings, label: "Configurações" }, 0)}
+            {renderNavItem({ to: "/help", icon: HelpCircle, label: "Ajuda" }, 1)}
+          </div>
+        </motion.div>
+      </AnimatePresence>
+    );
+  };
 
   // ── DEFAULT CRM SIDEBAR ─────────────────────────────────────
   const renderCrmSidebar = () => (
