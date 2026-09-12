@@ -4,58 +4,16 @@ import { useNavigate } from "react-router-dom";
 import {
   Users, Megaphone, Calendar, TrendingUp,
   ArrowRight, MessageSquare, Plus, Zap, X, Trash2, AlertTriangle, ExternalLink,
-  Receipt, Clapperboard, BookOpen, Globe, FileText
 } from "lucide-react";
 import { useClients } from "@/contexts/ClientsContext";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import AgencyAlerts from "@/components/AgencyAlerts";
+import SuperAdminSidebar from "@/components/SuperAdminSidebar";
+import { activateAgentsForAllClients, DEFAULT_ROUTINES } from "@/lib/activateAgents";
 
 const LIME = "#B9FF4B";
-
-const AGENTES = [
-  {
-    nome: "Fisco",
-    descricao: "Consultor Contábil IA",
-    emoji: <Receipt className="w-5 h-5" />,
-    cor: "#F59E0B",
-    rota: "/fisco",
-    skills: ["NFS-e", "Tributos", "Obrigações"],
-  },
-  {
-    nome: "Ben",
-    descricao: "Especialista em Tendências",
-    emoji: <TrendingUp className="w-5 h-5" />,
-    cor: "#B9FF4B",
-    rota: "/ben",
-    skills: ["Google Trends", "Ideias", "Hashtags"],
-  },
-  {
-    nome: "Bobby",
-    descricao: "Editor de Vídeo IA",
-    emoji: <Clapperboard className="w-5 h-5" />,
-    cor: "#A78BFA",
-    rota: "/video-editor",
-    skills: ["Roteiro", "Legendas", "Cortes"],
-  },
-  {
-    nome: "Apolo",
-    descricao: "Criador de Apostilas",
-    emoji: <BookOpen className="w-5 h-5" />,
-    cor: "#60A5FA",
-    rota: "/apostila",
-    skills: ["PDF", "Layout", "Conteúdo"],
-  },
-  {
-    nome: "Pixel",
-    descricao: "Agente WordPress",
-    emoji: <Globe className="w-5 h-5" />,
-    cor: "#34D399",
-    rota: "/wordpress",
-    skills: ["Posts", "SEO", "Páginas"],
-  },
-];
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; border: string }> = {
   Ativo:       { bg: "rgba(185,255,75,0.1)",   text: "#B9FF4B", border: "rgba(185,255,75,0.22)" },
@@ -73,9 +31,13 @@ export default function AgencyDashboard() {
   const { user } = useAuth();
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [openingPortal, setOpeningPortal] = useState<string | null>(null);
-  const { clients: CLIENTS, addClient, deleteClient } = useClients();
+  const { clients: CLIENTS, addClient, deleteClient, updateClient } = useClients();
   const [showNewClient, setShowNewClient] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
+  // Ativação em lote dos agentes ("ligar o time para todos os clientes")
+  const [showActivate, setShowActivate] = useState(false);
+  const [activating, setActivating] = useState(false);
+  const [activateProgress, setActivateProgress] = useState({ done: 0, total: 0 });
   const [form, setForm] = useState({
     name: "", industry: "", status: "Onboarding" as "Ativo" | "Onboarding" | "Em pausa",
     revenue: "", color: "#B9FF4B",
@@ -130,6 +92,41 @@ export default function AgencyDashboard() {
     navigate(`/agency/clients/${id}`);
   };
 
+  // Liga os agentes autônomos (rotinas em modo revisão) para TODOS os clientes.
+  const handleActivateAll = async () => {
+    if (!user) { toast.error("Você precisa estar logado."); return; }
+    if (CLIENTS.length === 0) { toast.error("Nenhum cliente para ativar."); return; }
+    setActivating(true);
+    setActivateProgress({ done: 0, total: CLIENTS.length });
+    try {
+      const results = await activateAgentsForAllClients(
+        user.id,
+        CLIENTS.map((c) => ({ id: c.id, name: c.name, industry: c.industry, status: c.status })),
+        (done, total, result) => {
+          setActivateProgress({ done, total });
+          // Reflete no painel: indicador verde + contador de "agentes online".
+          if (result.ok) {
+            updateClient(result.clientId, {
+              agentActive: true,
+              nextAction: "Rotinas automáticas ligadas — revisando entregas",
+            });
+          }
+        },
+      );
+
+      const ok = results.filter((r) => r.ok).length;
+      const falhas = results.filter((r) => !r.ok);
+      if (falhas.length === 0) {
+        toast.success(`Agentes ligados para ${ok} cliente${ok === 1 ? "" : "s"}. O time já está trabalhando.`);
+      } else {
+        toast.warning(`${ok} cliente(s) ativados, ${falhas.length} com erro: ${falhas.map((f) => f.name).join(", ")}`);
+      }
+      setShowActivate(false);
+    } finally {
+      setActivating(false);
+    }
+  };
+
   const activeClients = CLIENTS.filter((c) => c.status === "Ativo").length;
   const totalCampaigns = CLIENTS.reduce((s, c) => s + c.campaigns, 0);
   const totalRevenue = CLIENTS.reduce((s, c) => s + parseInt(c.revenue.replace(/\D/g, "")), 0);
@@ -144,7 +141,7 @@ export default function AgencyDashboard() {
   return (
     <div
       className="min-h-full text-white"
-      style={{ background: "#07080A" }}
+      style={{ background: "linear-gradient(180deg, #22242C 0%, #1B1D24 100%)" }}
     >
       {/* Ambient lime glow */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
@@ -205,9 +202,16 @@ export default function AgencyDashboard() {
                 {CLIENTS.filter((c) => c.agentActive).length} agentes online
               </span>
             </div>
+            <button
+              onClick={() => setShowActivate(true)}
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-opacity hover:opacity-75"
+              style={{ background: LIME, color: "#07080A", boxShadow: "0 0 20px -6px rgba(185,255,75,0.5)" }}
+              title="Ligar as rotinas automáticas para todos os clientes">
+              <Zap className="w-3.5 h-3.5" /> Ativar agentes
+            </button>
             <a href="/landing" target="_blank" rel="noreferrer"
               className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-opacity hover:opacity-75"
-              style={{ background: LIME, color: "#07080A" }}>
+              style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.1)" }}>
               🌐 Ver site
             </a>
           </div>
@@ -223,7 +227,7 @@ export default function AgencyDashboard() {
           {stats.map((stat, i) => (
             <div key={stat.label} className="rounded-2xl p-5 group transition-all duration-300"
               style={{
-                background: "rgba(255,255,255,0.025)",
+                background: "rgba(255,255,255,0.05)",
                 border: "1px solid rgba(255,255,255,0.07)",
               }}
               onMouseEnter={e => {
@@ -252,71 +256,10 @@ export default function AgencyDashboard() {
         {/* Pendências reais da operação, lidas do banco */}
         <AgencyAlerts />
 
-        {/* ── Agentes da Agência ── */}
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.18, duration: 0.5 }}
-          className="mb-10"
-        >
-          <div className="flex items-center gap-4 mb-5">
-            <h2 className="text-[11px] font-medium tracking-[0.2em] uppercase"
-              style={{ color: "rgba(255,255,255,0.35)" }}>Agentes da Agência</h2>
-            <div className="h-px w-20" style={{ background: "rgba(185,255,75,0.15)" }} />
-            <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.2)" }}>{AGENTES.length} agentes</span>
-          </div>
 
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-            {AGENTES.map((ag, i) => (
-              <motion.button
-                key={ag.nome}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.22 + i * 0.06, duration: 0.4 }}
-                onClick={() => navigate(ag.rota)}
-                className="flex flex-col items-start p-4 rounded-2xl text-left transition-all group"
-                style={{
-                  background: "rgba(255,255,255,0.022)",
-                  border: "1px solid rgba(255,255,255,0.06)",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = `${ag.cor}40`;
-                  e.currentTarget.style.boxShadow = `0 0 24px -6px ${ag.cor}30`;
-                  e.currentTarget.style.background = `${ag.cor}08`;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.06)";
-                  e.currentTarget.style.boxShadow = "none";
-                  e.currentTarget.style.background = "rgba(255,255,255,0.022)";
-                }}
-              >
-                <div
-                  className="w-9 h-9 rounded-xl flex items-center justify-center mb-3"
-                  style={{ background: `${ag.cor}18`, border: `1px solid ${ag.cor}35`, color: ag.cor }}
-                >
-                  {ag.emoji}
-                </div>
-                <div className="font-semibold text-sm mb-0.5" style={{ color: "rgba(255,255,255,0.9)" }}>
-                  {ag.nome}
-                </div>
-                <div className="text-[11px] mb-3" style={{ color: "rgba(255,255,255,0.35)" }}>
-                  {ag.descricao}
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {ag.skills.map((s) => (
-                    <span
-                      key={s}
-                      className="text-[10px] px-1.5 py-0.5 rounded-full"
-                      style={{ background: `${ag.cor}15`, color: ag.cor, border: `1px solid ${ag.cor}25` }}
-                    >
-                      {s}
-                    </span>
-                  ))}
-                </div>
-              </motion.button>
-            ))}
-          </div>
-        </motion.div>
+        {/* ── Clientes (principal) + Painel do Super Admin (lateral) ── */}
+        <div className="lg:flex lg:gap-8 lg:items-start">
+          <div className="flex-1 min-w-0">
 
         {/* ── Section header ── */}
         <div className="flex items-center justify-between flex-wrap gap-4 mb-6">
@@ -358,7 +301,7 @@ export default function AgencyDashboard() {
                 role="link"
                 className="relative rounded-2xl overflow-hidden cursor-pointer"
                 style={{
-                  background: "rgba(255,255,255,0.022)",
+                  background: "rgba(255,255,255,0.05)",
                   border: `1px solid ${isHovered ? "rgba(185,255,75,0.28)" : "rgba(255,255,255,0.06)"}`,
                   boxShadow: isHovered
                     ? "0 0 0 1px rgba(185,255,75,0.08), 0 16px 48px -8px rgba(185,255,75,0.2), inset 0 1px 0 rgba(185,255,75,0.06)"
@@ -497,6 +440,14 @@ export default function AgencyDashboard() {
             </div>
           </motion.div>
         </div>
+          </div>{/* fim coluna principal (clientes) */}
+
+          <aside className="lg:w-[340px] lg:flex-shrink-0 mt-10 lg:mt-0">
+            <div className="lg:sticky lg:top-6">
+              <SuperAdminSidebar />
+            </div>
+          </aside>
+        </div>{/* fim layout de duas colunas */}
       </div>
 
       {/* ── Modal Confirmar Exclusão ── */}
@@ -545,6 +496,95 @@ export default function AgencyDashboard() {
                     className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
                     style={{ background: "#F87171", color: "#07080A" }}>
                     Excluir
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Modal Ativar agentes (lote) ── */}
+      <AnimatePresence>
+        {showActivate && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            style={{ background: "rgba(0,0,0,0.75)", backdropFilter: "blur(4px)" }}
+            onClick={(e) => { if (e.target === e.currentTarget && !activating) setShowActivate(false); }}
+          >
+            <motion.div
+              initial={{ opacity: 0, scale: 0.97, y: 12 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.97, y: 12 }}
+              className="w-full max-w-md rounded-2xl overflow-hidden"
+              style={{ background: "#0D0D1A", border: "1px solid rgba(185,255,75,0.25)" }}
+            >
+              <div className="p-6 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
+                    style={{ background: "rgba(185,255,75,0.1)", border: "1px solid rgba(185,255,75,0.25)" }}>
+                    <Zap className="w-5 h-5" style={{ color: LIME }} />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-white">Ativar agentes para todos os clientes</p>
+                    <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.4)" }}>
+                      {CLIENTS.length} cliente{CLIENTS.length === 1 ? "" : "s"} · modo revisão
+                    </p>
+                  </div>
+                </div>
+
+                <p className="text-sm" style={{ color: "rgba(255,255,255,0.6)" }}>
+                  Vou ligar as rotinas automáticas do time para cada cliente e criar o portal de quem ainda não tem.
+                  A partir daí os agentes trabalham sozinhos (cron a cada 15 min):
+                </p>
+
+                <ul className="space-y-1.5">
+                  {DEFAULT_ROUTINES.map((r) => (
+                    <li key={r.rotina} className="flex items-center gap-2 text-xs" style={{ color: "rgba(255,255,255,0.7)" }}>
+                      <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: LIME }} />
+                      <span className="capitalize font-medium">{r.rotina}</span>
+                    </li>
+                  ))}
+                </ul>
+
+                <div className="rounded-xl px-3 py-2.5 text-[11px]"
+                  style={{ background: "rgba(185,255,75,0.06)", border: "1px solid rgba(185,255,75,0.14)", color: "rgba(185,255,75,0.85)" }}>
+                  🔒 Fila de aprovação: nada é publicado nas redes ou no calendário sem o seu OK.
+                  Rotinas que você já configurou à mão não são alteradas.
+                </div>
+
+                {activating && (
+                  <div className="space-y-2">
+                    <div className="h-1.5 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.08)" }}>
+                      <div className="h-full rounded-full transition-all duration-300"
+                        style={{
+                          width: `${activateProgress.total ? (activateProgress.done / activateProgress.total) * 100 : 0}%`,
+                          background: LIME,
+                        }} />
+                    </div>
+                    <p className="text-[11px] text-center" style={{ color: "rgba(255,255,255,0.4)" }}>
+                      {activateProgress.done} de {activateProgress.total} clientes
+                    </p>
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-1">
+                  <button
+                    onClick={() => setShowActivate(false)}
+                    disabled={activating}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-medium disabled:opacity-40"
+                    style={{ background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.5)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleActivateAll}
+                    disabled={activating}
+                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold disabled:opacity-60 flex items-center justify-center gap-2"
+                    style={{ background: LIME, color: "#07080A" }}>
+                    {activating
+                      ? <><div className="w-3.5 h-3.5 rounded-full border-2 border-current border-t-transparent animate-spin" /> Ativando…</>
+                      : <>Ativar agentes</>}
                   </button>
                 </div>
               </div>

@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+import { systemDoAgente } from "../_shared/agencia.ts";
 
 /**
  * Rotinas autônomas por cliente.
@@ -405,7 +406,152 @@ async function executarRotina(ctx: {
     };
   }
 
+  if (rotina === "post_diario") {
+    if (!podeUsar(agentes, "social") && !podeUsar(agentes, "copywriter") && !podeUsar(agentes, "strategist")) {
+      throw new Error("nenhum agente de conteúdo ativo neste cliente");
+    }
+    if (!ctx.anthropicKey) throw new Error("ANTHROPIC_API_KEY não configurada");
+
+    // Só publica onde há rede conectada. Sem conta, não há post — em vez de
+    // gerar rascunho órfão, a rotina para com um erro claro.
+    const { data: conexoes } = await sb
+      .from("social_connections")
+      .select("platform")
+      .eq("client_id", cliente.workspace).eq("connected", true);
+    const plataformas = (conexoes ?? [])
+      .map((c: { platform: string }) => c.platform)
+      .filter((p: string) => p === "instagram" || p === "facebook");
+    if (!plataformas.length) throw new Error("cliente sem Instagram/Facebook conectado");
+
+    // 1) Beatriz escreve o post do dia (legenda + hashtags + briefing de arte).
+    const post = await gerarPostDiario(ctx.anthropicKey, cliente, historico);
+
+    // 2) Gemini gera a foto. Instagram exige imagem, então sem arte não há post.
+    const img = await chamarFuncao(supabaseUrl, serviceKey, "generate-image", {
+      prompt: post.image_prompt,
+      aspectRatio: "4:5",
+      clientContext: { name: cliente.nome, industry: cliente.segmento },
+    });
+    const base64 = String(img.imageData ?? "");
+    if (!base64) throw new Error("generate-image não devolveu imagem");
+    const mime = String(img.mimeType ?? "image/png");
+
+    // 3) Sobe para o bucket público — o Graph API precisa de URL, não base64.
+    const mediaUrl = await subirImagem(sb, base64, mime, cliente.workspace);
+
+    // 4) Nasce como RASCUNHO: nunca sai sozinho. A Carol abre a aba social e
+    //    toca "Publicar agora" quando aprovar. scheduled_at é só sugestão.
+    const legenda = post.caption +
+      (post.hashtags.length ? `\n\n${post.hashtags.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")}` : "");
+    const horaSugerida = /^\d{2}:\d{2}$/.test(String(ctx.config.hora_post ?? "")) ? String(ctx.config.hora_post) : "12:00";
+    const { error: errPost } = await sb.from("scheduled_posts").insert({
+      user_id: ctx.userId,
+      client_id: cliente.workspace,
+      platforms: plataformas,
+      caption: legenda,
+      media_url: mediaUrl,
+      media_type: "image",
+      scheduled_at: `${ctx.hoje}T${horaSugerida}:00-03:00`,
+      status: "draft",
+    });
+    if (errPost) throw new Error(`rascunho de post: ${errPost.message}`);
+
+    // Memória da marca: registra o tema para não repetir amanhã.
+    await sb.from("carousel_memory").insert({
+      client_id: cliente.workspace, tema: post.tema, legenda, hashtags: post.hashtags,
+    });
+
+    const texto =
+      `Post do dia pronto para revisão (rascunho em ${plataformas.join(" + ")}).\n\n` +
+      `Tema: ${post.tema}\n\n${legenda}\n\n` +
+      `Abra a aba Social do cliente e toque "Publicar agora" para aprovar.`;
+    return {
+      titulo: `Post do dia pronto para revisão — ${post.tema}`,
+      categoria: "Conteúdo",
+      texto,
+    };
+  }
+
   throw new Error(`rotina desconhecida: ${rotina}`);
+}
+
+interface PostDiario {
+  tema: string;
+  caption: string;
+  hashtags: string[];
+  image_prompt: string;
+}
+
+/** Beatriz escreve UM post de feed para hoje: legenda pronta + briefing de arte. */
+async function gerarPostDiario(
+  anthropicKey: string, cliente: Cliente, historico: string[],
+): Promise<PostDiario> {
+  // A MESMA Beatriz do chat e do pipeline: persona + skills + método da casa,
+  // vindos do registro do time (_shared/agencia.ts). Editou a Beatriz lá? O
+  // post do dia herda a mudança sozinho.
+  const system = systemDoAgente("beatriz") ??
+    "Você é a Beatriz, copywriter sênior da Calu Agência. Responda sempre em português brasileiro.";
+
+  const prompt =
+    `Crie UM post de feed para publicar HOJE.\n\n` +
+    `Cliente: ${cliente.nome}${cliente.segmento ? ` — segmento: ${cliente.segmento}` : ""}.\n` +
+    (historico.length ? `Não repita estes temas recentes: ${historico.join("; ")}.\n` : "") +
+    `\nA legenda deve falar no vocabulário desse mercado, com um gancho forte na primeira linha, ` +
+    `corpo curto e uma chamada para ação (CTA) no fim. O image_prompt é a descrição, em INGLÊS, de uma ` +
+    `FOTO realista (pessoas brasileiras quando houver gente), sem nenhum texto na imagem e com espaço ` +
+    `negativo para sobrepor a legenda depois.\n\n` +
+    `Responda APENAS com JSON válido, sem cercas de código:\n` +
+    `{"tema":"...","legenda":"texto do post com quebras de linha","hashtags":["semhashtag1","semhashtag2"],` +
+    `"image_prompt":"realistic editorial photo ... negative space for text, no text"}`;
+
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": anthropicKey,
+      "anthropic-version": "2023-06-01",
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "claude-opus-5",
+      max_tokens: 4000,
+      thinking: { type: "adaptive" },
+      system,
+      messages: [{ role: "user", content: prompt }],
+    }),
+  });
+  if (!res.ok) throw new Error(`anthropic ${res.status}: ${(await res.text()).slice(0, 200)}`);
+
+  const data = await res.json();
+  const texto = (data.content ?? [])
+    .filter((b: { type: string }) => b.type === "text")
+    .map((b: { text: string }) => b.text)
+    .join("\n");
+  const bloco = texto.match(/\{[\s\S]*\}/);
+  if (!bloco) throw new Error("Beatriz não devolveu JSON");
+  const parsed = JSON.parse(bloco[0]);
+  const hashtags = Array.isArray(parsed.hashtags)
+    ? (parsed.hashtags as unknown[]).map((h) => String(h)).filter(Boolean)
+    : [];
+  return {
+    tema: String(parsed.tema ?? "Post do dia"),
+    caption: String(parsed.legenda ?? "").trim(),
+    hashtags,
+    image_prompt: String(parsed.image_prompt ?? "").trim(),
+  };
+}
+
+/** Sobe a imagem base64 no bucket público e devolve a URL que o Graph API usa. */
+async function subirImagem(
+  sb: ReturnType<typeof createClient>, base64: string, mime: string, slug: string,
+): Promise<string> {
+  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  const ext = mime.includes("png") ? "png" : mime.includes("webp") ? "webp" : "jpg";
+  const path = `${slug}/diario-${Date.now()}.${ext}`;
+  const { error } = await sb.storage.from("post-media").upload(path, bytes, {
+    contentType: mime, upsert: true,
+  });
+  if (error) throw new Error(`upload imagem: ${error.message}`);
+  return sb.storage.from("post-media").getPublicUrl(path).data.publicUrl;
 }
 
 interface ItemCalendario {

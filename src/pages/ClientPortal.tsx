@@ -559,6 +559,64 @@ export default function ClientPortal() {
           </div>
         </motion.div>
 
+        {/* ── Entregas ─────────────────────────────────────── */}
+        {deliverables.length > 0 && (
+          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>
+            <div className="rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.07)" }}>
+              <div className="px-6 py-5" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                <h2 className="text-base font-bold mb-0.5" style={{ color: "#111" }}>O que fizemos por você</h2>
+                <p className="text-xs" style={{ color: "#888" }}>{deliverables.length} entrega{deliverables.length !== 1 ? "s" : ""} registrada{deliverables.length !== 1 ? "s" : ""}</p>
+              </div>
+              <div className="divide-y" style={{ borderColor: "rgba(0,0,0,0.05)" }}>
+                {deliverables.map((d, i) => {
+                  // O título é a entrega; a descrição vem do agente e pode ter
+                  // vários itens — cada um ganha sua linha, já sem marcação.
+                  const titulo = semMarcacao(d.title) || linhasDaEntrega(d.description)[0] || "Entrega realizada";
+                  const itens = linhasDaEntrega(d.description).filter((l) => l !== titulo);
+                  return (
+                    <div key={d.id} className="px-6 py-5 flex items-start gap-4">
+                      <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(185,255,75,0.12)" }}>
+                        <CheckCircle2 className="w-4 h-4" style={{ color: "#5BAD2F" }} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-3 flex-wrap">
+                          <p className="text-sm font-semibold" style={{ color: "#111" }}>{titulo}</p>
+                          {d.category && (
+                            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0"
+                              style={{ background: "rgba(0,0,0,0.04)", color: "#666" }}>
+                              {d.category}
+                            </span>
+                          )}
+                        </div>
+
+                        {itens.length > 0 && (
+                          <div className="mt-2 space-y-1">
+                            {itens.map((linha, n) => (
+                              <p key={n} className="text-[13px] leading-relaxed flex gap-2" style={{ color: "#444" }}>
+                                <span className="flex-shrink-0" style={{ color: "#5BAD2F" }}>›</span>
+                                <span className="min-w-0">{linha}</span>
+                              </p>
+                            ))}
+                          </div>
+                        )}
+
+                        <div className="flex items-center gap-x-4 gap-y-1 flex-wrap mt-2.5 text-[11px]" style={{ color: "#999" }}>
+                          <span>Criada em <strong style={{ color: "#666" }}>{fmtDia(d.created_at)}</strong></span>
+                          <span>Entregue em <strong style={{ color: "#666" }}>{fmtDia(d.done_at)}</strong></span>
+                        </div>
+
+                        <p className="text-[11px] italic mt-2" style={{ color: "#5BAD2F" }}>
+                          {fraseCalu(i)}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
         {/* ── Comunicados / Atualizações ──────────────────── */}
         {portalUpdates.length > 0 && (() => {
           const UPDATE_CFG: Record<string, { label: string; color: string }> = {
@@ -850,64 +908,6 @@ export default function ClientPortal() {
           );
         })()}
 
-        {/* ── Entregas ─────────────────────────────────────── */}
-        {deliverables.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.18 }}>
-            <div className="rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.07)" }}>
-              <div className="px-6 py-5" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-                <h2 className="text-base font-bold mb-0.5" style={{ color: "#111" }}>O que fizemos por você</h2>
-                <p className="text-xs" style={{ color: "#888" }}>{deliverables.length} entrega{deliverables.length !== 1 ? "s" : ""} registrada{deliverables.length !== 1 ? "s" : ""}</p>
-              </div>
-              <div className="divide-y" style={{ borderColor: "rgba(0,0,0,0.05)" }}>
-                {deliverables.map((d, i) => {
-                  // O título é a entrega; a descrição vem do agente e pode ter
-                  // vários itens — cada um ganha sua linha, já sem marcação.
-                  const titulo = semMarcacao(d.title) || linhasDaEntrega(d.description)[0] || "Entrega realizada";
-                  const itens = linhasDaEntrega(d.description).filter((l) => l !== titulo);
-                  return (
-                    <div key={d.id} className="px-6 py-5 flex items-start gap-4">
-                      <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(185,255,75,0.12)" }}>
-                        <CheckCircle2 className="w-4 h-4" style={{ color: "#5BAD2F" }} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-3 flex-wrap">
-                          <p className="text-sm font-semibold" style={{ color: "#111" }}>{titulo}</p>
-                          {d.category && (
-                            <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold flex-shrink-0"
-                              style={{ background: "rgba(0,0,0,0.04)", color: "#666" }}>
-                              {d.category}
-                            </span>
-                          )}
-                        </div>
-
-                        {itens.length > 0 && (
-                          <div className="mt-2 space-y-1">
-                            {itens.map((linha, n) => (
-                              <p key={n} className="text-[13px] leading-relaxed flex gap-2" style={{ color: "#444" }}>
-                                <span className="flex-shrink-0" style={{ color: "#5BAD2F" }}>›</span>
-                                <span className="min-w-0">{linha}</span>
-                              </p>
-                            ))}
-                          </div>
-                        )}
-
-                        <div className="flex items-center gap-x-4 gap-y-1 flex-wrap mt-2.5 text-[11px]" style={{ color: "#999" }}>
-                          <span>Criada em <strong style={{ color: "#666" }}>{fmtDia(d.created_at)}</strong></span>
-                          <span>Entregue em <strong style={{ color: "#666" }}>{fmtDia(d.done_at)}</strong></span>
-                        </div>
-
-                        <p className="text-[11px] italic mt-2" style={{ color: "#5BAD2F" }}>
-                          {fraseCalu(i)}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </motion.div>
-        )}
-
         {/* ── Calendário aprovado pela agência ── */}
         {calendarEvents.length > 0 && (
           <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
@@ -977,9 +977,9 @@ export default function ClientPortal() {
             <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.19 }}>
               <div className="rounded-2xl overflow-hidden bg-white" style={{ border: "1px solid rgba(0,0,0,0.07)" }}>
                 <div className="px-6 py-5" style={{ borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-                  <h2 className="text-base font-bold mb-0.5" style={{ color: "#111" }}>Atualizações</h2>
+                  <h2 className="text-base font-bold mb-0.5" style={{ color: "#111" }}>Andamento das demandas</h2>
                   <p className="text-xs" style={{ color: "#888" }}>
-                    {allUpdates.length} atualização{allUpdates.length !== 1 ? "ões" : ""} da equipe
+                    {allUpdates.length} atualização{allUpdates.length !== 1 ? "ões" : ""} do time nas demandas
                   </p>
                 </div>
                 <div className="divide-y" style={{ borderColor: "rgba(0,0,0,0.05)" }}>

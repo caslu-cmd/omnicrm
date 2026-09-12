@@ -12,7 +12,7 @@ const FrozenOutlet = () => {
   return <>{outlet}</>;
 };
 
-const FULL_SCREEN_PATHS = ["/conta-report", "/conta-colaborador"];
+const FULL_SCREEN_PATHS: string[] = [];
 
 export const AppLayout = () => {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
