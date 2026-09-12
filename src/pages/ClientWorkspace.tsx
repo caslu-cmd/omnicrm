@@ -6326,13 +6326,13 @@ Regras:
                       </div>
                     )}
 
-                    <div className="rounded-2xl overflow-x-auto"
+                    <div className="rounded-2xl overflow-hidden"
                       style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
                       {/* Header */}
                       <div className="grid px-5 py-2.5 text-[10px] uppercase tracking-wider font-medium"
-                        style={{ gridTemplateColumns: "1.8fr 1fr 0.9fr 1.2fr 0.9fr 0.6fr 84px", minWidth: 780, color: "rgba(255,255,255,0.25)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                        <span>Lead</span><span>Empresa</span><span>Origem</span>
-                        <span>Etapa do funil</span><span>Temperatura</span><span>Score</span><span></span>
+                        style={{ gridTemplateColumns: "2fr 1fr 1.2fr 0.9fr 0.7fr 96px", color: "rgba(255,255,255,0.25)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                        <span>Lead</span><span>Empresa</span>
+                        <span>Etapa do funil</span><span>Temperatura</span><span>Score</span><span className="text-right">Ações</span>
                       </div>
 
                       {contactsLoading && (
@@ -6357,7 +6357,7 @@ Regras:
                             initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: i * 0.03 }}
                             className="grid px-5 py-3.5 items-center transition-colors cursor-pointer"
-                            style={{ gridTemplateColumns: "1.8fr 1fr 0.9fr 1.2fr 0.9fr 0.6fr 84px", minWidth: 780, borderBottom: i < filteredDbContacts.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}
+                            style={{ gridTemplateColumns: "2fr 1fr 1.2fr 0.9fr 0.7fr 96px", borderBottom: i < filteredDbContacts.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}
                             onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
                             onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                             onClick={() => setActiveContact(contact)}>
@@ -6366,17 +6366,15 @@ Regras:
                                 style={{ background: `${client.color}20`, color: client.color }}>
                                 {contact.name.split(" ").slice(0, 2).map((n: string) => n[0]).join("")}
                               </div>
-                              <div>
-                                <div className="text-sm font-medium" style={{ color: "rgba(255,255,255,0.85)" }}>{contact.name}</div>
-                                <div className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>{contact.email || "—"}</div>
+                              <div className="min-w-0">
+                                <div className="text-sm font-medium truncate" style={{ color: "rgba(255,255,255,0.85)" }}>{contact.name}</div>
+                                <div className="text-[10px] truncate" style={{ color: "rgba(255,255,255,0.3)" }}>{contact.email || contact.phone || "—"}</div>
+                                {src && (
+                                  <span className="inline-block mt-1 text-[9px] font-medium px-1.5 py-0.5 rounded-full" style={{ background: src.bg, color: src.color }}>{src.label}</span>
+                                )}
                               </div>
                             </div>
-                            <div className="text-xs" style={{ color: "rgba(255,255,255,0.55)" }}>{contact.company || "—"}</div>
-                            <div>
-                              {src ? (
-                                <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ background: src.bg, color: src.color }}>{src.label}</span>
-                              ) : <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.2)" }}>—</span>}
-                            </div>
+                            <div className="text-xs truncate" style={{ color: "rgba(255,255,255,0.55)" }}>{contact.company || "—"}</div>
                             {/* Etapa do funil — colaborador marca direto na linha */}
                             <div onClick={(e) => e.stopPropagation()}>
                               <select
