@@ -1,11 +1,13 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Zap, Users, LogOut, Search, Phone, Mail, Building2, KanbanSquare, FileInput, MessageCircle } from "lucide-react";
+import { Zap, Users, LogOut, Search, Phone, Mail, Building2, KanbanSquare, FileInput, MessageCircle, Plus } from "lucide-react";
 import LeadsKanbanTab from "@/components/LeadsKanbanTab";
 import FormGenerator from "@/components/FormGenerator";
 import InboxTab from "@/components/InboxTab";
 import { papelDoMembro } from "@/lib/teamRoles";
+import { COURSE_PIPELINE_STAGES } from "@/lib/funnelStages";
+import { toast } from "sonner";
 
 const SOURCES: Record<string, { label: string; color: string }> = {
   instagram: { label: "Instagram", color: "#E1306C" },
@@ -24,6 +26,7 @@ interface Contact {
   company: string | null;
   source: string | null;
   score: number;
+  funnel_stage: string | null;
   created_at: string;
 }
 
@@ -48,6 +51,10 @@ export default function TeamPortalPage() {
   const [search, setSearch]     = useState("");
   const [authLoading, setAuthLoading] = useState(true);
   const [tab, setTab] = useState<Tab>("funil");
+  const [crmLists, setCrmLists] = useState<{ id: string; name: string }[]>([]);
+  const [activeSegment, setActiveSegment] = useState<string>("Todos");
+  const [showNewTable, setShowNewTable] = useState(false);
+  const [newTableName, setNewTableName] = useState("");
 
   // Se o papel não dá acesso à aba atual, cai na primeira que ele pode ver.
   useEffect(() => {
@@ -61,8 +68,40 @@ export default function TeamPortalPage() {
       setAuthLoading(false);
       loadMember(session.user.id);
       loadContacts();
+      loadCrmLists();
     });
   }, [clientId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const loadCrmLists = async () => {
+    const { data } = await (supabase as any)
+      .from("crm_lists").select("id, name")
+      .eq("client_id", clientId)
+      .order("created_at", { ascending: true });
+    if (data) setCrmLists(data);
+  };
+
+  // Colaborador cria uma tabela nova (ex.: "Inscritos - Curso X")
+  const createTable = async () => {
+    const nome = newTableName.trim();
+    if (!nome) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    const { error } = await (supabase as any).from("crm_lists").insert({
+      user_id: session.user.id, client_id: clientId, name: nome,
+    });
+    if (error) { toast.error("Não foi possível criar a tabela"); return; }
+    setNewTableName(""); setShowNewTable(false);
+    await loadCrmLists();
+    setActiveSegment(nome);
+  };
+
+  // Colaborador marca em qual etapa do funil o contato está
+  const updateStage = async (contactId: string, stage: string) => {
+    setContacts((prev) => prev.map((c) => c.id === contactId ? { ...c, funnel_stage: stage || null } : c));
+    const { error } = await (supabase as any).from("contacts")
+      .update({ funnel_stage: stage || null }).eq("id", contactId);
+    if (error) toast.error("Não foi possível salvar a etapa");
+  };
 
   const loadMember = async (userId: string) => {
     const { data } = await (supabase as any)
@@ -79,7 +118,7 @@ export default function TeamPortalPage() {
     setLoading(true);
     const { data } = await (supabase as any)
       .from("contacts")
-      .select("id, name, email, phone, company, source, score, created_at")
+      .select("id, name, email, phone, company, source, score, funnel_stage, created_at")
       .eq("client_id", clientId)
       .order("created_at", { ascending: false })
       .limit(200);
@@ -102,7 +141,14 @@ export default function TeamPortalPage() {
   const papel = papelDoMembro(member?.role);
   const roleLabel = papel.label;
 
+  const segments: string[] = ["Todos", ...Array.from(new Set([
+    ...crmLists.map((l) => l.name),
+    ...contacts.map((c) => c.source).filter(Boolean) as string[],
+  ]))];
+
   const filtered = contacts.filter(c => {
+    const matchSegment = activeSegment === "Todos" || c.source === activeSegment;
+    if (!matchSegment) return false;
     if (!search) return true;
     const q = search.toLowerCase();
     return (c.name?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q) || c.phone?.includes(q) || c.company?.toLowerCase().includes(q));
@@ -184,10 +230,42 @@ export default function TeamPortalPage() {
         {/* ── Contatos ── */}
         {tab === "contatos" && (
           <>
-            <div style={{ marginBottom: 20 }}>
+            <div style={{ marginBottom: 16 }}>
               <h1 style={{ fontSize: 18, fontWeight: 700, color: "rgba(255,255,255,0.9)", margin: 0 }}>Contatos</h1>
               <p style={{ fontSize: 12, color: "rgba(255,255,255,0.35)", marginTop: 4 }}>{filtered.length} contatos</p>
             </div>
+
+            {/* Tabelas (segmentos) — ex.: "Inscritos - Curso X" */}
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center", marginBottom: 16, paddingBottom: 10, borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+              {segments.map((seg) => {
+                const count = seg === "Todos" ? contacts.length : contacts.filter((c) => c.source === seg).length;
+                const active = activeSegment === seg;
+                return (
+                  <button key={seg} onClick={() => setActiveSegment(seg)}
+                    style={{ padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: "pointer", whiteSpace: "nowrap",
+                      background: active ? `${accent}22` : "rgba(255,255,255,0.04)", color: active ? accent : "rgba(255,255,255,0.4)",
+                      border: `1px solid ${active ? accent + "40" : "rgba(255,255,255,0.07)"}` }}>
+                    {seg} <span style={{ opacity: 0.6 }}>({count})</span>
+                  </button>
+                );
+              })}
+              {showNewTable ? (
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <input autoFocus value={newTableName} onChange={(e) => setNewTableName(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") createTable(); if (e.key === "Escape") { setShowNewTable(false); setNewTableName(""); } }}
+                    placeholder="Ex.: Inscritos - Curso X"
+                    style={{ width: 190, padding: "6px 10px", borderRadius: 8, fontSize: 12, background: "rgba(255,255,255,0.05)", border: `1px solid ${accent}40`, color: "#F0F0F0", outline: "none" }} />
+                  <button onClick={createTable} style={{ padding: "6px 10px", borderRadius: 8, fontSize: 12, fontWeight: 600, cursor: "pointer", background: accent, color: "#07080A", border: "none" }}>Criar</button>
+                  <button onClick={() => { setShowNewTable(false); setNewTableName(""); }} style={{ padding: "6px 8px", borderRadius: 8, fontSize: 12, cursor: "pointer", background: "transparent", color: "rgba(255,255,255,0.4)", border: "none" }}>✕</button>
+                </div>
+              ) : (
+                <button onClick={() => setShowNewTable(true)}
+                  style={{ display: "flex", alignItems: "center", gap: 4, padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 500, cursor: "pointer", background: "transparent", color: "rgba(255,255,255,0.5)", border: "1px dashed rgba(255,255,255,0.18)" }}>
+                  <Plus style={{ width: 12, height: 12 }} /> Nova tabela
+                </button>
+              )}
+            </div>
+
             <div style={{ position: "relative", marginBottom: 20 }}>
               <Search style={{ width: 15, height: 15, position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)", color: "rgba(255,255,255,0.3)" }} />
               <input value={search} onChange={e => setSearch(e.target.value)}
@@ -205,16 +283,22 @@ export default function TeamPortalPage() {
                 <p style={{ color: "rgba(255,255,255,0.35)", fontSize: 14 }}>{search ? "Nenhum resultado" : "Nenhum contato ainda"}</p>
               </div>
             ) : (
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 1.2fr 1fr 100px", gap: 12, padding: "6px 16px", fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.25)", fontWeight: 600 }}>
-                  <span>Nome</span><span>Contato</span><span>Empresa</span><span>Origem</span><span>Score</span>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, overflowX: "auto" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1.7fr 1.4fr 1fr 1.2fr 0.7fr 78px", gap: 12, padding: "6px 16px", minWidth: 760, fontSize: 10, textTransform: "uppercase", letterSpacing: "0.08em", color: "rgba(255,255,255,0.25)", fontWeight: 600 }}>
+                  <span>Nome</span><span>Contato</span><span>Empresa</span><span>Etapa do funil</span><span>Score</span><span style={{ textAlign: "right" }}>Ações</span>
                 </div>
                 {filtered.map(c => {
                   const src = c.source ? SOURCES[c.source] : null;
+                  const waPhone = c.phone ? c.phone.replace(/\D/g, "") : "";
                   return (
-                    <div key={c.id} style={{ display: "grid", gridTemplateColumns: "2fr 1.5fr 1.2fr 1fr 100px", gap: 12, padding: "14px 16px", borderRadius: 14, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", alignItems: "center" }}>
-                      <div style={{ fontWeight: 600, fontSize: 13, color: "rgba(255,255,255,0.85)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name || "—"}</div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                    <div key={c.id} style={{ display: "grid", gridTemplateColumns: "1.7fr 1.4fr 1fr 1.2fr 0.7fr 78px", gap: 12, padding: "14px 16px", minWidth: 760, borderRadius: 14, background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.06)", alignItems: "center" }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: 13, color: "rgba(255,255,255,0.85)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.name || "—"}</div>
+                        {c.source && (
+                          <span style={{ display: "inline-block", marginTop: 4, fontSize: 9, padding: "2px 7px", borderRadius: 20, fontWeight: 600, background: src ? `${src.color}15` : "rgba(255,255,255,0.05)", color: src ? src.color : "rgba(255,255,255,0.4)" }}>{src ? src.label : c.source}</span>
+                        )}
+                      </div>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
                         {c.email && (
                           <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 11, color: "rgba(255,255,255,0.45)" }}>
                             <Mail style={{ width: 11, height: 11, flexShrink: 0 }} />
@@ -226,23 +310,47 @@ export default function TeamPortalPage() {
                             <Phone style={{ width: 11, height: 11, flexShrink: 0 }} /><span>{c.phone}</span>
                           </div>
                         )}
+                        {!c.email && !c.phone && <span style={{ fontSize: 11, color: "rgba(255,255,255,0.2)" }}>—</span>}
                       </div>
-                      <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "rgba(255,255,255,0.45)" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, color: "rgba(255,255,255,0.45)", minWidth: 0 }}>
                         {c.company && <Building2 style={{ width: 12, height: 12, flexShrink: 0 }} />}
                         <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.company ?? "—"}</span>
                       </div>
+                      {/* Etapa do funil — colaborador marca direto na linha */}
                       <div>
-                        {src ? (
-                          <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 20, background: `${src.color}15`, color: src.color, fontWeight: 600 }}>{src.label}</span>
-                        ) : <span style={{ fontSize: 10, padding: "3px 8px", borderRadius: 20, background: "rgba(255,255,255,0.05)", color: "rgba(255,255,255,0.4)", fontWeight: 600 }}>{c.source ?? "—"}</span>}
+                        <select value={c.funnel_stage ?? ""} onChange={(e) => updateStage(c.id, e.target.value)}
+                          style={{ width: "100%", maxWidth: 150, fontSize: 11, padding: "5px 8px", borderRadius: 8, cursor: "pointer", outline: "none",
+                            background: c.funnel_stage ? `${accent}14` : "rgba(255,255,255,0.04)",
+                            border: `1px solid ${c.funnel_stage ? accent + "30" : "rgba(255,255,255,0.09)"}`,
+                            color: c.funnel_stage ? accent : "rgba(255,255,255,0.45)" }}>
+                          <option value="">— sem etapa —</option>
+                          {COURSE_PIPELINE_STAGES.map((s) => (
+                            <option key={s.key} value={s.key} style={{ color: "#111" }}>{s.emoji} {s.label}</option>
+                          ))}
+                        </select>
                       </div>
                       <div>
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                           <div style={{ flex: 1, height: 4, borderRadius: 4, background: "rgba(255,255,255,0.08)", overflow: "hidden" }}>
                             <div style={{ height: "100%", width: `${c.score}%`, background: c.score >= 70 ? "#F97316" : c.score >= 40 ? "#F59E0B" : "#60A5FA", borderRadius: 4 }} />
                           </div>
-                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", minWidth: 24, textAlign: "right" }}>{c.score}</span>
+                          <span style={{ fontSize: 11, color: "rgba(255,255,255,0.45)", minWidth: 20, textAlign: "right" }}>{c.score}</span>
                         </div>
+                      </div>
+                      {/* Ações: WhatsApp + E-mail */}
+                      <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 6 }}>
+                        {waPhone && (
+                          <a href={`https://wa.me/${waPhone}`} target="_blank" rel="noreferrer" title="Abrir WhatsApp"
+                            style={{ display: "flex", padding: 6, borderRadius: 8, color: "#25D366", background: "rgba(37,211,102,0.1)" }}>
+                            <MessageCircle style={{ width: 14, height: 14 }} />
+                          </a>
+                        )}
+                        {c.email && (
+                          <a href={`mailto:${c.email}`} title="Enviar e-mail"
+                            style={{ display: "flex", padding: 6, borderRadius: 8, color: "#60A5FA", background: "rgba(96,165,250,0.1)" }}>
+                            <Mail style={{ width: 14, height: 14 }} />
+                          </a>
+                        )}
                       </div>
                     </div>
                   );
