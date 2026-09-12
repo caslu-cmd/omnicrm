@@ -26,6 +26,7 @@ import { useClients } from "@/contexts/ClientsContext";
 import { usePageContext } from "@/contexts/PageContext";
 import { useAuth } from "@/hooks/useAuth";
 import { useIsAdmin } from "@/hooks/useAdmin";
+import { COURSE_PIPELINE_STAGES } from "@/lib/funnelStages";
 import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
 import PostCanvas from "@/components/PostCanvas";
 import ClientPanorama from "@/components/ClientPanorama";
@@ -72,15 +73,8 @@ const HEAT_CFG = {
   cold: { emoji: "🔵", label: "Frio",   color: "#60A5FA", bg: "rgba(96,165,250,0.1)"  },
 };
 
-// ── Course pipeline stages ────────────────────────────────────
-const COURSE_PIPELINE_STAGES = [
-  { key: "inscrito",             label: "Inscrito",        emoji: "📝" },
-  { key: "aguardando_pagamento", label: "Ag. Pagamento",   emoji: "💳" },
-  { key: "confirmado",           label: "Confirmado",      emoji: "✅" },
-  { key: "inicio_curso",         label: "Início do Curso", emoji: "🚀" },
-  { key: "andamento",            label: "Em Andamento",    emoji: "📚" },
-  { key: "concluido",            label: "Concluído",       emoji: "🎓" },
-];
+// COURSE_PIPELINE_STAGES vem de @/lib/funnelStages (importado no topo) —
+// fonte única compartilhada com o portal do time.
 
 // ── Marketing Team Definition ──────────────────────────────────
 const MARKETING_TEAM = [
