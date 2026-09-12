@@ -37,7 +37,7 @@ function DiagnosisScreen({ diagnosis, nome, empresa }: { diagnosis: string; nome
       <div className="sticky top-0 z-10 px-4 py-3 flex items-center justify-between"
         style={{ background: "rgba(7,8,10,0.92)", backdropFilter: "blur(12px)", borderBottom: "1px solid rgba(185,255,75,0.1)" }}>
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black" style={{ background: GREEN, color: DARK }}>C</div>
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold" style={{ background: GREEN, color: DARK }}>C</div>
           <span className="text-xs font-semibold" style={{ color: "rgba(255,255,255,0.5)" }}>Calu Agência</span>
         </div>
         <a href={`https://wa.me/${CAROL_WA}?text=${waMsg}`} target="_blank" rel="noopener noreferrer"
@@ -66,7 +66,7 @@ function DiagnosisScreen({ diagnosis, nome, empresa }: { diagnosis: string; nome
           className="rounded-2xl p-6 space-y-3"
           style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
           {blocks.map(b => {
-            if (b.type === "h1") return <h1 key={b.key} className="text-xl font-black" style={{ color: "#F0F0F0" }}>{b.content}</h1>;
+            if (b.type === "h1") return <h1 key={b.key} className="text-xl font-bold" style={{ color: "#F0F0F0" }}>{b.content}</h1>;
             if (b.type === "h2") return <h2 key={b.key} className="text-base font-bold pt-3" style={{ color: GREEN }}>{b.content}</h2>;
             if (b.type === "h3") return <h3 key={b.key} className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.8)" }}>{b.content}</h3>;
             if (b.type === "bullet") return (
@@ -87,7 +87,7 @@ function DiagnosisScreen({ diagnosis, nome, empresa }: { diagnosis: string; nome
               <Star className="w-4 h-4" style={{ color: GREEN }} />
               <span className="text-xs font-semibold uppercase tracking-widest" style={{ color: GREEN }}>próximo passo</span>
             </div>
-            <p className="text-xl font-black" style={{ color: "#F0F0F0" }}>Quer que meu time execute tudo isso por você?</p>
+            <p className="text-xl font-bold" style={{ color: "#F0F0F0" }}>Quer que meu time execute tudo isso por você?</p>
             <p className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>
               Este foi apenas o diagnóstico. A Calu Agência tem 11 especialistas em IA prontos para implementar cada estratégia.
             </p>
@@ -105,7 +105,7 @@ function DiagnosisScreen({ diagnosis, nome, empresa }: { diagnosis: string; nome
             ))}
           </div>
           <a href={`https://wa.me/${CAROL_WA}?text=${waMsg}`} target="_blank" rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full py-4 rounded-xl text-base font-black transition-all hover:opacity-90 active:scale-95"
+            className="flex items-center justify-center gap-2 w-full py-4 rounded-xl text-base font-bold transition-all hover:opacity-90 active:scale-95"
             style={{ background: GREEN, color: DARK, boxShadow: `0 0 32px -4px ${GREEN}60` }}>
             <MessageCircle className="w-5 h-5" />
             Falar com a Carol agora no WhatsApp
@@ -119,7 +119,7 @@ function DiagnosisScreen({ diagnosis, nome, empresa }: { diagnosis: string; nome
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pb-8">
           {[{ n: "11", label: "Especialistas IA" }, { n: "90d", label: "Primeiros resultados" }, { n: "100%", label: "Personalizado" }].map(({ n, label }) => (
             <div key={label} className="rounded-xl p-3 text-center" style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.05)" }}>
-              <p className="text-xl font-black" style={{ color: GREEN }}>{n}</p>
+              <p className="text-xl font-bold" style={{ color: GREEN }}>{n}</p>
               <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>{label}</p>
             </div>
           ))}
@@ -329,7 +329,7 @@ export default function SuperDiagnostico() {
       <div className="px-4 pt-8 pb-6 max-w-2xl mx-auto w-full space-y-6">
         {/* Branding */}
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-black" style={{ background: GREEN, color: DARK }}>C</div>
+          <div className="w-8 h-8 rounded-xl flex items-center justify-center text-sm font-bold" style={{ background: GREEN, color: DARK }}>C</div>
           <span className="text-sm font-bold" style={{ color: "rgba(255,255,255,0.6)" }}>Calu Agência</span>
         </div>
 
@@ -339,7 +339,7 @@ export default function SuperDiagnostico() {
             style={{ background: "rgba(185,255,75,0.1)", color: GREEN, border: "1px solid rgba(185,255,75,0.2)" }}>
             <Sparkles className="w-3 h-3" /> 100% Gratuito · Gerado por IA
           </div>
-          <h1 className="text-3xl font-black leading-tight" style={{ color: "#F0F0F0" }}>
+          <h1 className="text-3xl font-bold leading-tight" style={{ color: "#F0F0F0" }}>
             Descubra o que está travando o crescimento do seu negócio
           </h1>
           <p className="text-base" style={{ color: "rgba(255,255,255,0.45)" }}>

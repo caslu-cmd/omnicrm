@@ -348,7 +348,7 @@ export default function GroupsPage() {
                 background: selected?.id === g.id ? "rgba(255,255,255,0.05)" : "transparent",
                 borderLeft: selected?.id === g.id ? `3px solid ${g.color}` : "3px solid transparent",
               }}>
-              <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0"
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
                 style={{ background: `${g.color}18`, border: `1.5px solid ${g.color}35`, color: g.color }}>
                 {g.name.charAt(0).toUpperCase()}
               </div>
@@ -376,7 +376,7 @@ export default function GroupsPage() {
             {/* Header do grupo */}
             <div className="flex items-center gap-4 px-6 py-4 border-b flex-shrink-0"
               style={{ borderColor: "rgba(255,255,255,0.07)" }}>
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-base font-black"
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-base font-bold"
                 style={{ background: `${selected.color}18`, border: `1.5px solid ${selected.color}40`, color: selected.color }}>
                 {selected.name.charAt(0).toUpperCase()}
               </div>

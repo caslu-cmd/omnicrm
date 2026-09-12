@@ -412,7 +412,7 @@ const WhatsAppPage = () => {
                           background: checked ? `${g.color}10` : "rgba(255,255,255,0.02)",
                           border:     checked ? `1px solid ${g.color}50` : "1px solid rgba(255,255,255,0.07)",
                         }}>
-                        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0"
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center text-sm font-bold flex-shrink-0"
                           style={{ background: `${g.color}18`, color: g.color }}>
                           {g.name.charAt(0).toUpperCase()}
                         </div>

@@ -708,7 +708,7 @@ export default function FiscoDiagnostico({
                   <div className="flex flex-col gap-3">
                     {relatorio.acoes.map((a, i) => (
                       <div key={i} className="flex gap-3">
-                        <div className="w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-black flex-shrink-0 mt-0.5"
+                        <div className="w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-0.5"
                           style={{ background: GOLD_DIM, color: GOLD, border: `1px solid ${GOLD_BORDER}` }}>
                           {a.prioridade ?? i + 1}
                         </div>

@@ -402,7 +402,7 @@ export default function ClientPortal() {
       <div className="min-h-screen flex items-center justify-center p-4" style={{ background: "#07080A" }}>
         <div className="w-full max-w-sm">
           <div className="text-center mb-8">
-            <div className="text-2xl font-black tracking-tight text-white">
+            <div className="text-2xl font-bold tracking-tight text-white">
               Calu<span style={{ color: "#B9FF4B" }}>.</span>
             </div>
             <div className="text-[10px] mt-1 uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>
@@ -938,7 +938,7 @@ export default function ClientPortal() {
                         <span className="text-[9px] font-bold uppercase" style={{ color }}>
                           {d.toLocaleDateString("pt-BR", { month: "short" })}
                         </span>
-                        <span className="text-base font-extrabold leading-none" style={{ color }}>
+                        <span className="text-base font-bold leading-none" style={{ color }}>
                           {String(d.getDate()).padStart(2, "0")}
                         </span>
                       </div>
@@ -985,7 +985,7 @@ export default function ClientPortal() {
                 <div className="divide-y" style={{ borderColor: "rgba(0,0,0,0.05)" }}>
                   {allUpdates.slice(0, 15).map((act) => (
                     <div key={act.id} className="px-5 py-4 flex items-start gap-3">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black flex-shrink-0"
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-bold flex-shrink-0"
                         style={{ background: `${act.agent_color}20`, border: `1.5px solid ${act.agent_color}40`, color: act.agent_color }}>
                         {act.agent_name[0]}
                       </div>
@@ -1072,7 +1072,7 @@ export default function ClientPortal() {
                           )}
                           {agents.slice(0, 4).map((ag) => (
                             <div key={ag.id} title={ag.name}
-                              className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-black flex-shrink-0"
+                              className="w-5 h-5 rounded-full flex items-center justify-center text-[8px] font-bold flex-shrink-0"
                               style={{ background: `${ag.color}20`, border: `1.5px solid ${ag.color}60`, color: ag.color }}>
                               {ag.name[0]}
                             </div>
@@ -1099,7 +1099,7 @@ export default function ClientPortal() {
                                   {agents.map((ag) => (
                                     <div key={ag.id} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl"
                                       style={{ background: `${ag.color}10`, border: `1px solid ${ag.color}25` }}>
-                                      <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black"
+                                      <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold"
                                         style={{ background: `${ag.color}20`, color: ag.color }}>{ag.name[0]}</div>
                                       <span className="text-[11px] font-semibold" style={{ color: "#333" }}>{ag.name}</span>
                                     </div>
@@ -1124,7 +1124,7 @@ export default function ClientPortal() {
                                 <div className="space-y-2">
                                   {activities.map((act) => (
                                     <div key={act.id} className="flex gap-2.5">
-                                      <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black flex-shrink-0 mt-0.5"
+                                      <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 mt-0.5"
                                         style={{ background: `${act.agent_color}20`, border: `1.5px solid ${act.agent_color}40`, color: act.agent_color }}>
                                         {act.agent_name[0]}
                                       </div>
@@ -1423,12 +1423,12 @@ export default function ClientPortal() {
               <div className="grid grid-cols-1 sm:grid-cols-2">
                 <div className="p-4" style={{ background: "#FEF2F2", borderRight: "1px solid rgba(0,0,0,0.06)" }}>
                   <div className="text-[10px] uppercase tracking-widest font-semibold mb-1" style={{ color: "#ef4444" }}>Contratar individualmente</div>
-                  <div className="text-xl font-black" style={{ color: "#DC2626" }}>R$ {MARKET_TOTAL_MIN.toLocaleString("pt-BR")}+</div>
+                  <div className="text-xl font-bold" style={{ color: "#DC2626" }}>R$ {MARKET_TOTAL_MIN.toLocaleString("pt-BR")}+</div>
                   <div className="text-[11px]" style={{ color: "#999" }}>por mês</div>
                 </div>
                 <div className="p-4" style={{ background: "#F0FDF4" }}>
                   <div className="text-[10px] uppercase tracking-widest font-semibold mb-1" style={{ color: "#10B981" }}>Com a Calu Agência</div>
-                  <div className="text-xl font-black" style={{ color: "#059669" }}>Tudo incluído</div>
+                  <div className="text-xl font-bold" style={{ color: "#059669" }}>Tudo incluído</div>
                   <div className="flex items-center gap-1 text-[11px]" style={{ color: "#10B981" }}>
                     <TrendingUp className="w-3 h-3" /> Economia real
                   </div>

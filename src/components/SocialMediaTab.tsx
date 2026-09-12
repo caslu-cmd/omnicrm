@@ -1178,7 +1178,7 @@ export default function SocialMediaTab({
                   style={active
                     ? { background: `${color}18`, color, border: `1px solid ${color}40` }
                     : { background: "rgba(255,255,255,0.03)", color: s(0.3), border: "1px solid rgba(255,255,255,0.06)" }}>
-                  <span className="text-base font-black" style={{ color: active ? color : s(0.5) }}>{value}</span>
+                  <span className="text-base font-bold" style={{ color: active ? color : s(0.5) }}>{value}</span>
                   <span className="truncate">{label}</span>
                 </button>
               );
@@ -1522,7 +1522,7 @@ export default function SocialMediaTab({
                             {batchItems.map((item, idx) => (
                               <div key={item.id} className="relative rounded-xl overflow-hidden" style={{ aspectRatio: "9/16", background: "rgba(255,255,255,0.04)" }}>
                                 <img src={item.url} alt="" className="w-full h-full object-cover" />
-                                <div className="absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black" style={{ background: accent, color: "#07080A" }}>{idx + 1}</div>
+                                <div className="absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold" style={{ background: accent, color: "#07080A" }}>{idx + 1}</div>
                                 <button onClick={() => setBatchItems((prev) => prev.filter((i) => i.id !== item.id))} className="absolute top-1 right-1 w-5 h-5 rounded-full flex items-center justify-center" style={{ background: "rgba(0,0,0,0.7)" }}>
                                   <X className="w-3 h-3 text-white" />
                                 </button>
@@ -1659,7 +1659,7 @@ export default function SocialMediaTab({
                               <img src={item.url} alt="" className="w-full h-full object-cover" />
 
                               {/* Index badge */}
-                              <div className="absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-black"
+                              <div className="absolute top-1 left-1 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
                                 style={{ background: "#A78BFA", color: "#fff" }}>{idx + 1}</div>
 
                               {/* Remove */}
@@ -1757,7 +1757,7 @@ export default function SocialMediaTab({
                         {/* Counter */}
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-2">
-                            <span className="text-2xl font-black" style={{ color: "#F472B6" }}>{batchItems.length}</span>
+                            <span className="text-2xl font-bold" style={{ color: "#F472B6" }}>{batchItems.length}</span>
                             <span className="text-xs font-semibold" style={{ color: s(0.5) }}>
                               {batchItems.length === 1 ? "story selecionado" : "stories selecionados"}
                             </span>

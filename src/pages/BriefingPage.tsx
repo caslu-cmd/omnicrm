@@ -167,7 +167,7 @@ function Md({ text, color = "rgba(255,255,255,0.78)" }: { text: string; color?: 
     <div className="space-y-0.5">
       {lines.map((line, i) => {
         if (line.startsWith("# ")) return (
-          <h1 key={i} className="text-xl font-black mt-5 mb-2" style={{ color: "#fff", letterSpacing: "-0.03em" }}>
+          <h1 key={i} className="text-xl font-bold mt-5 mb-2" style={{ color: "#fff", letterSpacing: "-0.03em" }}>
             {line.slice(2)}
           </h1>
         );
@@ -497,7 +497,7 @@ export default function BriefingPage() {
             className="relative z-10 flex-1 flex flex-col items-center justify-center text-center py-16 px-6">
 
             <div className="relative mb-8">
-              <div className="w-24 h-24 rounded-3xl flex items-center justify-center text-3xl font-black"
+              <div className="w-24 h-24 rounded-3xl flex items-center justify-center text-3xl font-bold"
                 style={{
                   background: "linear-gradient(135deg, rgba(185,255,75,0.14) 0%, rgba(185,255,75,0.04) 100%)",
                   border: "1.5px solid rgba(185,255,75,0.35)",
@@ -514,7 +514,7 @@ export default function BriefingPage() {
               style={{ color: "rgba(185,255,75,0.55)" }}>
               Calu Agência · Proposta Personalizada
             </p>
-            <h1 className="text-4xl font-black mb-3" style={{ letterSpacing: "-0.04em" }}>
+            <h1 className="text-4xl font-bold mb-3" style={{ letterSpacing: "-0.04em" }}>
               Olá! Sou a{" "}
               <span style={{ background: `linear-gradient(135deg, ${LIME}, #8FD600)`, WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent" }}>
                 Lia
@@ -650,7 +650,7 @@ export default function BriefingPage() {
                 style={{ background: "rgba(185,255,75,0.12)", border: "1px solid rgba(185,255,75,0.25)" }}>
                 <Sparkles className="w-6 h-6" style={{ color: LIME }} />
               </div>
-              <h2 className="text-xl font-black mb-2" style={{ color: "#fff", letterSpacing: "-0.03em" }}>
+              <h2 className="text-xl font-bold mb-2" style={{ color: "#fff", letterSpacing: "-0.03em" }}>
                 Com quem você quer conversar?
               </h2>
               <p className="text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
@@ -667,7 +667,7 @@ export default function BriefingPage() {
                   style={{ background: `${agent.color}08`, border: `1.5px solid ${agent.color}25` }}
                   onMouseEnter={(e) => (e.currentTarget.style.borderColor = `${agent.color}55`)}
                   onMouseLeave={(e) => (e.currentTarget.style.borderColor = `${agent.color}25`)}>
-                  <div className="w-11 h-11 rounded-full flex items-center justify-center text-[13px] font-black flex-shrink-0"
+                  <div className="w-11 h-11 rounded-full flex items-center justify-center text-[13px] font-bold flex-shrink-0"
                     style={{ background: `${agent.color}18`, border: `1.5px solid ${agent.color}45`, color: agent.color }}>
                     {agent.initial}
                   </div>
@@ -702,7 +702,7 @@ export default function BriefingPage() {
                 style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.4)" }}>
                 ←
               </button>
-              <div className="w-10 h-10 rounded-full flex items-center justify-center text-[13px] font-black flex-shrink-0"
+              <div className="w-10 h-10 rounded-full flex items-center justify-center text-[13px] font-bold flex-shrink-0"
                 style={{ background: `${pickedAgent.color}18`, border: `1.5px solid ${pickedAgent.color}45`, color: pickedAgent.color }}>
                 {pickedAgent.initial}
               </div>
@@ -911,7 +911,7 @@ export default function BriefingPage() {
               <p className="text-[11px] font-semibold tracking-widest uppercase mb-2" style={{ color: "rgba(185,255,75,0.6)" }}>
                 Proposta Pronta
               </p>
-              <h2 className="text-2xl font-black mb-2" style={{ letterSpacing: "-0.03em" }}>
+              <h2 className="text-2xl font-bold mb-2" style={{ letterSpacing: "-0.03em" }}>
                 Plano Estratégico — {clientName}
               </h2>
               <p className="text-sm mb-6" style={{ color: "rgba(255,255,255,0.4)" }}>

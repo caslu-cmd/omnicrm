@@ -8927,7 +8927,7 @@ Regras:
                               className="rounded-2xl overflow-hidden"
                               style={{ background: "linear-gradient(135deg, rgba(185,255,75,0.07) 0%, rgba(185,255,75,0.02) 100%)", border: "2px solid rgba(185,255,75,0.3)" }}>
                               <div className="flex items-center gap-3 px-4 py-3" style={{ borderBottom: "1px solid rgba(185,255,75,0.18)", background: "rgba(185,255,75,0.05)" }}>
-                                <div className="w-10 h-10 rounded-full flex items-center justify-center text-[13px] font-black flex-shrink-0"
+                                <div className="w-10 h-10 rounded-full flex items-center justify-center text-[13px] font-bold flex-shrink-0"
                                   style={{ background: "rgba(185,255,75,0.2)", border: "2px solid rgba(185,255,75,0.5)", color: "#B9FF4B" }}>
                                   La
                                 </div>
@@ -13970,7 +13970,7 @@ ${clientSection}${originalSection}`;
                                     <span className="text-xs" style={{ color: "#bbb" }}>{d.priority === "high" ? "Alta" : d.priority === "medium" ? "Média" : "Baixa"}</span>
                                     {agts.slice(0, 4).map((ag: any) => (
                                       <div key={ag.id} title={ag.name}
-                                        className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black"
+                                        className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold"
                                         style={{ background: `${ag.color}20`, border: `1px solid ${ag.color}50`, color: ag.color }}>
                                         {ag.name[0]}
                                       </div>
@@ -14030,7 +14030,7 @@ ${clientSection}${originalSection}`;
                                           <button key={ag.id} onClick={() => assignAgentToDemand(d, ag)}
                                             className="flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-semibold transition-all"
                                             style={{ background: active ? `${ag.color}15` : "rgba(0,0,0,0.04)", color: active ? ag.color : "#888", border: `1px solid ${active ? `${ag.color}35` : "rgba(0,0,0,0.08)"}` }}>
-                                            <div className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black"
+                                            <div className="w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-bold"
                                               style={{ background: active ? `${ag.color}25` : "rgba(0,0,0,0.08)", color: active ? ag.color : "#aaa" }}>{ag.name[0]}</div>
                                             {ag.name}
                                           </button>
@@ -14045,7 +14045,7 @@ ${clientSection}${originalSection}`;
                                       <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: "#aaa" }}>Atualizações visíveis ao cliente</p>
                                       {acts.map((act: any) => (
                                         <div key={act.id} className="flex gap-2">
-                                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-black flex-shrink-0 mt-0.5"
+                                          <div className="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold flex-shrink-0 mt-0.5"
                                             style={{ background: `${act.agent_color}20`, border: `1px solid ${act.agent_color}40`, color: act.agent_color }}>
                                             {act.agent_name[0]}
                                           </div>

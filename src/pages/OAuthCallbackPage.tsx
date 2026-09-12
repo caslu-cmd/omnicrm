@@ -108,7 +108,7 @@ export default function OAuthCallbackPage() {
           "Conectando conta Meta…". Página anônima nesse ponto do fluxo é o que
           o classificador de engenharia social do Chrome procura. */}
       <div className="mb-5 text-center">
-        <div className="text-xl font-black tracking-tight text-white">Calu<span style={{ color: "#B9FF4B" }}>.</span></div>
+        <div className="text-xl font-bold tracking-tight text-white">Calu<span style={{ color: "#B9FF4B" }}>.</span></div>
         <div className="text-[10px] mt-1 uppercase tracking-widest" style={{ color: "rgba(255,255,255,0.3)" }}>Calu Agência</div>
       </div>
       <div className="rounded-2xl p-8 text-center max-w-sm w-full mx-4" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)" }}>

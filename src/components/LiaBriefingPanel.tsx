@@ -786,7 +786,7 @@ Retorne SOMENTE um JSON válido, sem markdown, sem explicação. Array com 3 a 5
                 style={{ background: `${agent.color}08`, border: `1.5px solid ${agent.color}20` }}
                 onMouseEnter={(e) => (e.currentTarget.style.borderColor = `${agent.color}50`)}
                 onMouseLeave={(e) => (e.currentTarget.style.borderColor = `${agent.color}20`)}>
-                <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0"
+                <div className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0"
                   style={{ background: `${agent.color}18`, border: `1.5px solid ${agent.color}40`, color: agent.color }}>
                   {agent.initial}
                 </div>
@@ -812,7 +812,7 @@ Retorne SOMENTE um JSON válido, sem markdown, sem explicação. Array com 3 a 5
               style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "rgba(255,255,255,0.4)" }}>
               ←
             </button>
-            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-black flex-shrink-0"
+            <div className="w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold flex-shrink-0"
               style={{ background: `${pickedPanelAgent.color}18`, border: `1.5px solid ${pickedPanelAgent.color}40`, color: pickedPanelAgent.color }}>
               {pickedPanelAgent.initial}
             </div>
