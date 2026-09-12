@@ -131,6 +131,10 @@
 
   h1, h2, h3, h4, h5, h6 {
     font-family: 'Syne', 'Manrope', system-ui, sans-serif;
+    /* Peso de título padrão: Syne é uma display geométrica, então 600 já
+       lê como cabeçalho sem o "grito" do 700/900 do navegador. Classes de
+       peso explícitas nas telas ainda vencem quando um título precisa. */
+    font-weight: 600;
     letter-spacing: -0.03em;
     line-height: 1.1;
     overflow-wrap: anywhere;
@@ -277,7 +281,7 @@
    viewport, título em Syne, tabela que rola dentro do próprio cartão. */
 @layer components {
   .page { @apply space-y-6 min-w-0 break-words; padding: clamp(12px, 3vw, 24px); }
-  .page-title { @apply font-display font-bold text-foreground; font-size: clamp(20px, 2.4vw, 26px); letter-spacing: -0.03em; }
+  .page-title { @apply font-display font-semibold text-foreground; font-size: clamp(20px, 2.4vw, 26px); letter-spacing: -0.03em; }
   .page-subtitle { @apply text-sm text-muted-foreground mt-1; }
   .table-wrap { @apply w-full overflow-x-auto rounded-xl border border-border; -webkit-overflow-scrolling: touch; }
   .table-wrap table { @apply w-full min-w-[560px]; }
