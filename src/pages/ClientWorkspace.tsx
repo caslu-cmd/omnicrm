@@ -25,6 +25,7 @@ import { CLIENTS, GeneratedOutput } from "@/data/agencyData";
 import { useClients } from "@/contexts/ClientsContext";
 import { usePageContext } from "@/contexts/PageContext";
 import { useAuth } from "@/hooks/useAuth";
+import { useIsAdmin } from "@/hooks/useAdmin";
 import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
 import PostCanvas from "@/components/PostCanvas";
 import ClientPanorama from "@/components/ClientPanorama";
@@ -910,6 +911,8 @@ export default function ClientWorkspace() {
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = searchParams.get("tab") ?? "";
   const { user } = useAuth();
+  // Admin (agência/dona) vê tudo; colaborador da empresa vê só o operacional dela.
+  const { isAdmin, loading: adminLoading } = useIsAdmin();
   const { setPageContext, clearPageContext } = usePageContext();
   const [openingPortal, setOpeningPortal] = useState(false);
   const [siteDbPages, setSiteDbPages] = useState<any[]>([]);
@@ -933,6 +936,12 @@ export default function ClientWorkspace() {
     const view = searchParams.get("crm");
     if (view) setCrmView(view as typeof crmView);
   }, [searchParams]);
+
+  // Colaborador da empresa não acessa as views internas da agência (nem por URL).
+  useEffect(() => {
+    const agencyOnlyViews = ["campaigns", "approvals", "insights", "deliverables"];
+    if (!adminLoading && !isAdmin && agencyOnlyViews.includes(crmView)) setCrmView("contacts");
+  }, [adminLoading, isAdmin, crmView]);
 
   type PipelineCampaign = {
     enabled: boolean;
@@ -6186,14 +6195,16 @@ Regras:
                 <div className="flex gap-1 p-1 rounded-xl w-fit"
                   style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
                   {([
-                    ["contacts",     "Leads"],
-                    ["pipeline",     "Pipeline"],
-                    ["campaigns",    "⚡ Campanhas"],
-                    ["approvals",    `Aprovações${(pendingPosts.length + agentProposals.length) > 0 ? ` (${pendingPosts.length + agentProposals.length})` : ""}`],
-                    ["insights",     "Insights IA"],
-                    ["whatsapp",     "📲 WhatsApp"],
-                    ["inbox",        "💬 Canais / Inbox"],
-                  ] as const).map(([v, label]) => (
+                    { v: "contacts", label: "Leads" },
+                    { v: "pipeline", label: "Pipeline" },
+                    { v: "campaigns", label: "⚡ Campanhas", agencyOnly: true },
+                    { v: "approvals", label: `Aprovações${(pendingPosts.length + agentProposals.length) > 0 ? ` (${pendingPosts.length + agentProposals.length})` : ""}`, agencyOnly: true },
+                    { v: "insights", label: "Insights IA", agencyOnly: true },
+                    { v: "whatsapp", label: "📲 WhatsApp" },
+                    { v: "inbox", label: "💬 Canais / Inbox" },
+                  ] as const)
+                    .filter((t) => isAdmin || !("agencyOnly" in t && t.agencyOnly))
+                    .map(({ v, label }) => (
                     <button key={v} onClick={() => setCrmView(v as any)}
                       className="px-4 py-1.5 rounded-lg text-xs font-medium transition-all relative"
                       style={crmView === v
