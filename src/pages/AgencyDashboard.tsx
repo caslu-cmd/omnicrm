@@ -141,7 +141,7 @@ export default function AgencyDashboard() {
   return (
     <div
       className="min-h-full text-white"
-      style={{ background: "linear-gradient(180deg, #22242C 0%, #1B1D24 100%)" }}
+      style={{ background: "#07080A" }}
     >
       {/* Ambient lime glow */}
       <div className="fixed inset-0 pointer-events-none overflow-hidden">
@@ -227,7 +227,7 @@ export default function AgencyDashboard() {
           {stats.map((stat, i) => (
             <div key={stat.label} className="rounded-2xl p-5 group transition-all duration-300"
               style={{
-                background: "rgba(255,255,255,0.05)",
+                background: "rgba(255,255,255,0.025)",
                 border: "1px solid rgba(255,255,255,0.07)",
               }}
               onMouseEnter={e => {
@@ -301,7 +301,7 @@ export default function AgencyDashboard() {
                 role="link"
                 className="relative rounded-2xl overflow-hidden cursor-pointer"
                 style={{
-                  background: "rgba(255,255,255,0.05)",
+                  background: "rgba(255,255,255,0.022)",
                   border: `1px solid ${isHovered ? "rgba(185,255,75,0.28)" : "rgba(255,255,255,0.06)"}`,
                   boxShadow: isHovered
                     ? "0 0 0 1px rgba(185,255,75,0.08), 0 16px 48px -8px rgba(185,255,75,0.2), inset 0 1px 0 rgba(185,255,75,0.06)"
