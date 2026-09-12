@@ -1023,7 +1023,10 @@ export default function ClientWorkspace() {
   const [contactsLoading, setContactsLoading] = useState(false);
   const [activeContact, setActiveContact] = useState<any | null>(null);
   const [showNewContact, setShowNewContact] = useState(false);
-  const [newContactForm, setNewContactForm] = useState({ name: "", email: "", phone: "", company: "", channel: "", status: "Novo" });
+  const [newContactForm, setNewContactForm] = useState({ name: "", email: "", phone: "", company: "", channel: "", status: "Novo", source: "" });
+  const [crmLists, setCrmLists] = useState<{ id: string; name: string }[]>([]);
+  const [showNewTable, setShowNewTable] = useState(false);
+  const [newTableName, setNewTableName] = useState("");
   const [pendingPosts, setPendingPosts] = useState<any[]>([]);
   const [pendingLoading, setPendingLoading] = useState(false);
   const [approvingId, setApprovingId] = useState<string | null>(null);
@@ -4294,7 +4297,10 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
   );
 
   const crmSegments: string[] = ["Todos", ...Array.from(
-    new Set(dbContacts.map((c) => c.source).filter(Boolean))
+    new Set([
+      ...crmLists.map((l) => l.name),
+      ...dbContacts.map((c) => c.source).filter(Boolean),
+    ])
   ).sort()];
 
   const filteredDbContacts = dbContacts.filter((c) => {
@@ -4316,10 +4322,43 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
     setContactsLoading(false);
   };
 
+  // Tabelas/listas de CRM do cliente (ex.: "Inscritos - Curso X")
+  const loadCrmLists = async () => {
+    const { data } = await (supabase as any).from("crm_lists").select("id, name")
+      .eq("client_id", id ?? "")
+      .order("created_at", { ascending: true });
+    if (data) setCrmLists(data);
+  };
+
+  const handleCreateTable = async () => {
+    const nome = newTableName.trim();
+    if (!nome) return;
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    const { error } = await (supabase as any).from("crm_lists").insert({
+      user_id: session.user.id,
+      client_id: id ?? "",
+      name: nome,
+    });
+    if (!error) {
+      setNewTableName("");
+      setShowNewTable(false);
+      await loadCrmLists();
+      setActiveSegment(nome);
+    }
+  };
+
+  // Colaborador marca em qual etapa do funil o lead está (grava direto no banco)
+  const updateContactStage = async (contactId: string, stage: string) => {
+    setDbContacts((prev) => prev.map((c) => c.id === contactId ? { ...c, funnel_stage: stage || null } : c));
+    await (supabase as any).from("contacts").update({ funnel_stage: stage || null }).eq("id", contactId);
+  };
+
   const handleCreateContact = async () => {
     if (!newContactForm.name.trim()) return;
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
+    const tabela = newContactForm.source || (activeSegment !== "Todos" ? activeSegment : null);
     const { error } = await (supabase as any).from("contacts").insert({
       user_id: session.user.id,
       client_id: id ?? "",
@@ -4329,10 +4368,11 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
       company: newContactForm.company || null,
       channel: newContactForm.channel || null,
       status: newContactForm.status,
+      source: tabela,
     });
     if (!error) {
       setShowNewContact(false);
-      setNewContactForm({ name: "", email: "", phone: "", company: "", channel: "", status: "Novo" });
+      setNewContactForm({ name: "", email: "", phone: "", company: "", channel: "", status: "Novo", source: "" });
       loadDbContacts();
     }
   };
@@ -4388,7 +4428,7 @@ Contexto do cliente: ${client?.name ?? ""}. Responda APENAS com o corpo do e-mai
     setActiveConvAgent(agentId);
   };
 
-  useEffect(() => { if (id) loadDbContacts(); }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (id) { loadDbContacts(); loadCrmLists(); } }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { if (activeTab === "integrations" && id) fetchSocialIntegrations(); }, [activeTab, id]);
   useEffect(() => { if (activeTab === "courses" && id) loadDbCourses(); }, [activeTab, id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -6150,7 +6190,6 @@ Regras:
                     ["pipeline",     "Pipeline"],
                     ["campaigns",    "⚡ Campanhas"],
                     ["approvals",    `Aprovações${(pendingPosts.length + agentProposals.length) > 0 ? ` (${pendingPosts.length + agentProposals.length})` : ""}`],
-                    ["deliverables", "Entregas"],
                     ["insights",     "Insights IA"],
                     ["whatsapp",     "📲 WhatsApp"],
                     ["inbox",        "💬 Canais / Inbox"],
@@ -6180,29 +6219,50 @@ Regras:
                 {crmView === "contacts" && (
                   <div className="space-y-3">
 
-                    {/* Segment tabs (Airtable tables) */}
-                    {crmSegments.length > 1 && (
-                      <div className="flex gap-1.5 flex-wrap pb-1 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
-                        {crmSegments.map((seg) => {
-                          const count = seg === "Todos"
-                            ? dbContacts.length
-                            : dbContacts.filter((c) => c.source === seg).length;
-                          const active = activeSegment === seg;
-                          return (
-                            <button
-                              key={seg}
-                              onClick={() => setActiveSegment(seg)}
-                              className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap"
-                              style={active
-                                ? { background: `${client.color}22`, color: client.color, border: `1px solid ${client.color}40` }
-                                : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.07)" }}
-                            >
-                              {seg} <span className="ml-1 opacity-60">({count})</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
+                    {/* Tabelas do CRM (ex.: "Inscritos - Curso X") — o colaborador cria e alterna aqui */}
+                    <div className="flex gap-1.5 flex-wrap items-center pb-1 border-b" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+                      {crmSegments.map((seg) => {
+                        const count = seg === "Todos"
+                          ? dbContacts.length
+                          : dbContacts.filter((c) => c.source === seg).length;
+                        const active = activeSegment === seg;
+                        return (
+                          <button
+                            key={seg}
+                            onClick={() => setActiveSegment(seg)}
+                            className="px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap"
+                            style={active
+                              ? { background: `${client.color}22`, color: client.color, border: `1px solid ${client.color}40` }
+                              : { background: "rgba(255,255,255,0.04)", color: "rgba(255,255,255,0.4)", border: "1px solid rgba(255,255,255,0.07)" }}
+                          >
+                            {seg} <span className="ml-1 opacity-60">({count})</span>
+                          </button>
+                        );
+                      })}
+                      {showNewTable ? (
+                        <div className="flex items-center gap-1.5">
+                          <input
+                            autoFocus
+                            value={newTableName}
+                            onChange={(e) => setNewTableName(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === "Enter") handleCreateTable(); if (e.key === "Escape") { setShowNewTable(false); setNewTableName(""); } }}
+                            placeholder="Ex.: Inscritos - Curso X"
+                            className="rounded-lg px-3 py-1.5 text-xs focus:outline-none"
+                            style={{ background: "rgba(255,255,255,0.05)", border: `1px solid ${client.color}40`, color: "#F0F0F0", width: 200 }}
+                          />
+                          <button onClick={handleCreateTable} className="px-2.5 py-1.5 rounded-lg text-xs font-semibold" style={{ background: client.color, color: "#07080A" }}>Criar</button>
+                          <button onClick={() => { setShowNewTable(false); setNewTableName(""); }} className="px-2 py-1.5 rounded-lg text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>✕</button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => setShowNewTable(true)}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-all whitespace-nowrap"
+                          style={{ background: "transparent", color: "rgba(255,255,255,0.5)", border: "1px dashed rgba(255,255,255,0.18)" }}
+                        >
+                          <Plus className="w-3 h-3" /> Nova tabela
+                        </button>
+                      )}
+                    </div>
 
                     {/* Search + New */}
                     <div className="flex gap-2">
@@ -6252,6 +6312,12 @@ Regras:
                             style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#F0F0F0" }}>
                             {["Novo", "Lead", "Qualificado", "Ativo", "Cliente", "Inativo"].map(s => <option key={s} value={s}>{s}</option>)}
                           </select>
+                          <select value={newContactForm.source} onChange={e => setNewContactForm(p => ({ ...p, source: e.target.value }))}
+                            className="rounded-lg px-3 py-2 text-xs focus:outline-none"
+                            style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.09)", color: "#F0F0F0" }}>
+                            <option value="">Tabela {activeSegment !== "Todos" ? `(${activeSegment})` : "(nenhuma)"}</option>
+                            {crmSegments.filter((s) => s !== "Todos").map((s) => <option key={s} value={s}>{s}</option>)}
+                          </select>
                         </div>
                         <div className="flex gap-2 justify-end">
                           <button onClick={() => setShowNewContact(false)} className="px-3 py-1.5 rounded-lg text-xs" style={{ color: "rgba(255,255,255,0.4)" }}>Cancelar</button>
@@ -6260,13 +6326,13 @@ Regras:
                       </div>
                     )}
 
-                    <div className="rounded-2xl overflow-hidden"
+                    <div className="rounded-2xl overflow-x-auto"
                       style={{ background: "rgba(255,255,255,0.025)", border: "1px solid rgba(255,255,255,0.07)" }}>
                       {/* Header */}
                       <div className="grid px-5 py-2.5 text-[10px] uppercase tracking-wider font-medium"
-                        style={{ gridTemplateColumns: "2fr 1.2fr 1fr 1fr 0.8fr 88px", color: "rgba(255,255,255,0.25)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                        style={{ gridTemplateColumns: "1.8fr 1fr 0.9fr 1.2fr 0.9fr 0.6fr 84px", minWidth: 780, color: "rgba(255,255,255,0.25)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                         <span>Lead</span><span>Empresa</span><span>Origem</span>
-                        <span>Temperatura</span><span>Score</span><span></span>
+                        <span>Etapa do funil</span><span>Temperatura</span><span>Score</span><span></span>
                       </div>
 
                       {contactsLoading && (
@@ -6291,7 +6357,7 @@ Regras:
                             initial={{ opacity: 0, x: -6 }} animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: i * 0.03 }}
                             className="grid px-5 py-3.5 items-center transition-colors cursor-pointer"
-                            style={{ gridTemplateColumns: "2fr 1.2fr 1fr 1fr 0.8fr 88px", borderBottom: i < filteredDbContacts.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}
+                            style={{ gridTemplateColumns: "1.8fr 1fr 0.9fr 1.2fr 0.9fr 0.6fr 84px", minWidth: 780, borderBottom: i < filteredDbContacts.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none" }}
                             onMouseEnter={(e) => (e.currentTarget.style.background = "rgba(255,255,255,0.03)")}
                             onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
                             onClick={() => setActiveContact(contact)}>
@@ -6310,6 +6376,19 @@ Regras:
                               {src ? (
                                 <span className="text-[10px] font-medium px-2 py-0.5 rounded-full" style={{ background: src.bg, color: src.color }}>{src.label}</span>
                               ) : <span className="text-[10px]" style={{ color: "rgba(255,255,255,0.2)" }}>—</span>}
+                            </div>
+                            {/* Etapa do funil — colaborador marca direto na linha */}
+                            <div onClick={(e) => e.stopPropagation()}>
+                              <select
+                                value={contact.funnel_stage ?? ""}
+                                onChange={(e) => updateContactStage(contact.id, e.target.value)}
+                                className="text-[11px] rounded-lg px-2 py-1 focus:outline-none cursor-pointer w-full max-w-[150px]"
+                                style={{ background: contact.funnel_stage ? `${client.color}14` : "rgba(255,255,255,0.04)", border: `1px solid ${contact.funnel_stage ? `${client.color}30` : "rgba(255,255,255,0.09)"}`, color: contact.funnel_stage ? client.color : "rgba(255,255,255,0.45)" }}>
+                                <option value="">— sem etapa —</option>
+                                {COURSE_PIPELINE_STAGES.map((s) => (
+                                  <option key={s.key} value={s.key} style={{ color: "#111" }}>{s.emoji} {s.label}</option>
+                                ))}
+                              </select>
                             </div>
                             <div>
                               <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: hcfg.bg, color: hcfg.color }}>
