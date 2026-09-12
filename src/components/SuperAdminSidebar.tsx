@@ -53,7 +53,7 @@ export default function SuperAdminSidebar() {
   const rotinasComErro = rotinas.filter((r) => r.last_status === "erro");
 
   const card: React.CSSProperties = {
-    background: "rgba(255,255,255,0.025)",
+    background: "rgba(255,255,255,0.05)",
     border: "1px solid rgba(255,255,255,0.07)",
   };
   const tituloSecao = "text-[11px] font-medium tracking-[0.14em] uppercase";
